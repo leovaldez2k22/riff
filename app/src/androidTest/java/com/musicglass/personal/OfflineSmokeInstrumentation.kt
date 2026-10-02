@@ -21,11 +21,50 @@ class OfflineSmokeInstrumentation:Instrumentation() {
     override fun onStart() {
         val result=Bundle()
         try {
-            if(mode!="navigation_fixture" && mode!="navigation_liquid" && mode!="queue_fixture") {
+            if(mode!="navigation_fixture" && mode!="navigation_liquid" && mode!="queue_fixture" && mode!="stress_queue") {
                 testActivity=startActivitySync(android.content.Intent(targetContext,MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
                 runOnMainSync {testActivity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)}
             }
             runOnMainSync {YouTubeMusicProvider.shared(targetContext)}
+            if(mode=="stress_queue") {
+                // Device check for the off-main-thread queue decode: ordinary, 2,000-track, racing and play-next
+                // requests through the real gateway -> PLAY_CATALOG_QUEUE path. Needs no activity (works locked).
+                val saved=targetContext.getSharedPreferences("last_playback",android.content.Context.MODE_PRIVATE)
+                    .getString("snapshot",null)?.let(::decodePlaybackSnapshot)?:error("No saved listening session")
+                val base=saved.queue.filter {it.mediaId.startsWith("yt:") && !it.live}.map {ProviderTrack(it.mediaId.removePrefix("yt:"),it.title,it.artist,it.artworkUrl,it.artistId,it.albumId,it.album,it.live,it.music)}
+                check(base.size>=12) {"Need at least 12 saved tracks, have ${base.size}"}
+                runBlocking {
+                    val gateway=withContext(Dispatchers.Main) {MusicPlaybackGateway(targetContext)}
+                    try {
+                        withTimeout(12000) {while(!withContext(Dispatchers.Main) {gateway.state.ready}) delay(50)}
+                        val player=withContext(Dispatchers.Main) {MusicPlaybackGateway::class.java.getDeclaredField("controller").apply {isAccessible=true}.get(gateway) as androidx.media3.session.MediaController}
+                        suspend fun awaitQueue(size:Int,index:Int,id:String):Long {
+                            val start=android.os.SystemClock.elapsedRealtime()
+                            withTimeout(30000) {while(!withContext(Dispatchers.Main) {player.mediaItemCount==size && player.currentMediaItemIndex==index && player.currentMediaItem?.mediaId==id}) delay(50)}
+                            return android.os.SystemClock.elapsedRealtime()-start
+                        }
+                        val small=base.take(40)
+                        withContext(Dispatchers.Main) {gateway.playCollection(small,3,"Stress small")}
+                        result.putLong("small_ms",awaitQueue(small.size,3,"yt:${small[3].videoId}"))
+                        val big=List(2000) {base[it%base.size]}
+                        withContext(Dispatchers.Main) {gateway.playCollection(big,1500,"Stress 2000")}
+                        result.putLong("big_ms",awaitQueue(2000,1500,"yt:${big[1500].videoId}"))
+                        val a=base.take(10);val b=base.drop(1).take(10)
+                        withContext(Dispatchers.Main) {gateway.playCollection(big,10,"Race 1");gateway.playCollection(a,2,"Race 2");gateway.playCollection(b,5,"Race 3")}
+                        result.putLong("race_ms",awaitQueue(b.size,5,"yt:${b[5].videoId}"))
+                        delay(3000)
+                        val stable=withContext(Dispatchers.Main) {player.mediaItemCount==b.size && player.currentMediaItem?.mediaId=="yt:${b[5].videoId}"}
+                        result.putBoolean("race_stable",stable)
+                        check(stable) {"An older queue request replaced the newest one"}
+                        val next=base.last { it.videoId !in b.map(ProviderTrack::videoId) }
+                        withContext(Dispatchers.Main) {gateway.enqueueSong(next,true)}
+                        withTimeout(15000) {while(!withContext(Dispatchers.Main) {player.mediaItemCount==b.size+1 && player.getMediaItemAt(player.currentMediaItemIndex+1).mediaId=="yt:${next.videoId}"}) delay(50)}
+                        result.putBoolean("play_next",true)
+                        result.putBoolean("playing",withContext(Dispatchers.Main) {gateway.state.error==null})
+                    } finally {withContext(Dispatchers.Main) {gateway.close()}}
+                }
+                finish(Activity.RESULT_OK,result);return
+            }
             if(mode=="navigation_fixture" || mode=="navigation_liquid" || mode=="queue_fixture") {
                 val queue=mode=="queue_fixture"
                 val intent=android.content.Intent().setClassName("com.musicglass.personal","com.musicglass.personal.FeaturePreviewActivity").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("scene",if(queue) "queue" else if(mode=="navigation_liquid") "navigation_liquid" else "navigation")
