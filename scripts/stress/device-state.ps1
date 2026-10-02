@@ -25,8 +25,9 @@ $systemKeys = 'accelerometer_rotation','user_rotation','font_scale','screen_off_
 $mutedStreams = @{ 1 = 'system'; 3 = 'music'; 5 = 'notification' }
 
 function Get-Volume([int]$stream) {
-    $out = Shell "cmd media_session volume --stream $stream --get"
-    if ($out -match 'volume is (\d+)') { [int]$Matches[1] } else { throw "Cannot read volume for stream $stream`: $out" }
+    # cmd media_session volume --set is ignored on this vivo build; cmd audio works.
+    $out = Shell "cmd audio get-stream-volume $stream"
+    if ($out -match '->\s*(\d+)') { [int]$Matches[1] } else { throw "Cannot read volume for stream $stream`: $out" }
 }
 
 function Read-State {
@@ -59,7 +60,7 @@ switch ($Action) {
     }
     'Prepare' {
         if (-not (Test-Path -LiteralPath $stateFile)) { throw 'Run -Action Save first so the settings can be restored.' }
-        foreach ($s in $mutedStreams.Keys) { Shell "cmd media_session volume --stream $s --set 0" | Out-Null }
+        foreach ($s in $mutedStreams.Keys) { Shell "cmd audio set-volume $s 0" | Out-Null }
         Shell 'settings put global stay_on_while_plugged_in 15' | Out-Null
         # Maximum timeout as a fallback if the charger disconnects and stay-on stops applying.
         Shell 'settings put system screen_off_timeout 2147483647' | Out-Null
@@ -89,7 +90,7 @@ switch ($Action) {
         if ($b.standbyBucket -match '^\d+$') { Shell "am set-standby-bucket $PackageId $($b.standbyBucket)" | Out-Null }
         # Volume deliberately stays at 0 and playback is stopped: the user is asleep. Use RestoreVolume later.
         Shell 'cmd media_session dispatch pause' | Out-Null
-        foreach ($s in $mutedStreams.Keys) { Shell "cmd media_session volume --stream $s --set 0" | Out-Null }
+        foreach ($s in $mutedStreams.Keys) { Shell "cmd audio set-volume $s 0" | Out-Null }
         $now = Read-State
         $diff = @()
         foreach ($p in $b.global.PSObject.Properties) { if ("$($now.global[$p.Name])" -ne "$($p.Value)") { $diff += "global.$($p.Name): $($p.Value) -> $($now.global[$p.Name])" } }
@@ -101,7 +102,7 @@ switch ($Action) {
     'RestoreVolume' {
         if (-not (Test-Path -LiteralPath $stateFile)) { throw "No baseline at $stateFile; nothing to restore." }
         $b = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json
-        foreach ($p in $b.volumes.PSObject.Properties) { Shell "cmd media_session volume --stream $($p.Name) --set $($p.Value)" | Out-Null }
+        foreach ($p in $b.volumes.PSObject.Properties) { Shell "cmd audio set-volume $($p.Name) $($p.Value)" | Out-Null }
         Write-Host ('Volumes restored: ' + (($b.volumes.PSObject.Properties | ForEach-Object { "stream $($_.Name)=$($_.Value)" }) -join ', '))
     }
 }

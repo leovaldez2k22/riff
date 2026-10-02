@@ -18,8 +18,8 @@ if ($Stop) {
     return
 }
 $loop = 'while true; do ' +
-    'for s in 1 3 5; do cmd media_session volume --stream $s --set 0 >/dev/null 2>&1; done; ' +
+    'for s in 1 3 5; do cmd audio set-volume $s 0 >/dev/null 2>&1; done; ' +
     "dumpsys power | grep -q mWakefulness=Awake || { input keyevent KEYCODE_WAKEUP; echo `"`$(date) woke screen`" >> $logFile; }; " +
     'sleep 2; done'
-& $adb @adbArgs shell "[ -f $pidFile ] && kill `$(cat $pidFile) 2>/dev/null; nohup sh -c '$loop' >/dev/null 2>&1 & echo `$! > $pidFile"
+& $adb @adbArgs shell "[ -f $pidFile ] && kill `$(cat $pidFile) 2>/dev/null; setsid nohup sh -c '$loop' </dev/null >/dev/null 2>&1 & echo `$! > $pidFile"
 Write-Host "Night guard running on the phone (pid file $pidFile, wake log $logFile)."
