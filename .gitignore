@@ -9,3 +9,4 @@ release-signing.properties
 artifacts/release/
 .kotlin/
 artifacts/
+__pycache__/

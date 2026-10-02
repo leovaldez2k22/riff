@@ -72,6 +72,7 @@ switch ($Action) {
     'Restore' {
         if (-not (Test-Path -LiteralPath $stateFile)) { throw "No baseline at $stateFile; nothing to restore." }
         $b = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json
+        Shell 'svc power stayon false' | Out-Null  # first: it rewrites stay_on_while_plugged_in, restored below
         foreach ($p in $b.global.PSObject.Properties) {
             if ($p.Name -eq 'airplane_mode_on') {
                 Shell ("cmd connectivity airplane-mode " + $(if ($p.Value -eq '1') { 'enable' } else { 'disable' })) | Out-Null
@@ -86,7 +87,6 @@ switch ($Action) {
         if (-not $b.dozeWhitelisted) { Shell "dumpsys deviceidle whitelist -$PackageId" | Out-Null }
         Shell 'dumpsys deviceidle unforce' | Out-Null
         Shell 'dumpsys battery reset' | Out-Null
-        Shell 'svc power stayon false' | Out-Null
         if ($b.standbyBucket -match '^\d+$') { Shell "am set-standby-bucket $PackageId $($b.standbyBucket)" | Out-Null }
         # Volume deliberately stays at 0 and playback is stopped: the user is asleep. Use RestoreVolume later.
         Shell 'cmd media_session dispatch pause' | Out-Null

@@ -10,6 +10,7 @@ ADB="$ROOT/.toolchain/sdk/platform-tools/adb.exe"
 PKG=com.musicglass.personal
 BACKUP="$ROOT/artifacts/stress/app-data-backup-2026-10-02.tar"
 WORK="$(mktemp -d)"
+command -v cygpath >/dev/null && WORK="$(cygpath -m "$WORK")"  # adb.exe needs a Windows path
 FILES=(
   shared_prefs/offline_settings.xml shared_prefs/accessibility_display.xml shared_prefs/search_history.xml
   shared_prefs/music_collections.xml shared_prefs/last_playback.xml shared_prefs/playback.xml
