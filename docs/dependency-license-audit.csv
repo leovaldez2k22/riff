@@ -1,0 +1,234 @@
+coordinate,declared_license,license_url,status
+androidx.activity:activity:1.13.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.activity:activity-compose:1.13.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.activity:activity-ktx:1.13.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.annotation:annotation:1.9.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.annotation:annotation-experimental:1.4.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.annotation:annotation-jvm:1.9.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.appcompat:appcompat:1.7.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.appcompat:appcompat-resources:1.7.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.arch.core:core-common:2.2.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.arch.core:core-runtime:2.2.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.autofill:autofill:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.collection:collection:1.5.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.collection:collection-jvm:1.5.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.collection:collection-ktx:1.5.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose:compose-bom:2026.06.01,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.animation:animation:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.animation:animation-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.animation:animation-core:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.animation:animation-core-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.foundation:foundation:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.foundation:foundation-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.foundation:foundation-layout:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.foundation:foundation-layout-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.material:material-icons-core:1.7.8,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.material:material-icons-core-android:1.7.8,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.material:material-icons-extended:1.7.8,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.material:material-icons-extended-android:1.7.8,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.material:material-ripple:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.material:material-ripple-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.material3:material3:1.4.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.material3:material3-android:1.4.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.runtime:runtime:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.runtime:runtime-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.runtime:runtime-annotation:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.runtime:runtime-annotation-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.runtime:runtime-retain:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.runtime:runtime-retain-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.runtime:runtime-saveable:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.runtime:runtime-saveable-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.ui:ui:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.ui:ui-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.ui:ui-geometry:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.ui:ui-geometry-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.ui:ui-graphics:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.ui:ui-graphics-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.ui:ui-text:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.ui:ui-text-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.ui:ui-tooling-preview:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.ui:ui-tooling-preview-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.ui:ui-unit:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.ui:ui-unit-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.ui:ui-util:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.compose.ui:ui-util-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.concurrent:concurrent-futures:1.2.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.core:core:1.18.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.core:core-ktx:1.18.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.core:core-viewtree:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.cursoradapter:cursoradapter:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.customview:customview:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.customview:customview-poolingcontainer:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.documentfile:documentfile:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.drawerlayout:drawerlayout:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.dynamicanimation:dynamicanimation:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.emoji2:emoji2:1.4.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.emoji2:emoji2-views-helper:1.4.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.exifinterface:exifinterface:1.4.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.fragment:fragment:1.5.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.graphics:graphics-path:1.0.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.interpolator:interpolator:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.legacy:legacy-support-core-utils:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-common:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-common-java8:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-common-jvm:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-livedata:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-livedata-core:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-livedata-core-ktx:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-process:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-runtime:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-runtime-android:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-runtime-compose:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-runtime-compose-android:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-runtime-ktx:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-runtime-ktx-android:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-service:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-viewmodel:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-viewmodel-android:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-viewmodel-savedstate:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.lifecycle:lifecycle-viewmodel-savedstate-android:2.9.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.loader:loader:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.localbroadcastmanager:localbroadcastmanager:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.media:media:1.7.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.media3:media3-common:1.11.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.media3:media3-container:1.11.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.media3:media3-database:1.11.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.media3:media3-datasource:1.11.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.media3:media3-decoder:1.11.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.media3:media3-exoplayer:1.11.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.media3:media3-exoplayer-hls:1.11.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.media3:media3-extractor:1.11.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.media3:media3-session:1.11.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.navigationevent:navigationevent:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.navigationevent:navigationevent-android:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.navigationevent:navigationevent-compose:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.navigationevent:navigationevent-compose-android:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.print:print:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.profileinstaller:profileinstaller:1.4.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.resourceinspection:resourceinspection-annotation:1.0.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.savedstate:savedstate:1.3.3,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.savedstate:savedstate-android:1.3.3,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.savedstate:savedstate-compose:1.3.3,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.savedstate:savedstate-compose-android:1.3.3,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.savedstate:savedstate-ktx:1.3.3,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.startup:startup-runtime:1.2.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.tracing:tracing:1.2.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.transition:transition:1.6.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.vectordrawable:vectordrawable:1.1.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.vectordrawable:vectordrawable-animated:1.1.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.versionedparcelable:versionedparcelable:1.1.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.viewpager:viewpager:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.window:window:1.5.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.window:window-core:1.5.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.window:window-core-android:1.5.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.github.MetrolistGroup.innertubex:innertubex:0.7.2,"GNU General Public License, version 3",https://www.gnu.org/licenses/gpl-3.0.html,POM declaration
+com.github.MetrolistGroup.innertubex:innertubex-android:0.7.2,"GNU General Public License, version 3",https://www.gnu.org/licenses/gpl-3.0.html,POM declaration
+com.google.accompanist:accompanist-drawablepainter:0.37.3,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.google.android.datatransport:transport-api:2.2.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.google.android.datatransport:transport-backend-cct:2.3.3,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.google.android.datatransport:transport-runtime:2.2.6,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.google.android.gms:play-services-base:18.5.0,Android Software Development Kit License,https://developer.android.com/studio/terms.html,POM declaration
+com.google.android.gms:play-services-basement:18.4.0,Android Software Development Kit License,https://developer.android.com/studio/terms.html,POM declaration
+com.google.android.gms:play-services-tasks:18.2.0,Android Software Development Kit License,https://developer.android.com/studio/terms.html,POM declaration
+com.google.firebase:firebase-annotations:16.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.google.firebase:firebase-components:16.1.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.google.firebase:firebase-encoders:16.1.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.google.firebase:firebase-encoders-json:17.1.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.google.guava:failureaccess:1.0.2,Apache-2.0,https://github.com/google/guava,upstream repository
+com.google.guava:guava:33.3.1-android,Apache-2.0,https://github.com/google/guava,upstream repository
+com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava,Apache-2.0,https://github.com/google/guava,upstream repository
+com.google.mlkit:common:18.11.0,ML Kit Terms of Service,https://developers.google.com/ml-kit/terms,POM declaration
+com.google.mlkit:language-id:17.0.6,ML Kit Terms of Service,https://developers.google.com/ml-kit/terms,POM declaration
+com.google.mlkit:language-id-common:16.1.0,ML Kit Terms of Service,https://developers.google.com/ml-kit/terms,POM declaration
+com.google.mlkit:translate:17.0.3,ML Kit Terms of Service,https://developers.google.com/ml-kit/terms,POM declaration
+com.squareup.okhttp3:okhttp:5.3.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.squareup.okhttp3:okhttp-android:5.3.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.squareup.okio:okio:3.17.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.squareup.okio:okio-jvm:3.17.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.coil-kt.coil3:coil:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.coil-kt.coil3:coil-android:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.coil-kt.coil3:coil-compose:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.coil-kt.coil3:coil-compose-android:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.coil-kt.coil3:coil-compose-core:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.coil-kt.coil3:coil-compose-core-android:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.coil-kt.coil3:coil-core:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.coil-kt.coil3:coil-core-android:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.coil-kt.coil3:coil-network-core:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.coil-kt.coil3:coil-network-core-android:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.coil-kt.coil3:coil-network-okhttp:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.coil-kt.coil3:coil-network-okhttp-jvm:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.github.dokar3:quickjs-kt:1.0.14,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.github.dokar3:quickjs-kt-android:1.0.14,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-client-content-negotiation:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-client-content-negotiation-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-client-core:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-client-core-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-client-okhttp:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-client-okhttp-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-events:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-events-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-http:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-http-cio:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-http-cio-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-http-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-io:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-io-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-network:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-network-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-serialization:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-serialization-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-serialization-kotlinx:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-serialization-kotlinx-json:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-serialization-kotlinx-json-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-serialization-kotlinx-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-sse:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-sse-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-utils:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-utils-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-websocket-serialization:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-websocket-serialization-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-websockets:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-websockets-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+javax.inject:javax.inject:1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains:annotations:23.0.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.androidx.lifecycle:lifecycle-common:2.9.5,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.androidx.lifecycle:lifecycle-runtime:2.9.5,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose:2.9.5,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.androidx.lifecycle:lifecycle-viewmodel:2.8.4,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.androidx.savedstate:savedstate:1.3.5,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.androidx.savedstate:savedstate-compose:1.3.5,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.compose.animation:animation:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.compose.animation:animation-core:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.compose.annotation-internal:annotation:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.compose.collection-internal:collection:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.compose.foundation:foundation:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.compose.foundation:foundation-layout:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.compose.runtime:runtime:1.9.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.compose.runtime:runtime-saveable:1.9.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.compose.ui:ui:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.compose.ui:ui-geometry:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.compose.ui:ui-graphics:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.compose.ui:ui-text:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.compose.ui:ui-unit:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.compose.ui:ui-util:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlin:kotlin-stdlib:2.4.10,Apache-2.0,http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlin:kotlin-stdlib-common:2.4.10,Apache-2.0,http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-io-bytestring:0.9.1,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-io-bytestring-jvm:0.9.1,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-io-core:0.9.1,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-io-core-jvm:0.9.1,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-serialization-bom:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-serialization-core:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-serialization-json-io:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-serialization-json-io-jvm:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jspecify:jspecify:1.0.0,"The Apache License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.slf4j:slf4j-api:2.0.18,MIT,https://www.slf4j.org/license.html,upstream license page

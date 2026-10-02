@@ -1,0 +1,11 @@
+.gradle/
+.idea/
+.toolchain/
+**/build/
+local.properties
+artifacts/device-checks/
+*.iml
+release-signing.properties
+artifacts/release/
+.kotlin/
+artifacts/

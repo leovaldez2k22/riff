@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Riff</string>
+<string name="widget_compact_name">Riff · Compact</string><string name="widget_compact_description">Compact music controls with current song artwork</string>
+<string name="widget_wide_name">Riff · Wide</string><string name="widget_wide_description">Wide music controls with current song artwork</string>
+<string name="widget_artwork_name">Riff · Artwork</string><string name="widget_artwork_description">Artwork music controls with current song artwork</string>
+<string name="widget_player_name">Riff · Player</string><string name="widget_player_description">Player music controls with current song artwork</string>
+<string name="widget_large_name">Riff · Large</string><string name="widget_large_description">Large music controls with current song artwork</string>
+<string name="widget_circle_name">Riff · Circle</string><string name="widget_circle_description">Circle music controls with current song artwork</string>
+<string name="widget_toggle">Play or pause</string><string name="widget_previous">Previous song</string><string name="widget_next">Next song</string><string name="widget_artwork">Open Riff</string>
+</resources>
