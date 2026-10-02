@@ -10,10 +10,11 @@ import android.os.StrictMode
 class StressDiagnostics : ContentProvider() {
     override fun onCreate(): Boolean {
         StrictMode.setThreadPolicy(StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog().build())
-        // Not detectAll(): untagged-socket reports would fire on every OkHttp request.
+        // Not detectAll(): untagged-socket reports would fire on every OkHttp request, and
+        // detectActivityLeaks() runs a blocking System.gc() on every activity destroy, which
+        // caused a harness-only ANR under rotation churn. Leaks are measured via heap trends.
         StrictMode.setVmPolicy(
             StrictMode.VmPolicy.Builder()
-                .detectActivityLeaks()
                 .detectLeakedClosableObjects()
                 .detectLeakedRegistrationObjects()
                 .detectLeakedSqlLiteObjects()

@@ -48,6 +48,7 @@ foreach ($seed in $Seeds) {
     Start-Sleep 2
     Stop-Process -Id $logcat.Id -Force -ErrorAction SilentlyContinue
     Shell 'am task lock stop' | Out-Null
+    Shell 'settings put system user_rotation 0' | Out-Null  # rotation events can leave it landscape
 
     $monkey = Get-Content $monkeyFile -Raw
     $log = if (Test-Path $logFile) { Get-Content $logFile -Raw } else { '' }
