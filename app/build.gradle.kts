@@ -43,6 +43,13 @@ android {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("localRelease")
         }
+        // Release code and signing key, debuggable: installs over a release install without
+        // wiping data, and allows run-as backups, heap dumps and StrictMode (src/stress).
+        create("stress") {
+            initWith(getByName("release"))
+            isDebuggable = true
+            matchingFallbacks += "release"
+        }
     }
 
     compileOptions {
