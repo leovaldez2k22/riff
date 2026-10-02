@@ -26,6 +26,8 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.metrolist.innertubex.sabr.SabrBootstrap
+import com.metrolist.innertubex.sabr.SabrRecoveryAction
+import com.metrolist.innertubex.sabr.sabrRecoveryAction
 import androidx.media3.exoplayer.source.MediaSource
 import kotlinx.coroutines.*
 import java.util.UUID
@@ -46,6 +48,7 @@ class MusicPlaybackService : MediaSessionService() {
     private val sleepTimer by lazy {SleepTimerController(serviceScope,{android.os.SystemClock.elapsedRealtime()},pause={session?.player?.pause()},publish={deadline->session?.setSessionExtras(Bundle().apply {putLong("sleepDeadlineMs",deadline)})},readVolume={session?.player?.volume?:1f},writeVolume={session?.player?.volume=it})}
     private var liveFallbackJob: Job? = null
     private val failedLiveProfiles = linkedSetOf<String>()
+    private val attestationRefreshed = mutableSetOf<String>()
     private var queueJob: Job? = null
     private var queueGeneration = 0
     private var radioSeed: String? = null
@@ -132,7 +135,7 @@ class MusicPlaybackService : MediaSessionService() {
                 }
                 override fun onIsPlayingChanged(isPlaying:Boolean) {offline.playbackBusy=isPlaying || this@apply.playbackState==Player.STATE_BUFFERING;lastListenTick=android.os.SystemClock.elapsedRealtime()}
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                    listeningId="";lastListenTick=android.os.SystemClock.elapsedRealtime()
+                    listeningId="";lastListenTick=android.os.SystemClock.elapsedRealtime();attestationRefreshed.clear()
                     if(mediaItem == null) cancelRadio() else replenishQueue(this@apply)
                 }
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -146,6 +149,7 @@ class MusicPlaybackService : MediaSessionService() {
                     }
                     if(error.errorCode==androidx.media3.common.PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS)
                         retryLiveProfile(this@apply)
+                    recoverSabr(this@apply,error)
                 }
             })
         }
@@ -410,6 +414,26 @@ class MusicPlaybackService : MediaSessionService() {
         liveFallbackJob?.cancel();liveFallbackJob=null;failedLiveProfiles.clear()
         queueGeneration++;queueJob?.cancel();queueJob=null;radioSeed=null;radioContinuation=null;queueCandidates.clear()
         session?.player?.setPlaylistMetadata(MediaMetadata.EMPTY)
+    }
+    /**
+     * innertubex's SABR recovery for songs: on ATTESTATION_REQUIRED, refresh the attestation once per
+     * track and re-prepare at the same position. The minted attestation can go stale after a network
+     * change; without this, every later attempt in the process failed until the app restarted.
+     */
+    private fun recoverSabr(player: Player, error: androidx.media3.common.PlaybackException) {
+        val failure=generateSequence(error as Throwable?) {it.cause}.filterIsInstance<SabrPlaybackFailure>().firstOrNull()?:return
+        val item=player.currentMediaItem?:return
+        if(item.mediaMetadata.extras?.getBoolean("live")==true) return
+        val videoId=item.mediaId.takeIf {it.startsWith("yt:")}?.removePrefix("yt:")?:return
+        if(sabrRecoveryAction(failure.kind,videoId in attestationRefreshed)!=SabrRecoveryAction.REFRESH_ATTESTATION) return
+        attestationRefreshed+=videoId
+        events.append("sabr_attestation_refresh")
+        val index=player.currentMediaItemIndex;val position=player.currentPosition;val generation=queueGeneration
+        serviceScope.launch {
+            provider.invalidateAttestation();provider.invalidateStream(videoId)
+            if(generation!=queueGeneration || player.currentMediaItem?.mediaId!=item.mediaId) return@launch
+            player.seekTo(index,position);player.prepare()
+        }
     }
     /** Only retry a rejected live transport through the provider's supported client selection. */
     private fun retryLiveProfile(player: Player) {

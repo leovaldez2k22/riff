@@ -11,6 +11,8 @@ import com.metrolist.innertubex.sabr.SabrAudioStream
 import com.metrolist.innertubex.sabr.SabrBootstrap
 import com.metrolist.innertubex.sabr.ExperimentalSabrApi
 import com.metrolist.innertubex.sabr.SabrResponseDiagnostics
+import com.metrolist.innertubex.sabr.SabrFailureKind
+import com.metrolist.innertubex.sabr.findSabrProtocolException
 import io.ktor.client.HttpClient
 import java.io.IOException
 import java.util.UUID
@@ -76,6 +78,9 @@ internal class ProviderMediaDataSource(
     }
 }
 
+/** SABR failure without the library message (it can contain signed URLs), keeping the kind for recovery. */
+internal class SabrPlaybackFailure(message: String, val kind: SabrFailureKind?) : IOException(message)
+
 /** Presents ordered SABR audio chunks as a progressive byte stream for Media3. */
 @OptIn(ExperimentalSabrApi::class)
 @androidx.annotation.OptIn(markerClass = [UnstableApi::class])
@@ -124,7 +129,8 @@ private class SabrAudioDataSource(
                 channel.cancel()
             } catch (error: Exception) {
                 // Library errors can contain signed URLs; keep them out of Media3 logs.
-                channel.close(IOException("SABR playback failed (${error::class.simpleName})"))
+                channel.close(SabrPlaybackFailure("SABR playback failed (${error::class.simpleName})",
+                    error.findSabrProtocolException()?.kind))
             }
         }
         return C.LENGTH_UNSET.toLong()
@@ -140,7 +146,7 @@ private class SabrAudioDataSource(
             val result = runBlocking { checkNotNull(chunks).receiveCatching() }
             val data = result.getOrNull()
             if (data == null) {
-                result.exceptionOrNull()?.let { throw IOException("SABR playback failed") }
+                result.exceptionOrNull()?.let { throw it as? SabrPlaybackFailure ?: IOException("SABR playback failed") }
                 return C.RESULT_END_OF_INPUT
             }
             currentChunk = data

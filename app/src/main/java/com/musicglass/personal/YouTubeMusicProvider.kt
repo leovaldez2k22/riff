@@ -807,6 +807,8 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         }
         return flight.await()
     }
+    /** Drops the minted attestation so the next stream mints a fresh one (it can go stale after a network change). */
+    suspend fun invalidateAttestation() = streamTokens.invalidateAttestation()
     fun invalidateStream(videoId:String) {synchronized(cacheLock) {streamCache.keys.filter {it.contains(":$videoId:")}.forEach {streamCache.remove(it)}}}
     private suspend fun resolveFresh(videoId: String, live: Boolean, excludedProfiles: Set<String>, video:Boolean,download:Boolean): Result<ProviderStream> = withContext(Dispatchers.IO) {
         try {

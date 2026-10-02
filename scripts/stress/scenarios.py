@@ -76,8 +76,13 @@ def ensure_playing(timeout=45):
         start_service()
     if (s := session()) and s['state'] == 'PLAYING':
         return s
-    sh('cmd media_session dispatch play')
-    return wait_for(lambda: (s := session()) and s['state'] == 'PLAYING' and s, timeout, 2)
+    # Re-send: right after a (re)start, Riff may not be the media-button session yet and the key is dropped.
+    end = time.time() + timeout
+    while time.time() < end:
+        sh('cmd media_session dispatch play')
+        if s := wait_for(lambda: (s := session()) and s['state'] == 'PLAYING' and s, 10, 2):
+            return s
+    return None
 
 
 def java_heap_kb():
@@ -265,6 +270,32 @@ def network_flap():
                                            'playbackRecovers': advancing}}
 
 
+def network_handover():
+    """Wi-Fi -> mobile -> Wi-Fi while playing: the client IP changes, which can invalidate SABR attestation."""
+    if not ensure_playing():
+        return {'checks': {'startedPlaying': False}}
+    for _ in range(10):  # step back from the end of the restored queue so a track end can't stop the test
+        sh('cmd media_session dispatch previous'); time.sleep(0.3)
+    ensure_playing()
+    samples = []
+    try:
+        sh('svc data enable')
+        for _ in range(3):
+            sh('cmd wifi set-wifi-enabled disabled'); time.sleep(30)
+            samples.append(session() and session()['state'])
+            sh('cmd wifi set-wifi-enabled enabled'); time.sleep(30)
+            samples.append(session() and session()['state'])
+    finally:
+        sh('cmd wifi set-wifi-enabled enabled'); sh('svc data enable')
+    wait_for(lambda: 'Wifi is connected' in sh('cmd wifi status') or None, 60, 3)
+    playing = ensure_playing(60)
+    p0 = live_position(playing) if playing else None
+    time.sleep(10)
+    p1 = live_position(session())
+    return {'states': samples, 'final': session(),
+            'checks': {'appAlive': bool(app_pid()), 'playbackRecovers': p0 is not None and p1 is not None and p1 - p0 > 5000}}
+
+
 def trim_memory_background():
     if not ensure_playing():
         return {'checks': {'startedPlaying': False}}
@@ -331,7 +362,7 @@ def nav_leak():
 
 
 SCENARIOS = {f.__name__: f for f in [rapid_skip, play_pause_storm, restore_after_kill_paused, restore_after_kill_playing,
-                                     config_churn, network_flap, trim_memory_background, nav_leak, background_doze]}
+                                     config_churn, network_flap, network_handover, trim_memory_background, nav_leak, background_doze]}
 
 if __name__ == '__main__':
     names = sys.argv[1:] or list(SCENARIOS)
