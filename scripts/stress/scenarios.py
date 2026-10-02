@@ -104,7 +104,7 @@ class Capture:
         self.dir.mkdir(parents=True, exist_ok=True)
         subprocess.run([ADB, 'logcat', '-c'], capture_output=True)
         self.file = open(self.dir / 'logcat.txt', 'w', encoding='utf-8', errors='replace')
-        self.proc = subprocess.Popen([ADB, 'logcat', '-v', 'threadtime', '-b', 'main,system,crash'],
+        self.proc = subprocess.Popen([ADB, 'logcat', '-v', 'threadtime', '-b', 'main,system,crash,events'],
                                      stdout=self.file, stderr=subprocess.STDOUT)
 
     def stop(self):
@@ -333,6 +333,31 @@ def background_doze():
             'checks': {'appAlive': bool(app_pid()), 'kepPlayingThroughDoze': p0 is not None and p1 is not None and p1 - p0 > dt * 0.8}}
 
 
+def playback_soak(minutes=75):
+    """Long background playback: memory trend of the app process and recovery from track/queue ends."""
+    if not ensure_playing():
+        return {'checks': {'startedPlaying': False}}
+    force_gc()
+    samples, restarts, not_playing = [], 0, 0
+    for i in range(minutes):
+        time.sleep(60)
+        s = session()
+        m = re.search(r'TOTAL PSS:\s+(\d+)', sh(f'dumpsys meminfo {PKG}'))
+        samples.append({'min': i + 1, 'state': s and s['state'], 'pssKb': int(m.group(1)) if m else None})
+        if not s or s['state'] != 'PLAYING':
+            not_playing += 1
+            if ensure_playing(30):
+                restarts += 1
+    force_gc()
+    pss = [x['pssKb'] for x in samples if x['pssKb']]
+    first, last = (sum(pss[:5]) / 5, sum(pss[-5:]) / 5) if len(pss) >= 10 else (None, None)
+    growth = (last - first) if first else None
+    return {'samples': samples, 'restarts': restarts, 'notPlayingSamples': not_playing,
+            'pssFirst5AvgKb': first, 'pssLast5AvgKb': last, 'growthKb': growth,
+            'checks': {'appAlive': bool(app_pid()), 'mostlyPlaying': not_playing <= minutes // 10,
+                       'pssGrowthUnder50MB': growth is not None and growth < 50_000}}
+
+
 def nav_leak():
     launch()
     sh('cmd media_session dispatch pause')
@@ -362,7 +387,7 @@ def nav_leak():
 
 
 SCENARIOS = {f.__name__: f for f in [rapid_skip, play_pause_storm, restore_after_kill_paused, restore_after_kill_playing,
-                                     config_churn, network_flap, network_handover, trim_memory_background, nav_leak, background_doze]}
+                                     config_churn, network_flap, network_handover, trim_memory_background, nav_leak, background_doze, playback_soak]}
 
 if __name__ == '__main__':
     names = sys.argv[1:] or list(SCENARIOS)
