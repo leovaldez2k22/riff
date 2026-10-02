@@ -1,11 +1,12 @@
 # Saves, prepares and restores the phone settings that the stress run changes.
 #   Save     record the current settings (refuses to overwrite an existing baseline without -Force)
 #   Prepare  quiet, stay-awake test setup: media/system/notification volume 0, app exempt from doze
-#   Restore  put every recorded setting back
+#   Restore  put every recorded setting back except volume, which stays muted (user asleep)
+#   RestoreVolume  put the recorded media/system/notification volumes back (only once the user is awake)
 #   Show     print the current values
 # Ring and alarm volumes are never touched.
 param(
-    [Parameter(Mandatory)][ValidateSet('Save','Prepare','Restore','Show')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('Save','Prepare','Restore','RestoreVolume','Show')][string]$Action,
     [string]$Serial,
     [string]$PackageId = 'com.musicglass.personal',
     [switch]$Force
@@ -86,14 +87,21 @@ switch ($Action) {
         Shell 'dumpsys battery reset' | Out-Null
         Shell 'svc power stayon false' | Out-Null
         if ($b.standbyBucket -match '^\d+$') { Shell "am set-standby-bucket $PackageId $($b.standbyBucket)" | Out-Null }
-        foreach ($p in $b.volumes.PSObject.Properties) { Shell "cmd media_session volume --stream $($p.Name) --set $($p.Value)" | Out-Null }
+        # Volume deliberately stays at 0 and playback is stopped: the user is asleep. Use RestoreVolume later.
+        Shell 'cmd media_session dispatch pause' | Out-Null
+        foreach ($s in $mutedStreams.Keys) { Shell "cmd media_session volume --stream $s --set 0" | Out-Null }
         $now = Read-State
         $diff = @()
         foreach ($p in $b.global.PSObject.Properties) { if ("$($now.global[$p.Name])" -ne "$($p.Value)") { $diff += "global.$($p.Name): $($p.Value) -> $($now.global[$p.Name])" } }
         foreach ($p in $b.system.PSObject.Properties) { if ("$($now.system[$p.Name])" -ne "$($p.Value)") { $diff += "system.$($p.Name): $($p.Value) -> $($now.system[$p.Name])" } }
-        foreach ($p in $b.volumes.PSObject.Properties) { if ("$($now.volumes[$p.Name])" -ne "$($p.Value)") { $diff += "volume.$($p.Name): $($p.Value) -> $($now.volumes[$p.Name])" } }
         if ($now.nightMode -ne $b.nightMode) { $diff += "nightMode: $($b.nightMode) -> $($now.nightMode)" }
         if ($now.wifiEnabled -ne $b.wifiEnabled) { $diff += "wifi: $($b.wifiEnabled) -> $($now.wifiEnabled)" }
-        if ($diff) { Write-Warning ("Not restored:`n" + ($diff -join "`n")) } else { Write-Host 'All recorded settings restored.' }
+        if ($diff) { Write-Warning ("Not restored:`n" + ($diff -join "`n")) } else { Write-Host 'All recorded settings restored. Volume left muted; run -Action RestoreVolume once the user is awake.' }
+    }
+    'RestoreVolume' {
+        if (-not (Test-Path -LiteralPath $stateFile)) { throw "No baseline at $stateFile; nothing to restore." }
+        $b = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json
+        foreach ($p in $b.volumes.PSObject.Properties) { Shell "cmd media_session volume --stream $($p.Name) --set $($p.Value)" | Out-Null }
+        Write-Host ('Volumes restored: ' + (($b.volumes.PSObject.Properties | ForEach-Object { "stream $($_.Name)=$($_.Value)" }) -join ', '))
     }
 }
