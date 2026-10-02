@@ -226,7 +226,9 @@ internal class LyricsRepository(private val directory: File,
         if (!temporary.renameTo(target)) { target.writeText(temporary.readText()); temporary.delete() }
         directory.listFiles()?.filter { it.extension == "json" }?.sortedByDescending(File::lastModified)?.drop(80)?.forEach(File::delete)
     }
-    fun close() { scope.cancel(); client.dispatcher.cancelAll(); client.connectionPool.evictAll() }
+    // Called from onDispose on the main thread (every activity recreation). Evicting closes TLS
+    // sockets, which writes close_notify to the network, so it runs off the main thread.
+    fun close() { scope.cancel(); client.dispatcher.cancelAll(); kotlin.concurrent.thread(name="lyrics-close") { client.connectionPool.evictAll() } }
 }
 internal fun encodeLyricsDocument(doc: LyricsDocument): JsonObject = buildJsonObject {
     put("source",doc.source); put("url",doc.sourceUrl); put("instrumental",doc.instrumental)
