@@ -40,6 +40,8 @@ class MusicPlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private val events by lazy { PlaybackEventLog(this) }
     private val serviceScope = CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val queueDecoder = Dispatchers.IO.limitedParallelism(1)
     private val provider by lazy { YouTubeMusicProvider.shared(this) }
     private val sleepTimer by lazy {SleepTimerController(serviceScope,{android.os.SystemClock.elapsedRealtime()},pause={session?.player?.pause()},publish={deadline->session?.setSessionExtras(Bundle().apply {putLong("sleepDeadlineMs",deadline)})},readVolume={session?.player?.volume?:1f},writeVolume={session?.player?.volume=it})}
     private var liveFallbackJob: Job? = null
@@ -178,32 +180,41 @@ class MusicPlaybackService : MediaSessionService() {
                 if(customCommand.customAction==PLAY_CATALOG_QUEUE) {
                     val name=args.getString("queueFile").orEmpty()
                     if(!name.matches(Regex("queue-request-[a-f0-9-]{36}\\.json"))) return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
-                    val file=java.io.File(cacheDir,name)
-                    val saved=try {if(file.length() in 1..6_000_000) decodePlaybackSnapshot(file.readText()) else null}
-                        catch(_:Exception) {null} finally {file.delete()}
-                    if(saved==null || saved.queue.any {!it.mediaId.startsWith("yt:")}) return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
-                    val tracks=saved.queue.map {q->ProviderTrack(q.mediaId.removePrefix("yt:"),q.title,q.artist,q.artworkUrl,q.artistId,q.albumId,q.album,q.live,q.music)}
-                    if(tracks.any {!it.videoId.matches(Regex("[A-Za-z0-9_-]{11}"))}) return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
-                    if(args.containsKey("enqueueNext") && tracks.size==1 && player.mediaItemCount>0) {
-                        val track=tracks[0];val existing=(0 until player.mediaItemCount).firstOrNull {val m=player.getMediaItemAt(it).mediaMetadata;player.getMediaItemAt(it).mediaId=="yt:${track.videoId}" || queueRecordingKey(m.title.toString(),m.artist.toString())==queueRecordingKey(track.title,track.artist)}
-                        if(existing!=null) {if(args.getBoolean("enqueueNext") && existing!=player.currentMediaItemIndex) player.moveMediaItem(existing,(player.currentMediaItemIndex+1-if(existing<player.currentMediaItemIndex) 1 else 0).coerceAtMost(player.mediaItemCount-1))}
-                        else {queuedIds.add(track.videoId);player.addMediaItem(if(args.getBoolean("enqueueNext")) player.currentMediaItemIndex+1 else player.mediaItemCount,catalogItem(track))}
-                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                    // Queue files reach ~6 MB for 2,000 tracks, so read and decode them off the main thread.
+                    // A single decoding lane keeps rapid successive requests in the order they were sent.
+                    fun applyQueue(saved:PlaybackSnapshot?):SessionResult {
+                        if(saved==null || saved.queue.any {!it.mediaId.startsWith("yt:")}) return SessionResult(SessionError.ERROR_BAD_VALUE)
+                        val tracks=saved.queue.map {q->ProviderTrack(q.mediaId.removePrefix("yt:"),q.title,q.artist,q.artworkUrl,q.artistId,q.albumId,q.album,q.live,q.music)}
+                        if(tracks.any {!it.videoId.matches(Regex("[A-Za-z0-9_-]{11}"))}) return SessionResult(SessionError.ERROR_BAD_VALUE)
+                        if(args.containsKey("enqueueNext") && tracks.size==1 && player.mediaItemCount>0) {
+                            val track=tracks[0];val existing=(0 until player.mediaItemCount).firstOrNull {val m=player.getMediaItemAt(it).mediaMetadata;player.getMediaItemAt(it).mediaId=="yt:${track.videoId}" || queueRecordingKey(m.title.toString(),m.artist.toString())==queueRecordingKey(track.title,track.artist)}
+                            if(existing!=null) {if(args.getBoolean("enqueueNext") && existing!=player.currentMediaItemIndex) player.moveMediaItem(existing,(player.currentMediaItemIndex+1-if(existing<player.currentMediaItemIndex) 1 else 0).coerceAtMost(player.mediaItemCount-1))}
+                            else {queuedIds.add(track.videoId);player.addMediaItem(if(args.getBoolean("enqueueNext")) player.currentMediaItemIndex+1 else player.mediaItemCount,catalogItem(track))}
+                            return SessionResult(SessionResult.RESULT_SUCCESS)
+                        }
+                        if(args.containsKey("replacePosition") && tracks.size==1 && player.mediaItemCount>0) {
+                            val index=player.currentMediaItemIndex;val wants=player.playWhenReady
+                            player.replaceMediaItem(index,catalogItem(tracks[0]));player.seekTo(index,args.getLong("replacePosition"));player.prepare();player.playWhenReady=wants
+                            return SessionResult(SessionResult.RESULT_SUCCESS)
+                        }
+                        player.stop();cancelRadio();sabrSelections.clear();streamHeaders.clear();queuedIds.clear()
+                        player.shuffleModeEnabled=saved.shuffle;player.repeatMode=Player.REPEAT_MODE_OFF
+                        queuedIds.addAll(tracks.map {it.videoId})
+                        player.setMediaItems(tracks.map(::catalogItem),saved.index,0)
+                        if(args.getBoolean("automatic") && !tracks[0].isLive) radioSeed=tracks[0].videoId
+                        player.setPlaylistMetadata(MediaMetadata.Builder().setTitle(saved.collectionTitle).setSubtitle(if(saved.collectionTitle.isBlank()) "Album order" else "Collection order").build())
+                        if(args.getBoolean("autoplay",true)) {player.prepare();player.play()} else player.playWhenReady=false
+                        saveSnapshot(player);events.append("album_queue_selected count=${tracks.size}")
+                        return SessionResult(SessionResult.RESULT_SUCCESS)
                     }
-                    if(args.containsKey("replacePosition") && tracks.size==1 && player.mediaItemCount>0) {
-                        val index=player.currentMediaItemIndex;val wants=player.playWhenReady
-                        player.replaceMediaItem(index,catalogItem(tracks[0]));player.seekTo(index,args.getLong("replacePosition"));player.prepare();player.playWhenReady=wants
-                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
-                    }
-                    player.stop();cancelRadio();sabrSelections.clear();streamHeaders.clear();queuedIds.clear()
-                    player.shuffleModeEnabled=saved.shuffle;player.repeatMode=Player.REPEAT_MODE_OFF
-                    queuedIds.addAll(tracks.map {it.videoId})
-                    player.setMediaItems(tracks.map(::catalogItem),saved.index,0)
-                    if(args.getBoolean("automatic") && !tracks[0].isLive) radioSeed=tracks[0].videoId
-                    player.setPlaylistMetadata(MediaMetadata.Builder().setTitle(saved.collectionTitle).setSubtitle(if(saved.collectionTitle.isBlank()) "Album order" else "Collection order").build())
-                    if(args.getBoolean("autoplay",true)) {player.prepare();player.play()} else player.playWhenReady=false
-                    saveSnapshot(player);events.append("album_queue_selected count=${tracks.size}")
-                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                    val result=com.google.common.util.concurrent.SettableFuture.create<SessionResult>()
+                    serviceScope.launch {
+                        val saved=withContext(queueDecoder) {val file=java.io.File(cacheDir,name)
+                            try {if(file.length() in 1..6_000_000) decodePlaybackSnapshot(file.readText()) else null}
+                            catch(_:Exception) {null} finally {file.delete()}}
+                        result.set(applyQueue(saved))
+                    }.invokeOnCompletion {if(!result.isDone) result.set(SessionResult(SessionError.ERROR_UNKNOWN))}
+                    return result
                 }
                 if (customCommand.customAction == PLAY_LOCAL_AUDIO) {
                     if (checkSelfPermission(audioLibraryPermission()) !=
