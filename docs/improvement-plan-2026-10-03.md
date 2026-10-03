@@ -481,7 +481,7 @@ Run on the phone, release build, installed **over** the previous release:
 | W4 APK size | `fix/w4-size` | ☑ 2026-10-03: 128.5 → 26.1 MiB (R8 + resources + arm64). Shrunk release checked on device: playback, HLS/solver, video, lyrics, translation, search. Not covered: downloads/offline, widgets, sleep timer, voice search | rc18 |
 | W5 session health | `fix/w5-session` | ☑ 2026-10-03: spike, classifier, schedule, banner and re-sign-in done; full loop checked on device with a simulated (in-memory) expiry | rc18 |
 | W8 hygiene | `chore/w8-hygiene` | ☐ | rc18 |
-| W6 sleep timer | `fix/w6-sleep` | ☐ | rc19 |
+| W6 sleep timer | `fix/w6-sleep` | ☑ 2026-10-03: deadline saved and restored after a real process kill; on device it paused 0.4 s after the original deadline. Reboot case unit-tested only (not tested by rebooting the phone). Also: stress build no longer shrunk (`e2add60`) | rc19 |
 | W7.4–W7.6 device UI tests, scenarios, CI | `test/w7-device` | ☐ | rc19 |
 
 ### Risks
