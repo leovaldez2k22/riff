@@ -22,6 +22,25 @@ internal fun sleepCountdown(deadline:Long,now:Long):String {
     val seconds=((deadline-now).coerceAtLeast(0)+999)/1000
     return "${seconds/60}:${(seconds%60).toString().padStart(2,'0')}"
 }
+/** What to do with a sleep timer saved before the process died (W6). */
+internal sealed interface SleepRestore {
+    data class Rearm(val deadline:Long):SleepRestore
+    /** The deadline passed while Riff wasn't running: clear it; never start or stop playback for it. */
+    data object Expired:SleepRestore
+    data object None:SleepRestore
+}
+/**
+ * [now] and [savedDeadline] are elapsedRealtime, which restarts from 0 at boot, so a timer saved
+ * before a reboot is discarded: by boot count when Android provides it, and in any case when the
+ * deadline is further ahead than a timer can be (24 hours).
+ */
+internal fun restoreSleepTimer(savedDeadline:Long,savedBoot:Int,now:Long,boot:Int):SleepRestore = when {
+    savedDeadline<=0 -> SleepRestore.None
+    savedBoot!=boot -> SleepRestore.None
+    savedDeadline-now>1440*60_000L -> SleepRestore.None
+    savedDeadline>now -> SleepRestore.Rearm(savedDeadline)
+    else -> SleepRestore.Expired
+}
 internal fun sleepMinutesRemaining(deadline:Long,now:Long):Long=((deadline-now).coerceAtLeast(0)+59_999)/60_000
 @Composable private fun sleepTimerNow(deadline:Long):Long {
     val now by produceState(SystemClock.elapsedRealtime(),deadline) {

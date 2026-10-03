@@ -43,7 +43,22 @@ class MusicPlaybackService : MediaSessionService() {
     @OptIn(ExperimentalCoroutinesApi::class)
     private val queueDecoder = Dispatchers.IO.limitedParallelism(1)
     private val provider by lazy { YouTubeMusicProvider.shared(this) }
-    private val sleepTimer by lazy {SleepTimerController(serviceScope,{android.os.SystemClock.elapsedRealtime()},pause={session?.player?.pause()},publish={deadline->session?.setSessionExtras(Bundle().apply {putLong("sleepDeadlineMs",deadline)})},readVolume={session?.player?.volume?:1f},writeVolume={session?.player?.volume=it})}
+    private val sleepTimer by lazy {SleepTimerController(serviceScope,{android.os.SystemClock.elapsedRealtime()},pause={session?.player?.pause()},publish={deadline->session?.setSessionExtras(Bundle().apply {putLong("sleepDeadlineMs",deadline)})},readVolume={session?.player?.volume?:1f},writeVolume={session?.player?.volume=it},persist=::persistSleepDeadline)}
+    private fun bootCount()=android.provider.Settings.Global.getInt(contentResolver,android.provider.Settings.Global.BOOT_COUNT,-1)
+    private fun persistSleepDeadline(deadline:Long) {
+        val edit=snapshotPrefs.edit()
+        if(deadline>0) edit.putLong("sleep_deadline",deadline).putInt("sleep_boot",bootCount()) else edit.remove("sleep_deadline").remove("sleep_boot")
+        edit.apply()
+    }
+    /** W6: a timer set before the process was killed keeps its original deadline. */
+    private fun restoreSleepTimerAfterRestart() {
+        val saved=snapshotPrefs.getLong("sleep_deadline",0)
+        when(val restore=restoreSleepTimer(saved,snapshotPrefs.getInt("sleep_boot",-1),android.os.SystemClock.elapsedRealtime(),bootCount())) {
+            is SleepRestore.Rearm -> {sleepTimer.arm(restore.deadline);events.append("sleep_timer_restored")}
+            SleepRestore.Expired -> {persistSleepDeadline(0);events.append("sleep_timer_expired_while_stopped")}
+            SleepRestore.None -> if(saved>0) persistSleepDeadline(0)
+        }
+    }
     private var liveFallbackJob: Job? = null
     private val failedLiveProfiles = linkedSetOf<String>()
     private val attestationRefreshed = mutableSetOf<String>()
@@ -321,6 +336,7 @@ class MusicPlaybackService : MediaSessionService() {
                 return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
             }
         }).build()
+        restoreSleepTimerAfterRestart()
         snapshotPrefs.getString("snapshot",null)?.let(::decodePlaybackSnapshot)?.let {saved->
             val items=saved.queue.map {q->if(q.mediaId.startsWith("yt:")) catalogItem(ProviderTrack(q.mediaId.removePrefix("yt:"),
                 q.title,q.artist,q.artworkUrl,q.artistId,q.albumId,q.album,q.live,q.music)) else MediaItem.Builder().setMediaId(q.mediaId).setUri(q.localUri)

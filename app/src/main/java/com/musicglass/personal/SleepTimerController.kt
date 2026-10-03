@@ -5,7 +5,9 @@ internal fun sleepFadeGain(remainingMs:Long):Float=(remainingMs/15_000f).coerceI
 /** Monotonic service timer. Fade affects the player only; cancellation restores its prior level. */
 internal class SleepTimerController(private val scope:CoroutineScope,private val clock:()->Long,
     private val wait:suspend (Long)->Unit={delay(it)},private val pause:()->Unit,private val publish:(Long)->Unit,
-    private val readVolume:()->Float={1f},private val writeVolume:(Float)->Unit={}) {
+    private val readVolume:()->Float={1f},private val writeVolume:(Float)->Unit={},
+    /** Saves the deadline (0 = none) so it survives the process being killed (W6). Not called by close(). */
+    private val persist:(Long)->Unit={}) {
     private var job:Job?=null;private var generation=0L
     private var originalVolume:Float?=null
     private var lastApplied:Float?=null
@@ -14,8 +16,12 @@ internal class SleepTimerController(private val scope:CoroutineScope,private val
     }
     fun set(minutes:Int) {
         require(minutes in 0..1440)
+        arm(sleepDeadline(minutes,clock()))
+    }
+    /** Starts the timer for an absolute [deadline] on [clock]; 0 cancels. Used directly when restoring. */
+    fun arm(deadline:Long) {
         job?.cancel();restoreVolume()
-        val ticket=++generation;val deadline=sleepDeadline(minutes,clock());publish(deadline)
+        val ticket=++generation;publish(deadline);persist(deadline)
         if(deadline>0) job=scope.launch {
             while(isActive && ticket==generation) {
                 val remaining=deadline-clock()
@@ -31,7 +37,7 @@ internal class SleepTimerController(private val scope:CoroutineScope,private val
                 wait(if(remaining>15_000) remaining-15_000 else minOf(100L,remaining))
             }
             ensureActive()
-            if(ticket==generation) {pause();restoreVolume();publish(0)}
+            if(ticket==generation) {pause();restoreVolume();publish(0);persist(0)}
         }
     }
     fun close() {generation++;job?.cancel();restoreVolume();publish(0)}
