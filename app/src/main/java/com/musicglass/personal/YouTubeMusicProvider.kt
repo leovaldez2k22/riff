@@ -118,6 +118,19 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         private set
     fun feedKey(key:String)="$authRevision:$key"
     fun cachedFeed(key:String):List<ProviderHomeSection>?=feedCache.peek(feedKey(key))
+    // Last successful Home feed saved on disk per account (W3): shown at once on a cold start while
+    // the fresh feed loads. Read and written off the main thread; deleted on sign-out.
+    private val feedSnapshots=FeedSnapshotStore(java.io.File(appContext.noBackupFilesDir,"feed-snapshots"))
+    var storedHome by mutableStateOf<List<ProviderHomeSection>?>(null)
+        private set
+    private fun snapshotScope()=accountScopeKey()?:"signed-out"
+    private fun loadStoredHome() {
+        val revision=authRevision;storedHome=null
+        runtimeScope.launch {
+            val stored=runCatching {feedSnapshots.load(snapshotScope(),"home:")}.getOrNull()
+            if(revision==authRevision) storedHome=stored?.sections
+        }
+    }
     fun cachedCollection(id:String):CatalogPage?=collectionCache.peek(feedKey("collection:$id"))
     fun cachedLibrary(kind:String):CatalogPage?=collectionCache.peek(feedKey("library:$libraryRevision:$kind"))
     fun checkFeedWindow()=feedCache.checkWindow()
@@ -215,6 +228,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         feedCache.clear();collectionCache.clear();homeMoods=emptyList();libraryPlaylistSnapshot=emptyList();libraryScanRevision=0
         authRevision++
         synchronized(cacheLock) {streamCache.clear();streamFlights.values.forEach {it.cancel()};streamFlights.clear()}
+        loadStoredHome()
         return valid
     }
 
@@ -230,6 +244,8 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     }
 
     fun signOut() {
+        val leavingScope=snapshotScope()
+        runtimeScope.launch {runCatching {feedSnapshots.deleteScope(leavingScope)}}
         visitorData = null
         dataSyncId = null
         authUser = "0"
@@ -243,6 +259,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         feedCache.clear();collectionCache.clear();homeMoods=emptyList();libraryPlaylistSnapshot=emptyList();libraryScanRevision=0
         authRevision++
         synchronized(cacheLock) {streamCache.clear();streamFlights.values.forEach {it.cancel()};streamFlights.clear()}
+        loadStoredHome()
         CookieManager.getInstance().removeAllCookies {
             CookieManager.getInstance().flush()
         }
@@ -613,6 +630,8 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
                 continuation=catalogContinuation(moreRoot)?.takeUnless {it==token}
             }
             if (revision == authRevision) {cachedHome = sections;podcastEndpoint=catalogBrowseFilter(root,"Podcasts");homeMoods=parseHomeMoods(root)
+                val saved=sections.toList();val scope=snapshotScope()
+                runtimeScope.launch {runCatching {feedSnapshots.save(scope,"home:",saved)}}
                 runtimeScope.launch {runCatching {
                     val extra=innerTube.browse(YouTubeClient.WEB_REMIX,browseId="FEmusic_moods_and_genres",setLogin=signedIn)
                     if(extra.status.value<400 && revision==authRevision) homeMoods=(homeMoods+parseHomeMoods(json.parseToJsonElement(extra.bodyAsText()))).distinctBy {it.title}
