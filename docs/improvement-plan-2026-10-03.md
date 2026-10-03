@@ -445,7 +445,7 @@ Run on the phone, release build, installed **over** the previous release:
 
 | Workstream | Branch | Status | Release |
 |---|---|---|---|
-| W0 safety net | — | ◐ 2026-10-03: W0.1 done (certificate recorded, backups in Google Drive + Gmail with a restore drill, password encrypted with DPAPI, release script can't create a key silently and checks the certificate). Open: W0.2 remote, W0.3 | — |
+| W0 safety net | — | ◐ 2026-10-03: W0.1 done (certificate recorded, backups in Google Drive + Gmail with a restore drill, password encrypted with DPAPI, release script can't create a key silently and checks the certificate). W0.2 done: private repository https://github.com/leovaldez2k20/riff, local `master` pushes to `main` (`push.default=upstream`), history scanned for secrets before the first push. Open: W0.3 | — |
 | W1.1 crash reproduction and upstream report | `fix/w1-playback` | ☐ | rc17 |
 | W1.2 `:solver` process | `fix/w1-playback` | ☐ | rc17 |
 | W1.3 attestation recovery proven | `fix/w1-playback` | ☐ | rc17 |
