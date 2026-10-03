@@ -59,6 +59,40 @@ def wait_for(pred, timeout, step=1.0):
     return None
 
 
+def riff_focused():
+    return f'{PKG}/' in sh('dumpsys window | grep -m1 mCurrentFocus')
+
+
+def riff_play():
+    """Press play with Riff's own mini-player button, never `cmd media_session dispatch play`: when
+    Riff isn't the media-button session that key goes to another app (it once started YouTube)."""
+    if riff_session_playing():
+        return True
+    launch()
+    if not riff_focused():
+        return False
+    xml = ''
+    for _ in range(3):
+        xml = sh('uiautomator dump /dev/tty')
+        if '<hierarchy' in xml:
+            break
+        time.sleep(1)
+    m = re.search(r'resource-id="[^"]*mini_play"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', xml)
+    if not m:
+        return False
+    a, b, c, d = map(int, m.groups())
+    s = session()
+    if s and s['state'] == 'PLAYING':
+        return True
+    sh(f'input tap {(a + c) // 2} {(b + d) // 2}')
+    return True
+
+
+def riff_session_playing():
+    s = session()
+    return bool(s and s['state'] == 'PLAYING')
+
+
 def launch():
     sh(f'am start -W -n {PKG}/.MainActivity')
     time.sleep(2)
@@ -79,7 +113,7 @@ def ensure_playing(timeout=45):
     # Re-send: right after a (re)start, Riff may not be the media-button session yet and the key is dropped.
     end = time.time() + timeout
     while time.time() < end:
-        sh('cmd media_session dispatch play')
+        riff_play()
         if s := wait_for(lambda: (s := session()) and s['state'] == 'PLAYING' and s, 10, 2):
             return s
     return None
@@ -199,7 +233,7 @@ def play_pause_storm():
         time.sleep(0.1)
     # 200 toggles is even: should end playing. Give it time to settle.
     settled = wait_for(lambda: (s := session()) and s['state'] in ('PLAYING', 'PAUSED') and s, 30, 2)
-    sh('cmd media_session dispatch play')
+    riff_play()
     playing = wait_for(lambda: (s := session()) and s['state'] == 'PLAYING' and s, 45, 2)
     return {'settled': settled, 'checks': {'appAlive': bool(app_pid()), 'resumesAfterStorm': bool(playing)}}
 
@@ -301,7 +335,7 @@ def network_flap():
         sh('cmd connectivity airplane-mode disable')
         sh('cmd wifi set-wifi-enabled enabled'); sh('svc data enable')
     online = wait_for(lambda: 'Wifi is connected' in sh('cmd wifi status') or None, 60, 3)
-    sh('cmd media_session dispatch play')
+    riff_play()
     playing = wait_for(lambda: (s := session()) and s['state'] == 'PLAYING' and s, 90, 3)
     if playing:
         p0 = live_position(playing); time.sleep(10); p1 = live_position(session())
