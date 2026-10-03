@@ -22,6 +22,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Main-process side of [SolverService]. Binds on first use, retries a call once if the solver died
@@ -37,6 +38,7 @@ internal class RemoteCipherClient(context: Context, private val onEvent: (String
     @Volatile private var binder: IBinder? = null
     private var connection: ServiceConnection? = null
     private var idleJob: Job? = null
+    private var bindGeneration = 0L
 
     override suspend fun initialize() { call(SolverProtocol.INITIALIZE) {} }
 
@@ -64,11 +66,22 @@ internal class RemoteCipherClient(context: Context, private val onEvent: (String
                 // Retry once on a fresh process; the death itself is counted in connect()/onSolverDeath().
                 onEvent("solver_call_lost code=${code - SolverProtocol.INITIALIZE} attempt=$attempt")
                 lost = died
+                awaitProcessGone(target)
             } catch (failed: RemoteException) {
                 throw IOException("Solver request failed (${failed.javaClass.simpleName})", failed)
             }
         }
         throw IOException("Solver process died during the request", lost)
+    }
+
+    /**
+     * A crashing solver is held by the crash reporter (debuggerd) for a few hundred ms while it writes
+     * the tombstone, and Android keeps handing out its binder until the process really exits. Wait
+     * for that before reconnecting, or the retry lands on the same dying process (seen on device).
+     */
+    private suspend fun awaitProcessGone(target: IBinder) {
+        withTimeoutOrNull(5_000) { while (target.isBinderAlive) delay(50) }
+        delay(250) // let the system process the death and schedule a fresh solver
     }
 
     private fun transact(target: IBinder, code: Int, write: (Parcel) -> Unit): String? {
@@ -105,7 +118,10 @@ internal class RemoteCipherClient(context: Context, private val onEvent: (String
             override fun onBindingDied(name: ComponentName?) { ready.completeExceptionally(IOException("Solver binding died")) }
             override fun onNullBinding(name: ComponentName?) { ready.completeExceptionally(IOException("Solver refused to bind")) }
         }
-        val bound = runCatching { app.bindService(Intent(app, SolverService::class.java), conn, Context.BIND_AUTO_CREATE) }.getOrDefault(false)
+        // A unique identity per binding: Android caches the binder per (filter-equal) Intent and, while a
+        // crashed solver's restart is pending, hands that dead binder to new bindings (seen on device).
+        val intent = Intent(app, SolverService::class.java).setIdentifier("solver-${++bindGeneration}")
+        val bound = runCatching { app.bindService(intent, conn, Context.BIND_AUTO_CREATE) }.getOrDefault(false)
         if (!bound) { runCatching { app.unbindService(conn) }; throw IOException("Solver could not be started") }
         connection = conn
         try {
