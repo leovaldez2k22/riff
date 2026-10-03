@@ -183,6 +183,13 @@ These change what gets built. My recommendation is listed first.
 - **The harness changes the phone's settings:** `config_churn` used to restore hard-coded values, and it never rotated while auto-rotate was on. Both are fixed.
 - **Measuring:** compare runs only on churn-period numbers from `jank_breakdown`. Skipped-frame counts vary between runs (8 vs 19 for the same build), so look at totals, not single events.
 
+### W5 findings (2026-10-03, on device)
+
+- **Expired-session signals** (SessionProbeInstrumentation, run against the installed app without touching the saved session): `account/account_menu` answers **200 + `activeAccountHeaderRenderer`** when valid and **401 `UNAUTHENTICATED`** with no cookies, all-scrambled cookies, or only the session cookies scrambled. Authenticated browse answers **HTTP 401** (`InnerTubeHttpException`). Without cookies, browse answers 200 with a `signInEndpoint` prompt. Google's `responseContext...loggedOut` flag never appeared, so the plan's guess was wrong.
+- **Cookie rotation is not persisted (follow-up).** innertubex sends cookies from a string the app builds from WebView's CookieManager, and nothing writes `Set-Cookie` from YouTube responses back. Rotated `__Secure-*PSIDTS` values are therefore lost, which may shorten sessions. The plan's "flush CookieManager" step would not help, because the HTTP client's cookies never reach the WebView. Fixing it needs a Ktor `HttpCookies` storage that writes into CookieManager. Not done in W5.
+- **A forced check right after another one** used to be dropped by the 30-second rate limit, so a 401 just after startup never surfaced. It is now postponed.
+- **The banner sits under the glass chrome otherwise:** category chips are drawn by RiffApp above all screen content, so the banner is one 52 dp row that fits between the status bar and the chips.
+
 ### W1.5 Crash-aware restore (small, after W1.2)
 When the main process restarts after an abnormal exit (W1.4 detects `REASON_CRASH_NATIVE` / `REASON_CRASH` from the previous run), restore the snapshot **paused**, as today, and show a one-time, dismissible notice in the mini player: "Playback stopped unexpectedly. Tap play to continue." Never auto-resume audio, because the user may no longer expect sound.
 
@@ -472,7 +479,7 @@ Run on the phone, release build, installed **over** the previous release:
 | W7.1–W7.3 test seam, Compose tests, screenshots | `test/w7-ui` | ☐ | rc17 |
 | W3 instant Home | `fix/w3-instant-home` | ◐ 2026-10-03 (`298c790`): snapshot store, provider save/load/delete and skeleton component done and tested. Simplified: only the All feed is stored (not the last mood), via `storedHome` instead of a Flow API. Waiting on: HomeFeed.kt hookup after the other agent's rc17 loading changes land | rc18 |
 | W4 APK size | `fix/w4-size` | ☑ 2026-10-03: 128.5 → 26.1 MiB (R8 + resources + arm64). Shrunk release checked on device: playback, HLS/solver, video, lyrics, translation, search. Not covered: downloads/offline, widgets, sleep timer, voice search | rc18 |
-| W5 session health | `feat/w5-session` | ☐ | rc18 |
+| W5 session health | `fix/w5-session` | ☑ 2026-10-03: spike, classifier, schedule, banner and re-sign-in done; full loop checked on device with a simulated (in-memory) expiry | rc18 |
 | W8 hygiene | `chore/w8-hygiene` | ☐ | rc18 |
 | W6 sleep timer | `fix/w6-sleep` | ☐ | rc19 |
 | W7.4–W7.6 device UI tests, scenarios, CI | `test/w7-device` | ☐ | rc19 |
