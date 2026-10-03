@@ -61,6 +61,7 @@ class MusicPlaybackService : MediaSessionService() {
     private var lastListenTick=android.os.SystemClock.elapsedRealtime()
     private val snapshotPrefs by lazy {getSharedPreferences("last_playback",MODE_PRIVATE)}
     private var discardingSession=false
+    private var taskRemoved=false
     private var saveJob: Job?=null
     private val snapshotWrites=kotlinx.coroutines.channels.Channel<Pair<Long,PlaybackSnapshot>>(kotlinx.coroutines.channels.Channel.CONFLATED)
     private val snapshotSequence=java.util.concurrent.atomic.AtomicLong()
@@ -70,6 +71,7 @@ class MusicPlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         events.append("service_create")
+        serviceScope.launch(Dispatchers.IO) {logNewProcessExits(this@MusicPlaybackService,events)}
         serviceScope.launch(Dispatchers.IO) {
             for((sequence,snapshot) in snapshotWrites) persistSnapshot(sequence,snapshot)
         }
@@ -494,6 +496,7 @@ class MusicPlaybackService : MediaSessionService() {
     }
     override fun onTaskRemoved(rootIntent: Intent?) {
         provider.discardPageMemory()
+        taskRemoved=true
         events.append("task_removed_stop")
         session?.player?.let {saveSnapshot(it,flush=true)};discardingSession=true
         cancelRadio();session?.player?.stop();session?.player?.clearMediaItems()
@@ -504,7 +507,10 @@ class MusicPlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         sleepTimer.close()
-        events.append("service_destroy")
+        val player=session?.player
+        val playWhenReady=player?.playWhenReady==true
+        events.append(runCatching {stopContext(this,playWhenReady,player?.playbackState?:0,taskRemoved)}.getOrDefault("service_destroy"))
+        if(isUnexpectedStop(playWhenReady,taskRemoved)) events.append("unexpected_stop")
         session?.player?.let {saveSnapshot(it,flush=true)};discardingSession=true;saveJob?.cancel()
         session?.let { media ->
             media.player.release()
