@@ -1,4 +1,4 @@
-param([switch]$SkipChecks, [switch]$SkipClean, [switch]$NewSigningKey)
+param([switch]$SkipChecks, [switch]$SkipClean, [switch]$NewSigningKey, [switch]$AllowDirty)
 
 $ErrorActionPreference = 'Stop'
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -85,6 +85,16 @@ $env:MUSIC_GLASS_STORE_PASSWORD = if (Test-Path -LiteralPath $passwordDpapi) {
 }
 $env:MUSIC_GLASS_KEY_PASSWORD = $env:MUSIC_GLASS_STORE_PASSWORD
 
+# A release must be reproducible from a commit (plan W0, remediation P0.4). -AllowDirty is for
+# test builds while uncommitted work is in progress; the APK is then not traceable to a commit.
+$dirty = (& git -C $project status --porcelain 2>$null) -join "`n"
+if ($LASTEXITCODE -ne 0) { throw 'git status failed; is this a git checkout?' }
+if ($dirty -and -not $AllowDirty) {
+    throw "The working tree has uncommitted changes. Commit them first, or pass -AllowDirty for a test build.`n$dirty"
+}
+if ($dirty) { Write-Warning 'Building from a working tree with uncommitted changes (-AllowDirty).' }
+$commit = (& git -C $project rev-parse --short HEAD).Trim()
+
 Push-Location $project
 try {
     if (-not $SkipClean) {
@@ -127,6 +137,7 @@ try {
     Write-Host "R8 mapping: $releaseMapping (keep it with the APK to read crash reports)"
     Write-Host "SHA-256: $hash"
     Write-Host "Certificate matches docs/release-signing.md."
+    Write-Host "Built from commit $commit$(if ($dirty) { ' plus uncommitted changes' })."
 }
 finally {
     Pop-Location
