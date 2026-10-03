@@ -25,11 +25,16 @@
         android:usesCleartextTraffic="false">
         <!-- Compose reads LocalConfiguration/LocalDensity and updates in place; recreating the
              activity for these changes rebuilt the whole UI (~280 ms per rotation or theme change).
-             Locale is not listed, so a language change still recreates. -->
+             Locale is not listed, so a language change still recreates.
+             singleTask: a launcher tap on a task first opened from the notification, a widget or
+             another app stacked a further MainActivity (40 copies, 710 MB, in a 50k-event monkey
+             run on 2026-10-04). The activity reads nothing from its intents. -->
+
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|fontWeightAdjustment|keyboard|keyboardHidden|navigation"
             android:exported="true"
+            android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
