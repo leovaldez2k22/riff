@@ -153,4 +153,11 @@ class LyricsTest {
             assertTrue(dir.listFiles().orEmpty().isEmpty())
         } finally { repo.close(); dir.listFiles().orEmpty().forEach { it.delete() }; dir.delete() }
     }
+
+    @Test fun oneUnreachableSourceIsNotAConnectionFailure() {
+        // Instrumental: some sources answered "nothing", one timed out -> "No lyrics found".
+        assertFalse(lyricsUnreachable(errors = 1, answered = 2))
+        assertTrue(lyricsUnreachable(errors = 3, answered = 0))
+        assertFalse(lyricsUnreachable(errors = 0, answered = 0))
+    }
 }

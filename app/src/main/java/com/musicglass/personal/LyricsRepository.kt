@@ -91,6 +91,9 @@ internal class LyricsRepository(private val directory: File,
         val selection = Mutex()
         var best: LyricsDocument? = null
         var errors = 0
+        // Sources that answered at all. One unreachable source must not turn "this song has no
+        // lyrics" (an instrumental, say) into "check your connection" when the others answered.
+        var answered = 0
         suspend fun offer(doc: LyricsDocument?) {
             if (doc == null || (!doc.instrumental && doc.lines.isEmpty())) return
             selection.withLock {
@@ -98,7 +101,7 @@ internal class LyricsRepository(private val directory: File,
                     (doc.quality == best!!.quality && doc.timed && doc.source == "YouTube Music" && best!!.source != "YouTube Music")) { best = doc; send(doc) }
             }
         }
-        suspend fun request(url: String, params: Map<String,String>): JsonElement? = try { get(url,params) }
+        suspend fun request(url: String, params: Map<String,String>): JsonElement? = try { get(url,params).also { selection.withLock { answered++ } } }
             catch (e: CancellationException) { throw e }
             catch (_: Exception) { selection.withLock { errors++ }; null }
         run {
@@ -141,13 +144,13 @@ internal class LyricsRepository(private val directory: File,
                 }
             }
             if (track.mediaId.startsWith("yt:")) launch {
-                try { offer(youtube()) } catch (e: CancellationException) { throw e }
+                try { offer(youtube()); selection.withLock { answered++ } } catch (e: CancellationException) { throw e }
                 catch (_: Exception) { selection.withLock { errors++ } }
             }
         }
         val found = best
         if (found != null) withContext(Dispatchers.IO) { writeCache(key,found) }
-        else if (errors > 0) throw IOException("Lyrics providers could not be reached")
+        else if (lyricsUnreachable(errors,answered)) throw IOException("Lyrics providers could not be reached")
         else synchronized(missing) {
             if (missing.size > 100) missing.clear()
             missing[key] = (System.nanoTime()/1_000_000)+5*60_000
@@ -262,3 +265,6 @@ internal fun decodeLyricsDocument(raw: JsonObject): LyricsDocument = LyricsDocum
     },raw["instrumental"]?.jsonPrimitive?.booleanOrNull ?: false)
 
 internal data class LyricsLoadState(val document: LyricsDocument? = null,val loading: Boolean = true,val failed: Boolean = false,val generation: Long = 0)
+
+/** "Couldn't load lyrics" only when no source answered; otherwise the song simply has none. */
+internal fun lyricsUnreachable(errors: Int, answered: Int): Boolean = errors > 0 && answered == 0

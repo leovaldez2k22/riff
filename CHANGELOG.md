@@ -7,7 +7,7 @@ Newest first. Release candidates before 0.9.0-rc16 were recorded only in the REA
 Work from [the 2026-10-03 improvement plan](docs/improvement-plan-2026-10-03.md), on top of rc17.
 
 - **Playback reliability (W1):** QuickJS challenge solving runs in a separate `:solver` process, so a native crash no longer stops playback (reported upstream as [quickjs-kt#244](https://github.com/dokar3/quickjs-kt/issues/244) and [innertubex#23](https://github.com/MetrolistGroup/innertubex/issues/23)). SABR attestation recovery is tested and was verified on a device. The app records why the playback service stops.
-- **Crash notice (W1.5):** after an app crash the queue is restored paused, as before, and the mini player says once "Playback stopped unexpectedly. Tap play to continue."
+- **Crash notice (W1.5):** after an app crash the queue is restored paused, as before, and the mini player says once "Stopped unexpectedly" (TalkBack: "Playback stopped unexpectedly. Tap play to continue."), with a dismiss button
 - **Playback diagnostics (W1.4):** Settings → About → Copy playback diagnostics copies the last 200 playback events, with URLs and tokens removed.
 - **Smoother rotation, dark mode and font changes (W2):** no main-thread disk reads during recreation, and MainActivity handles configuration changes in place (frames skipped in the churn test: 703 → 68).
 - **Home loading (W3):** skeleton shelves, sized like the real ones, replace the "Loading YouTube Music…" text while Home waits for the fresh feed. Home still never shows an older saved feed first (rc17 behaviour, kept by choice).

@@ -611,10 +611,13 @@ private fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
                 modifier = Modifier.onGloballyPositioned {
                     onElementBounds("title", it.unclippedBoundsInRoot()) })
             if (crashNotice)
-                Text("Playback stopped unexpectedly. Tap play to continue.", color = Pink,
+                // The mini player fits about 20 characters here (checked on a 1080 px phone); the
+                // full sentence goes to TalkBack.
+                Text("Stopped unexpectedly", color = Pink,
                     fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.testTag("mini_crash_notice")
-                        .semantics { liveRegion = LiveRegionMode.Polite })
+                        .semantics { liveRegion = LiveRegionMode.Polite
+                            contentDescription = "Playback stopped unexpectedly. Tap play to continue." })
             else if (LocalDensity.current.fontScale < 1.8f)
                 Text(playerArtistLabel(state.artist), color = Muted, fontSize = 11.sp,
                     maxLines = 1, modifier = Modifier.onGloballyPositioned {
