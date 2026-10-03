@@ -18,4 +18,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Riff"
-include(":app", ":core:glass")
+include(":app")

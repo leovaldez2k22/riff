@@ -480,9 +480,9 @@ Run on the phone, release build, installed **over** the previous release:
 | W3 instant Home | `fix/w3-instant-home` | ◐ 2026-10-03 (`298c790`): snapshot store, provider save/load/delete and skeleton component done and tested. Simplified: only the All feed is stored (not the last mood), via `storedHome` instead of a Flow API. Waiting on: HomeFeed.kt hookup after the other agent's rc17 loading changes land | rc18 |
 | W4 APK size | `fix/w4-size` | ☑ 2026-10-03: 128.5 → 26.1 MiB (R8 + resources + arm64). Shrunk release checked on device: playback, HLS/solver, video, lyrics, translation, search. Not covered: downloads/offline, widgets, sleep timer, voice search | rc18 |
 | W5 session health | `fix/w5-session` | ☑ 2026-10-03: spike, classifier, schedule, banner and re-sign-in done; full loop checked on device with a simulated (in-memory) expiry | rc18 |
-| W8 hygiene | `chore/w8-hygiene` | ☐ | rc18 |
+| W8 hygiene | `fix/w8-hygiene` | ◐ 2026-10-03: W8.1 `:core:glass` removed (tag `archive/core-glass`), W8.2 Unix `gradlew` (CI uses it), W8.3 `CHANGELOG.md`; CI actions updated to current majors. W8.4 reformat and W8.5 zero warnings deferred until the other agent's rc17 work and W1–W7 are merged: both touch nearly every file | rc18 |
 | W6 sleep timer | `fix/w6-sleep` | ☑ 2026-10-03: deadline saved and restored after a real process kill; on device it paused 0.4 s after the original deadline. Reboot case unit-tested only (not tested by rebooting the phone). Also: stress build no longer shrunk (`e2add60`) | rc19 |
-| W7.4–W7.6 device UI tests, scenarios, CI | `fix/w7-tests` | ◐ 2026-10-03: W7.6 CI added (unsigned release, size budget). W7.5: config_churn (W2) and nav_leak passed on device (heap 50 → 23 MB after GC, no crashes). W7.4 deferred: the other agent's uncommitted rc17 work is changing RiffApp, NowPlaying and InlineQueue | rc19 |
+| W7.4–W7.6 device UI tests, scenarios, CI | `fix/w7-tests` | ◐ 2026-10-03: W7.6 CI added (unsigned release, size budget); first full run passed on GitHub in 13.5 min. W7.5: config_churn (W2) and nav_leak passed on device (heap 50 → 23 MB after GC, no crashes). W7.4 deferred: the other agent's uncommitted rc17 work is changing RiffApp, NowPlaying and InlineQueue | rc19 |
 
 ### Risks
 

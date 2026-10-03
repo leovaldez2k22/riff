@@ -11,7 +11,7 @@ $archive = Join-Path $outDir "riff-$versionName-source.zip"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 Add-Type -AssemblyName System.IO.Compression
 
-$roots = @('app\src', 'core\glass\src', 'docs', 'licenses', 'scripts', 'gradle\wrapper')
+$roots = @('app\src', 'docs', 'licenses', 'scripts', 'gradle\wrapper', '.github')
 $files = @()
 foreach ($root in $roots) {
     $path = Join-Path $project $root
@@ -19,9 +19,9 @@ foreach ($root in $roots) {
         $files += Get-ChildItem -LiteralPath $path -Recurse -File
     }
 }
-$topLevel = @('app\build.gradle.kts', 'core\glass\build.gradle.kts',
+$topLevel = @('app\build.gradle.kts', 'app\proguard-rules.pro',
     'build.gradle.kts', 'settings.gradle.kts', 'gradle.properties', 'gradle\libs.versions.toml',
-    'gradlew.bat', 'LICENSE', 'NOTICE.md', 'README.md',
+    'gradlew', 'gradlew.bat', 'CHANGELOG.md', 'LICENSE', 'NOTICE.md', 'README.md',
     'MUSIC_APP_IMPLEMENTATION_PLAN.md', 'YTMUSIC_INTEGRATION_AGENT_GUIDE.md')
 foreach ($file in $topLevel) {
     $path = Join-Path $project $file

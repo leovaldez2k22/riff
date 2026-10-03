@@ -18,32 +18,30 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # innertubex classes need Java 21 (class file version 65) in unit tests.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           packages: 'platforms;android-37.0 build-tools;36.0.0 platform-tools'
 
-      # No Unix gradlew in the repository yet (plan W8): use the same Gradle as .toolchain/gradle-8.13.
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.13'
+      # Caches Gradle and validates the wrapper; the build uses ./gradlew (Gradle 8.13).
+      - uses: gradle/actions/setup-gradle@v6
 
       # Robolectric downloads android-all jars into the Maven local repository.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.m2/repository/org/robolectric
           key: robolectric-${{ hashFiles('app/build.gradle.kts') }}
           restore-keys: robolectric-
 
       - name: Unit and UI tests, lint, release build
-        run: gradle :app:testDebugUnitTest :app:lintRelease :app:assembleRelease --console=plain
+        run: ./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleRelease --console=plain
 
       - name: APK size budget (40 MiB)
         run: |
@@ -55,7 +53,7 @@ jobs:
 
       - name: Upload reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reports
           path: |

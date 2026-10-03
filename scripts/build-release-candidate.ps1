@@ -25,7 +25,8 @@ $versionLine = Get-Content (Join-Path $project 'app\build.gradle.kts') |
 if (-not $versionLine) { throw 'Cannot determine versionName from app/build.gradle.kts.' }
 $versionName = $versionLine.Matches[0].Groups[1].Value
 $releaseApk = Join-Path $releaseDir "riff-$versionName.apk"
-$mapping = Join-Path $project 'appuild\outputs\mappingelease\mapping.txt'
+$mapping = Join-Path $project 'appuild\outputs\mapping
+elease\mapping.txt'
 $releaseMapping = Join-Path $releaseDir "riff-$versionName-mapping.txt"
 # Size budget (plan W4): the shrunk arm64 APK is ~26 MiB. A jump past this usually means R8 or
 # the ABI filter was switched off, or a large dependency was added.
@@ -87,7 +88,7 @@ $env:MUSIC_GLASS_KEY_PASSWORD = $env:MUSIC_GLASS_STORE_PASSWORD
 Push-Location $project
 try {
     if (-not $SkipClean) {
-        & $gradle ':app:clean' ':core:glass:clean' '--console=plain' '--quiet'
+        & $gradle ':app:clean' '--console=plain' '--quiet'
         if ($LASTEXITCODE -ne 0) { throw 'Clean build preparation failed.' }
     }
     $tasks = if ($SkipChecks) { @(':app:assembleRelease') } else {
