@@ -174,6 +174,15 @@ These change what gets built. My recommendation is listed first.
 - **Toolchain:** unit tests that load innertubex classes need JDK 21 (`.toolchain/jdk-21.0.12.1+1`); JDK 20 fails with `UnsupportedClassVersionError`.
 - **Media3 retries hide single load errors:** one injected SABR failure is retried silently by ExoPlayer. Recovery runs only after 4 consecutive failures (first attempt + 3 retries).
 
+### W2 findings (2026-10-03, on device)
+
+- **The stress report's "~490 ms of disk work per recreation" was a misreading.** StrictMode's `~duration` is the length of the whole main-thread message a violation happened in, not of the read. Removing every disk read from recreation (166 → 0) left the rebuild cost unchanged: median 34 skipped frames, about 280 ms at 120 Hz. The cost was rebuilding the whole Compose UI.
+- **What fixed it:** `android:configChanges` on MainActivity (rotation, screen size, uiMode, density, font scale, keyboard). Frames skipped during the churn dropped from 703 to 68. Screenshots of in-place rotation and font changes match a cold start in the same configuration.
+- **What's left is cold start:** about 22 disk reads in one ~800 ms main-thread message, from creating `YouTubeMusicProvider` (OkHttp/Ktor client, preferences, PlaybackEventLog), `MoodPhotos`, `removeRetiredContent` (now once per process) and `StartupLogo`. A follow-up could build the provider off the main thread; it is created synchronously from composition today.
+- **The 2,000-track queue** takes 1.5–2.4 s with or without W2.3. The artwork index removes per-item disk checks, but most of the time goes on building and handing over 2,000 MediaItems.
+- **The harness changes the phone's settings:** `config_churn` used to restore hard-coded values, and it never rotated while auto-rotate was on. Both are fixed.
+- **Measuring:** compare runs only on churn-period numbers from `jank_breakdown`. Skipped-frame counts vary between runs (8 vs 19 for the same build), so look at totals, not single events.
+
 ### W1.5 Crash-aware restore (small, after W1.2)
 When the main process restarts after an abnormal exit (W1.4 detects `REASON_CRASH_NATIVE` / `REASON_CRASH` from the previous run), restore the snapshot **paused**, as today, and show a one-time, dismissible notice in the mini player: "Playback stopped unexpectedly. Tap play to continue." Never auto-resume audio, because the user may no longer expect sound.
 
@@ -459,7 +468,7 @@ Run on the phone, release build, installed **over** the previous release:
 | W1.3 attestation recovery proven | `fix/w1-playback` | ☑ 2026-10-03 (`d1c18db`): unit tests; on device, 4 injected failures → `sabr_attestation_refresh` → playback continued | rc17 |
 | W1.4 stop diagnostics | `fix/w1-playback` | ◐ 2026-10-03 (`152cf62`): exit reasons and stop context logged; Settings export waits for the other agent's SettingsScreen work | rc17 |
 | W1.5 crash-aware restore | `fix/w1-playback` | ☐ waits for the other agent's NowPlaying work | rc17 |
-| W2 main-thread stalls | `fix/w2-stalls` | ◐ 2026-10-03 (`f17b8df`): W2.1–W2.4 code and tests done; W2.3 widened to the queue builder (`catalogItem` stat per item, 2,000 per queue). Waiting on: device measurement (rotation churn, 2,000-track queue) and the W2.5 StrictMode count in run-monkey.ps1 | rc17 |
+| W2 main-thread stalls | `fix/w2-stalls` | ☑ 2026-10-03: W2.1–W2.5 done, plus `configChanges` on MainActivity. Churn on device (churn period only): disk reads 168 → 0, frames skipped 703 → 68. 2,000-track queue: no measurable change (1.5–2.4 s, noisy) | rc17 |
 | W7.1–W7.3 test seam, Compose tests, screenshots | `test/w7-ui` | ☐ | rc17 |
 | W3 instant Home | `feat/w3-instant-home` | ☐ | rc18 |
 | W4 APK size | `build/w4-size` | ☐ | rc18 |
