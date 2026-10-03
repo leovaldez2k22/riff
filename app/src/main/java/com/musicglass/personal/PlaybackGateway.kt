@@ -179,7 +179,8 @@ internal class MusicPlaybackGateway(context: Context) : PlaybackGateway {
             return@withPlayer
         }
         commandError = null
-        if (it.isPlaying || it.playWhenReady) it.pause() else { if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() }
+        if (toggleShouldPause(it.isPlaying,it.playWhenReady,it.playbackState==Player.STATE_IDLE)) it.pause()
+        else { if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() }
     }
     override fun setSleepTimer(minutes:Int) = withPlayer {it.sendCustomCommand(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY),Bundle().apply {putInt("minutes",minutes)})}
     override fun pause() = withPlayer { it.pause();if(state.embedded) embeddedControl?.invoke(false) }
@@ -334,3 +335,11 @@ internal class MusicPlaybackGateway(context: Context) : PlaybackGateway {
         controller = null
     }
 }
+
+/**
+ * Play/pause decides on what the user sees. After a load error the player is idle but keeps
+ * playWhenReady, so "pause if playWhenReady" made the first tap on Play do nothing visible
+ * (found when a track change fell in a network drop, 2026-10-04). Idle always means play.
+ */
+internal fun toggleShouldPause(isPlaying: Boolean, playWhenReady: Boolean, idle: Boolean): Boolean =
+    !idle && (isPlaying || playWhenReady)

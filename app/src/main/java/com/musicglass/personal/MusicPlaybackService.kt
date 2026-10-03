@@ -377,7 +377,7 @@ class MusicPlaybackService : MediaSessionService() {
             val player=session?.player?:return result
             if(player.mediaItemCount==0) return result
             when(intent.getStringExtra("command")) {
-                "toggle"->if(player.isPlaying || player.playWhenReady) player.pause() else {if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
+                "toggle"->if(toggleShouldPause(player.isPlaying,player.playWhenReady,player.playbackState==Player.STATE_IDLE)) player.pause() else {if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
                 "previous"->{player.seekToPreviousMediaItem();if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
                 "next"->{player.seekToNextMediaItem();if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
             }
