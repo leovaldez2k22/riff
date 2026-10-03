@@ -166,6 +166,14 @@ These change what gets built. My recommendation is listed first.
 
 **Done when:** the next unexpected stop, if one happens, comes with its cause recorded. This step doesn't promise a fix.
 
+### W1 findings (2026-10-03, on device)
+
+- **Current SABR song streams don't use the cipher at all.** Crashing the solver during SABR playback had no effect on the music. QuickJS runs for live radio (HLS n-challenge), fallback clients that return ciphered URLs, and prewarm. That is where the stress-test crash happened.
+- **Likely cause of F5 (unexplained stop):** the new exit-reason log showed an earlier Riff process killed for `low_memory` at importance 125 (foreground service). That points to memory pressure, not a bug in the stop path. Moving QuickJS's heap (up to ~200 MB native) into `:solver`, which is released after 10 idle minutes, should help. Watch the `process_exit` lines.
+- **W4 dependency:** R8 must keep `InnerTubeExtractor.cipherService` (the field `CipherBridgeInstaller` replaces): `-keepclassmembers class com.metrolist.innertubex.extraction.InnerTubeExtractor { *** cipherService; }`. `CipherBridgeTest` fails the build if it disappears, but only on the unshrunk unit-test classpath, so check the shrunk build on device.
+- **Toolchain:** unit tests that load innertubex classes need JDK 21 (`.toolchain/jdk-21.0.12.1+1`); JDK 20 fails with `UnsupportedClassVersionError`.
+- **Media3 retries hide single load errors:** one injected SABR failure is retried silently by ExoPlayer. Recovery runs only after 4 consecutive failures (first attempt + 3 retries).
+
 ### W1.5 Crash-aware restore (small, after W1.2)
 When the main process restarts after an abnormal exit (W1.4 detects `REASON_CRASH_NATIVE` / `REASON_CRASH` from the previous run), restore the snapshot **paused**, as today, and show a one-time, dismissible notice in the mini player: "Playback stopped unexpectedly. Tap play to continue." Never auto-resume audio, because the user may no longer expect sound.
 
@@ -446,11 +454,11 @@ Run on the phone, release build, installed **over** the previous release:
 | Workstream | Branch | Status | Release |
 |---|---|---|---|
 | W0 safety net | — | ◐ 2026-10-03: W0.1 done (certificate recorded, backups in Google Drive + Gmail with a restore drill, password encrypted with DPAPI, release script can't create a key silently and checks the certificate). W0.2 done: private repository https://github.com/leovaldez2k20/riff, local `master` pushes to `main` (`push.default=upstream`), history scanned for secrets before the first push. Open: W0.3 | — |
-| W1.1 crash reproduction and upstream report | `fix/w1-playback` | ☐ | rc17 |
-| W1.2 `:solver` process | `fix/w1-playback` | ☐ | rc17 |
-| W1.3 attestation recovery proven | `fix/w1-playback` | ☐ | rc17 |
-| W1.4 stop diagnostics | `fix/w1-playback` | ☐ | rc17 |
-| W1.5 crash-aware restore | `fix/w1-playback` | ☐ | rc17 |
+| W1.1 crash reproduction and upstream report | `fix/w1-playback` | ☐ upstream issues not filed yet (needs the user's OK to post publicly) | rc17 |
+| W1.2 `:solver` process | `fix/w1-playback` | ☑ 2026-10-03 (`8b2838e`, `cb28ae7`). Java bridge instead of a fork: the fork needs Gradle 9.7/AGP 9.3. Device test 3/3 pass | rc17 |
+| W1.3 attestation recovery proven | `fix/w1-playback` | ☑ 2026-10-03 (`d1c18db`): unit tests; on device, 4 injected failures → `sabr_attestation_refresh` → playback continued | rc17 |
+| W1.4 stop diagnostics | `fix/w1-playback` | ◐ 2026-10-03 (`152cf62`): exit reasons and stop context logged; Settings export waits for the other agent's SettingsScreen work | rc17 |
+| W1.5 crash-aware restore | `fix/w1-playback` | ☐ waits for the other agent's NowPlaying work | rc17 |
 | W2 main-thread stalls | `fix/w2-stalls` | ☐ | rc17 |
 | W7.1–W7.3 test seam, Compose tests, screenshots | `test/w7-ui` | ☐ | rc17 |
 | W3 instant Home | `feat/w3-instant-home` | ☐ | rc18 |
