@@ -48,7 +48,8 @@ android {
             // The target phones are 64-bit ARM; x86/x86_64 (emulators) and armeabi-v7a added ~52 MB of
             // native code. Riff Lite (below) keeps armeabi-v7a for older phones; debug keeps every ABI.
             ndk { abiFilters += listOf("arm64-v8a") }
-            signingConfig = signingConfigs.getByName("localRelease")
+            // Unsigned when the key's environment variables are absent (CI never has the key).
+            signingConfig = signingConfigs.getByName("localRelease").takeIf { it.storeFile != null }
         }
         // Release code and signing key, debuggable: installs over a release install without
         // wiping data, and allows run-as backups, heap dumps and StrictMode (src/stress).

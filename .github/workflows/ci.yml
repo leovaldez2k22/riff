@@ -1,0 +1,64 @@
+# Riff CI (plan W7.6): unit and Robolectric UI tests, release lint, an unsigned shrunk release build
+# and the APK size budget. The signing key never comes here: release builds are unsigned in CI.
+# Device tests (instrumentation on the phone) stay local: scripts/verify-device.ps1, scripts/stress.
+name: CI
+
+on:
+  push:
+    branches: [main, 'fix/**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      # innertubex classes need Java 21 (class file version 65) in unit tests.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-37.0 build-tools;36.0.0 platform-tools'
+
+      # No Unix gradlew in the repository yet (plan W8): use the same Gradle as .toolchain/gradle-8.13.
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      # Robolectric downloads android-all jars into the Maven local repository.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ hashFiles('app/build.gradle.kts') }}
+          restore-keys: robolectric-
+
+      - name: Unit and UI tests, lint, release build
+        run: gradle :app:testDebugUnitTest :app:lintRelease :app:assembleRelease --console=plain
+
+      - name: APK size budget (40 MiB)
+        run: |
+          apk=$(ls app/build/outputs/apk/release/*.apk)
+          bytes=$(stat -c %s "$apk")
+          echo "$(basename "$apk"): $((bytes / 1024 / 1024)) MiB"
+          unzip -l "$apk" | awk 'NR>3 {n=split($4,p,"/"); k=(p[1]=="lib"?p[1]"/"p[2]:p[1]); if(p[1]~/\.dex$/)k="dex"; s[k]+=$1} END {for(k in s) if(s[k]>100000) printf "%8.1f MB %s\n", s[k]/1e6, k}' | sort -rn
+          if [ "$bytes" -gt $((40 * 1024 * 1024)) ]; then echo "::error::Release APK is over the 40 MiB budget"; exit 1; fi
+
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          retention-days: 14
