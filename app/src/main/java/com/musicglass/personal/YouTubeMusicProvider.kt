@@ -375,7 +375,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         } catch(e:Exception) {
             // A 401 on a signed-in request means the session likely expired: confirm it and say so.
             if(signedIn && isAuthFailure(e)) {checkSessionIfDue(forced=true);return Result.failure(IllegalStateException(SESSION_EXPIRED_MESSAGE))}
-            Result.failure(IllegalStateException(e.message?.takeIf { !it.contains("http",true) } ?: "YouTube Music could not load this content"))
+            Result.failure(IllegalStateException(providerErrorMessage(e)))
         }
     }
     suspend fun discover(query: String, token: String? = null, filter: String = "All"): Result<CatalogPage> = providerResult {
@@ -1106,4 +1106,19 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         is JsonArray -> node.firstNotNullOfOrNull(::findContinuation)
         else -> null
     }
+}
+
+internal const val OFFLINE_MESSAGE = "You're offline. Check your connection and try again."
+internal const val TIMEOUT_MESSAGE = "YouTube Music took too long to answer. Try again."
+
+/**
+ * What a failed provider request tells the user. Network failures get plain words: the raw
+ * message ("Unable to resolve host \"music.youtube.com\"...") showed on Podcasts when offline.
+ */
+internal fun providerErrorMessage(e: Throwable): String {
+    val chain = generateSequence(e) { it.cause }.take(8).toList()
+    if (chain.any { it is java.net.UnknownHostException || it is java.net.ConnectException ||
+            it is java.net.NoRouteToHostException }) return OFFLINE_MESSAGE
+    if (chain.any { it is java.net.SocketTimeoutException || it.javaClass.simpleName.contains("Timeout") }) return TIMEOUT_MESSAGE
+    return e.message?.takeIf { !it.contains("http",true) && !it.contains("host",true) } ?: "YouTube Music could not load this content"
 }
