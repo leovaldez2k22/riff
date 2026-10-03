@@ -46,8 +46,10 @@ internal fun SessionExpiredBanner(onSignIn: () -> Unit, onDismiss: () -> Unit, m
         verticalAlignment = Alignment.CenterVertically) {
         Text("Session expired", color = White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        TextButton(onClick = { uiHaptic(); onSignIn() }, modifier = Modifier.testTag("session_sign_in_again")) {
-            Text("Sign in again", color = Pink, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        // Weighted (not filling) so the fixed-size dismiss button is measured first and keeps its 48 dp
+        // touch target at large font scales; the label ellipsizes instead (ComponentUiTest).
+        TextButton(onClick = { uiHaptic(); onSignIn() }, modifier = Modifier.weight(1f, fill = false).testTag("session_sign_in_again")) {
+            Text("Sign in again", color = Pink, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         IconButton(onClick = { uiHaptic(); onDismiss() }) {
             Icon(Icons.Rounded.Close, contentDescription = "Dismiss", tint = Muted)

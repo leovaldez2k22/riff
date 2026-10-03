@@ -82,6 +82,18 @@ android {
         compose = true
         buildConfig = true
     }
+    // Compose UI tests run on the JVM with Robolectric (plan W7.2).
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            // Robolectric sets a FileDescriptor's fd through jdk.internal.access.SharedSecrets when it
+            // creates shared memory; JDK 17+ blocks that without these.
+            all {
+                it.jvmArgs("--add-opens=java.base/java.io=ALL-UNNAMED",
+                    "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
+            }
+        }
+    }
 }
 
 kotlin {
@@ -111,4 +123,8 @@ dependencies {
     implementation("com.google.mlkit:translate:17.0.3")
     implementation("com.google.mlkit:language-id:17.0.6")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.17")
+    testImplementation(platform(libs.compose.bom))
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
