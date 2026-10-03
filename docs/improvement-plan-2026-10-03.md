@@ -459,7 +459,7 @@ Run on the phone, release build, installed **over** the previous release:
 | W1.3 attestation recovery proven | `fix/w1-playback` | ☑ 2026-10-03 (`d1c18db`): unit tests; on device, 4 injected failures → `sabr_attestation_refresh` → playback continued | rc17 |
 | W1.4 stop diagnostics | `fix/w1-playback` | ◐ 2026-10-03 (`152cf62`): exit reasons and stop context logged; Settings export waits for the other agent's SettingsScreen work | rc17 |
 | W1.5 crash-aware restore | `fix/w1-playback` | ☐ waits for the other agent's NowPlaying work | rc17 |
-| W2 main-thread stalls | `fix/w2-stalls` | ☐ | rc17 |
+| W2 main-thread stalls | `fix/w2-stalls` | ◐ 2026-10-03 (`f17b8df`): W2.1–W2.4 code and tests done; W2.3 widened to the queue builder (`catalogItem` stat per item, 2,000 per queue). Waiting on: device measurement (rotation churn, 2,000-track queue) and the W2.5 StrictMode count in run-monkey.ps1 | rc17 |
 | W7.1–W7.3 test seam, Compose tests, screenshots | `test/w7-ui` | ☐ | rc17 |
 | W3 instant Home | `feat/w3-instant-home` | ☐ | rc18 |
 | W4 APK size | `build/w4-size` | ☐ | rc18 |
