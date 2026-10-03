@@ -16,10 +16,10 @@ internal class AccessibilitySettings(context: Context) {
     fun updateHapticFeedback(enabled:Boolean) {hapticFeedback=enabled;prefs.edit().putBoolean("haptic_feedback",enabled).apply()}
 
     var solidControls by mutableStateOf(
-        runCatching { prefs.getBoolean("solid_controls", false) }.getOrDefault(false))
+        runCatching { prefs.getBoolean("solid_controls", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE))
         private set
     var reduceMotion by mutableStateOf(
-        runCatching { prefs.getBoolean("reduce_motion", false) }.getOrDefault(false))
+        runCatching { prefs.getBoolean("reduce_motion", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE))
         private set
 
     var frostedGlass by mutableStateOf(prefs.getBoolean("frosted_glass",false))

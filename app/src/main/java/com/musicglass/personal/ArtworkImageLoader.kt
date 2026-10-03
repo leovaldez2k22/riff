@@ -6,6 +6,8 @@ import android.util.Log
 import coil3.EventListener
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
+import coil3.memory.MemoryCache
+import coil3.request.allowRgb565
 import coil3.map.Mapper
 import coil3.request.Options
 import okhttp3.OkHttpClient
@@ -38,6 +40,12 @@ internal fun configureArtworkLoader(context: Context) {
                         } else response
                     }.build()
                 }))
+            }
+            .apply {
+                // Lite: smaller in-memory cache and 16-bit bitmaps for opaque covers on low-RAM phones.
+                if (BuildConfig.LITE) memoryCache {
+                    MemoryCache.Builder().maxSizePercent(context.applicationContext, .12).build()
+                }.allowRgb565(true)
             }
             .eventListenerFactory {
                 object : EventListener() {

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Low-end phones cap the normal heap near 128 MB; the YouTube player script alone needs ~64 MB. -->
+    <application android:largeHeap="true" tools:replace="android:largeHeap" />
+</manifest>

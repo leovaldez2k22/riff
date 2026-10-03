@@ -17,6 +17,7 @@ android {
         targetSdk = 36
         versionCode = 17
         versionName = "0.9.0-rc16"
+        buildConfigField("boolean", "LITE", "false")
     }
 
     if (providers.gradleProperty("releaseSmoke").orNull == "true") {
@@ -48,6 +49,16 @@ android {
         create("stress") {
             initWith(getByName("release"))
             isDebuggable = true
+            matchingFallbacks += "release"
+        }
+        // Separate app for low-RAM phones: own package id, so it installs beside Riff, never over it.
+        // Glass/blur off by default, half-size artwork, smaller image cache, large heap (src/lite).
+        create("lite") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".lite"
+            versionNameSuffix = "-lite"
+            buildConfigField("boolean", "LITE", "true")
+            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
             matchingFallbacks += "release"
         }
     }

@@ -40,8 +40,11 @@ internal fun providerThumbnail(node: JsonElement?): String? {
     return candidates(node).maxByOrNull(ArtworkCandidate::pixels)?.url
 }
 
+/** Lite builds target low-RAM phones: half-size covers decode to a quarter of the bitmap memory. */
+internal val artworkTargetPx = if (BuildConfig.LITE) 512 else 1024
+
 /** Upgrade tiny CDN renditions before Coil chooses cache keys, including previously saved URLs. */
-internal fun highQualityArtworkUrl(url: String): String {
+internal fun highQualityArtworkUrl(url: String, target: Int = artworkTargetPx): String {
     val uri = runCatching { URI(url) }.getOrNull() ?: return url
     if (uri.scheme != "https" || uri.userInfo != null) return url
     val host = uri.host?.lowercase() ?: return url
@@ -52,19 +55,20 @@ internal fun highQualityArtworkUrl(url: String): String {
         if (match != null) {
             val width = match.groupValues[1].toIntOrNull() ?: return url
             val height = match.groupValues[2].toIntOrNull() ?: return url
-            return if (width < 1024 || height < 1024)
-                url.replaceRange(match.range, "=w${maxOf(width, 1024)}-h${maxOf(height, 1024)}") else url
+            return if (width < target || height < target)
+                url.replaceRange(match.range, "=w${maxOf(width, target)}-h${maxOf(height, target)}") else url
         }
         val square = Regex("=s(\\d+)")
         val squareMatch = square.find(url) ?: return url
         val size = squareMatch.groupValues[1].toIntOrNull() ?: return url
-        return if (size < 1024) url.replaceRange(squareMatch.range, "=s1024") else url
+        return if (size < target) url.replaceRange(squareMatch.range, "=s$target") else url
     }
     if (host == "i.ytimg.com") {
         val path = uri.path
         val thumbnail = Regex("/(vi|vi_webp)/([A-Za-z0-9_-]{11})/(default|mqdefault|hqdefault|sddefault|maxresdefault)\\.(jpg|webp)")
         val match = thumbnail.matchEntire(path) ?: return url
-        return "https://i.ytimg.com/${match.groupValues[1]}/${match.groupValues[2]}/maxresdefault.${match.groupValues[4]}"
+        val rendition = if (target < 1024) "hqdefault" else "maxresdefault"
+        return "https://i.ytimg.com/${match.groupValues[1]}/${match.groupValues[2]}/$rendition.${match.groupValues[4]}"
     }
     return url
 }
