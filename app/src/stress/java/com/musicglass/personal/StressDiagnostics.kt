@@ -1,7 +1,11 @@
 package com.musicglass.personal
 
+import android.content.BroadcastReceiver
 import android.content.ContentProvider
 import android.content.ContentValues
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.database.Cursor
 import android.net.Uri
 import android.os.StrictMode
@@ -25,6 +29,13 @@ class StressDiagnostics : ContentProvider() {
                 .penaltyLog()
                 .build()
         )
+        // adb shell am broadcast -a com.musicglass.personal.stress.FAIL_SABR --ei count 1
+        // makes the next song stream fail with ATTESTATION_REQUIRED (scenarios.py sabr_attestation).
+        checkNotNull(context).registerReceiver(object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                SabrFaultInjection.failNextAttestations(intent.getIntExtra("count", 1))
+            }
+        }, IntentFilter("com.musicglass.personal.stress.FAIL_SABR"), Context.RECEIVER_EXPORTED)
         return true
     }
 

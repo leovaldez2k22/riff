@@ -12,6 +12,7 @@ import com.metrolist.innertubex.sabr.SabrBootstrap
 import com.metrolist.innertubex.sabr.ExperimentalSabrApi
 import com.metrolist.innertubex.sabr.SabrResponseDiagnostics
 import com.metrolist.innertubex.sabr.SabrFailureKind
+import com.metrolist.innertubex.sabr.SabrProtocolException
 import com.metrolist.innertubex.sabr.findSabrProtocolException
 import io.ktor.client.HttpClient
 import java.io.IOException
@@ -114,6 +115,8 @@ private class SabrAudioDataSource(
         producer = streamScope.launch {
             try {
                 var emittedBytes = 0L
+                if (!video && SabrFaultInjection.consume())
+                    throw SabrProtocolException("Injected attestation failure", SabrFailureKind.ATTESTATION_REQUIRED)
                 val flow=if(video) SabrVideoStream(http,bootstrap,onResponse=onResponse).chunks() else SabrAudioStream(http,bootstrap,onResponse=onResponse).chunks()
                 flow.collect { chunk ->
                     val chunkStart = emittedBytes

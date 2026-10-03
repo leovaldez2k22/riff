@@ -26,8 +26,6 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.metrolist.innertubex.sabr.SabrBootstrap
-import com.metrolist.innertubex.sabr.SabrRecoveryAction
-import com.metrolist.innertubex.sabr.sabrRecoveryAction
 import androidx.media3.exoplayer.source.MediaSource
 import kotlinx.coroutines.*
 import java.util.UUID
@@ -421,11 +419,8 @@ class MusicPlaybackService : MediaSessionService() {
      * change; without this, every later attempt in the process failed until the app restarted.
      */
     private fun recoverSabr(player: Player, error: androidx.media3.common.PlaybackException) {
-        val failure=generateSequence(error as Throwable?) {it.cause}.filterIsInstance<SabrPlaybackFailure>().firstOrNull()?:return
         val item=player.currentMediaItem?:return
-        if(item.mediaMetadata.extras?.getBoolean("live")==true) return
-        val videoId=item.mediaId.takeIf {it.startsWith("yt:")}?.removePrefix("yt:")?:return
-        if(sabrRecoveryAction(failure.kind,videoId in attestationRefreshed)!=SabrRecoveryAction.REFRESH_ATTESTATION) return
+        val videoId=sabrAttestationRetryId(error,item.mediaId,item.mediaMetadata.extras?.getBoolean("live")==true,attestationRefreshed)?:return
         attestationRefreshed+=videoId
         events.append("sabr_attestation_refresh")
         val index=player.currentMediaItemIndex;val position=player.currentPosition;val generation=queueGeneration
