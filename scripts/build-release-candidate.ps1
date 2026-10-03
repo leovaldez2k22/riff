@@ -26,7 +26,6 @@ if (-not $versionLine) { throw 'Cannot determine versionName from app/build.grad
 $versionName = $versionLine.Matches[0].Groups[1].Value
 $releaseApk = Join-Path $releaseDir "riff-$versionName.apk"
 $mapping = Join-Path $project 'app\build\outputs\mapping\release\mapping.txt'
-elease\mapping.txt'
 $releaseMapping = Join-Path $releaseDir "riff-$versionName-mapping.txt"
 # Size budget (plan W4): the shrunk arm64 APK is ~26 MiB. A jump past this usually means R8 or
 # the ABI filter was switched off, or a large dependency was added.
