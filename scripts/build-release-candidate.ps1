@@ -97,14 +97,22 @@ $commit = (& git -C $project rev-parse --short HEAD).Trim()
 Push-Location $project
 try {
     if (-not $SkipClean) {
+        $ErrorActionPreference = 'Continue'
         & $gradle ':app:clean' '--console=plain' '--quiet'
-        if ($LASTEXITCODE -ne 0) { throw 'Clean build preparation failed.' }
+        $gradleExit = $LASTEXITCODE
+        $ErrorActionPreference = 'Stop'
+        if ($gradleExit -ne 0) { throw 'Clean build preparation failed.' }
     }
     $tasks = if ($SkipChecks) { @(':app:assembleRelease') } else {
         @(':app:testDebugUnitTest', ':app:lintRelease', ':app:assembleRelease')
     }
+    # Gradle prints warnings (R8 on Kotlin metadata, for example) to stderr. With 'Stop', Windows
+    # PowerShell turns them into errors whenever output is captured; the exit code is what counts.
+    $ErrorActionPreference = 'Continue'
     & $gradle @tasks '--console=plain' '--quiet'
-    if ($LASTEXITCODE -ne 0) { throw 'Release build or checks failed.' }
+    $gradleExit = $LASTEXITCODE
+    $ErrorActionPreference = 'Stop'
+    if ($gradleExit -ne 0) { throw 'Release build or checks failed.' }
     if (-not (Test-Path -LiteralPath $apk)) { throw "Release APK missing: $apk" }
     $certificates = & $apksigner verify --verbose --print-certs $apk
     if ($LASTEXITCODE -ne 0) { throw 'APK signature verification failed.' }
