@@ -160,7 +160,7 @@ class MusicPlaybackService : MediaSessionService() {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     events.append("playback_state=$playbackState")
                     offline.playbackBusy=playbackState==Player.STATE_BUFFERING || this@apply.isPlaying
-                    if(playbackState==Player.STATE_READY) replenishQueue(this@apply)
+                    if(playbackState==Player.STATE_READY) {replenishQueue(this@apply);endNetworkRecovery()}
                 }
                 override fun onIsPlayingChanged(isPlaying:Boolean) {offline.playbackBusy=isPlaying || this@apply.playbackState==Player.STATE_BUFFERING;lastListenTick=android.os.SystemClock.elapsedRealtime()}
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -179,6 +179,9 @@ class MusicPlaybackService : MediaSessionService() {
                     if(error.errorCode==androidx.media3.common.PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS)
                         retryLiveProfile(this@apply)
                     recoverSabr(this@apply,error)
+                    if(NetworkRecovery.isNetworkFailure(error.errorCodeName,generateSequence(error as Throwable?) {it.cause}.take(8).toList()))
+                        startNetworkRecovery(this@apply)
+                    else networkFailure=false  // other errors are never retried by this path
                 }
             })
         }
@@ -535,7 +538,40 @@ class MusicPlaybackService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
+    // Network recovery (2026-10-04): resume by itself after a playback error caused by a lost connection.
+    private var networkFailure=false
+    private var networkRetryAttempts=0
+    private var networkRetryJob:Job?=null
+    private var networkCallback:android.net.ConnectivityManager.NetworkCallback?=null
+    private fun startNetworkRecovery(player:Player) {
+        networkFailure=true
+        events.append("network_failure attempts=$networkRetryAttempts")
+        networkRetryJob?.cancel()
+        networkRetryJob=serviceScope.launch {for(wait in NetworkRecovery.retryDelaysMs) {delay(wait);tryNetworkRetry(player,"timer")}}
+        if(networkCallback==null) runCatching {
+            val callback=object:android.net.ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network:android.net.Network) {serviceScope.launch {delay(1500);tryNetworkRetry(player,"network")}}
+            }
+            getSystemService(android.net.ConnectivityManager::class.java).registerDefaultNetworkCallback(callback)
+            networkCallback=callback
+        }
+    }
+    private fun tryNetworkRetry(player:Player,trigger:String) {
+        if(!NetworkRecovery.shouldRetry(networkFailure,player.playWhenReady,player.playerError!=null,networkRetryAttempts)) return
+        if(getSystemService(android.net.ConnectivityManager::class.java).activeNetwork==null) return
+        networkRetryAttempts++
+        events.append("network_retry attempt=$networkRetryAttempts trigger=$trigger")
+        player.prepare()
+    }
+    private fun endNetworkRecovery() {
+        if(networkFailure) events.append("network_recovered attempts=$networkRetryAttempts")
+        networkFailure=false;networkRetryAttempts=0;networkRetryJob?.cancel();networkRetryJob=null
+        networkCallback?.let {callback-> runCatching {getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(callback)}}
+        networkCallback=null
+    }
+
     override fun onDestroy() {
+        endNetworkRecovery()
         boostPrefs.unregisterOnSharedPreferenceChangeListener(boostListener)
         sleepTimer.close()
         val player=session?.player
