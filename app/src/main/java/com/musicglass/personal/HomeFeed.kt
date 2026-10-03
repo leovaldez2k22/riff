@@ -132,7 +132,8 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
             }
         }
         if(mood.isNotBlank() && currentPhoto!=null) item {Text("Photo credits",color=Muted,fontSize=10.sp,modifier=Modifier.padding(horizontal=20.dp).clickable {photoCredits=true})}
-        if (loading) item { Text("Loading YouTube Music\u2026", color = Muted, modifier = Modifier.padding(horizontal = 20.dp)) }
+        // Placeholder shelves sized like the real ones (W3); Home still waits for the fresh feed (rc17).
+        if (loading && shelves.isEmpty()) item { HomeFeedSkeleton(Modifier.padding(top = 8.dp)) }
         error?.let { message -> item {
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(message, color = Muted)

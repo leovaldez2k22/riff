@@ -2,13 +2,13 @@
 
 Newest first. Release candidates before 0.9.0-rc16 were recorded only in the README; their text is kept here unchanged. Detailed implementation and verification records are in `docs/`.
 
-## Unreleased (improvement plan W1–W8, not yet merged into main)
+## Unreleased (improvement plan W1–W8 on top of 0.9.0-rc17)
 
 Work from [the 2026-10-03 improvement plan](docs/improvement-plan-2026-10-03.md), on branches `fix/w1-playback` through `fix/w8-hygiene`. Each branch builds on the previous one.
 
 - **Playback reliability (W1):** QuickJS challenge solving runs in a separate `:solver` process, so a native crash no longer stops playback. SABR attestation recovery is tested and was verified on a device. The app records why the playback service stops.
 - **Smoother rotation, dark mode and font changes (W2):** no main-thread disk reads during recreation, and MainActivity handles configuration changes in place (frames skipped in the churn test: 703 → 68).
-- **Instant Home groundwork (W3):** the last Home feed is saved per account, and there are skeleton shelves. Not yet visible: the Home screen hookup is pending.
+- **Home loading (W3):** skeleton shelves, sized like the real ones, replace the "Loading YouTube Music…" text while Home waits for the fresh feed. Home still never shows an older saved feed first (rc17 behaviour, kept by choice).
 - **Smaller app (W4):** 128.5 → 26.1 MiB (R8, resource shrinking, arm64-only release).
 - **Session expiry (W5):** detects when YouTube Music no longer accepts the sign-in, shows "Session expired · Sign in again", and gives a clear message where account features fail.
 - **Sleep timer (W6):** keeps its deadline when Android kills the app.
