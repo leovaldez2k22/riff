@@ -103,9 +103,10 @@ try {
         $ErrorActionPreference = 'Stop'
         if ($gradleExit -ne 0) { throw 'Clean build preparation failed.' }
     }
-    $tasks = if ($SkipChecks) { @(':app:assembleRelease') } else {
-        @(':app:testDebugUnitTest', ':app:lintRelease', ':app:assembleRelease')
-    }
+    # @(...) keeps a one-task list an array; a bare string would be splatted character by character.
+    $tasks = @(if ($SkipChecks) { ':app:assembleRelease' } else {
+        ':app:testDebugUnitTest', ':app:lintRelease', ':app:assembleRelease'
+    })
     # Gradle prints warnings (R8 on Kotlin metadata, for example) to stderr. With 'Stop', Windows
     # PowerShell turns them into errors whenever output is captured; the exit code is what counts.
     $ErrorActionPreference = 'Continue'
