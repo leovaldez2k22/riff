@@ -404,7 +404,10 @@ def background_doze():
     launch()
     return {'deepIdleState': idle, 'states': samples, 'advancedMs': (p1 - p0) if p0 is not None and p1 is not None else None,
             'wallMs': int(dt),
-            'checks': {'appAlive': bool(app_pid()), 'kepPlayingThroughDoze': p0 is not None and p1 is not None and p1 - p0 > dt * 0.8}}
+            # Position resets at each track change, so a queue that moves on can 'go backwards':
+            # count it as playing if every 30 s sample was PLAYING, or the position kept up.
+            'checks': {'appAlive': bool(app_pid()), 'kepPlayingThroughDoze': bool(samples) and all(x == 'PLAYING' for x in samples)
+                       or (p0 is not None and p1 is not None and p1 - p0 > dt * 0.8)}}
 
 
 def playback_soak(minutes=75):
