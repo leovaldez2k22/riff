@@ -45,4 +45,26 @@ class ServiceStopDiagnosticsTest {
         assertFalse(isUnexpectedStop(playWhenReady = true, taskRemoved = true))
         assertFalse(isUnexpectedStop(playWhenReady = false, taskRemoved = false))
     }
+
+    @Test fun crashNoticeIsForRecentMainProcessCrashesOnly() {
+        val now = 10 * CRASH_NOTICE_WINDOW_MS
+        val pkg = "com.musicglass.personal"
+        val recentCrash = exit(now - 60_000, ApplicationExitInfo.REASON_CRASH_NATIVE)
+        assertEquals(recentCrash, crashNoticeExit(listOf(exit(now - 1000), recentCrash), pkg, now))
+        // The solver crashing never stops the music.
+        assertNull(crashNoticeExit(listOf(exit(now - 1000, ApplicationExitInfo.REASON_CRASH_NATIVE, "$pkg:solver")), pkg, now))
+        // A crash from days ago, read on the first start after an update, is old news.
+        assertNull(crashNoticeExit(listOf(exit(now - CRASH_NOTICE_WINDOW_MS - 1, ApplicationExitInfo.REASON_CRASH)), pkg, now))
+        assertNull(crashNoticeExit(listOf(exit(now - 1000, ApplicationExitInfo.REASON_LOW_MEMORY)), pkg, now))
+    }
+
+    @Test fun diagnosticsReportHasNoUrlsOrTokens() {
+        val lines = listOf("1 service_create", "2 http_rejected code=403 host=rr1---sn.googlevideo.com kind=segment",
+            "3 oops https://rr1---sn.googlevideo.com/videoplayback?sig=abc&pot=xyz", "4 leaked pot=MnQx sig=AB12 SAPISID=zz __Secure-3PSIDTS=qq")
+        val report = playbackDiagnosticsReport(lines, "0.9.0-rc18", 36, "vivo I2217")
+        assertTrue(report, report.startsWith("Riff 0.9.0-rc18, Android SDK 36, vivo I2217\n4 playback events"))
+        for (secret in listOf("videoplayback", "abc", "xyz", "MnQx", "AB12", "=zz", "=qq")) assertFalse(secret, report.contains(secret))
+        assertTrue(report.contains("pot=<redacted>")); assertTrue(report.contains("1 service_create"))
+        assertEquals(EVENT_LOG_LINES + 2, playbackDiagnosticsReport(List(500) { "$it e" }, "v", 36, "d").lines().size)
+    }
 }

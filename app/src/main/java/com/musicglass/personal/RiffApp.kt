@@ -97,6 +97,8 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -122,6 +124,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collect
 
 internal val Ink = Color.Black
@@ -586,6 +590,11 @@ private fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
     onElementBounds: (String, Rect) -> Unit = { _, _ -> }) {
     val state = playback.state
     val largeText = LocalDensity.current.fontScale >= 1.6f
+    val context = LocalContext.current
+    // W1.5: after a crash the queue comes back paused; say why once, until the user plays.
+    LaunchedEffect(Unit) { withContext(Dispatchers.IO) { CrashNotice.load(context) } }
+    LaunchedEffect(state.playing) { if (state.playing) withContext(Dispatchers.IO) { CrashNotice.clear(context) } }
+    val crashNotice = CrashNotice.pending
     Row(verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         AsyncImage(model = state.artworkUrl
@@ -601,11 +610,21 @@ private fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.onGloballyPositioned {
                     onElementBounds("title", it.unclippedBoundsInRoot()) })
-            if (LocalDensity.current.fontScale < 1.8f)
+            if (crashNotice)
+                Text("Playback stopped unexpectedly. Tap play to continue.", color = Pink,
+                    fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.testTag("mini_crash_notice")
+                        .semantics { liveRegion = LiveRegionMode.Polite })
+            else if (LocalDensity.current.fontScale < 1.8f)
                 Text(playerArtistLabel(state.artist), color = Muted, fontSize = 11.sp,
                     maxLines = 1, modifier = Modifier.onGloballyPositioned {
                         onElementBounds("artist", it.unclippedBoundsInRoot()) })
         }
+        if (crashNotice)
+            IconButton(onClick = hapticClick { CrashNotice.clear(context) },
+                modifier = Modifier.size(48.dp).testTag("mini_crash_notice_dismiss")) {
+                Icon(Icons.Rounded.Close, contentDescription = "Dismiss notice", tint = Muted)
+            }
         IconButton(onClick = hapticClick(playback::toggle),
             modifier = Modifier.size(48.dp).graphicsLayer { alpha = actionsAlpha }
                 .testTag("mini_play")) {

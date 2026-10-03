@@ -33,7 +33,9 @@ internal class PageMemoryCache(private val scope:CoroutineScope,private val sche
         val job=synchronized(this) {
             checkWindow();(values[key] as? T)?.let {return it}
             val generation=revision.value
-            flights[key]?:scope.async(start=CoroutineStart.LAZY) {
+            // A finished flight can still be listed for a moment after its waiter resumes (its
+            // completion handler may run later on another thread); a retry must not reuse a failure.
+            flights[key]?.takeUnless {it.isCompleted}?:scope.async(start=CoroutineStart.LAZY) {
                 val value=load()
                 ensureActive()
                 synchronized(this@PageMemoryCache) {if(revision.value!=generation) throw CancellationException("Cache window changed");put(key,value)}

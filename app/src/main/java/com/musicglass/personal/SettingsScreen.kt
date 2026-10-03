@@ -24,6 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable internal fun SettingsScreen(model:ShellModel,bottom:Dp,provider:YouTubeMusicProvider,
     collections:LocalCollections,onNotice:(String)->Unit) {
@@ -31,6 +33,7 @@ import coil3.compose.AsyncImage
     val context=androidx.compose.ui.platform.LocalContext.current
     val audio=remember(context) {AudioBoostSettings(context)}
     var boostLevel by remember(audio) {mutableFloatStateOf(audio.percent.toFloat())}
+    val scope=rememberCoroutineScope()
     ScreenList(model,bottom) {
         item {BackHeading("Back",model::back);ScreenTitle("Settings")}
         item {
@@ -96,6 +99,19 @@ import coil3.compose.AsyncImage
         item {SettingsSection("Library") {
             SettingsToggleRow("Save listening history",collections.historyEnabled,
                 hapticToggle(collections::updateHistoryPreference),Icons.Rounded.History,"settings_history")
+        }}
+        item {SettingsSection("About") {
+            SettingsLinkRow("Copy playback diagnostics",icon=Icons.Rounded.BugReport,tag="settings_copy_diagnostics") {
+                scope.launch {
+                    val report=withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        playbackDiagnosticsReport(PlaybackEventLog(context).recent(),BuildConfig.VERSION_NAME,
+                            android.os.Build.VERSION.SDK_INT,"${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+                    }
+                    context.getSystemService(android.content.ClipboardManager::class.java)
+                        .setPrimaryClip(android.content.ClipData.newPlainText("Riff playback diagnostics",report))
+                    onNotice("Playback diagnostics copied")
+                }
+            }
         }}
         item {Text("Riff \u00B7 ${BuildConfig.VERSION_NAME}",color=Muted,fontSize=12.sp,
             modifier=Modifier.fillMaxWidth().padding(vertical=20.dp),textAlign=androidx.compose.ui.text.style.TextAlign.Center)}

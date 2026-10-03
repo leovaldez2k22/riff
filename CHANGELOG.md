@@ -2,18 +2,26 @@
 
 Newest first. Release candidates before 0.9.0-rc16 were recorded only in the README; their text is kept here unchanged. Detailed implementation and verification records are in `docs/`.
 
-## Unreleased (improvement plan W1–W8 on top of 0.9.0-rc17)
+## 0.9.0-rc18
 
-Work from [the 2026-10-03 improvement plan](docs/improvement-plan-2026-10-03.md), on branches `fix/w1-playback` through `fix/w8-hygiene`. Each branch builds on the previous one.
+Work from [the 2026-10-03 improvement plan](docs/improvement-plan-2026-10-03.md), on top of rc17.
 
-- **Playback reliability (W1):** QuickJS challenge solving runs in a separate `:solver` process, so a native crash no longer stops playback. SABR attestation recovery is tested and was verified on a device. The app records why the playback service stops.
+- **Playback reliability (W1):** QuickJS challenge solving runs in a separate `:solver` process, so a native crash no longer stops playback (reported upstream as [quickjs-kt#244](https://github.com/dokar3/quickjs-kt/issues/244) and [innertubex#23](https://github.com/MetrolistGroup/innertubex/issues/23)). SABR attestation recovery is tested and was verified on a device. The app records why the playback service stops.
+- **Crash notice (W1.5):** after an app crash the queue is restored paused, as before, and the mini player says once "Playback stopped unexpectedly. Tap play to continue."
+- **Playback diagnostics (W1.4):** Settings → About → Copy playback diagnostics copies the last 200 playback events, with URLs and tokens removed.
 - **Smoother rotation, dark mode and font changes (W2):** no main-thread disk reads during recreation, and MainActivity handles configuration changes in place (frames skipped in the churn test: 703 → 68).
 - **Home loading (W3):** skeleton shelves, sized like the real ones, replace the "Loading YouTube Music…" text while Home waits for the fresh feed. Home still never shows an older saved feed first (rc17 behaviour, kept by choice).
-- **Smaller app (W4):** 128.5 → 26.1 MiB (R8, resource shrinking, arm64-only release).
-- **Session expiry (W5):** detects when YouTube Music no longer accepts the sign-in, shows "Session expired · Sign in again", and gives a clear message where account features fail.
+- **Smaller app (W4):** 128.5 → 26.1 MiB (R8, resource shrinking, arm64-only release). Riff Lite keeps 32-bit ARM.
+- **Session expiry (W5):** detects when YouTube Music no longer accepts the sign-in, shows "Session expired · Sign in again", and gives a clear message where account features fail. Google's rotating session cookies from successful responses are now saved, so the sign-in should last longer.
 - **Sleep timer (W6):** keeps its deadline when Android kills the app.
 - **Tests and CI (W7):** Robolectric Compose UI tests, GitHub Actions CI with an unsigned release build and a 40 MiB size budget.
 - **Build hygiene (W8):** removed the retired `:core:glass` module (tag `archive/core-glass`), added the Unix `gradlew`, and moved this history out of the README.
+
+## 0.9.0-rc17
+
+Volume booster (Settings → Audio, 100–300%), a player options menu that unfolds from the tapped button, Listen again songs merged into Speed dial, Home waiting for a fresh feed before showing personal cards, and the Riff Lite build.
+
+Details: [docs/app-revamp-rc17.md](docs/app-revamp-rc17.md)
 
 ## 0.9.0-rc16
 

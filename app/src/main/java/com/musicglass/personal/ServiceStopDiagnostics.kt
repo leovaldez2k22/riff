@@ -5,6 +5,9 @@ import android.app.ApplicationExitInfo
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.os.PowerManager
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 /** One past process death as reported by Android, reduced to fields that are safe to log. */
 internal data class ProcessExit(val timestamp: Long, val reason: Int, val status: Int, val importance: Int,
@@ -76,7 +79,43 @@ internal fun logNewProcessExits(context: Context, events: PlaybackEventLog): Pro
     if (fresh.isEmpty()) return null
     fresh.forEach { events.append(describeExit(it)) }
     prefs.edit().putLong(EXIT_SEEN, fresh.last().timestamp).apply()
+    val noticeWorthy = crashNoticeExit(fresh, context.packageName, System.currentTimeMillis())
+    if (noticeWorthy != null) { events.append("crash_notice_raised"); CrashNotice.raise(context) }
     return fresh.lastOrNull { isAbnormalExit(it.reason) }
+}
+
+/** How long after a crash the next start still mentions it. */
+internal const val CRASH_NOTICE_WINDOW_MS = 6 * 60 * 60 * 1000L
+
+/**
+ * The crash that the next start should mention (W1.5): an abnormal exit of the main process,
+ * where the player lives, and a recent one. A :solver crash never stops the music, and the
+ * first start after an update reads exits that may be days old.
+ */
+internal fun crashNoticeExit(exits: List<ProcessExit>, packageName: String, now: Long): ProcessExit? =
+    exits.lastOrNull { isAbnormalExit(it.reason) && it.processName == packageName && now - it.timestamp in 0..CRASH_NOTICE_WINDOW_MS }
+
+/**
+ * One-time "Playback stopped unexpectedly" line in the mini player. The restored queue is
+ * paused as always; this only explains why. Cleared when the user plays or dismisses it.
+ */
+internal object CrashNotice {
+    private const val KEY = "crash_notice_pending"
+    var pending by mutableStateOf(false)
+        private set
+    /** Reads the stored flag; call off the main thread. */
+    fun load(context: Context) {
+        if (context.getSharedPreferences(EXIT_PREFS, Context.MODE_PRIVATE).getBoolean(KEY, false)) pending = true
+    }
+    fun raise(context: Context) {
+        context.getSharedPreferences(EXIT_PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY, true).apply()
+        pending = true
+    }
+    fun clear(context: Context) {
+        if (!pending) return
+        pending = false
+        context.getSharedPreferences(EXIT_PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY, false).apply()
+    }
 }
 
 /** Power state at the moment the service is destroyed: what decides whether Android stopped us. */

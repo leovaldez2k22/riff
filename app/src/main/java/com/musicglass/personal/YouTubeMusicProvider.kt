@@ -176,6 +176,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
             if(i<=0) t else t.substring(0,i+1)+t.substring(i+1).map {"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[(Math.random()*36).toInt()]}.joinToString("")
         }
         innerTube.replaceSession(cookie=scrambled,visitorData=visitorData,dataSyncId=dataSyncId,authUser=authUser,useLoginForBrowse=true)
+        simulatedExpiry=true
         playbackEvents.append("session_simulated_expiry")
         checkSessionIfDue(forced=true)
     }
@@ -195,14 +196,31 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     private var lastSearchMs = 0L
     private val songsFilter = "EgWKAQIIAWoMEA4QChADEAQQCRAF"
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-    private val http = HttpClient(OriginalAudioEngine) {
+    private val http: HttpClient = HttpClient(OriginalAudioEngine) {
         install(ContentNegotiation) { json(json) }
         install(HttpTimeout) {
             connectTimeoutMillis = 12_000
             requestTimeoutMillis = 30_000
         }
+        install(cookieRotationPlugin(enabled = { signedIn && !simulatedExpiry }, persist = ::persistRotatedCookies))
     }
-    private val innerTube = InnerTube(http)
+    private val innerTube: InnerTube = InnerTube(http)
+    @Volatile private var simulatedExpiry = false
+    private val cookieLock = Any()
+    /** Writes rotated session cookies back to WebView's store and the live InnerTube session (W5). */
+    private fun persistRotatedCookies(host: String, cookies: List<Pair<String, String>>): Unit = synchronized(cookieLock) {
+        val manager = CookieManager.getInstance()
+        val before = manager.getCookie("https://music.youtube.com").orEmpty().split(';')
+            .associate { it.trim().substringBefore('=') to it.trim().substringAfter('=', "") }
+        val changed = cookies.filter { (name, header) -> before[name] != header.substringBefore(';').substringAfter('=').trim() }
+        if (changed.isEmpty()) return@synchronized
+        changed.forEach { (_, header) -> manager.setCookie("https://$host", header) }
+        manager.flush()
+        val current = manager.getCookie("https://music.youtube.com") ?: return@synchronized
+        if (signedIn && !simulatedExpiry) innerTube.replaceSession(cookie = current, visitorData = visitorData,
+            dataSyncId = dataSyncId, authUser = authUser, useLoginForBrowse = true)
+        playbackEvents.append("cookies_rotated names=${changed.joinToString(",") { it.first }}")
+    }
     private val configStore = RemotePlayerConfigStore(http, AppPlayerConfigRepository(context))
     private val configParser = YtConfigParserImpl(http, innerTube, configStore)
     private val streamTokens = AndroidStreamTokenProvider(context.applicationContext, http, onEvent = { playbackEvents.append(it) })
@@ -248,6 +266,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     }
 
     fun refreshAccount(): Boolean {
+        simulatedExpiry=false
         visitorData=sessionPrefs.getString("visitor",null);dataSyncId=sessionPrefs.getString("sync",null)
         authUser=sessionPrefs.getString("account","0").orEmpty()
         val cookies = CookieManager.getInstance().getCookie("https://music.youtube.com")

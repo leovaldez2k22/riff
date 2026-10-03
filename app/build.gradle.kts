@@ -9,19 +9,27 @@ plugins {
 android {
     namespace = "com.musicglass.personal"
     compileSdk = 37
-    testBuildType = if (providers.gradleProperty("releaseSmoke").orNull == "true") "release" else "debug"
+    // Device UI tests (W7.4) run against the stress build: -PriffTestBuildType=stress.
+    testBuildType = if (providers.gradleProperty("releaseSmoke").orNull == "true") "release"
+        else providers.gradleProperty("riffTestBuildType").orNull ?: "debug"
 
     defaultConfig {
         applicationId = "com.musicglass.personal"
         minSdk = 31
         targetSdk = 36
-        versionCode = 18
-        versionName = "0.9.0-rc17"
+        versionCode = 19
+        versionName = "0.9.0-rc18"
         buildConfigField("boolean", "LITE", "false")
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     if (providers.gradleProperty("releaseSmoke").orNull == "true") {
         sourceSets.getByName("release") {java.srcDir("src/verification/java");manifest.srcFile("src/verification/AndroidManifest.xml")}
+    }
+
+    // The device tests use the verification-only preview activity (not shipped in release or stress).
+    if (providers.gradleProperty("riffTestBuildType").orNull == "stress") {
+        sourceSets.maybeCreate("stress").java.srcDir("src/verification/java")
     }
 
     signingConfigs {
@@ -128,4 +136,8 @@ dependencies {
     testImplementation(platform(libs.compose.bom))
     testImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test:runner:1.5.0")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
 }
