@@ -10,7 +10,7 @@ internal fun chromeGlassEffect(width:Int,height:Int,density:Float,showMini:Boole
     intensity:Float=1f):RenderEffect? {
     if(width<=0 || height<=0) return null
     val shapes=chromeGlassShapes(width,height,density,showMini,compact,collapsed,bottomInset,categories)
-    if(Build.VERSION.SDK_INT>=33) return AgslChromeGlassEffect.create(shapes,density,frosted,intensity)
+    if(Build.VERSION.SDK_INT>=33) return AgslChromeGlassEffect.create(shapes,width,height,density,frosted,intensity)
     if(!frosted || intensity<=0f) return null
     val bitmap=Bitmap.createBitmap((width+3)/4,(height+3)/4,Bitmap.Config.ALPHA_8)
     val canvas=Canvas(bitmap).apply {scale(.25f,.25f)}

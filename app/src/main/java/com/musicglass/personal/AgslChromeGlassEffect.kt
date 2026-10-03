@@ -12,7 +12,7 @@ import androidx.compose.ui.geometry.Rect
 internal object AgslChromeGlassEffect {
     private val liquidShader by lazy {RuntimeShader(SHADER)}
     private val frostedShader by lazy {RuntimeShader(SHADER)}
-    fun create(shapes:List<Rect>,density:Float,frosted:Boolean,intensity:Float):RenderEffect {
+    fun create(shapes:List<Rect>,width:Int,height:Int,density:Float,frosted:Boolean,intensity:Float):RenderEffect {
         fun configure(shader:RuntimeShader, frost:Float) {
         listOf("nav","search","mini").forEachIndexed {index,name->
             val rect=shapes[index]
@@ -30,6 +30,7 @@ internal object AgslChromeGlassEffect {
         shader.setFloatUniform("categoryCount",visible.size.toFloat())
         shader.setFloatUniform("categoryBand",visible.minOfOrNull {it.top}?:-10000f,
             visible.maxOfOrNull {it.bottom}?:-10000f)
+        shader.setFloatUniform("viewport",width.toFloat(),height.toFloat())
         shader.setFloatUniform("bevel",14f*density)
         shader.setFloatUniform("refraction",3f*density*intensity)
         shader.setFloatUniform("frosted",frost)
@@ -59,6 +60,7 @@ private const val SHADER = """
     uniform float4 categoryRects[8];
     uniform float categoryCount;
     uniform float2 categoryBand;
+    uniform float2 viewport;
     uniform float bevel;
     uniform float refraction;
     uniform float frosted;
@@ -114,7 +116,8 @@ private const val SHADER = """
                 shapeDistance(p - float2(0.0, 1.0), shape));
         float2 normal = gradient / max(length(gradient), 0.001);
         float rim = 1.0 - smoothstep(0.0, activeBevel, max(-d, 0.0));
-        half4 sampled = frosted>0.5 ? base : backdrop.eval(p + normal * refraction * rim);
+        // Clamped: a shape running off-screen would otherwise refract in transparent black from outside the view.
+        half4 sampled = frosted>0.5 ? base : backdrop.eval(clamp(p + normal * refraction * rim, float2(0.5), viewport - float2(0.5)));
         float light = pow(max(dot(normal, normalize(float2(-0.7, -0.7))), 0.0), 2.0);
         float specular = rim * light * 0.26 * intensity;
         half3 rgb = clamp(sampled.rgb + half3(specular), half3(0.0), half3(1.0));

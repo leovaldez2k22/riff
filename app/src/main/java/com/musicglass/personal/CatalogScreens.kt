@@ -194,7 +194,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         }}
         if(title=="Podcasts") item {Row(Modifier.fillMaxWidth().fullBleed(20.dp).horizontalScroll(rememberScrollState()).padding(horizontal=20.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("For you","Tech","True crime","Politics","Science","History","Comedy","Business","Health","Education","Sports").forEach {g->
-                FilterChip(genre==g,{ uiHaptic(HapticCue.Selection); model.podcastGenre=g},label={Text(g)},modifier=Modifier.testTag("podcast_genre_${g.lowercase().replace(' ','_')}"))}
+                GlassCategoryChip(g,key="podcast:$g",selected=genre==g,tag="podcast_genre_${g.lowercase().replace(' ','_')}") {model.podcastGenre=g}}
         }}
 
         if(loading) item {Text("Loading\u2026",color=Muted)}
@@ -227,7 +227,8 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     ScreenList(model,bottom) {
         item {ScreenTitle("Library","Your YouTube Music collection")}
         item {Row(Modifier.fillMaxWidth().fullBleed(20.dp).horizontalScroll(rememberScrollState()).padding(horizontal=20.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            listOf("All","Songs","Favorites","Playlists","Albums","Artists","Podcasts","History").forEach {filter->FilterChip(kind==filter,{ uiHaptic(HapticCue.Selection); model.libraryFilter=filter},label={Text(if(filter=="Favorites") "Liked songs" else filter)},modifier=Modifier.testTag("library_filter_${filter.lowercase()}"))}
+            listOf("All","Songs","Favorites","Playlists","Albums","Artists","Podcasts","History").forEach {filter->
+                GlassCategoryChip(if(filter=="Favorites") "Liked songs" else filter,key="library:$filter",selected=kind==filter,tag="library_filter_${filter.lowercase()}") {model.libraryFilter=filter}}
         }}
         item {ToolLink("Downloads"){model.push("downloads")}}
         item {ToolLink("On-device audio"){model.push("device")}}

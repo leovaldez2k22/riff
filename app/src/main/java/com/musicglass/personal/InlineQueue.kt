@@ -23,6 +23,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
@@ -33,7 +34,7 @@ import coil3.compose.AsyncImage
 private class QueueCoordinates {var value:LayoutCoordinates?=null}
 
 @Composable internal fun InlineQueue(playback:PlaybackGateway,provider:YouTubeMusicProvider,
-    onClose:()->Unit,onLike:()->Unit,onMore:()->Unit,artworkModifier:Modifier=Modifier) {
+    onClose:()->Unit,onLike:()->Unit,onMore:()->Unit,artworkModifier:Modifier=Modifier,onMoreBounds:(IntRect)->Unit={}) {
     val state=playback.state
     val motion=LocalMotionPolicy.current
     var history by remember {mutableStateOf(false)}
@@ -67,7 +68,7 @@ private class QueueCoordinates {var value:LayoutCoordinates?=null}
                 Text(playerArtistLabel(state.artist),color=White.copy(alpha=.6f),fontSize=12.sp,maxLines=1)
             }
             IconButton(onLike) {Icon(if(provider.songLikes[state.mediaId.removePrefix("yt:")]==true) Icons.Rounded.Star else Icons.Rounded.StarBorder,"Like on YouTube Music",tint=White)}
-            IconButton(hapticClick(onMore)) {Icon(Icons.Rounded.MoreHoriz,"Song options",tint=White)}
+            IconButton(hapticClick(onMore),modifier=Modifier.testTag("queue_more").onGloballyPositioned {val r=it.boundsInWindow();onMoreBounds(IntRect(r.topLeft.round(),r.bottomRight.round()))}) {Icon(Icons.Rounded.MoreHoriz,"Song options",tint=White)}
             IconButton(hapticClick(onClose),modifier=Modifier.size(36.dp).testTag("queue_back")) {Icon(Icons.Rounded.ExpandMore,"Close queue",tint=White)}
         }
         Row(Modifier.fillMaxWidth().height(46.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {

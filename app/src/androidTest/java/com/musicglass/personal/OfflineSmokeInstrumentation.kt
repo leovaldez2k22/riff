@@ -21,7 +21,7 @@ class OfflineSmokeInstrumentation:Instrumentation() {
     override fun onStart() {
         val result=Bundle()
         try {
-            if(mode!="navigation_fixture" && mode!="navigation_liquid" && mode!="queue_fixture" && mode!="stress_queue") {
+            if(mode!="navigation_fixture" && mode!="navigation_liquid" && mode!="queue_fixture" && mode!="stress_queue" && mode!="rc17_home_ui") {
                 testActivity=startActivitySync(android.content.Intent(targetContext,MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
                 runOnMainSync {testActivity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)}
             }
@@ -107,6 +107,94 @@ class OfflineSmokeInstrumentation:Instrumentation() {
                         result.putString("refresh_rate",activity.display?.mode?.refreshRate.toString())
                     }
                 } finally {runOnMainSync {activity.finish()}}
+                finish(Activity.RESULT_OK,result);return
+            }
+
+
+            if(mode=="rc17_home_ui") {
+                val provider=YouTubeMusicProvider.shared(targetContext)
+                runBlocking {
+                    val feed=provider.homeSections().getOrThrow()
+                    val release=CompletableDeferred<Unit>();val entered=CompletableDeferred<Unit>()
+                    val request=withContext(Dispatchers.Main) {
+                        provider.discardPageMemory()
+                        CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate).async(start=CoroutineStart.UNDISPATCHED) {provider.feedCache.get(provider.feedKey("home:")) {entered.complete(Unit);release.await();feed}}
+                    }
+                    // The request belongs to the provider's lifetime; hold it while inspecting the real Home UI.
+                    entered.await()
+                    val intent=android.content.Intent().setClassName("com.musicglass.personal","com.musicglass.personal.FeaturePreviewActivity").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("scene","home")
+                    val activity=startActivitySync(intent) as FeaturePreviewActivity
+                    fun texts():List<String> {
+                        val values=mutableListOf<String>()
+                        fun visit(node:android.view.accessibility.AccessibilityNodeInfo) {node.text?.toString()?.let(values::add);for(i in 0 until node.childCount) node.getChild(i)?.let(::visit)}
+                        uiAutomation.rootInActiveWindow?.let(::visit);return values
+                    }
+                    try {
+                        delay(700)
+                        val pending=texts()
+                        check(pending.any {it.startsWith("Loading YouTube Music")})
+                        check("Speed dial" !in pending && "Listen again" !in pending) {"Old personal feed appeared before the new response"}
+                        release.complete(Unit);request.await();delay(1000)
+                        val ready=texts();check("Speed dial" in ready && ready.none {it.startsWith("Loading YouTube Music")})
+                        result.putString("cold_home_ui","No old Speed dial while the feed request is pending; fresh Speed dial appears after completion")
+                    } finally {release.complete(Unit);runOnMainSync {activity.finish()}}
+                }
+                finish(Activity.RESULT_OK,result);return
+            }
+            if(mode=="rc17_home") {
+                val provider=YouTubeMusicProvider.shared(targetContext)
+                runBlocking {
+                    val home=provider.homeSections().getOrThrow()
+                    val listen=home.filter(::listenAgainShelf).flatMap {it.cards}.filter {it.kind==CatalogKind.Song && it.videoId!=null && !it.podcastLike()}.distinctBy {it.key()}
+                    val recent=LocalCollections(targetContext,provider.accountScopeKey()).onlineHistory.map {it.homeCard()}
+                    val speed=homeSpeedDialCandidates(recent,home)
+                    check(listen.all {card->speed.any {it.key()==card.key()}})
+                    check(speed.map {it.key()}.toSet().size==speed.size)
+                    check(homeDiscoveryShelves(home).none(::listenAgainShelf))
+                    check(home===provider.homeSections().getOrThrow())
+                    provider.discardPageMemory()
+                    check(provider.cachedFeed("home:")==null)
+                    val fresh=provider.homeSections().getOrThrow()
+                    check(fresh!==home && fresh===provider.cachedFeed("home:"))
+                    result.putString("home",JSONObject().put("listen_songs",listen.size).put("speed_dial",speed.size).put("all_listen_songs_present",true).put("separate_shelf_removed",true).put("warm_cache_reused",true).put("discard_fetches_fresh",true).toString())
+                }
+                finish(Activity.RESULT_OK,result);return
+            }
+            if(mode=="rc17_audio") {
+                runBlocking {withContext(Dispatchers.Main) {
+                    val settings=AudioBoostSettings(targetContext)
+                    val originalEnabled=settings.enabled;val originalPercent=settings.percent
+                    val processor=VolumeBoostProcessor()
+                    val store=OfflineMusicStore.get(targetContext)
+                    val row=store.rows().firstOrNull {store.audio(it.scope,it.track.videoId)!=null}?:error("No download available for audio check")
+                    val prefs=targetContext.getSharedPreferences(AUDIO_BOOST_PREFS,android.content.Context.MODE_PRIVATE)
+                    val listener=android.content.SharedPreferences.OnSharedPreferenceChangeListener {_,_->processor.boost.targetGain=boostGain(prefs.getBoolean("enabled",false),prefs.getInt("percent",200))}
+                    prefs.registerOnSharedPreferenceChangeListener(listener)
+                    val factory=androidx.media3.exoplayer.source.DefaultMediaSourceFactory(targetContext)
+                    val media=object:androidx.media3.exoplayer.source.MediaSource.Factory by factory {
+                        override fun createMediaSource(item:androidx.media3.common.MediaItem)=offlineMediaSource(targetContext,item)
+                    }
+                    val player=androidx.media3.exoplayer.ExoPlayer.Builder(targetContext,riffAudioRenderers(targetContext,processor)).setMediaSourceFactory(media).build()
+                    try {
+                        player.volume=0f // Exercise decoding at 300% without changing or blasting the system volume.
+                        player.setMediaItem(androidx.media3.common.MediaItem.fromUri(android.net.Uri.fromFile(store.audio(row.scope,row.track.videoId)!!)))
+                        settings.updatePercent(300);settings.updateEnabled(true);delay(100)
+                        check(processor.boost.targetGain==3f)
+                        check(AudioBoostSettings(targetContext).enabled && AudioBoostSettings(targetContext).percent==300)
+                        player.prepare();player.play()
+                        withTimeout(15000) {while(!player.isPlaying || processor.processedFrames<48000) {player.playerError?.let {throw it};delay(50)}}
+                        player.seekTo(player.duration/2);delay(1000)
+                        check(player.isPlaying && player.isCurrentMediaItemSeekable && player.playerError==null)
+                        val frames=processor.processedFrames
+                        settings.updatePercent(100);delay(100);check(processor.boost.targetGain==1f)
+                        settings.updateEnabled(false);delay(100);check(processor.boost.targetGain==1f)
+                        check(processor.processedFrames>frames && player.isPlaying)
+                        result.putString("audio",JSONObject().put("title",row.track.title).put("pcm_frames",processor.processedFrames).put("seek_playing",true).put("live_gain_and_persistence",true).put("muted_output",true).toString())
+                    } finally {
+                        player.release();prefs.unregisterOnSharedPreferenceChangeListener(listener)
+                        settings.updatePercent(originalPercent);settings.updateEnabled(originalEnabled)
+                    }
+                }}
                 finish(Activity.RESULT_OK,result);return
             }
             if(mode=="sleep_countdown") {
@@ -272,7 +360,7 @@ class OfflineSmokeInstrumentation:Instrumentation() {
                     check(speed.size==speed.map {it.key()}.toSet().size)
                     check(speed.count {it.kind!=CatalogKind.Song}<=3)
                     check(speed.none {it.kind==CatalogKind.Podcast || it.kind==CatalogKind.Episode})
-                    check(overlap<=6);if(listen.isNotEmpty()) check(overlap>0)
+                    check(listen.filterNot {it.podcastLike()}.all {c->speed.any {it.key()==c.key()}})
                     result.putString("home",JSONObject().put("shelves",home.size).put("speed",speed.size).put("listen_songs",listen.size).put("overlap",overlap).put("songs",speed.count {it.kind==CatalogKind.Song}).put("collections",speed.count {it.kind!=CatalogKind.Song}).toString())
                     sendStatus(1,Bundle(result))
                     val lyrics=org.json.JSONArray()
@@ -291,7 +379,7 @@ class OfflineSmokeInstrumentation:Instrumentation() {
                 runBlocking {withTimeout(240_000) {
                     val home=provider.homeSections().getOrThrow();check(home===provider.homeSections().getOrThrow())
                     val speed=homeSpeedDialCandidates(emptyList(),home);val listen=home.filter {it.title.contains("listen again",true)}.flatMap {it.cards}
-                    check(speed.count {c->listen.any {it.key()==c.key()}}<=6)
+                    check(listen.filter {it.kind==CatalogKind.Song && !it.podcastLike()}.all {c->speed.any {it.key()==c.key()}})
                     result.putString("home",JSONObject().put("shelves",home.size).put("speed_dial",speed.size).put("listen_again",listen.size).toString());sendStatus(1,Bundle(result))
                     val photos=MoodPhotos.get(targetContext);val mood=provider.homeMoods.firstOrNull {it.title.contains("relax",true)}?.title?:"Relax"
                     val photo=photos.refresh(mood);check(photo!=null && photo.file.length()>0) {"No daily photograph was downloaded for $mood: ${photos.lastStatus}"}

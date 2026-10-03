@@ -7,6 +7,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +28,9 @@ import coil3.compose.AsyncImage
 @Composable internal fun SettingsScreen(model:ShellModel,bottom:Dp,provider:YouTubeMusicProvider,
     collections:LocalCollections,onNotice:(String)->Unit) {
     val preferences=LocalAccessibilitySettings.current
+    val context=androidx.compose.ui.platform.LocalContext.current
+    val audio=remember(context) {AudioBoostSettings(context)}
+    var boostLevel by remember(audio) {mutableFloatStateOf(audio.percent.toFloat())}
     ScreenList(model,bottom) {
         item {BackHeading("Back",model::back);ScreenTitle("Settings")}
         item {
@@ -50,6 +54,23 @@ import coil3.compose.AsyncImage
         item {SettingsSection("Interaction") {
             SettingsToggleRow("Haptic feedback",preferences.hapticFeedback,
                 hapticToggle(preferences::updateHapticFeedback),Icons.Rounded.Vibration,"settings_haptics")
+        }}
+        item {SettingsSection("Audio") {
+            SettingsToggleRow("Volume booster",audio.enabled,hapticToggle(audio::updateEnabled),
+                Icons.AutoMirrored.Rounded.VolumeUp,"settings_volume_boost", "Amplify Riff playback up to 300%")
+            if(audio.enabled) {
+                SettingsDivider()
+                Column(Modifier.padding(vertical=8.dp)) {
+                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                        Text("Boost level",color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
+                        Text("${boostLevel.toInt()}%",color=White,fontSize=13.sp)
+                    }
+                    CapsuleSlider(boostLevel,{boostLevel=it},valueRange=100f..300f,
+                        onValueChangeFinished={audio.updatePercent(boostLevel.toInt())},
+                        haptics=SliderHaptics.Intensity,
+                        modifier=Modifier.fillMaxWidth().testTag("settings_boost_level"))
+                }
+            }
         }}
         item {SettingsSection("Appearance") {
             SettingsToggleRow("Frosted glass",preferences.frostedGlass,

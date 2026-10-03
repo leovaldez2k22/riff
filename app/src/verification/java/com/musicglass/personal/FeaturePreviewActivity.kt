@@ -32,7 +32,10 @@ class FeaturePreviewActivity:ComponentActivity() {
         val settings=AccessibilitySettings(isolated).apply {updateSolidControls(intent.getStringExtra("scene")!="navigation_liquid")}
         setContent {CompositionLocalProvider(LocalAccessibilitySettings provides settings,LocalUiRefreshRate provides 90f) {MaterialTheme {
             Box(Modifier.fillMaxSize().background(Color.Black)) {
-                if(intent.getStringExtra("scene")=="queue") Box(Modifier.fillMaxWidth().height(500.dp).align(Alignment.Center).onGloballyPositioned {queueBounds=it.boundsInRoot()}) {
+                if(intent.getStringExtra("scene")=="home") HomeFeedScreen(model,120.dp,fixture,
+                    LocalCollections(this@FeaturePreviewActivity,YouTubeMusicProvider.shared(this@FeaturePreviewActivity).accountScopeKey()),
+                    YouTubeMusicProvider.shared(this@FeaturePreviewActivity),{})
+                else if(intent.getStringExtra("scene")=="queue") Box(Modifier.fillMaxWidth().height(500.dp).align(Alignment.Center).onGloballyPositioned {queueBounds=it.boundsInRoot()}) {
                     InlineQueue(fixture,YouTubeMusicProvider.shared(this@FeaturePreviewActivity),{},{},{})
                 } else Box(Modifier.fillMaxWidth().padding(horizontal=24.dp).height(58.dp).align(Alignment.Center).onGloballyPositioned {navBounds=it.boundsInRoot()}) {LiquidTabBar(model,false,58.dp)}
             }
