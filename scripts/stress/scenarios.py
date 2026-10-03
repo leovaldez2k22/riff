@@ -249,11 +249,13 @@ def config_churn():
     pos0 = live_position(session())
     t0 = time.time()
     # Restore exactly what the phone had: this used to reset to the values of the 2026-10-02 night.
-    before = {'rotation': sh('settings get system user_rotation'), 'night': sh('cmd uimode night'),
+    before = {'rotation': sh('settings get system user_rotation'), 'autoRotate': sh('settings get system accelerometer_rotation'),
+              'night': sh('cmd uimode night'),
               'font': sh('settings get system font_scale'), 'density': sh('wm density')}
     night_before = 'yes' if 'yes' in before['night'] else 'no' if 'no' in before['night'] else 'auto'
     density_override = re.search(r'Override density: (\d+)', before['density'])
     try:
+        sh('settings put system accelerometer_rotation 0')  # user_rotation is ignored while auto-rotate is on
         for i in range(20):
             sh(f'settings put system user_rotation {1 if i % 2 == 0 else 0}')
             time.sleep(1.5)
@@ -268,6 +270,7 @@ def config_churn():
             time.sleep(3)
     finally:
         sh(f"settings put system user_rotation {before['rotation'] if before['rotation'].isdigit() else 0}")
+        sh(f"settings put system accelerometer_rotation {before['autoRotate'] if before['autoRotate'] in ('0', '1') else 1}")
         sh(f'cmd uimode night {night_before}')
         sh(f"settings put system font_scale {before['font'] if re.fullmatch(r'[0-9.]+', before['font']) else '1.0'}")
         sh(f'wm density {density_override.group(1)}' if density_override else 'wm density reset')
@@ -276,7 +279,8 @@ def config_churn():
     heap1 = java_heap_kb()
     pos1 = live_position(session())
     advanced = pos1 is not None and pos0 is not None and pos1 - pos0 > (time.time() - t0) * 1000 * 0.5
-    after = {'rotation': sh('settings get system user_rotation'), 'night': sh('cmd uimode night'),
+    after = {'rotation': sh('settings get system user_rotation'), 'autoRotate': sh('settings get system accelerometer_rotation'),
+             'night': sh('cmd uimode night'),
              'font': sh('settings get system font_scale'), 'density': sh('wm density')}
     return {'javaHeapKbBefore': heap0, 'javaHeapKbAfter': heap1, 'settingsBefore': before, 'settingsAfter': after,
             'checks': {'appAlive': bool(app_pid()), 'playbackContinued': advanced, 'settingsRestored': before == after}}
