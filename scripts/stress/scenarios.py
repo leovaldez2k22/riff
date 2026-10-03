@@ -73,7 +73,9 @@ def riff_play():
         return False
     xml = ''
     for _ in range(3):
-        xml = sh('uiautomator dump /dev/tty')
+        # exec-out, not shell: through `adb shell` this phone returns only "dumped to /dev/tty".
+        xml = subprocess.run([ADB, 'exec-out', 'uiautomator', 'dump', '/dev/tty'], capture_output=True, text=True,
+                             timeout=60, encoding='utf-8', errors='replace').stdout
         if '<hierarchy' in xml:
             break
         time.sleep(1)
