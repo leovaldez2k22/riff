@@ -1,4 +1,4 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+﻿import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
@@ -41,7 +41,13 @@ android {
     }
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 and resource shrinking (plan W4): the APK was 128.5 MiB, 61 MB of it unshrunk DEX.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // The target phones are 64-bit ARM; x86/x86_64 (emulators) and armeabi-v7a added ~52 MB of
+            // native code. Riff Lite (below) keeps armeabi-v7a for older phones; debug keeps every ABI.
+            ndk { abiFilters += listOf("arm64-v8a") }
             signingConfig = signingConfigs.getByName("localRelease")
         }
         // Release code and signing key, debuggable: installs over a release install without

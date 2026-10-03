@@ -25,6 +25,11 @@ $versionLine = Get-Content (Join-Path $project 'app\build.gradle.kts') |
 if (-not $versionLine) { throw 'Cannot determine versionName from app/build.gradle.kts.' }
 $versionName = $versionLine.Matches[0].Groups[1].Value
 $releaseApk = Join-Path $releaseDir "riff-$versionName.apk"
+$mapping = Join-Path $project 'appuild\outputs\mappingelease\mapping.txt'
+$releaseMapping = Join-Path $releaseDir "riff-$versionName-mapping.txt"
+# Size budget (plan W4): the shrunk arm64 APK is ~26 MiB. A jump past this usually means R8 or
+# the ABI filter was switched off, or a large dependency was added.
+$maxApkBytes = 40MB
 $dependencyGraph = Join-Path $releaseDir 'dependencies.txt'
 
 foreach ($tool in @($gradle, $keytool, $apksigner)) {
@@ -106,11 +111,19 @@ try {
     if (-not $python) { throw 'Python is needed for the release license audit.' }
     & $python.Source (Join-Path $project 'scripts\audit_dependency_licenses.py')
     if ($LASTEXITCODE -ne 0) { throw 'Release license audit failed.' }
+    $apkBytes = (Get-Item -LiteralPath $apk).Length
+    if ($apkBytes -gt $maxApkBytes) {
+        throw ("Release APK is {0:N1} MiB, over the {1:N0} MiB budget. Check R8, resource shrinking and the ABI filter." -f ($apkBytes / 1MB), ($maxApkBytes / 1MB))
+    }
+    # Crash stack traces from a shrunk build are unreadable without the matching R8 mapping.
+    if (-not (Test-Path -LiteralPath $mapping)) { throw "R8 mapping missing: $mapping" }
     Copy-Item -LiteralPath $apk -Destination $releaseApk -Force
+    Copy-Item -LiteralPath $mapping -Destination $releaseMapping -Force
     $hash = (Get-FileHash -LiteralPath $releaseApk -Algorithm SHA256).Hash.ToLowerInvariant()
     [System.IO.File]::WriteAllText((Join-Path $releaseDir 'SHA256SUMS.txt'),
         "$hash  $(Split-Path -Leaf $releaseApk)`n")
-    Write-Host "Signed APK: $releaseApk"
+    Write-Host "Signed APK: $releaseApk ($('{0:N1}' -f ($apkBytes / 1MB)) MiB)"
+    Write-Host "R8 mapping: $releaseMapping (keep it with the APK to read crash reports)"
     Write-Host "SHA-256: $hash"
     Write-Host "Certificate matches docs/release-signing.md."
 }
