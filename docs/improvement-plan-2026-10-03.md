@@ -393,7 +393,7 @@ Screens reach `YouTubeMusicProvider` directly. To render them with fixed data:
 Use Roborazzi (`io.github.takahirom.roborazzi`) on the W7.2 tests: record baselines for Home (skeleton / content), Now Playing collapsed and expanded, the queue, and Settings, at font scales 1.0 and 1.3, in light and dark. Verify on every run; the diff images go into the build output.
 
 ### W7.4 Device UI regression instrumentation (1–1.5 days)
-New `app/src/androidTest/.../UiRegressionInstrumentation.kt` using `createAndroidComposeRule<MainActivity>()` against the stress build on the phone (or the Android 12 emulator from `.toolchain/avd`):
+New `app/src/androidTest/.../UiRegressionInstrumentation.kt` using `createAndroidComposeRule<MainActivity>()` against the stress build on the phone:
 1. **Navigation:** visit each tab and open a collection → back; double-tap resets.
 2. **Player expansion:** with a fixed local queue (from a download or a seeded snapshot, so no network is needed), tap the mini player → full player; swipe down → mini; check the transitions keep the song title node.
 3. **Rotation:** `activityRule.scenario.recreate()` and `UiDevice.setOrientationLeft/Natural` in the expanded player, the queue and Search with text entered. The state must survive: tab, scroll position, search text, expanded player.
@@ -443,7 +443,6 @@ Run on the phone, release build, installed **over** the previous release:
 - [ ] Queue: drag by handle, swipe to remove, Play next.
 - [ ] Rotate in the full player and in Search; switch dark mode; font scale 1.3: no jank, state kept.
 - [ ] Mood photo appears on Home.
-- [ ] One pass on the Android 12 emulator.
 
 ---
 
