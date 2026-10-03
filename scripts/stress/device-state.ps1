@@ -38,6 +38,8 @@ function Read-State {
     $state.nightMode = (Shell 'cmd uimode night') -replace '^Night mode:\s*', ''
     $state.densityOverride = if ((Shell 'wm density') -match 'Override density:\s*(\d+)') { $Matches[1] } else { $null }
     $state.wifiEnabled = (Shell 'cmd wifi status') -match 'Wifi is enabled'
+    # Recorded since 2026-10-04: a run must not leave Bluetooth (and paired headphones) changed.
+    $state.bluetoothOn = (Shell 'settings get global bluetooth_on') -eq '1'
     $state.dozeWhitelisted = (Shell 'dumpsys deviceidle whitelist') -match [regex]::Escape($PackageId)
     $state.standbyBucket = Shell "am get-standby-bucket $PackageId"
     $state
@@ -82,6 +84,7 @@ switch ($Action) {
         }
         foreach ($p in $b.system.PSObject.Properties) { Set-Setting 'system' $p.Name $p.Value }
         Shell ("cmd wifi set-wifi-enabled " + $(if ($b.wifiEnabled) { 'enabled' } else { 'disabled' })) | Out-Null
+        if ($null -ne $b.bluetoothOn) { Shell ("cmd bluetooth_manager " + $(if ($b.bluetoothOn) { 'enable' } else { 'disable' })) | Out-Null }
         Shell "cmd uimode night $($b.nightMode)" | Out-Null
         if ($b.densityOverride) { Shell "wm density $($b.densityOverride)" | Out-Null } else { Shell 'wm density reset' | Out-Null }
         if (-not $b.dozeWhitelisted) { Shell "dumpsys deviceidle whitelist -$PackageId" | Out-Null }
@@ -97,6 +100,7 @@ switch ($Action) {
         foreach ($p in $b.system.PSObject.Properties) { if ("$($now.system[$p.Name])" -ne "$($p.Value)") { $diff += "system.$($p.Name): $($p.Value) -> $($now.system[$p.Name])" } }
         if ($now.nightMode -ne $b.nightMode) { $diff += "nightMode: $($b.nightMode) -> $($now.nightMode)" }
         if ($now.wifiEnabled -ne $b.wifiEnabled) { $diff += "wifi: $($b.wifiEnabled) -> $($now.wifiEnabled)" }
+        if ($null -ne $b.bluetoothOn -and $now.bluetoothOn -ne $b.bluetoothOn) { $diff += "bluetooth: $($b.bluetoothOn) -> $($now.bluetoothOn)" }
         if ($diff) { Write-Warning ("Not restored:`n" + ($diff -join "`n")) } else { Write-Host 'All recorded settings restored. Volume left muted; run -Action RestoreVolume once the user is awake.' }
     }
     'RestoreVolume' {
