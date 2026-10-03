@@ -74,4 +74,15 @@ class PageMemoryCacheTest {
         } finally {owner.cancel()}
     }
 
+    @Test fun replacementProcessStartsWithoutPreviousHomeFeed() {
+        val oldOwner=CoroutineScope(SupervisorJob()+Dispatchers.Default)
+        val newOwner=CoroutineScope(SupervisorJob()+Dispatchers.Default)
+        try {
+            val old=PageMemoryCache(oldOwner,false);old.put("home:","old recommendations")
+            val fresh=PageMemoryCache(newOwner,false)
+            assertNull(fresh.peek<String>("home:"))
+            old.clear();assertNull(old.peek<String>("home:"))
+        } finally {oldOwner.cancel();newOwner.cancel()}
+    }
+
 }

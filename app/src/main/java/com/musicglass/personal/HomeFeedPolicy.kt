@@ -7,13 +7,16 @@ internal fun ProviderTrack.homeCard() = ProviderHomeCard(title, artist, artworkU
 internal fun ProviderHomeCard.podcastLike() =
     kind in setOf(CatalogKind.Podcast, CatalogKind.Episode) || subtitle.contains("podcast", true)
 
-/** Song-first mix: some Listen again picks, fresh/recent songs and at most three collections. Never podcasts. */
+internal fun listenAgainShelf(shelf: ProviderHomeSection) = shelf.title.contains("listen again", true)
+internal fun homeDiscoveryShelves(shelves: List<ProviderHomeSection>) = shelves.filterNot(::listenAgainShelf)
+
+/** Keep the current mix and include every Listen again song, without duplicate cards or podcasts. */
 internal fun homeSpeedDialCandidates(recent: List<ProviderHomeCard>, shelves: List<ProviderHomeSection>): List<ProviderHomeCard> {
     val musicShelves = shelves.filterNot(::podcastShelf)
-    val listen = musicShelves.filter { it.title.contains("listen again", true) }.flatMap { it.cards }
-        .filter { it.kind == CatalogKind.Song && it.videoId != null && !it.podcastLike() }.distinctBy { it.key() }.take(6)
-    val listenKeys = musicShelves.filter { it.title.contains("listen again", true) }.flatMap { it.cards }.map { it.key() }.toSet()
-    val other = musicShelves.filterNot { it.title.contains("listen again", true) }.flatMap { it.cards }.filterNot { it.podcastLike() }
+    val listen = musicShelves.filter(::listenAgainShelf).flatMap { it.cards }
+        .filter { it.kind == CatalogKind.Song && it.videoId != null && !it.podcastLike() }.distinctBy { it.key() }
+    val listenKeys = musicShelves.filter(::listenAgainShelf).flatMap { it.cards }.map { it.key() }.toSet()
+    val other = musicShelves.filterNot(::listenAgainShelf).flatMap { it.cards }.filterNot { it.podcastLike() }
     val songs = (recent.filterNot { it.podcastLike() } + other).filter { it.kind == CatalogKind.Song && it.videoId != null && it.key() !in listenKeys }
         .distinctBy { it.key() }.toMutableList()
     val repeats = listen.toMutableList()
@@ -32,5 +35,5 @@ internal fun homeSpeedDialCandidates(recent: List<ProviderHomeCard>, shelves: Li
         val card = pool.removeAt(0)
         if (result.none { it.key() == card.key() }) result += card
     }
-    return result
+    return (result + listen).distinctBy { it.key() }
 }

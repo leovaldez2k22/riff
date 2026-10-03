@@ -112,6 +112,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.geometry.Rect
@@ -359,11 +360,13 @@ internal fun RiffApp() {
     var miniBounds by remember { mutableStateOf<Rect?>(null) }
     val miniElementBounds = remember { mutableStateMapOf<String, Rect>() }
     val categoryBounds = remember { mutableStateMapOf<String, Rect>() }
+    val categoryChips = remember { mutableStateMapOf<String, GlassChipStyle>() }
     BackHandler(enabled = !keyboardOpen && (model.sheet.isNotEmpty() || model.route.isNotEmpty() || model.tab != "Home")) {
         model.back()
     }
 
-    CompositionLocalProvider(LocalGlassBounds provides categoryBounds,LocalAccessibilitySettings provides accessibility,
+    CompositionLocalProvider(LocalGlassBounds provides categoryBounds,LocalGlassChips provides categoryChips,
+        androidx.compose.foundation.LocalOverscrollFactory provides StretchOverscrollFactory,LocalAccessibilitySettings provides accessibility,
         LocalMotionPolicy provides motion) {
     MaterialTheme(colorScheme = darkColorScheme(primary = Pink, background = Ink, surface = Raised),
         typography = GlassTypography) {
@@ -385,7 +388,7 @@ internal fun RiffApp() {
                             categoryBounds[label] = bounds
                     })
             }
-            if(!accessibility.solidControls) VisibleGlassLabels(categoryBounds,model.tab,model.route,area.height)
+            if(!accessibility.solidControls) VisibleGlassLabels(categoryBounds,categoryChips,model.tab,model.route,area)
             AnimatedVisibility(visible = showChrome,
                 enter = fadeIn(GlassMotion.timed(GlassMotion.selectionMs, motion)) +
                     slideInVertically(GlassMotion.timed(GlassMotion.selectionMs, motion)) { it / 6 },
@@ -658,6 +661,9 @@ private fun CollapsedQueue(playback: PlaybackGateway, onExpand: () -> Unit,
     }
 }
 
+/** Progress after which the flying morph elements hand over to the real player controls. */
+private const val morphHandoffStart = .96f
+
 /** One surface occupies the mini-player bounds and animates into the full player bounds. */
 @Composable
 private fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: Boolean,
@@ -668,10 +674,13 @@ private fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: B
     onMorphRelease: (Float) -> Unit) {
     val p = progress().coerceIn(0f, 1f)
     val panelTransport=remember(progress) {{motionRamp(progress(),.68f,1f)}}
-    val panelHandoff=remember(progress) {{motionRamp(progress(),.88f,1f)}}
+    // Flying copies and the real elements swap over a short window once they coincide,
+    // so the two are never visible side by side.
+    val panelHandoff=remember(progress) {{motionRamp(progress(),morphHandoffStart,1f)}}
     val solidControls = LocalAccessibilitySettings.current.solidControls
     val measure = LocalDensity.current
     val fullElementBounds = remember { mutableStateMapOf<String, Rect>() }
+    val panelCoordinates = remember { arrayOfNulls<LayoutCoordinates>(1) }
     BoxWithConstraints(Modifier.fillMaxSize().testTag("player_morph")) {
         val fullWidth = maxWidth
         val fullHeight = maxHeight
@@ -686,7 +695,7 @@ private fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: B
         val y = miniY + (fullY - miniY) * p
         val w = miniWidth + (maxWidth - miniWidth) * p
         val h = miniHeight + (maxHeight - fullY - miniHeight) * p
-        val handoff = motionRamp(p, .88f, 1f)
+        val handoff = motionRamp(p, morphHandoffStart, 1f)
         val movingAlpha = motionRamp(p, 0f, .02f) * (1f - handoff)
         val miniOrigin = miniBounds ?: Rect(0f, 0f, 0f, 0f)
         fun miniPosition(name: String, fallbackX: androidx.compose.ui.unit.Dp,
@@ -701,14 +710,13 @@ private fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: B
             val bounds = fullElementBounds[name] ?: return fallbackX to fallbackY
             return with(measure) { bounds.left.toDp() + inset to bounds.top.toDp() + inset }
         }
-        val reportFullBounds=remember(miniX,miniY,measure,progress) {
-            { name:String,bounds:Rect ->
-                            val q=progress().coerceIn(0f,1f)
-                            val x=miniX*(1f-q);val y=miniY*(1f-q)
-                            val originX = with(measure) { x.toPx() }
-                            val originY = with(measure) { y.toPx() }
-                            val local = Rect(bounds.left - originX, bounds.top - originY,
-                                bounds.right - originX, bounds.bottom - originY)
+        // Measured against the panel's own coordinates in the same layout pass, so the
+        // landing spots never lag the animation the way root bounds minus progress() did.
+        val reportFullBounds=remember(panelCoordinates) {
+            { name:String,coordinates:LayoutCoordinates ->
+                            val panel=panelCoordinates[0]
+                            if(panel!=null && panel.isAttached && coordinates.isAttached) {
+                            val local = panel.localBoundingBoxOf(coordinates, clipBounds = false)
                             val previous = fullElementBounds[name]
                             if (previous == null ||
                                 kotlin.math.abs(previous.left - local.left) > 1f ||
@@ -716,7 +724,7 @@ private fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: B
                                 kotlin.math.abs(previous.width - local.width) > 1f ||
                                 kotlin.math.abs(previous.height - local.height) > 1f)
                                 fullElementBounds[name] = local
-
+                            }
             }
         }
         val shape = RoundedCornerShape(32.dp * (1f - p))
@@ -728,6 +736,7 @@ private fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: B
             if (p > .001f) {
                 Box(Modifier.wrapContentSize(Alignment.TopStart, unbounded = true)
                     .requiredWidth(fullWidth).requiredHeight(fullHeight - fullY)
+                    .onPlaced { panelCoordinates[0] = it }
                     .then(if (p < .999f) Modifier.clearAndSetSemantics { } else Modifier)
                     .graphicsLayer {
                     alpha = motionRamp(p, .08f, .63f)
@@ -800,16 +809,18 @@ private fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: B
                 val artistBaseY = miniArtistY + (fullArtistY - miniArtistY) * p
                 val artworkClearance = (artHeight + 6.dp - titleBaseY).coerceAtLeast(0.dp) *
                     ((p - .05f) / .15f).coerceIn(0f, 1f)
+                val fullTextWidth = { name: String -> fullElementBounds[name]?.let { with(measure) { it.width.toDp() } }
+                    ?: (fullWidth - 120.dp) }
                 val titleWidth = (miniWidth - 168.dp).coerceAtLeast(48.dp) * (1f - p) +
                     (fullWidth - 120.dp).coerceAtLeast(48.dp) * p
                 Text(state.title, color = White,
                     fontSize = 22.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.offset(
                         x = miniTitleX + (fullTitleX - miniTitleX) * p,
                         y = titleBaseY + artworkClearance)
-                        .width(fullWidth - 120.dp).graphicsLayer {
+                        .width(fullTextWidth("title")).graphicsLayer {
                             alpha = movingAlpha
                             val start=if(measure.fontScale>=1.6f) 12f/22f else 14f/22f
                             scaleX=start+(1f-start)*p;scaleY=scaleX
@@ -821,7 +832,7 @@ private fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: B
                     modifier = Modifier.offset(
                         x = miniArtistX + (fullArtistX - miniArtistX) * p,
                         y = artistBaseY + artworkClearance)
-                        .width(fullWidth - 120.dp).graphicsLayer {
+                        .width(fullTextWidth("artist")).graphicsLayer {
                             scaleX=11f/13f+(2f/13f)*p;scaleY=scaleX
                             transformOrigin=androidx.compose.ui.graphics.TransformOrigin(0f,0f)
                             alpha = if (measure.fontScale >= 1.8f && !miniElementBounds.containsKey("artist"))
@@ -1002,7 +1013,7 @@ private fun NavItem(name: String, selected: Boolean, showLabel: Boolean,
     // The cache itself is not snapshot state; mutating it inside a layer never schedules composition.
     val cache=remember {GlassEffectCache()}
     Box(Modifier.fillMaxSize().imePadding().testTag("scene").graphicsLayer {
-        val categories=visibleGlassRects(bounds,tab,route,area.height)
+        val categories=visibleGlassChips(bounds,tab,route,area.width,area.height).map {it.second}
         val key=listOf(area,density,compact,showMini,chrome,inset,solid,frosted,intensity,categories)
         if(cache.key!=key) {
             cache.key=key
@@ -1016,11 +1027,6 @@ private class GlassEffectCache {
     var key:List<Any?>?=null
     var effect:androidx.compose.ui.graphics.RenderEffect?=null
 }
-private fun visibleGlassRects(bounds:Map<String,Rect>,tab:String,route:String,height:Int)=
-    if(route.isNotEmpty() || tab !in listOf("Home","Search","Radio")) emptyList() else bounds.filter {(key,r)->
-        r.bottom>0 && r.top<height && categoryKeyVisible(key,tab)
-    }.values.take(8)
-@Composable private fun VisibleGlassLabels(bounds:Map<String,Rect>,tab:String,route:String,height:Int) {
-    GlassCategoryLabels(if(route.isNotEmpty()) emptyMap() else bounds.filter {(key,r)->r.bottom>0 && r.top<height &&
-        categoryKeyVisible(key,tab)})
+@Composable private fun VisibleGlassLabels(bounds:Map<String,Rect>,styles:Map<String,GlassChipStyle>,tab:String,route:String,area:IntSize) {
+    GlassCategoryLabels(visibleGlassChips(bounds,tab,route,area.width,area.height),styles)
 }

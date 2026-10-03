@@ -135,7 +135,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     fun cachedCollection(id:String):CatalogPage?=collectionCache.peek(feedKey("collection:$id"))
     fun cachedLibrary(kind:String):CatalogPage?=collectionCache.peek(feedKey("library:$libraryRevision:$kind"))
     fun checkFeedWindow()=feedCache.checkWindow()
-    fun discardPageMemory() {feedCache.clear();collectionCache.clear();homeMoods=emptyList();libraryPlaylistSnapshot=emptyList();libraryScanRevision=0}
+    fun discardPageMemory() {cachedHome=emptyList();podcastEndpoint=null;feedCache.clear();collectionCache.clear();homeMoods=emptyList();libraryPlaylistSnapshot=emptyList();libraryScanRevision=0}
     private val streamCache=linkedMapOf<String,ProviderStream>()
     private val streamFlights=mutableMapOf<String,Deferred<Result<ProviderStream>>>()
     private val playbackEvents = PlaybackEventLog(context)

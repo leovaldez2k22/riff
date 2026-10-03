@@ -72,14 +72,15 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
     DisposableEffect(Unit) {
         onDispose { categories.forEach { onCategoryBounds(it, null) } }
     }
-    var shelves by remember(mood,provider.authRevision) { mutableStateOf(provider.cachedFeed("home:$mood").orEmpty()) }
+    var shelves by remember(mood,provider.authRevision,epoch) { mutableStateOf(provider.cachedFeed("home:$mood").orEmpty()) }
     val profile = provider.accountProfile
-    var loading by remember { mutableStateOf(shelves.isEmpty()) }
+    var feedReady by remember(mood,provider.authRevision,epoch) {mutableStateOf(provider.cachedFeed("home:$mood")!=null)}
+    var loading by remember(mood,provider.authRevision,epoch) { mutableStateOf(!feedReady) }
     var error by remember { mutableStateOf<String?>(null) }
     var refresh by remember { mutableStateOf(0) }
     LaunchedEffect(provider.authRevision, mood, epoch, refresh) {
         error = null; loading = provider.cachedFeed("home:$mood")==null
-        provider.homeSections(mood).fold(onSuccess = { shelves = it },
+        provider.homeSections(mood).fold(onSuccess = { shelves = it;feedReady=true },
             onFailure = { error = it.message ?: "YouTube Music is unavailable" })
         loading = false
     }
@@ -89,10 +90,10 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
     fun open(card: ProviderHomeCard) { openCatalogCard(model,card) { track ->
         scope.launch { playRealTrack(provider,playback,track,onNotice) }
     } }
-    val recent = if(mood.isBlank()) collections.onlineHistory.map(ProviderTrack::homeCard) else emptyList()
-    val favorites = if(mood.isBlank()) collections.onlineFavorites.map(ProviderTrack::homeCard) else emptyList()
+    val recent = if(feedReady && mood.isBlank()) collections.onlineHistory.map(ProviderTrack::homeCard) else emptyList()
+    val favorites = if(feedReady && mood.isBlank()) collections.onlineFavorites.map(ProviderTrack::homeCard) else emptyList()
     val musicShelves = shelves.filterNot(::podcastShelf)
-    val speed = homeSpeedDialCandidates(recent,musicShelves)
+    val speed = if(feedReady) homeSpeedDialCandidates(recent,musicShelves) else emptyList()
     val photoContext=androidx.compose.ui.platform.LocalContext.current
     val photoRepository=remember(photoContext) {MoodPhotos.get(photoContext)}
     val photos by photoRepository.photos.collectAsState()
@@ -150,7 +151,7 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
         }
         if (recent.isNotEmpty() && musicShelves.none {it.title.contains("listen again",true)}) item { HomeRowShelf("Recently played", recent, ::open) }
         if (favorites.isNotEmpty()) item { HomeCardShelf("Favorites", favorites, 150.dp, onOpen=::open) }
-        val shown=musicShelves+if(mood.isBlank() && !loading && error==null && musicShelves.none {it.title.contains("forgotten fav",true)}) listOf(ProviderHomeSection("Forgotten favourites",emptyList())) else emptyList()
+        val shown=homeDiscoveryShelves(musicShelves)+if(mood.isBlank() && !loading && error==null && musicShelves.none {it.title.contains("forgotten fav",true)}) listOf(ProviderHomeSection("Forgotten favourites",emptyList())) else emptyList()
         orderedHomeShelves(shown).forEachIndexed {index,shelf->
             if(shelf.cards.isNotEmpty()) item(key="shelf:$index") {
                 if(shelf.title.contains("quick picks",true)) HomeRowShelf(shelf.title,shelf.cards,::open)

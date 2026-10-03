@@ -85,6 +85,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.unit.round
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -162,7 +164,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     transportAlpha: () -> Float = {1f}, interactive: Boolean = true, queueOpen:Boolean=false, onQueueClose:()->Unit={},
     artworkAlpha: () -> Float = {1f},
     sharedContentAlpha: () -> Float = {1f}, dragging: Boolean = false,
-    onMorphElementBounds: (String, androidx.compose.ui.geometry.Rect) -> Unit = { _, _ -> },
+    onMorphElementBounds: (String, androidx.compose.ui.layout.LayoutCoordinates) -> Unit = { _, _ -> },
     onClose: () -> Unit,
     onSwipeDrag: (Float, Long) -> Unit, onSwipeRelease: (Float) -> Unit,
     onQueue: () -> Unit, onLibrary: () -> Unit,
@@ -188,6 +190,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     var sleepTimerVisible by remember {mutableStateOf(false)}
     if(sleepTimerVisible) SleepTimerDialog(playback) {sleepTimerVisible=false}
     var moreExpanded by remember(state.mediaId) { mutableStateOf(false) }
+    var moreAnchor by remember { mutableStateOf<androidx.compose.ui.unit.IntRect?>(null) }
     var creditsVisible by remember(state.mediaId) { mutableStateOf(false) }
     fun providerTrack() = ProviderTrack(state.mediaId.removePrefix("yt:"),
         state.title,state.artist,state.artworkUrl,state.artistId,state.albumId,state.album,state.live,state.music)
@@ -279,7 +282,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     if(!provider.signedIn) onNotice("Sign in to like songs on YouTube Music") else scope.launch {
                         provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);collections.setOnlineFavorite(providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:"Could not save like")})
                     }
-                },onMore={moreExpanded=true},artworkModifier=Modifier.sharedBounds(rememberSharedContentState("queue-art"),this))
+                },onMore={moreExpanded=true},onMoreBounds={moreAnchor=it},artworkModifier=Modifier.sharedBounds(rememberSharedContentState("queue-art"),this))
             } else Box(Modifier.fillMaxSize()) {
             AnimatedContent(targetState =
                 Triple(state.mediaId,state.artworkUrl,if(state.embedded) 2 else if(state.video) 1 else 0),
@@ -328,7 +331,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.lyricsSharedBounds("song-title:${state.mediaId}").graphicsLayer { alpha = sharedContentAlpha() }
                         .onGloballyPositioned {
-                            onMorphElementBounds("title", it.unclippedBoundsInRoot()) })
+                            onMorphElementBounds("title", it) })
                 Text(playerArtistLabel(state.artist), color = Muted, fontSize = 13.sp,
                     maxLines = if (fontScale >= 1.5f) 2 else 1,
                     overflow = TextOverflow.Ellipsis,
@@ -336,7 +339,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                         .then(if(state.source=="YouTube Music" && !queueOpen) Modifier.clickable(onClick = hapticClick(onArtist)).testTag("player_artist") else Modifier)
                         .graphicsLayer { alpha = sharedContentAlpha() }
                         .onGloballyPositioned {
-                            onMorphElementBounds("artist", it.unclippedBoundsInRoot()) })
+                            onMorphElementBounds("artist", it) })
             }
             IconButton(onClick = {
                 if(!provider.signedIn) onNotice("Sign in from Settings to like songs on YouTube Music")
@@ -363,11 +366,11 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             Box {
                 IconButton(onClick = { uiHaptic();  moreExpanded = true },
                     enabled=!queueOpen,modifier = Modifier.size(40.dp)
-                        .testTag("player_more")) {
+                        .testTag("player_more").onGloballyPositioned {if(!queueOpen) {val r=it.boundsInWindow();moreAnchor=androidx.compose.ui.unit.IntRect(r.topLeft.round(),r.bottomRight.round())}}) {
                     Icon(Icons.Rounded.MoreHoriz, contentDescription = "More song options",
                         tint = White, modifier = Modifier.size(21.dp))
                 }
-                SongActionMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }) {
+                PlayerActionMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }, anchorBounds=moreAnchor) {
                     if(state.source=="YouTube Music") DownloadSongAction(providerTrack(),onNotice,onDismiss={moreExpanded=false})
                     val options = if (state.source == "YouTube Music")
                         listOf("View credits", "Add to playlist", "Share song", "View album", "View artist", "Favorite", "Play next", "Add to queue", "Save on this phone", "Library shortcuts", "Sleep timer") + if(hasQueue) listOf("Remove from queue") else emptyList()
@@ -414,13 +417,13 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 modifier = Modifier.testTag("playback_toggle")
                     .graphicsLayer { alpha = sharedContentAlpha() }
                     .onGloballyPositioned {
-                        onMorphElementBounds("play", it.unclippedBoundsInRoot()) },
+                        onMorphElementBounds("play", it) },
                 diameter = 64.dp, iconSize = 52.dp)
             TransportButton(Icons.Rounded.FastForward, "Next track", playback::next,
                 modifier = Modifier.testTag("playback_next")
                     .graphicsLayer { alpha = sharedContentAlpha() }
                     .onGloballyPositioned {
-                        onMorphElementBounds("next", it.unclippedBoundsInRoot()) }, enabled = hasQueue,
+                        onMorphElementBounds("next", it) }, enabled = hasQueue,
                 diameter = 54.dp, iconSize = 38.dp)
             TransportButton(if (state.repeat == 1) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
                 "Repeat ${when (state.repeat) { 1 -> "one"; 2 -> "all"; else -> "off" }}",

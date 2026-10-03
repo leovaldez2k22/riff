@@ -38,6 +38,12 @@ import io.ktor.client.engine.okhttp.OkHttp
 @androidx.annotation.OptIn(markerClass = [UnstableApi::class])
 class MusicPlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
+    private val volumeBoost = VolumeBoostProcessor()
+    private val boostPrefs by lazy {getSharedPreferences(AUDIO_BOOST_PREFS, MODE_PRIVATE)}
+    private val boostListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener {_, _ -> updateBoost()}
+    private fun updateBoost() {
+        volumeBoost.boost.targetGain = boostGain(boostPrefs.getBoolean("enabled", false), boostPrefs.getInt("percent", 200))
+    }
     private val events by lazy { PlaybackEventLog(this) }
     private val serviceScope = CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -131,11 +137,18 @@ class MusicPlaybackService : MediaSessionService() {
                 return DefaultMediaSourceFactory(dataSource).createMediaSource(item)
             }
         }
-        val player = ExoPlayer.Builder(this).setMediaSourceFactory(mediaFactory)
+        updateBoost()
+        boostPrefs.registerOnSharedPreferenceChangeListener(boostListener)
+        val renderers = riffAudioRenderers(this, volumeBoost)
+        val player = ExoPlayer.Builder(this, renderers).setMediaSourceFactory(mediaFactory)
             .build().apply {
             setAudioAttributes(AudioAttributes.Builder()
                 .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                 .setUsage(C.USAGE_MEDIA).build(), true)
+            // Decoded PCM is required for amplification, including at unity gain.
+            trackSelectionParameters = trackSelectionParameters.buildUpon().setAudioOffloadPreferences(
+                androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED).build()).build()
             setHandleAudioBecomingNoisy(true)
             repeatMode = Player.REPEAT_MODE_OFF
             addListener(object : Player.Listener {
@@ -523,6 +536,7 @@ class MusicPlaybackService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
     override fun onDestroy() {
+        boostPrefs.unregisterOnSharedPreferenceChangeListener(boostListener)
         sleepTimer.close()
         val player=session?.player
         val playWhenReady=player?.playWhenReady==true
