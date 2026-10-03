@@ -89,8 +89,9 @@ def riff_play():
 
 
 def riff_session_playing():
+    # Buffering counts: pressing the button then would pause it.
     s = session()
-    return bool(s and s['state'] == 'PLAYING')
+    return bool(s and s['state'] in ('PLAYING', 'BUFFERING', 'CONNECTING'))
 
 
 def launch():
@@ -114,7 +115,8 @@ def ensure_playing(timeout=45):
     end = time.time() + timeout
     while time.time() < end:
         riff_play()
-        if s := wait_for(lambda: (s := session()) and s['state'] == 'PLAYING' and s, 10, 2):
+        # Re-resolving a stream after an error can take 10-20 s.
+        if s := wait_for(lambda: (s := session()) and s['state'] == 'PLAYING' and s, 25, 2):
             return s
     return None
 
@@ -348,9 +350,8 @@ def network_handover():
     """Wi-Fi -> mobile -> Wi-Fi while playing: the client IP changes, which can invalidate SABR attestation."""
     if not ensure_playing():
         return {'checks': {'startedPlaying': False}}
-    for _ in range(10):  # step back from the end of the restored queue so a track end can't stop the test
-        sh('cmd media_session dispatch previous'); time.sleep(0.3)
-    ensure_playing()
+    # (Used to send 10 'previous' media keys to step back from the end of a restored queue. Media keys
+    # can reach another app; start this scenario on a song with Up next or on live radio instead.)
     samples = []
     try:
         sh('svc data enable')
