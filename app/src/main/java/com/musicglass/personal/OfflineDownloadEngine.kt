@@ -131,11 +131,11 @@ internal object OfflineDownloadEngine {
                                 val bytes=java.io.ByteArrayOutputStream();r.body.byteStream().use {input->val buffer=ByteArray(8192);while(true) {ensureActive();checkState();val count=input.read(buffer);if(count<0) break;if(bytes.size()+count>8_000_000) throw IOException("Artwork too large");bytes.write(buffer,0,count)}}
                                 val data=bytes.toByteArray();if(android.graphics.BitmapFactory.decodeByteArray(data,0,data.size)==null) throw IOException("Invalid artwork");temp.writeBytes(data)
                             }
-                            checkState();check(temp.renameTo(File(dir,"artwork")));store.update(scope,id,"artwork" to "available")
+                            checkState();check(temp.renameTo(File(dir,"artwork")));store.markArtwork(scope,id,true);store.update(scope,id,"artwork" to "available")
                         } catch(e:CancellationException) {throw e} catch(_:Exception) {store.update(scope,id,"artwork" to "failed")}
                     }
                     if(store.lyrics(scope,id)==null) {
-                        val lyrics=LyricsRepository(context)
+                        val lyrics=LyricsRepository.get(context)
                         try {
                             var best:LyricsDocument?=null
                             val finished=withTimeoutOrNull(50_000) {lyrics.lyrics(LyricsTrack("yt:$id",job.track.title,job.track.artist,job.track.album,duration)) {provider.lyricsFor(id,duration)}.collect {best=it};true}==true
@@ -143,7 +143,7 @@ internal object OfflineDownloadEngine {
                             if(best!=null) {val temp=File(dir,"lyrics.part");temp.writeText(encodeLyricsDocument(best!!).toString());check(temp.renameTo(File(dir,"lyrics.json")));store.update(scope,id,"lyrics" to if(best!!.instrumental) "instrumental" else "available")}
                             else store.update(scope,id,"lyrics" to if(finished) "unavailable" else "failed")
                         } catch(e:CancellationException) {throw e}
-                        catch(_:Exception) {store.update(scope,id,"lyrics" to "failed")} finally {lyrics.close()}
+                        catch(_:Exception) {store.update(scope,id,"lyrics" to "failed")}
                     }
                     checkState();store.update(scope,id,"state" to "complete","error" to "")
                 } catch(e:CancellationException) {

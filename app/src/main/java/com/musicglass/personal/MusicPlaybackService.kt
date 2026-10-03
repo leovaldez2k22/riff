@@ -72,6 +72,7 @@ class MusicPlaybackService : MediaSessionService() {
         super.onCreate()
         events.append("service_create")
         serviceScope.launch(Dispatchers.IO) {logNewProcessExits(this@MusicPlaybackService,events)}
+        serviceScope.launch(Dispatchers.IO) {runCatching {offline.indexArtwork(offline.currentScope)}}
         serviceScope.launch(Dispatchers.IO) {
             for((sequence,snapshot) in snapshotWrites) persistSnapshot(sequence,snapshot)
         }
@@ -362,7 +363,7 @@ class MusicPlaybackService : MediaSessionService() {
     }
     private fun catalogItem(track: ProviderTrack):MediaItem = MediaItem.Builder().setMediaId("yt:${track.videoId}")
         .setUri("catalog://${track.videoId}").setMediaMetadata(MediaMetadata.Builder().setTitle(track.title).setArtist(track.artist)
-            .setAlbumTitle(track.album).setArtworkUri(offline.artwork(offline.currentScope,track.videoId)?.let(Uri::fromFile)?:validProviderArtworkUrl(track.artworkUrl)?.let(Uri::parse))
+            .setAlbumTitle(track.album).setArtworkUri(offline.indexedArtwork(offline.currentScope,track.videoId)?.let(Uri::fromFile)?:validProviderArtworkUrl(track.artworkUrl)?.let(Uri::parse))
             .setExtras(Bundle().apply {putString("artistId",track.artistId);putString("albumId",track.albumId);putBoolean("live",track.isLive);putBoolean("video",track.isLive);putBoolean("music",track.isMusic)}).build()).build()
     private fun saveSnapshot(player:Player,flush:Boolean=false) {
         if(discardingSession) return

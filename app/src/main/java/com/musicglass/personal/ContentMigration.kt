@@ -3,7 +3,15 @@ package com.musicglass.personal
 import android.content.Context
 import java.io.File
 
+private val retiredContentChecked = java.util.concurrent.atomic.AtomicBoolean(false)
+
+/**
+ * Once per process: it used to run on every MainActivity.onCreate, so each rotation or theme change
+ * re-read preferences on the main thread. Still synchronous on the first launch, before
+ * LocalCollections reads the migrated keys.
+ */
 internal fun removeRetiredContent(context: Context) {
+    if (!retiredContentChecked.compareAndSet(false, true)) return
     val target = context.getSharedPreferences("music_collections", Context.MODE_PRIVATE)
     if (target.getBoolean("retired_content_removed", false)) return
     val legacy = context.getSharedPreferences("demo_collections", Context.MODE_PRIVATE)

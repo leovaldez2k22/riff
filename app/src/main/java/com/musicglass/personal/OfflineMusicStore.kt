@@ -18,6 +18,7 @@ internal class OfflineMusicStore private constructor(private val context:Context
     companion object {
         @Volatile private var instance:OfflineMusicStore?=null
         fun get(context:Context)=instance ?: synchronized(this) {instance ?: OfflineMusicStore(context.applicationContext).also {instance=it}}
+        private val VIDEO_ID=Regex("[A-Za-z0-9_-]{11}")
     }
     private val db=object:SQLiteOpenHelper(context,"offline-music.db",null,3) {
         override fun onCreate(db:SQLiteDatabase) {db.execSQL("CREATE TABLE songs(scope TEXT NOT NULL,id TEXT NOT NULL,track TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'metadata',pinned INTEGER NOT NULL DEFAULT 0,bytes INTEGER NOT NULL DEFAULT 0,total INTEGER NOT NULL DEFAULT 0,error TEXT NOT NULL DEFAULT '',duration INTEGER NOT NULL DEFAULT 0,quality TEXT NOT NULL DEFAULT '',artwork TEXT NOT NULL DEFAULT 'pending',lyrics TEXT NOT NULL DEFAULT 'pending',lastPlayed INTEGER NOT NULL DEFAULT 0,plays INTEGER NOT NULL DEFAULT 0,listened INTEGER NOT NULL DEFAULT 0,priority INTEGER NOT NULL DEFAULT 0,excluded INTEGER NOT NULL DEFAULT 0,downloaded_at INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(scope,id))")}
@@ -39,10 +40,10 @@ internal class OfflineMusicStore private constructor(private val context:Context
     fun setAllowMobileData(enabled:Boolean) {prefs.edit().putBoolean("allow_mobile_data",enabled).apply();changed();OfflineDownloadScheduler.schedule(context,immediate=smartEnabled)}
     fun setBudget(bytes:Long) {prefs.edit().putLong("budget_bytes",bytes).apply();changed();OfflineDownloadScheduler.schedule(context)}
     private fun changed() {revision.update {it+1}}
+    private fun scopeDirectory(scope:String)=File(root,MessageDigest.getInstance("SHA-256").digest(scope.toByteArray()).joinToString("") {"%02x".format(it.toInt() and 255)})
     fun directory(scope:String,id:String):File {
-        require(id.matches(Regex("[A-Za-z0-9_-]{11}")))
-        val safe=MessageDigest.getInstance("SHA-256").digest(scope.toByteArray()).joinToString("") {"%02x".format(it.toInt() and 255)}
-        return File(File(root,safe),id)
+        require(id.matches(VIDEO_ID))
+        return File(scopeDirectory(scope),id)
     }
     private fun encode(t:ProviderTrack)=JSONObject().put("title",t.title).put("artist",t.artist).put("art",t.artworkUrl).put("artistId",t.artistId).put("albumId",t.albumId).put("album",t.album).put("live",t.isLive).put("music",t.isMusic).toString()
     @Synchronized fun remember(track:ProviderTrack,scope:String=currentScope) {
@@ -72,6 +73,35 @@ internal class OfflineMusicStore private constructor(private val context:Context
         val dir=directory(scope,id);return runCatching {File(dir,"audio.media").takeIf {it.isFile && it.length()>0 && File(dir,"ready").let {ready->ready.isFile && (ready.readText().trim()=="1" || ready.readText().trim().toLongOrNull()==it.length())}}}.getOrNull()
     }
     fun artwork(scope:String,id:String)=File(directory(scope,id),"artwork").takeIf {it.isFile && it.length()>0}
+
+    // Downloaded-artwork presence by account and video, so the playback service's main thread never
+    // touches the disk: it builds up to 2,000 queue items at once and each used to stat a file here.
+    // Kept exact: artwork is written only by OfflineDownloadEngine (markArtwork) and deleted only by remove().
+    private val artworkIndex=java.util.concurrent.ConcurrentHashMap<String,Boolean>()
+    private val indexedScopes=java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val indexingScopes=java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val artworkIndexer=java.util.concurrent.Executors.newSingleThreadExecutor {Thread(it,"offline-artwork-index").apply {isDaemon=true}}
+    private fun artworkKey(scope:String,id:String)="$scope/$id"
+    /**
+     * Downloaded artwork from memory only. Null when there is none, or while this account's folders
+     * are first being indexed in the background (the provider artwork URL is used meanwhile).
+     */
+    fun indexedArtwork(scope:String,id:String):File? {
+        if(!id.matches(VIDEO_ID)) return null
+        if(scope !in indexedScopes) {
+            if(indexingScopes.add(scope)) artworkIndexer.execute {indexArtwork(scope)}
+            return null
+        }
+        return if(artworkIndex[artworkKey(scope,id)]==true) File(directory(scope,id),"artwork") else null
+    }
+    /** One pass over an account's download folders, off the main thread. */
+    fun indexArtwork(scope:String) {
+        scopeDirectory(scope).listFiles()?.forEach {dir->
+            if(dir.isDirectory && dir.name.matches(VIDEO_ID)) artworkIndex.putIfAbsent(artworkKey(scope,dir.name),File(dir,"artwork").let {it.isFile && it.length()>0})
+        }
+        indexedScopes.add(scope)
+    }
+    fun markArtwork(scope:String,id:String,present:Boolean) {artworkIndex[artworkKey(scope,id)]=present}
     fun lyrics(scope:String,id:String):LyricsDocument?=runCatching {
         val f=File(directory(scope,id),"lyrics.json");if(!f.isFile || f.length()>1_000_000) return null
         decodeLyricsDocument(kotlinx.serialization.json.Json.parseToJsonElement(f.readText()) as kotlinx.serialization.json.JsonObject)
@@ -79,6 +109,7 @@ internal class OfflineMusicStore private constructor(private val context:Context
     @Synchronized fun remove(scope:String,id:String,exclude:Boolean=true) {
         update(scope,id,"state" to "cancelled","pinned" to 0,"excluded" to if(exclude) 1 else 0)
         val dir=directory(scope,id);check(dir.canonicalPath.startsWith(root.canonicalPath+File.separator));dir.deleteRecursively()
+        markArtwork(scope,id,false)
         update(scope,id,"state" to "metadata","downloaded_at" to 0L,"bytes" to 0L,"total" to 0L,"quality" to "","artwork" to "pending","lyrics" to "pending")
     }
     @Synchronized fun cancelAutomatic(scope:String) {rows(scope).filter {!it.pinned && it.state in setOf("queued","downloading","assets")}.forEach {update(scope,it.track.videoId,"state" to "paused")}}

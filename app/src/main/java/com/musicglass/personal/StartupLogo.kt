@@ -66,9 +66,9 @@ private fun startupSmoothStep(from: Float, to: Float, value: Float): Float {
 
 @Composable internal fun StartupLogo(show:Boolean,content:@Composable ()->Unit) {
     val context=LocalContext.current
-    val reduce=remember {context.getSharedPreferences("accessibility_display",0).getBoolean("reduce_motion",false) ||
-        android.provider.Settings.Global.getFloat(context.contentResolver,android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,1f)==0f}
-    var visible by remember {mutableStateOf(show && !reduce)}
+    // Only a cold start shows the logo; on recreation (rotation, dark mode, font) skip the disk read.
+    var visible by remember {mutableStateOf(show && !(context.getSharedPreferences("accessibility_display",0).getBoolean("reduce_motion",false) ||
+        android.provider.Settings.Global.getFloat(context.contentResolver,android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,1f)==0f))}
     val reveal=remember {Animatable(0f)}
     var appReady by remember {mutableStateOf(!visible)}
     var contentLaidOut by remember {mutableStateOf(false)}

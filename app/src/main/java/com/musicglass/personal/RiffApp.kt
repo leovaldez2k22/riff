@@ -272,8 +272,7 @@ internal fun RiffApp() {
     val model = rememberSaveable(saver = ShellModel.Saver) { ShellModel() }
     val context = LocalContext.current
     val provider = remember(context) { YouTubeMusicProvider.shared(context) }
-    val lyricsRepository = remember(context) { LyricsRepository(context.applicationContext) }
-    DisposableEffect(lyricsRepository) { onDispose { lyricsRepository.close() } }
+    val lyricsRepository = remember(context) { LyricsRepository.get(context) }
     val collections = remember(context) {
         LocalCollections(context, provider.accountScopeKey())
     }

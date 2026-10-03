@@ -26,8 +26,18 @@ import okhttp3.Response
 /** Public metadata only. This client never receives YouTube/account cookies. */
 internal class LyricsRepository(private val directory: File,
     private val transport: (suspend (String,Map<String,String>) -> JsonElement?)? = null) {
-    constructor(context: Context): this(File(context.cacheDir,"timed-lyrics-v1")) {
+    private constructor(context: Context): this(File(context.cacheDir,"timed-lyrics-v1")) {
         offlineReader={track->if(track.mediaId.startsWith("yt:")) OfflineMusicStore.get(context).let {it.lyrics(it.currentScope,track.mediaId.removePrefix("yt:"))} else null}
+    }
+    companion object {
+        @Volatile private var shared: LyricsRepository? = null
+        /**
+         * One per process. Building it (an OkHttp client) on every activity recreation (rotation, dark
+         * mode, font size) cost main-thread time and threw away in-flight lyrics loads.
+         */
+        fun get(context: Context): LyricsRepository = shared ?: synchronized(this) {
+            shared ?: LyricsRepository(context.applicationContext).also { shared = it }
+        }
     }
     private val client = OkHttpClient.Builder().connectTimeout(5,TimeUnit.SECONDS)
         .readTimeout(8,TimeUnit.SECONDS).callTimeout(10,TimeUnit.SECONDS).build()
@@ -228,6 +238,7 @@ internal class LyricsRepository(private val directory: File,
     }
     // Called from onDispose on the main thread (every activity recreation). Evicting closes TLS
     // sockets, which writes close_notify to the network, so it runs off the main thread.
+    /** For tests and short-lived instances only; the shared instance lives as long as the process. */
     fun close() { scope.cancel(); client.dispatcher.cancelAll(); kotlin.concurrent.thread(name="lyrics-close") { client.connectionPool.evictAll() } }
 }
 internal fun encodeLyricsDocument(doc: LyricsDocument): JsonObject = buildJsonObject {

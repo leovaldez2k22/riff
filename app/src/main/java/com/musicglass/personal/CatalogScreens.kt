@@ -73,7 +73,8 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     provider:YouTubeMusicProvider,onNotice:(String)->Unit) {
     val scope=rememberCoroutineScope()
     val context=LocalContext.current;val keyboard=LocalSoftwareKeyboardController.current
-    val history=remember(context) {SearchHistory(context)}
+    val history=remember(context) {SearchHistory.get(context)}
+    LaunchedEffect(history) {history.load()}
     val focus=remember {FocusRequester()}
     LaunchedEffect(model.searchFocusRequest) {if(model.searchFocusRequest>0) {delay(150);focus.requestFocus();keyboard?.show()}}
     val glassBounds=LocalGlassBounds.current
