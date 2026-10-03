@@ -470,8 +470,8 @@ Run on the phone, release build, installed **over** the previous release:
 | W1.5 crash-aware restore | `fix/w1-playback` | ☐ waits for the other agent's NowPlaying work | rc17 |
 | W2 main-thread stalls | `fix/w2-stalls` | ☑ 2026-10-03: W2.1–W2.5 done, plus `configChanges` on MainActivity. Churn on device (churn period only): disk reads 168 → 0, frames skipped 703 → 68. 2,000-track queue: no measurable change (1.5–2.4 s, noisy) | rc17 |
 | W7.1–W7.3 test seam, Compose tests, screenshots | `test/w7-ui` | ☐ | rc17 |
-| W3 instant Home | `fix/w3-instant-home` | ◐ 2026-10-03 (`7c981a5`): snapshot store, provider save/load/delete and skeleton component done and tested. Simplified: only the All feed is stored (not the last mood), via `storedHome` instead of a Flow API. Waiting on: HomeFeed.kt hookup after the other agent's rc17 loading changes land | rc18 |
-| W4 APK size | `build/w4-size` | ☐ | rc18 |
+| W3 instant Home | `fix/w3-instant-home` | ◐ 2026-10-03 (`298c790`): snapshot store, provider save/load/delete and skeleton component done and tested. Simplified: only the All feed is stored (not the last mood), via `storedHome` instead of a Flow API. Waiting on: HomeFeed.kt hookup after the other agent's rc17 loading changes land | rc18 |
+| W4 APK size | `fix/w4-size` | ☑ 2026-10-03: 128.5 → 26.1 MiB (R8 + resources + arm64). Shrunk release checked on device: playback, HLS/solver, video, lyrics, translation, search. Not covered: downloads/offline, widgets, sleep timer, voice search | rc18 |
 | W5 session health | `feat/w5-session` | ☐ | rc18 |
 | W8 hygiene | `chore/w8-hygiene` | ☐ | rc18 |
 | W6 sleep timer | `fix/w6-sleep` | ☐ | rc19 |
