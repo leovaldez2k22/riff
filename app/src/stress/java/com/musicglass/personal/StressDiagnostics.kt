@@ -36,6 +36,14 @@ class StressDiagnostics : ContentProvider() {
                 SabrFaultInjection.failNextAttestations(intent.getIntExtra("count", 1))
             }
         }, IntentFilter("com.musicglass.personal.stress.FAIL_SABR"), Context.RECEIVER_EXPORTED)
+        // adb shell am broadcast -a com.musicglass.personal.stress.FAKE_EXPIRED
+        // scrambles the in-memory session cookies so the expired-session UI shows (W5). Saved
+        // cookies are untouched; Finish sign-in or a restart restores the real session.
+        checkNotNull(context).registerReceiver(object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                YouTubeMusicProvider.shared(context).simulateExpiredSession()
+            }
+        }, IntentFilter("com.musicglass.personal.stress.FAKE_EXPIRED"), Context.RECEIVER_EXPORTED)
         return true
     }
 

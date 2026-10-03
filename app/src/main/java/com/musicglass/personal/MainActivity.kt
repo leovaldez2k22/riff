@@ -25,6 +25,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         requestSmoothRefreshRate()
         YouTubeMusicProvider.checkExistingFeedWindow()
+        YouTubeMusicProvider.checkExistingSession()
         MoodPhotos.get(this).foreground()
     }
 

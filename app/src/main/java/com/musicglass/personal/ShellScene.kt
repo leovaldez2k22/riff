@@ -128,6 +128,8 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
     val totalBottomPadding = chromePadding + navigationInset
     Box(Modifier.fillMaxSize()) {
         AmbientBackdrop(ambient)
+        // Dismissing hides the expired-session banner until the account or session changes.
+        var expiredBannerDismissed by remember(provider.authRevision, provider.sessionState) { mutableStateOf(false) }
         AnimatedContent(targetState = model.tab to model.route,
             transitionSpec = {
                 if (motion.reduced) EnterTransition.None togetherWith ExitTransition.None
@@ -159,11 +161,16 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
             "settings" -> SettingsScreen(model,totalBottomPadding,provider,collections,onNotice)
             "remote_library" -> ProviderCollectionScreen(model, totalBottomPadding, provider, playback, onNotice, liked = true)
             "collection" -> CatalogDetailScreen(model,totalBottomPadding,provider,playback,onNotice)
-            else -> when (tab) {
-                "Podcasts", "Radio" -> MediaExploreScreen(model, totalBottomPadding, tab, provider, playback, onNotice)
-                "Search" -> CatalogSearchScreen(model,totalBottomPadding,playback,provider,onNotice)
-                "Library" -> AccountLibraryScreen(model,totalBottomPadding,collections,playback,provider,onNotice)
-                else -> HomeFeedScreen(model, totalBottomPadding, playback, collections, provider, onNotice, onCategoryBounds)
+            else -> androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+                when (tab) {
+                    "Podcasts", "Radio" -> MediaExploreScreen(model, totalBottomPadding, tab, provider, playback, onNotice)
+                    "Search" -> CatalogSearchScreen(model,totalBottomPadding,playback,provider,onNotice)
+                    "Library" -> AccountLibraryScreen(model,totalBottomPadding,collections,playback,provider,onNotice)
+                    else -> HomeFeedScreen(model, totalBottomPadding, playback, collections, provider, onNotice, onCategoryBounds)
+                }
+                // W5: Home and Library are where an expired session shows first (empty Library, failing likes).
+                if ((tab == "Home" || tab == "Library") && provider.sessionState == SessionState.Expired && !expiredBannerDismissed)
+                    SessionExpiredBanner(onSignIn = { model.push("account") }, onDismiss = { expiredBannerDismissed = true })
             }
         }
         }
@@ -463,7 +470,9 @@ private fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
     collections: LocalCollections, playback: PlaybackGateway,
     onNotice: (String) -> Unit) {
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    var message by remember { mutableStateOf("Sign in on this phone, then tap Finish sign-in.") }
+    val expired = provider.sessionState == SessionState.Expired
+    var message by remember { mutableStateOf(if (expired) "Your session has expired. Open sign-in, sign in again, then tap Finish sign-in."
+        else "Sign in on this phone, then tap Finish sign-in.") }
     var accountWebView by remember { mutableStateOf<WebView?>(null) }
     Column(Modifier.fillMaxSize().background(Ink).padding(top = top + 12.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -476,7 +485,7 @@ private fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
         }
         Text(message, color = Muted, fontSize = 13.sp,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
-        if (!provider.signedIn) Button(onClick = { uiHaptic(); 
+        if (!provider.signedIn || expired) Button(onClick = { uiHaptic(); 
             accountWebView?.loadUrl(
                 "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fmusic.youtube.com")
         }, modifier = Modifier.padding(horizontal = 20.dp)

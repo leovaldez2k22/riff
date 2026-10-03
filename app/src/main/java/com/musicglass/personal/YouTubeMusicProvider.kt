@@ -102,6 +102,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     companion object {
         @Volatile private var sharedInstance:YouTubeMusicProvider?=null
         fun checkExistingFeedWindow() {sharedInstance?.checkFeedWindow()}
+        fun checkExistingSession() {sharedInstance?.checkSessionIfDue()}
         fun shared(context:Context):YouTubeMusicProvider=sharedInstance ?: synchronized(this) {
             sharedInstance ?: YouTubeMusicProvider(context.applicationContext).also {sharedInstance=it}
         }
@@ -142,6 +143,52 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         "provider_session", Context.MODE_PRIVATE)
     var signedIn by mutableStateOf(false)
         private set
+    /** Whether Google still accepts the saved sign-in (W5); signedIn only means cookies exist. */
+    var sessionState by mutableStateOf(SessionState.SignedOut)
+        private set
+    private val sessionChecks=SessionCheckSchedule(android.os.SystemClock::elapsedRealtime)
+    private val sessionProbeGate=Mutex()
+    /** On resume at most every 6 hours; [forced] right after a 401 (at most every 30 s). */
+    private var deferredSessionCheck:kotlinx.coroutines.Job?=null
+    fun checkSessionIfDue(forced:Boolean=false) {
+        if(!signedIn) {sessionState=SessionState.SignedOut;return}
+        if(sessionChecks.due(forced)) {runtimeScope.launch {probeSession()};return}
+        // A 401 right after a check must not be dropped: run it once the 30 s gap has passed.
+        if(forced && deferredSessionCheck?.isActive!=true)
+            deferredSessionCheck=runtimeScope.launch {delay(sessionChecks.waitMs(forced=true));probeSession()}
+    }
+    private suspend fun probeSession() = sessionProbeGate.withLock {
+        if(!signedIn) {sessionState=SessionState.SignedOut;return@withLock}
+        val revision=authRevision
+        sessionChecks.checked()
+        val state=try {
+            val response=innerTube.accountMenu(YouTubeClient.WEB_REMIX)
+            val text=response.bodyAsText()
+            classifySessionProbe(response.status.value,runCatching {json.parseToJsonElement(text) as? JsonObject}.getOrNull(),text,networkError=false)
+        } catch(e:CancellationException) {throw e}
+        catch(e:Exception) {if(isAuthFailure(e)) SessionState.Expired else SessionState.Unverified}
+        if(revision!=authRevision) return@withLock
+        // Offline or a server hiccup never downgrades a session already known to be good.
+        val next=if(state==SessionState.Unverified && sessionState==SessionState.Valid) SessionState.Valid else state
+        if(next!=sessionState) playbackEvents.append("session_state=${next.name.lowercase()}")
+        sessionState=next
+    }
+    /**
+     * Stress builds only (src/stress, FAKE_EXPIRED broadcast): makes requests use scrambled copies of
+     * the cookies, in memory only, so the expired-session UI can be checked without signing out.
+     * The saved cookies are untouched; refreshAccount() (Finish sign-in, or a restart) restores them.
+     */
+    internal fun simulateExpiredSession() {
+        if(!signedIn) return
+        val cookies=CookieManager.getInstance().getCookie("https://music.youtube.com") ?: return
+        val scrambled=cookies.split(';').joinToString("; ") {part->
+            val t=part.trim();val i=t.indexOf('=')
+            if(i<=0) t else t.substring(0,i+1)+t.substring(i+1).map {"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[(Math.random()*36).toInt()]}.joinToString("")
+        }
+        innerTube.replaceSession(cookie=scrambled,visitorData=visitorData,dataSyncId=dataSyncId,authUser=authUser,useLoginForBrowse=true)
+        playbackEvents.append("session_simulated_expiry")
+        checkSessionIfDue(forced=true)
+    }
     var accountProfile by mutableStateOf<ProviderProfile?>(null)
         private set
     var authRevision by mutableIntStateOf(0)
@@ -229,6 +276,8 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         authRevision++
         synchronized(cacheLock) {streamCache.clear();streamFlights.values.forEach {it.cancel()};streamFlights.clear()}
         loadStoredHome()
+        sessionChecks.reset();sessionState=if(valid) SessionState.Checking else SessionState.SignedOut
+        if(valid) runtimeScope.launch {delay(1500);probeSession()}
         return valid
     }
 
@@ -260,6 +309,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         authRevision++
         synchronized(cacheLock) {streamCache.clear();streamFlights.values.forEach {it.cancel()};streamFlights.clear()}
         loadStoredHome()
+        sessionChecks.reset();sessionState=SessionState.SignedOut
         CookieManager.getInstance().removeAllCookies {
             CookieManager.getInstance().flush()
         }
@@ -317,7 +367,11 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         catch(e:CancellationException) {
             caller.ensureActive()
             Result.failure(IllegalStateException("YouTube Music refreshed its session. Please retry."))
-        } catch(e:Exception) {Result.failure(IllegalStateException(e.message?.takeIf { !it.contains("http",true) } ?: "YouTube Music could not load this content"))}
+        } catch(e:Exception) {
+            // A 401 on a signed-in request means the session likely expired: confirm it and say so.
+            if(signedIn && isAuthFailure(e)) {checkSessionIfDue(forced=true);return Result.failure(IllegalStateException(SESSION_EXPIRED_MESSAGE))}
+            Result.failure(IllegalStateException(e.message?.takeIf { !it.contains("http",true) } ?: "YouTube Music could not load this content"))
+        }
     }
     suspend fun discover(query: String, token: String? = null, filter: String = "All"): Result<CatalogPage> = providerResult {
         val revision = authRevision
