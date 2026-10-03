@@ -476,13 +476,13 @@ Run on the phone, release build, installed **over** the previous release:
 | W1.4 stop diagnostics | `fix/w1-playback` | ◐ 2026-10-03 (`152cf62`): exit reasons and stop context logged; Settings export waits for the other agent's SettingsScreen work | rc17 |
 | W1.5 crash-aware restore | `fix/w1-playback` | ☐ waits for the other agent's NowPlaying work | rc17 |
 | W2 main-thread stalls | `fix/w2-stalls` | ☑ 2026-10-03: W2.1–W2.5 done, plus `configChanges` on MainActivity. Churn on device (churn period only): disk reads 168 → 0, frames skipped 703 → 68. 2,000-track queue: no measurable change (1.5–2.4 s, noisy) | rc17 |
-| W7.1–W7.3 test seam, Compose tests, screenshots | `test/w7-ui` | ☐ | rc17 |
+| W7.1–W7.3 test seam, Compose tests, screenshots | `fix/w7-tests` | ◐ 2026-10-03: W7.2 done (Robolectric Compose tests for banner, skeleton, countdown; 2x-font touch targets). W7.1 seam and the HomeFeed/Session UI tests wait for the W3 hookup; W7.3 screenshots skipped for now (Robolectric can't render the AGSL glass) | rc17 |
 | W3 instant Home | `fix/w3-instant-home` | ◐ 2026-10-03 (`298c790`): snapshot store, provider save/load/delete and skeleton component done and tested. Simplified: only the All feed is stored (not the last mood), via `storedHome` instead of a Flow API. Waiting on: HomeFeed.kt hookup after the other agent's rc17 loading changes land | rc18 |
 | W4 APK size | `fix/w4-size` | ☑ 2026-10-03: 128.5 → 26.1 MiB (R8 + resources + arm64). Shrunk release checked on device: playback, HLS/solver, video, lyrics, translation, search. Not covered: downloads/offline, widgets, sleep timer, voice search | rc18 |
 | W5 session health | `fix/w5-session` | ☑ 2026-10-03: spike, classifier, schedule, banner and re-sign-in done; full loop checked on device with a simulated (in-memory) expiry | rc18 |
 | W8 hygiene | `chore/w8-hygiene` | ☐ | rc18 |
 | W6 sleep timer | `fix/w6-sleep` | ☑ 2026-10-03: deadline saved and restored after a real process kill; on device it paused 0.4 s after the original deadline. Reboot case unit-tested only (not tested by rebooting the phone). Also: stress build no longer shrunk (`e2add60`) | rc19 |
-| W7.4–W7.6 device UI tests, scenarios, CI | `test/w7-device` | ☐ | rc19 |
+| W7.4–W7.6 device UI tests, scenarios, CI | `fix/w7-tests` | ◐ 2026-10-03: W7.6 CI added (unsigned release, size budget). W7.5: config_churn (W2) and nav_leak passed on device (heap 50 → 23 MB after GC, no crashes). W7.4 deferred: the other agent's uncommitted rc17 work is changing RiffApp, NowPlaying and InlineQueue | rc19 |
 
 ### Risks
 
