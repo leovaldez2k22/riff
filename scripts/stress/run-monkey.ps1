@@ -11,7 +11,12 @@ param(
     [switch]$KeepGoing,  # soak mode: continue past crashes/ANRs instead of stopping at the first
     # Main-thread guardrail (plan W2.5): StrictMode violations from Riff's own process, by kind.
     [string]$SaveBaseline,  # write this run's per-kind counts (summed over seeds) to a JSON file
-    [string]$Baseline       # compare with such a file; exit 1 if any kind's count went up
+    [string]$Baseline,      # compare with such a file; exit 1 if any kind's count went up
+    # For phones with app pinning off (or lock-on-unpin on, where unpinning would lock the phone):
+    # no lock task; a watchdog on the phone collapses the notification shade, presses Back (closes
+    # system dialogs such as the media output picker) and brings Riff back
+    # whenever anything else takes focus, and random Back/Menu keys are not sent.
+    [switch]$NoPin
 )
 
 $ErrorActionPreference = 'Continue'  # adb writes progress to stderr
@@ -26,13 +31,25 @@ function Start-Pinned {
     Shell "am start -W -n $PackageId/.MainActivity" | Out-Null
     Start-Sleep 2
     $task = Shell "am stack list | grep -m1 'com.musicglass.personal/'"
-    if ($task -match 'taskId=(\d+)') { Shell "am task lock $($Matches[1])" | Out-Null }
+    if (-not $NoPin -and $task -match 'taskId=(\d+)') { Shell "am task lock $($Matches[1])" | Out-Null }
 }
+$watchPid = '/data/local/tmp/riff-monkey-watchdog.pid'
+$watchLog = '/data/local/tmp/riff-monkey-watchdog.log'
+function Start-Watchdog {
+    $loop = 'while true; do f=$(dumpsys window | grep -m1 mCurrentFocus); case "$f" in *' + $PackageId + '*) ;; ' +
+        '*) cmd statusbar collapse >/dev/null 2>&1; input keyevent KEYCODE_BACK; am start -n ' + $PackageId + '/.MainActivity >/dev/null 2>&1; ' +
+        'echo "$(date +%T) refocus $f" >> ' + $watchLog + ';; esac; sleep 0.3; done'
+    Shell "[ -f $watchPid ] && kill `$(cat $watchPid) 2>/dev/null; setsid nohup sh -c '$loop' </dev/null >/dev/null 2>&1 & echo `$! > $watchPid" | Out-Null
+}
+function Stop-Watchdog { Shell "[ -f $watchPid ] && kill `$(cat $watchPid) 2>/dev/null; rm -f $watchPid" | Out-Null }
 
 # No --monitor-native-crashes: on this phone it reports old (August) tombstones as new.
 # Native crashes are counted from "Fatal signal" in logcat instead.
-$flags = "--throttle $Throttle --pct-syskeys 0 --pct-anyevent 0 --pct-appswitch 2 --pct-majornav 10 " +
-    '--pct-touch 50 --pct-motion 30 --pct-trackball 0 --pct-nav 0 --pct-flip 0 --pct-pinchzoom 3 ' +
+# Weights must total 100: without Back/Menu keys their share goes to taps.
+$majorNav = if ($NoPin) { 0 } else { 10 }
+$touch = 60 - $majorNav
+$flags = "--throttle $Throttle --pct-syskeys 0 --pct-anyevent 0 --pct-appswitch 2 --pct-majornav $majorNav " +
+    "--pct-touch $touch --pct-motion 30 " + ' --pct-trackball 0 --pct-nav 0 --pct-flip 0 --pct-pinchzoom 3 ' +
     '--pct-rotation 5 --pct-permission 0 ' +
     $(if ($KeepGoing) { '--ignore-crashes --ignore-timeouts --ignore-native-crashes ' } else { '' }) +
     '-v -v'
@@ -59,6 +76,7 @@ foreach ($seed in $Seeds) {
     $logFile = Join-Path $out "$tag-logcat.txt"
     $monkeyFile = Join-Path $out "$tag-monkey.txt"
     Start-Pinned
+    if ($NoPin) { Start-Watchdog }
     $pidStart = Shell "pidof $PackageId"
     & $adb logcat -c 2>$null
     $logcat = Start-Process -FilePath $adb -ArgumentList 'logcat','-v','threadtime','-b','main,system,crash' `
@@ -68,7 +86,7 @@ foreach ($seed in $Seeds) {
     $elapsed = [int]((Get-Date) - $started).TotalSeconds
     Start-Sleep 2
     Stop-Process -Id $logcat.Id -Force -ErrorAction SilentlyContinue
-    Shell 'am task lock stop' | Out-Null
+    if ($NoPin) { Stop-Watchdog } else { Shell 'am task lock stop' | Out-Null }
     Shell 'settings put system user_rotation 0' | Out-Null  # rotation events can leave it landscape
 
     $monkey = Get-Content $monkeyFile -Raw
