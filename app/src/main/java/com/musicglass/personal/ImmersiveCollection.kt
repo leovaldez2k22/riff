@@ -23,7 +23,7 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 
 @Composable internal fun ImmersiveCollectionDetail(model:ShellModel,bottom:Dp,data:CatalogPage,
-    provider:YouTubeMusicProvider,playback:PlaybackGateway,onNotice:(String)->Unit) {
+    provider:YouTubeMusicProvider,playback:PlaybackGateway,onNotice:(String)->Unit,complete:Boolean=true) {
     val artist=model.selectedPlaylistId.startsWith("UC")
     val playlist=model.selectedPlaylistId.startsWith("VL")
     val scope=rememberCoroutineScope();val tone=rememberArtworkColor(data.artworkUrl).readableArtworkTone()
@@ -43,9 +43,18 @@ import kotlinx.coroutines.launch
     val visible=remember(songs,query,sort) {collectionView(songs,query,sort,{it.title},{it.subtitle},{it.addedAt})}
     val tracks=songs.mapNotNull {it.track()}.map {it.copy(albumId=if(playlist) it.albumId else model.selectedPlaylistId,album=if(playlist) it.album else data.title,
         artworkUrl=if(artist || playlist) it.artworkUrl else data.artworkUrl?:it.artworkUrl,artist=it.artist.ifBlank {if(playlist) "" else data.artistName},artistId=it.artistId?:data.artistId.takeUnless {playlist})}
+    // While later pages are still loading, hold the request so the queue gets the whole collection.
+    var pendingPlay by remember(model.selectedPlaylistId) {mutableStateOf<Pair<String?,Boolean>?>(null)}
     fun play(index:Int,shuffle:Boolean=false) {
         if(tracks.isEmpty()) return
+        if(!complete) {pendingPlay=(if(shuffle) null else tracks.getOrNull(index)?.videoId) to shuffle;onNotice("Starting once all songs load");return}
         playback.playCollection(tracks,index,data.title,shuffle)
+    }
+    LaunchedEffect(complete,pendingPlay) {
+        val (videoId,shuffle)=pendingPlay?:return@LaunchedEffect
+        if(!complete || tracks.isEmpty()) return@LaunchedEffect
+        pendingPlay=null
+        play(if(shuffle) tracks.indices.random() else tracks.indexOfFirst {it.videoId==videoId}.coerceAtLeast(0),shuffle)
     }
     LazyColumn(Modifier.fillMaxSize().background(tone).testTag(if(artist) "artist_detail" else if(playlist) "playlist_detail" else "album_detail"),
         contentPadding=PaddingValues(bottom=bottom)) {
@@ -88,6 +97,8 @@ import kotlinx.coroutines.launch
             }
         }
         if(!artist) item {CollectionTools(if(playlist) "this playlist" else "this album",query,{query=it},sort,{sortName=it.name},songs.any {it.addedAt!=null})}
+        if(!complete) item {Text("Loading more songs… ${songs.size} so far",color=White.copy(alpha=.7f),fontSize=14.sp,
+            modifier=Modifier.padding(horizontal=20.dp,vertical=8.dp).testTag("collection_loading_more"))}
         if(!artist && query.isNotBlank() && visible.isEmpty()) item {Text("No songs match this search.",color=Muted,modifier=Modifier.padding(20.dp))}
         if(!artist) itemsIndexed(visible,key={_,entry->"album:${entry.index}:${entry.value.key()}"}) {_,entry->
             val index=entry.index;val card=entry.value

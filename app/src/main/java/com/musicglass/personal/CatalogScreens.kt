@@ -144,8 +144,9 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         loading=true;error=null
         (if(id.startsWith("VL") || id.startsWith("MPRE")) provider.completeCollection(id) else provider.browseCatalog(id)).fold(onSuccess={page=it},onFailure={error=it.message});loading=false
     }
-    if(page!=null && (id.startsWith("MPRE") || id.startsWith("UC") || id.startsWith("VL"))) {
-        key(id) {ImmersiveCollectionDetail(model,bottom,page!!,provider,playback,onNotice)};return
+    val shown=page?:provider.partialCollection(id)
+    if(shown!=null && (id.startsWith("MPRE") || id.startsWith("UC") || id.startsWith("VL"))) {
+        key(id) {ImmersiveCollectionDetail(model,bottom,shown,provider,playback,onNotice,complete=page!=null)};return
     }
     fun open(card:ProviderHomeCard)=openCatalogCard(model,card) { scope.launch { playRealTrack(provider,playback,it,onNotice) } }
     ScreenList(model,bottom) {

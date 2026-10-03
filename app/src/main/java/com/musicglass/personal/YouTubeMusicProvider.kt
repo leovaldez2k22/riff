@@ -257,14 +257,38 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         return key
     }
 
-    private suspend fun requestCatalog(browseId: String, token: String? = null, params: String? = null): CatalogPage {
+    private suspend fun requestCatalog(browseId: String, token: String? = null, params: String? = null, paced: Boolean = true): CatalogPage {
         val revision = authRevision
-        paceSearch()
+        if (paced) paceSearch()
         val response = innerTube.browse(YouTubeClient.WEB_REMIX,browseId = browseId,params = params,
             continuation = token,setLogin = signedIn)
-        check(response.status.value < 400) { "YouTube Music is unavailable (HTTP ${response.status.value})" }
+        if (response.status.value >= 400) throw CatalogHttpException(response.status.value)
         check(revision == authRevision) { "Account changed while loading" }
         return catalogPage(json.parseToJsonElement(response.bodyAsText()))
+    }
+    private class CatalogHttpException(val status: Int) : IllegalStateException("YouTube Music is unavailable (HTTP $status)")
+    // Retries a collection page on network errors, timeouts, 429 and 5xx; other HTTP errors and account changes fail at once.
+    private suspend fun requestCollectionPage(id: String, token: String? = null): CatalogPage {
+        val revision = authRevision
+        var attempt = 0
+        while (true) {
+            try {
+                return withTimeout(15_000) { requestCatalog(id, token, paced = false) }
+            } catch (e: Exception) {
+                val retryable = when (e) {
+                    is TimeoutCancellationException, is java.io.IOException -> true
+                    is CancellationException -> throw e
+                    is CatalogHttpException -> e.status == 429 || e.status >= 500
+                    else -> false
+                }
+                if (!retryable || attempt >= 2 || revision != authRevision) {
+                    if (e is TimeoutCancellationException) throw IllegalStateException("YouTube Music took too long to respond")
+                    throw e
+                }
+                attempt++
+                delay(700L * attempt)
+            }
+        }
     }
     private suspend fun <T> providerResult(block: suspend () -> T): Result<T> {
         val caller=currentCoroutineContext()
@@ -326,19 +350,27 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     suspend fun completeCollection(id:String):Result<CatalogPage> = providerResult {
         collectionCache.get(feedKey("collection:$id")) {completeCollectionFresh(id).getOrThrow()}
     }
+    // Pages loaded so far for collections still fetching their continuations, so screens can render before the last page.
+    private val partialCollections=mutableStateMapOf<String,CatalogPage>()
+    fun partialCollection(id:String):CatalogPage?=partialCollections[feedKey("collection:$id")]
     private suspend fun completeCollectionFresh(id:String):Result<CatalogPage> = providerResult {
-        val revision=authRevision
-        val first=requestCatalog(id)
-        var page=first.copy(next=first.collectionNext)
-        val seen=mutableSetOf<String>()
-        while(page.next!=null && seen.add(page.next!!)) {
-            check(page.albumTracks.size<2000) {"This collection exceeds the supported 2,000-song queue"}
-            val more=requestCatalog(id,page.next)
-            page=page.copy(cards=page.cards+more.cards,albumTracks=page.albumTracks+more.albumTracks,next=more.collectionNext)
-        }
-        check(page.albumTracks.size<=2000) {"This collection exceeds the supported 2,000-song queue"}
-        check(revision==authRevision) {"Account changed while loading this collection"}
-        if(id=="VLLM") page.copy(artworkUrl=likedArtwork()) else page
+        val revision=authRevision;val key=feedKey("collection:$id")
+        fun styled(page:CatalogPage)=if(id=="VLLM") page.copy(artworkUrl=likedArtwork()) else page
+        try {
+            // Collection pages arrive one after another, so they skip the search pacer rather than queueing 800 ms apart.
+            val first=requestCollectionPage(id)
+            var page=first.copy(next=first.collectionNext)
+            val seen=mutableSetOf<String>()
+            while(page.next!=null && seen.add(page.next!!)) {
+                check(page.albumTracks.size<2000) {"This collection exceeds the supported 2,000-song queue"}
+                if(revision==authRevision) partialCollections[key]=styled(page.copy(next=null))
+                val more=requestCollectionPage(id,page.next)
+                page=page.copy(cards=page.cards+more.cards,albumTracks=page.albumTracks+more.albumTracks,next=more.collectionNext)
+            }
+            check(page.albumTracks.size<=2000) {"This collection exceeds the supported 2,000-song queue"}
+            check(revision==authRevision) {"Account changed while loading this collection"}
+            styled(page)
+        } finally {partialCollections.remove(key)}
     }
     private fun likedArtwork()="android.resource://${appContext.packageName}/${R.drawable.liked_music_art}"
     private fun libraryArtwork(page:CatalogPage)=page.copy(cards=page.cards.map {if(it.browseId=="VLLM") it.copy(artworkUrl=likedArtwork()) else it})
