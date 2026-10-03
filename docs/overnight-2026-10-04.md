@@ -43,4 +43,34 @@ No crashes, ANRs or native crashes in 50,000 events.
 
 ## Doze (W1.4), 5 runs
 
-*(in progress)*
+Each run: playing silently, Home pressed, Riff removed from the battery-optimisation allowlist, battery "unplugged", deep idle forced for 10 minutes, state sampled every 30 s.
+
+| Run | Queue | Result |
+|---|---|---|
+| 1 | Up next (songs) | ✅ 20/20 samples playing, 4 tracks played in deep idle (next streams prefetched, ready in 1 ms) |
+| 2 | Up next (songs) | ✅ 20/20 playing |
+| 3 | "Liked Music", 11 songs | invalid: the playlist reached its last song and stopped, which is correct |
+| 3b, 4, 5 | 24/7 live radio | ✅ 20/20 playing each |
+
+No unexpected service stops and no process deaths. Android killed several other apps for low memory during the runs, never Riff. Runs 1–2 were first reported as failures by the harness, because it compared positions across track changes; fixed.
+
+## Network
+
+| Scenario | First run | After fix |
+|---|---|---|
+| Flap: 8 × Wi-Fi + data off 15 s / on 20 s, then 60 s airplane mode | ❌ a track change fell in an outage → load error (expected), and Riff's Play button then needed **two** taps | ✅ recovers and plays |
+| Handover: 3 × Wi-Fi → mobile → Wi-Fi while playing | ❌ couldn't start (same Play bug, plus a harness retry that paused a buffering player) | ✅ playing through all 6 samples |
+
+**Bug fixed: Play after an error.** After a load error the player is idle but keeps `playWhenReady`, so the toggle "paused" on the first tap. An idle player now always prepares and plays (gateway and service). Not fixed, follow-up: the player doesn't retry by itself when the network comes back; one tap on Play is needed.
+
+## Bluetooth note
+
+At 02:27 Riff's output was a pair of Bluetooth headphones ("Noise Airwave Max XR"). The logs show Bluetooth was already on before any random input, and the headphones connected by themselves at 00:43. Volume was 0 throughout. I wrongly switched Bluetooth off at 02:28 and back on at 02:34. `device-state.ps1` now records and restores Bluetooth.
+
+## Cookie rotation (W5 follow-up)
+
+No `cookies_rotated` events in about 4 hours of use: YouTube doesn't send the rotating session cookies on the requests Riff makes (browsers refresh them through a separate Google endpoint). The new code is harmless but has no effect so far; a real fix would need that endpoint.
+
+## Final build
+
+Signed rc18 rebuilt at 03:07 with all fixes: unit tests (209), lint and the certificate check pass; release 26.1 MiB (SHA-256 `F23E6974…`), Lite 38.4 MiB. CI green on `main`.
