@@ -23,8 +23,12 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="false">
+        <!-- Compose reads LocalConfiguration/LocalDensity and updates in place; recreating the
+             activity for these changes rebuilt the whole UI (~280 ms per rotation or theme change).
+             Locale is not listed, so a language change still recreates. -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|fontWeightAdjustment|keyboard|keyboardHidden|navigation"
             android:exported="true"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
