@@ -77,9 +77,8 @@ internal data class ProviderStream(
     val boundedRange:Boolean=false,val includesVideo:Boolean=false,val resolvedTitle:String="",val resolvedAuthor:String="",val resolvedChannelId:String?=null,
 )
 
-private class AppPlayerConfigRepository(context: Context) : PlayerConfigRepository {
-    private val prefs = context.applicationContext.getSharedPreferences(
-        "player_config", Context.MODE_PRIVATE)
+internal class AppPlayerConfigRepository(context: Context, prefsName: String = "player_config") : PlayerConfigRepository {
+    private val prefs = context.applicationContext.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
     override val enabled = true
     override val sourceUrl =
         "https://raw.githubusercontent.com/ZemerTeam/zemer-cipher/master/library/src/main/assets/player_configs.json"
@@ -157,7 +156,10 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     private val configStore = RemotePlayerConfigStore(http, AppPlayerConfigRepository(context))
     private val configParser = YtConfigParserImpl(http, innerTube, configStore)
     private val streamTokens = AndroidStreamTokenProvider(context.applicationContext, http, onEvent = { playbackEvents.append(it) })
+    // In-process cipher: used only if the :solver bridge can't be installed (see CipherBridgeInstaller).
     private val streamCipher=YouTubeCipherService(http,configStore)
+    private val remoteCipher=RemoteCipherClient(context.applicationContext,onEvent={playbackEvents.append(it)})
+    private var cipherIsolated=false
     private val extractor = InnerTubeExtractor(
         configParser = object : YtConfigParser by configParser {
             override suspend fun fetchConfig(videoId: String, useLoginCookies: Boolean) =
@@ -190,6 +192,8 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
             }
             execute(request)
         }
+        cipherIsolated=runCatching {CipherBridgeInstaller.install(extractor,remoteCipher)}
+            .onFailure {playbackEvents.append("solver_bridge_unavailable ${it.javaClass.simpleName}")}.isSuccess
         refreshAccount();runtimeScope.launch {delay(2000);runCatching {extractor.prewarm()}}
     }
 
@@ -868,7 +872,9 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
             val audioUrl=if(hls) prepareYoutubeHlsManifest(stream.audioUrl) {challenge ->
                 val config=try {configParser.fetchConfig(videoId,useLoginCookies=false)} catch(_:IllegalStateException) {configParser.fetchEmbeddedConfig(videoId,useLoginCookies=false)}
                 playbackEvents.append("manifest_challenge_found")
-                val processed=streamCipher.processNParameter(config.playerUrl,"https://manifest.googlevideo.com/videoplayback?n=$challenge")
+                val challengeUrl="https://manifest.googlevideo.com/videoplayback?n=$challenge"
+                val processed=if(cipherIsolated) remoteCipher.processNParameter(config.playerUrl,challengeUrl)
+                    else streamCipher.processNParameter(config.playerUrl,challengeUrl)
                 processed?.toHttpUrl()?.queryParameter("n")
             } else stream.audioUrl
             playbackEvents.append("manifest_ready hls=$hls")

@@ -40,6 +40,8 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
+        <!-- QuickJS challenge solving runs here so a native crash can't stop playback. -->
+        <service android:name=".SolverService" android:process=":solver" android:exported="false" />
         <service android:name=".OfflineDownloadService" android:exported="false" android:foregroundServiceType="dataSync" />
         <service android:name=".MoodPhotoRefreshJob" android:exported="false" android:permission="android.permission.BIND_JOB_SERVICE" />
         <service android:name=".OfflineDownloadJob" android:exported="false" android:permission="android.permission.BIND_JOB_SERVICE" />
