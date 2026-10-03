@@ -8,7 +8,10 @@ param(
     [int]$Throttle = 250,
     [string]$Label = 'monkey',
     [string]$PackageId = 'com.musicglass.personal',
-    [switch]$KeepGoing   # soak mode: continue past crashes/ANRs instead of stopping at the first
+    [switch]$KeepGoing,  # soak mode: continue past crashes/ANRs instead of stopping at the first
+    # Main-thread guardrail (plan W2.5): StrictMode violations from Riff's own process, by kind.
+    [string]$SaveBaseline,  # write this run's per-kind counts (summed over seeds) to a JSON file
+    [string]$Baseline       # compare with such a file; exit 1 if any kind's count went up
 )
 
 $ErrorActionPreference = 'Continue'  # adb writes progress to stderr
@@ -34,11 +37,29 @@ $flags = "--throttle $Throttle --pct-syskeys 0 --pct-anyevent 0 --pct-appswitch 
     $(if ($KeepGoing) { '--ignore-crashes --ignore-timeouts --ignore-native-crashes ' } else { '' }) +
     '-v -v'
 
+# Counts StrictMode violations (stress build only) and frame stalls logged by the given pids.
+function Get-JankBreakdown([string]$log, [string[]]$pids) {
+    $kinds = [ordered]@{}
+    foreach ($m in [regex]::Matches($log, '(?m)^\S+\s+\S+\s+(\d+)\s+\d+\s+\w\s+StrictMode\s*: StrictMode policy violation(?:; ~duration=(\d+) ms)?: android\.os\.strictmode\.(\w+)')) {
+        if ($pids -notcontains $m.Groups[1].Value) { continue }
+        $kind = $m.Groups[3].Value
+        if (-not $kinds.Contains($kind)) { $kinds[$kind] = [ordered]@{ count = 0; totalMs = 0; maxMs = 0 } }
+        $k = $kinds[$kind]; $k.count++
+        if ($m.Groups[2].Success) { $ms = [int]$m.Groups[2].Value; $k.totalMs += $ms; if ($ms -gt $k.maxMs) { $k.maxMs = $ms } }
+    }
+    $skipped = @([regex]::Matches($log, '(?m)^\S+\s+\S+\s+(\d+)\s+\d+\s+\w\s+Choreographer\s*: Skipped (\d+) frames') |
+        Where-Object { $pids -contains $_.Groups[1].Value } | ForEach-Object { [int]$_.Groups[2].Value })
+    [ordered]@{ strictByKind = $kinds; skippedFrameEvents = $skipped.Count
+                maxSkippedFrames = if ($skipped.Count) { ($skipped | Measure-Object -Maximum).Maximum } else { 0 } }
+}
+$runTotals = @{}
+
 foreach ($seed in $Seeds) {
     $tag = "seed-$seed"
     $logFile = Join-Path $out "$tag-logcat.txt"
     $monkeyFile = Join-Path $out "$tag-monkey.txt"
     Start-Pinned
+    $pidStart = Shell "pidof $PackageId"
     & $adb logcat -c 2>$null
     $logcat = Start-Process -FilePath $adb -ArgumentList 'logcat','-v','threadtime','-b','main,system,crash' `
         -RedirectStandardOutput $logFile -NoNewWindow -PassThru
@@ -66,7 +87,9 @@ foreach ($seed in $Seeds) {
         strictMode = ([regex]::Matches($log, 'StrictMode policy violation|StrictMode: Tried to access')).Count
         appAlive = [bool]$pidNow
         pssKb = if ($mem -match 'TOTAL PSS:\s*(\d+)') { [int]$Matches[1] } else { $null }
+        jank = Get-JankBreakdown $log @($pidStart, $pidNow | Where-Object { $_ })
     }
+    foreach ($kind in $result.jank.strictByKind.Keys) { $runTotals[$kind] = [int]$runTotals[$kind] + $result.jank.strictByKind[$kind].count }
     if ($result.anr -or $result.anrInLog) {
         Shell 'dumpsys activity processes' | Out-Null
         & $adb bugreport (Join-Path $out "$tag-bugreport.zip") *> $null
@@ -75,4 +98,24 @@ foreach ($seed in $Seeds) {
     Write-Host ("seed {0}: {1}s injected={2} crash={3} anr={4} fatal={5} native={6} strict={7} pss={8}MB" -f `
         $seed, $elapsed, $result.eventsInjected, $result.crash, $result.anr, $result.fatalInLog,
         $result.nativeCrash, $result.strictMode, [int]($result.pssKb / 1024))
+}
+
+$totalsText = ($runTotals.GetEnumerator() | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ' '
+Write-Host "StrictMode (Riff process, all seeds): $(if ($totalsText) { $totalsText } else { 'none' })"
+if ($SaveBaseline) {
+    ([ordered]@{ seeds = $Seeds; events = $Events; strictByKind = $runTotals } | ConvertTo-Json) | Set-Content $SaveBaseline -Encoding utf8
+    Write-Host "Baseline saved: $SaveBaseline"
+}
+if ($Baseline) {
+    $base = Get-Content $Baseline -Raw | ConvertFrom-Json
+    if ((@($base.seeds) -join ',') -ne ($Seeds -join ',') -or $base.events -ne $Events) {
+        Write-Warning "Baseline was recorded with seeds $(@($base.seeds) -join ',') x $($base.events) events; counts are only comparable for the same seeds and event count."
+    }
+    $worse = @()
+    foreach ($kind in $runTotals.Keys) {
+        $before = if ($base.strictByKind.PSObject.Properties[$kind]) { [int]$base.strictByKind.$kind } else { 0 }
+        if ($runTotals[$kind] -gt $before) { $worse += "$kind $before -> $($runTotals[$kind])" }
+    }
+    if ($worse) { Write-Host "Main-thread guardrail FAILED: $($worse -join '; ')" -ForegroundColor Red; exit 1 }
+    Write-Host 'Main-thread guardrail passed: no StrictMode kind increased.' -ForegroundColor Green
 }

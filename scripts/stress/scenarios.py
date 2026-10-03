@@ -5,11 +5,11 @@ Each scenario captures logcat, records crashes/ANRs/native crashes for the app p
 and writes artifacts/stress/scenarios/<name>/{logcat.txt,result.json}.
 Every device change a scenario makes is undone in its finally block.
 """
-import json, re, subprocess, sys, threading, time
+import json, os, re, subprocess, sys, threading, time
 from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[2]
-ADB = str(PROJECT / '.toolchain/sdk/platform-tools/adb.exe')
+ADB = os.environ.get('RIFF_ADB') or str(PROJECT / '.toolchain/sdk/platform-tools/adb.exe')  # RIFF_ADB: run from a worktree
 PKG = 'com.musicglass.personal'
 OUT = PROJECT / 'artifacts/stress/scenarios'
 
@@ -97,6 +97,31 @@ def force_gc():
         time.sleep(3)
 
 
+STRICT_RE = re.compile(r'^\S+\s+\S+\s+(\d+)\s+\d+\s+\w\s+StrictMode\s*: StrictMode policy violation(?:; ~duration=(\d+) ms)?: android\.os\.strictmode\.(\w+)', re.M)
+SKIPPED_RE = re.compile(r'^\S+\s+\S+\s+(\d+)\s+\d+\s+\w\s+Choreographer\s*: Skipped (\d+) frames', re.M)
+DAVEY_RE = re.compile(r'^\S+\s+\S+\s+(\d+)\s+\d+\s+\w\s+(?:HWUI|OpenGLRenderer)\s*: Davey! duration=(\d+)ms', re.M)
+
+
+def jank_breakdown(log, pids):
+    """StrictMode violations by kind (count, total and max ms) plus frame stalls, for the given pids only.
+
+    Logs from other apps on the phone are ignored. The StrictMode policy is only installed in the
+    stress build (src/stress), so release builds report nothing here."""
+    pids = {str(p) for p in pids if p}
+    kinds = {}
+    for pid, ms, kind in STRICT_RE.findall(log):
+        if pid not in pids:
+            continue
+        k = kinds.setdefault(kind, {'count': 0, 'totalMs': 0, 'maxMs': 0})
+        k['count'] += 1
+        if ms:
+            k['totalMs'] += int(ms); k['maxMs'] = max(k['maxMs'], int(ms))
+    skipped = [int(n) for pid, n in SKIPPED_RE.findall(log) if pid in pids]
+    davey = [int(ms) for pid, ms in DAVEY_RE.findall(log) if pid in pids]
+    return {'strictByKind': kinds, 'skippedFrameEvents': len(skipped), 'maxSkippedFrames': max(skipped, default=0),
+            'daveyCount': len(davey), 'maxDaveyMs': max(davey, default=0)}
+
+
 class Capture:
     """Logcat capture plus crash/ANR accounting for one scenario."""
     def __init__(self, name):
@@ -118,6 +143,7 @@ class Capture:
             'anr': len(re.findall(rf'ANR in {re.escape(PKG)}', log)),
             'native': len(re.findall(r'Fatal signal', log)),
             'strictMode': len(re.findall(r'StrictMode policy violation|StrictMode: Tried to access', log)),
+            '_log': log,
         }
 
 
@@ -130,8 +156,11 @@ def run(name, fn):
         result.update(fn() or {})
     except Exception as e:  # scenario harness failure, not necessarily an app bug
         result['harnessError'] = repr(e)
-    result.update(cap.stop())
+    captured = cap.stop()
+    log = captured.pop('_log')
+    result.update(captured)
     result['pidBefore'], result['pidAfter'] = pid_before, app_pid()
+    result['jank'] = jank_breakdown(log, {pid_before, result['pidAfter']})
     checks = result.get('checks', {})
     result['pass'] = (not result.get('harnessError') and result['fatal'] == 0 and result['anr'] == 0
                       and result['native'] == 0 and all(checks.values()))
@@ -219,6 +248,11 @@ def config_churn():
     heap0 = java_heap_kb()
     pos0 = live_position(session())
     t0 = time.time()
+    # Restore exactly what the phone had: this used to reset to the values of the 2026-10-02 night.
+    before = {'rotation': sh('settings get system user_rotation'), 'night': sh('cmd uimode night'),
+              'font': sh('settings get system font_scale'), 'density': sh('wm density')}
+    night_before = 'yes' if 'yes' in before['night'] else 'no' if 'no' in before['night'] else 'auto'
+    density_override = re.search(r'Override density: (\d+)', before['density'])
     try:
         for i in range(20):
             sh(f'settings put system user_rotation {1 if i % 2 == 0 else 0}')
@@ -233,17 +267,19 @@ def config_churn():
             sh(f'wm density {d}')
             time.sleep(3)
     finally:
-        sh('settings put system user_rotation 0')
-        sh('cmd uimode night yes')  # baseline captured night mode = yes
-        sh('settings put system font_scale 1.0')
-        sh('wm density reset')
+        sh(f"settings put system user_rotation {before['rotation'] if before['rotation'].isdigit() else 0}")
+        sh(f'cmd uimode night {night_before}')
+        sh(f"settings put system font_scale {before['font'] if re.fullmatch(r'[0-9.]+', before['font']) else '1.0'}")
+        sh(f'wm density {density_override.group(1)}' if density_override else 'wm density reset')
     time.sleep(3)
     force_gc()
     heap1 = java_heap_kb()
     pos1 = live_position(session())
     advanced = pos1 is not None and pos0 is not None and pos1 - pos0 > (time.time() - t0) * 1000 * 0.5
-    return {'javaHeapKbBefore': heap0, 'javaHeapKbAfter': heap1,
-            'checks': {'appAlive': bool(app_pid()), 'playbackContinued': advanced}}
+    after = {'rotation': sh('settings get system user_rotation'), 'night': sh('cmd uimode night'),
+             'font': sh('settings get system font_scale'), 'density': sh('wm density')}
+    return {'javaHeapKbBefore': heap0, 'javaHeapKbAfter': heap1, 'settingsBefore': before, 'settingsAfter': after,
+            'checks': {'appAlive': bool(app_pid()), 'playbackContinued': advanced, 'settingsRestored': before == after}}
 
 
 def network_flap():
