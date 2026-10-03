@@ -55,6 +55,11 @@ android {
         create("stress") {
             initWith(getByName("release"))
             isDebuggable = true
+            // Not shrunk: AGP disables R8 optimisation for debuggable builds but still removes unused
+            // code, which broke instrumentation (it uses the app's copy of the Kotlin stdlib). Check
+            // shrinking with a real release build instead.
+            isMinifyEnabled = false
+            isShrinkResources = false
             matchingFallbacks += "release"
         }
         // Separate app for low-RAM phones: own package id, so it installs beside Riff, never over it.
