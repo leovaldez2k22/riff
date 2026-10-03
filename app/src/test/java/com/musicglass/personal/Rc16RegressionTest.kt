@@ -105,6 +105,16 @@ class Rc16RegressionTest {
             ProviderHomeSection("Other",listOf(song("three"),song("one"),collection("pod",CatalogKind.Podcast)))))
         assertEquals(setOf("one","two","three"),actual.map {it.key()}.toSet());assertEquals(3,actual.size)
     }
+    @Test fun speedDialDropsPodcastsThatLookLikeSongs() {
+        val recent = listOf(song("one"), ProviderTrack("podcast0001", "Episode", "Show", isMusic=false).homeCard())
+        val shelves = listOf(ProviderHomeSection("Quick picks", listOf(song("two"), song("pod").copy(subtitle="Podcast · Host"),
+            collection("show", CatalogKind.Playlist).copy(subtitle="Podcast"))),
+            ProviderHomeSection("Podcasts for you", listOf(song("three"))))
+        assertEquals(listOf("one","two"), homeSpeedDialCandidates(recent, shelves).map { it.key() })
+        val episode = Json.parseToJsonElement("""{"musicResponsiveListItemRenderer":{"flexColumns":[{"musicResponsiveListItemFlexColumnRenderer":{"text":{"runs":[{"text":"Ep 1",
+            "navigationEndpoint":{"watchEndpoint":{"videoId":"episode0001","watchEndpointMusicSupportedConfigs":{"watchEndpointMusicConfig":{"musicVideoType":"MUSIC_VIDEO_TYPE_PODCAST_EPISODE"}}}}}]}}}]}}""")
+        assertEquals(CatalogKind.Episode, parseCatalogCards(episode).single().kind)
+    }
     @Test fun speedDialIncludesRecentSongsEvenWhenThereIsNoListenAgainShelf() {
         assertEquals(listOf("one","two"),homeSpeedDialCandidates(listOf(song("one")),listOf(ProviderHomeSection("Quick picks",listOf(song("one"),song("two"))))).map {it.key()})
     }

@@ -76,7 +76,8 @@ internal fun parseCatalogCards(root: JsonElement): List<ProviderHomeCard> {
                         ?: catalogValue(item["playNavigationEndpoint"],"videoId")
                         ?: catalogValue(catalogRenderer(item["overlay"],"musicPlayButtonRenderer")?.get("playNavigationEndpoint"),"videoId"))?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }
                     val live = item.toString().contains("\"LIVE\"") || item.toString().contains("BADGE_STYLE_TYPE_LIVE_NOW")
-                    val kind = catalogKind(page,browse,subtitle,live)
+                    val kind = catalogKind(page,browse,subtitle,live).let {
+                        if(it == CatalogKind.Song && catalogValue(navigation,"musicVideoType") == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE") CatalogKind.Episode else it }
                     // A collection's menu can contain playable video IDs. Only the main endpoint defines its kind.
                     if (title.isNotBlank() && (video != null || browse != null)) {
                         val artistRun = (subtitleNode as? JsonObject)?.get("runs")?.jsonArray?.firstOrNull {
