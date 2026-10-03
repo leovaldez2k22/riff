@@ -13,6 +13,12 @@ class NetworkRecoveryTest {
             listOf(IOException("Source error"), IOException("SABR playback failed (UnknownHostException)"))))
         assertTrue(NetworkRecovery.isNetworkFailure("ERROR_CODE_IO_UNSPECIFIED", listOf(UnknownHostException("music.youtube.com"))))
         assertTrue(NetworkRecovery.isNetworkFailure("ERROR_CODE_IO_NETWORK_CONNECTION_FAILED", emptyList()))
+        // What the 2026-10-04 device check hit: a track resolved while offline.
+        assertTrue(NetworkRecovery.isNetworkFailure("ERROR_CODE_IO_UNSPECIFIED", listOf(
+            IOException("The selected YouTube track could not be prepared"), IllegalStateException(OFFLINE_MESSAGE))))
+        assertTrue(NetworkRecovery.isNetworkFailure("ERROR_CODE_IO_UNSPECIFIED", listOf(
+            IOException("The selected YouTube track could not be prepared"), IllegalStateException("Track unavailable: NETWORK"))))
+        assertFalse(NetworkRecovery.isNetworkFailure("ERROR_CODE_IO_UNSPECIFIED", listOf(IllegalStateException("Track unavailable: LOGIN_REQUIRED"))))
     }
 
     @Test fun otherFailuresAreNot() {

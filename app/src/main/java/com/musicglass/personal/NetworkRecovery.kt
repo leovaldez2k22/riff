@@ -17,7 +17,10 @@ internal object NetworkRecovery {
     /** A network failure, from the error code or anywhere in the cause chain (SABR wraps its cause in the message). */
     fun isNetworkFailure(errorCodeName: String, causes: List<Throwable>): Boolean =
         errorCodeName == "ERROR_CODE_IO_NETWORK_CONNECTION_FAILED" || errorCodeName == "ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT" ||
-            causes.any { cause -> networkCauses.any { name -> cause.javaClass.simpleName == name || cause.message.orEmpty().contains(name) } }
+            causes.any { cause -> networkCauses.any { name -> cause.javaClass.simpleName == name || cause.message.orEmpty().contains(name) } ||
+                cause.message == OFFLINE_MESSAGE || cause.message == TIMEOUT_MESSAGE ||
+                // innertubex's StreamResolveException.Reason.NETWORK, as YouTubeMusicProvider.resolve reports it.
+                cause.message == "Track unavailable: NETWORK" }
 
     fun shouldRetry(networkFailure: Boolean, playWhenReady: Boolean, hasError: Boolean, attempts: Int): Boolean =
         networkFailure && playWhenReady && hasError && attempts < MAX_ATTEMPTS

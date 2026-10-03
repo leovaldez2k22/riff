@@ -27,7 +27,8 @@ internal class DeferredProviderSource(private val item: MediaItem,
         scope=CoroutineScope(SupervisorJob()+Handler(Looper.myLooper()!!).asCoroutineDispatcher()).also {s->s.launch {
             try {val source=resolve();ensureActive();child=source;prepareChildSource(Unit,source)}
             catch(e:CancellationException){throw e}
-            catch(_:Exception){failure=IOException("The selected YouTube track could not be prepared")}
+            // Keep the cause: network recovery (NetworkRecovery) reads it to tell an outage from a bad track.
+            catch(e:Exception){failure=IOException("The selected YouTube track could not be prepared",e)}
         }}
     }
     override fun onChildSourceInfoRefreshed(id:Unit,source:MediaSource,timeline:Timeline)=refreshSourceInfo(timeline)
