@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/leovaldez2k20/riff/security/advisories/new
+    about: Do not post security vulnerabilities or account secrets publicly.

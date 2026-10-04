@@ -1,50 +1,92 @@
 # Riff
 
-A personal Android music app with YouTube Music search, recommendations, album and playlist browsing, playback, account-scoped local saves, and on-device audio. Riff is the official product and release name. See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
+An Android music player with YouTube Music browsing, synced lyrics, offline downloads, and a glass interface.
 
-The player restores the last song, position and complete queue paused in the mini player. A first launch without saved playback starts empty. Home uses real YouTube Music responses and saved real tracks; service failures show a retry or empty state. High-resolution provider artwork is selected throughout the app. Upgrading clears retired demo preferences and offline copies while preserving provider credentials, account-scoped real music saves, and accessibility settings.
+[![CI](https://github.com/leovaldez2k20/riff/actions/workflows/ci.yml/badge.svg)](https://github.com/leovaldez2k20/riff/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/leovaldez2k20/riff?include_prereleases&label=release)](https://github.com/leovaldez2k20/riff/releases)
+[![Android](https://img.shields.io/badge/Android-12%2B-3DDC84)](#install)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
-## Build
+**[Download rc20 APK](https://github.com/leovaldez2k20/riff/releases/download/v0.9.0-rc20/riff-0.9.0-rc20.apk)** · [Release notes](https://github.com/leovaldez2k20/riff/releases/tag/v0.9.0-rc20) · [All releases](https://github.com/leovaldez2k20/riff/releases) · [Report a bug](https://github.com/leovaldez2k20/riff/issues/new/choose)
 
-Runs on Android 12 (API 31) and newer. Liquid refraction requires Android 13; Android 12 uses translucent controls and hardware frosted blur.
+Riff is an independent personal project and is not affiliated with Google or YouTube. The current version is a **release candidate**. Online playback and catalog availability depend on the providers.
 
-Requirements: Android SDK platform 37.0, JDK 21 (unit tests load innertubex classes built for Java 21), and Gradle 8.13. The official app and Gradle project name is Riff; new APKs and source archives use the `riff-` prefix. The stable application ID is `com.musicglass.personal` and the launcher is `com.musicglass.personal.MainActivity`.
+## Install
+
+The rc20 APK supports **Android 12 or newer on 64-bit ARM (arm64-v8a) phones**. Android 13+ supports liquid refraction; Android 12 uses translucent controls and frosted blur.
+
+1. Download `riff-0.9.0-rc20.apk` from the release's **Assets** section or the direct link above.
+2. Open the APK on your phone. If Android asks, allow installation from the browser or file manager you used.
+3. Install it. Existing Riff releases using the same signing certificate update in place, retaining app data. Uninstalling deletes app-private downloads, local saves, and settings.
+4. Open Riff. Sign in through its YouTube Music screen to access your provider library. Local audio access is requested only when opening On device.
+
+This APK uses the existing release signing key. The stable application ID is `com.musicglass.personal`. Older Lite builds have a separate package and are not replaced by this APK; rc20 currently publishes the standard ARM64 build.
+
+| Release asset | Purpose |
+|---|---|
+| [Signed APK](https://github.com/leovaldez2k20/riff/releases/download/v0.9.0-rc20/riff-0.9.0-rc20.apk) | Installable app, about 26.2 MiB |
+| [Corresponding source](https://github.com/leovaldez2k20/riff/releases/download/v0.9.0-rc20/riff-0.9.0-rc20-source.zip) | Source, build scripts, licenses, and documentation |
+| [SHA256SUMS.txt](https://github.com/leovaldez2k20/riff/releases/download/v0.9.0-rc20/SHA256SUMS.txt) | SHA-256 checksums for the APK and source archive |
+
+The release also includes `LICENSE` and `NOTICE.md`. GitHub's automatically generated source archives refer to the release tag. To check a download in PowerShell, use `Get-FileHash .\riff-0.9.0-rc20.apk -Algorithm SHA256` and compare it with `SHA256SUMS.txt`. The public signing certificate fingerprint is in [release signing](docs/release-signing.md).
+
+## What Riff does
+
+- Browse recommendations, search, albums, playlists, artists, podcasts, and live radio.
+- Play audio in the background, view an exact official video counterpart when available, and control the queue with Play next, reorder, and remove actions.
+- Read word-synced or line-synced lyrics, with on-device English translation when supported.
+- Download songs, artwork, and available lyrics for offline playback; optional Smart Downloads use a storage budget and network preferences.
+- Access on-device audio, local saves, listening history, sleep timers, and home-screen widgets.
+- Customize glass effects, motion, contrast, haptics, and Data saver.
+
+Read the [detailed feature and behavior guide](docs/features.md) for network, cache, queue, download, and account behavior.
+
+## Screenshots
+
+Actual rc20 phone screenshots. Album artwork belongs to its respective owners; screenshots illustrate the app interface.
+
+<table>
+  <tr>
+    <td><img src="docs/images/rc20-player.png" width="250" alt="Riff now playing screen" /></td>
+    <td><img src="docs/images/rc20-queue.png" width="250" alt="Queue with visible remove buttons" /></td>
+    <td><img src="docs/images/rc20-data-saver.png" width="250" alt="Data saver and appearance settings" /></td>
+  </tr>
+  <tr><td>Now playing</td><td>Queue controls</td><td>Data saver</td></tr>
+</table>
+
+## What's new in rc20
+
+- Replaces rejected streams during recovery, invalidates stale prefetched streams, and tries a bounded set of alternate profiles while preserving queue position and user pauses.
+- Adds a visible remove button to every queue row, including removal of the final song.
+- Adds persistent **Settings → Data usage → Data saver** for lower-bitrate audio and up to 360p video on newly resolved streams. Downloads keep their selected quality.
+- Adds NetEase Cloud Music and Lyrics.ovh to the lyrics hierarchy.
+
+Lyrics priority: **Better Lyrics TTML → QQ → NetEase → Kugou → LRCLIB → YouTube Music → Lyrics.ovh**. Timing quality takes precedence: word > line > plain; provider order breaks ties. NetEase may require verification and then falls through to later providers. Matched NetEase lyrics were not verified live on the test phone. Lyrics.ovh provides plain text. Megalobiz and Spicy Lyrics are excluded from this release.
+
+Validation: **253 unit/Compose tests**, **eight phone tests**, a **12-song playback run** including Data saver, and **six-song playback on the signed release** passed. Release lint has zero errors; existing warnings remain. The signed release also recovered automatically from a real SABR attestation failure. See [the rc20 verification record](docs/app-revamp-rc20.md) and [CHANGELOG](CHANGELOG.md).
+
+## Build and contribute
+
+Requirements: **JDK 21**, **Android SDK platform 37.0**, **build-tools 36.0.0**, and **Gradle 8.13** through the included wrapper. Minimum Android API is 31; target API is 36. JDK 21 is needed by the InnerTubeX classes used in tests.
 
 ```powershell
-$env:ANDROID_HOME = (Resolve-Path '.toolchain/sdk').Path
-$env:GRADLE_USER_HOME = Join-Path (Get-Location) '.toolchain/gradle-user-home'
+$env:JAVA_HOME = 'C:\path\to\jdk-21'
+$env:ANDROID_HOME = 'C:\path\to\Android\Sdk'
 .\gradlew.bat :app:testDebugUnitTest :app:lintRelease :app:assembleDebug
 ```
 
-`scripts/build-release-candidate.ps1` builds and signs a release using the existing ignored `.toolchain/signing/` keystore. `scripts/package-source.ps1` exports corresponding source. Preserve the keystore and password for same-key phone upgrades. Release and debug certificates differ.
+On macOS/Linux, set `JAVA_HOME` and `ANDROID_HOME` and use `./gradlew`. The Unix wrapper must be executable (`chmod +x gradlew` if needed).
 
-## Behavior and limits
+Debug builds use a different signing key and cannot update an installed release in place. `scripts/build-release-candidate.ps1` signs releases using the maintainer's ignored local keystore and checks its public certificate; without signing credentials, CI builds an unsigned release. Never commit keys, passwords, cookies, or signed media URLs. `scripts/package-source.ps1` packages corresponding source.
 
-- Real songs can be searched and played; provider availability varies by track and session. Search supports voice input, title sorting, and pagination.
-- Search includes songs, albums, artists, playlists and podcasts. Home and Library collections open real provider details; tapping the player artist opens their profile, with album navigation in the song menu.
-- Library reads the signed-in YouTube Music account’s songs, liked songs, playlists, albums, artists and podcasts, with Load more for additional pages and playlist songs. The player star likes/unlikes the song on YouTube Music after the service acknowledges the change.
-- Home mood backgrounds use licensed real photographs discovered through Openverse and Wikimedia Commons, with daily refresh jobs, a per-mood file cache, creator/licence links and retention of the last successful image offline. The selected image fades into black near the middle of the screen. Missing or failed album/playlist artwork uses one of 20 stable, original minimal covers. Speed dial shows three pages of Listen again songs.
-- Home, Podcasts, Radio and Home mood feeds share requests and cache successful responses in process memory. Tab changes reuse the same data. The cache refreshes at 6 AM and 6 PM in the phone’s local timezone, on removal from recent apps, and on account changes. Failures can be retried. Library checks playlist additions/deletions on every tab entry and retains existing collection contents. Edits invalidate the affected collection.
-- Song menus can add a song to several selected YouTube Music playlists. Successfully saved selections are removed from the picker; failed or read-only selections can be retried. Owned playlist rows can remove their exact entry after confirmation. Local collection search matches title and artist, including accents; sorting supports collection order, title A–Z/Z–A and artist A–Z. Date-added sorting uses supplied dates only: real download commit times are available, while provider collections may omit date metadata.
-- Settings → Widgets offers Compact, Wide, Artwork, Player, Large and Circle home-screen widgets. Widget resizing and pinning depend on the launcher. The player menu has preset and custom sleep timers up to 24 hours; the full player displays the remaining time and fades its own volume smoothly during the final 15 seconds before pausing. Cancelling or changing a timer restores the prior player volume; system media volume is unchanged. A running timer keeps its deadline if Android stops the app and is re-armed when playback restarts.
-- Settings -> Data usage -> Data saver requests lower-bitrate audio and up to 360p video for newly resolved streams. It is off by default, persists across restarts, and leaves the current stream and download quality unchanged. Queue rows show a remove button; removing the final song clears the queue and pauses playback.
-- Explicit Save on this phone, local playlist tracks and listening history remain account-scoped phone saves. They appear separately from the provider library.
-- On-device audio access requests `READ_MEDIA_AUDIO` on Android 13+, or `READ_EXTERNAL_STORAGE` on Android 12, only on that screen. Files remain on the phone.
-- Shows for you and podcast shelves live in Podcasts. Radio discovers current broadcasts from 42 curated YouTube channels across lofi, jazz/café, electronic/house, synthwave, ambient/sleep, nature, classical, world, India and news categories, plus Featured and All. Only broadcasts currently marked live appear; channels without a live broadcast are omitted. Live broadcasts use native YouTube HLS in the media service, including attestation, manifest-path token placement and n challenge solving. The full player has app-owned controls and a black video background; minimizing or switching apps detaches the video surface while audio continues. Unavailable streams show an honest retry state. Lyrics preload as playback starts and share one request/result with the lyrics page. Lyrics use Better Lyrics (TTML/QQ/Kugou) first; LRCLIB and YouTube Music are requested only when no Better Lyrics result is available. Word highlighting uses supplied timestamps; songs with only line timing highlight by line, and plain lyrics are labeled honestly.
-- The audio-output icon follows the selected route: phone, earphones, headphones or external speakers. The navigation selector springs in both axes and locally refracts icons and labels on Android 13+; Android 12 uses a local elastic fallback. Solid controls and reduced motion disable the refraction.
-- The player uses real YouTube Music recommendations for Up next, skips unavailable streams, and supports selecting, reordering, removing, Play next and Add to queue. Albums and playlists load all provider continuation pages, retain collection order, and select the tapped track, with up to 2,000 tracks per collection. Automatic queues reject repeat IDs and matching audio/video recordings; authored repeats retain their positions. The queue supports history, immediate two-bar-handle dragging with edge scrolling, accessibility move actions, and swipe removal. Native song video uses the exact official counterpart supplied by YouTube Music's Song/Video switcher, with an official music-video type and matching recording title. Lyrics/audio/fan uploads and different recordings are rejected; generic YouTube searches are not used. No official match shows an unavailable message and keeps audio playback. Video retains the audio queue and position.
-- Download song in song menus saves original source audio at the highest available quality, artwork and timed lyrics when available. Library → Downloads uses a full artwork header from the most recently downloaded song, Play and Shuffle controls, and compact rows with local title/artist search and date/title/artist sorting. Playlists omit track numbers; album and playlist titles truncate to one line. Collection row playback preserves the original authored queue and selected index despite filtering or sorting. Its ordered queue includes ready downloads only. Progress, pause, retry/keep, details and removal remain available; offline playback bypasses extraction and permanent bundles have no cache expiry. Downloads are app-private and account-scoped; clearing the playback cache keeps them. Uninstalling deletes them. Failed transfers restart safely with fresh exact-ID streams; container remuxing preserves audio quality and adds seek indexing. Lyrics and artwork failures are shown separately.
-- Settings → Smart Downloads enables up to 250 recent qualifying songs, off by default. Membership uses recency and meaningful listening; repeats, completion and favorites rank priority. Live broadcasts, podcasts, songs over 20 minutes, brief listens and user-removed downloads are excluded. Automatic work uses unmetered Wi-Fi by default; Settings → Downloads → Allow mobile data explicitly permits validated mobile or metered connections. Both scheduled jobs and active transfers honor that choice. Work requires battery ≥20%, a 1–16 GB budget slider in 1 GB steps (default 4 GB), and reserves at least 1 GB or 10% of device storage. Playback takes priority. Manual downloads are preserved when Smart Downloads is disabled or its rolling selection changes. The number downloaded can be below 250 because of available listening history, storage, eligibility or provider failures. Android schedules background work; enabling the toggle does not promise immediate completion.
-- Playback starts from the selected song's metadata without resolving the remaining queue. Lyrics and recommendations start after playback is ready and playing. The shared provider prewarms extraction and coalesces requests with a bounded, expiring RAM stream cache. Persistent catalog/listening metadata and a 256 MB LRU audio cache support repeat listening. Signed URLs and tokens are not written into download metadata. Partial playback cache is an optimization; use Download song for guaranteed offline storage. Highest available does not imply a fixed bitrate or lossless audio.
-- Background audio continues while switching apps, and stops when this app is removed from recent apps, after saving the current song, position and queue for a paused next launch. Player/lyrics share song and artist motion; the mini player retains stable layout bounds. Both seek and volume use continuous capsule tracks with no floating thumb. Animations request the supported 60, 90 or 120 Hz UI rate without changing system display settings; refresh rate does not guarantee 120 frames per second.
-- Haptics use Android semantic touch feedback, respect the system touch setting, and can be disabled in Settings → Interaction. Routine scrolling, typing, background work and automatic song changes remain silent. Double tapping Home, Podcasts, Radio or Library resets its own root and scroll state; Search also focuses the field and keyboard.
-- English translations use on-device ML Kit models, with auto detection or manual source language selection and cached line-aligned results. Original karaoke timing is preserved. First use downloads the language models. Google receives SDK performance/usage metrics; lyric text is processed on the device. See [ML Kit terms and privacy](https://developers.google.com/ml-kit/terms).
-- YouTube challenge solving (QuickJS) runs in a separate `:solver` process, so a crash there doesn't stop the music. If the app itself crashes, the queue comes back paused with a one-time "Stopped unexpectedly" line in the mini player (TalkBack reads the full sentence); playback never resumes on its own after a crash. If the network drops, playback resumes by itself when it returns. Settings → About → Copy playback diagnostics copies the recent playback event log (no URLs, tokens or cookies) for bug reports. If YouTube Music stops accepting the sign-in, Home and Library show "Session expired · Sign in again".
-- Older verification documents describe historical work and are not bundled as app content. The retired `core/glass` prototype is kept in git as the tag `archive/core-glass`.
+See [CONTRIBUTING](CONTRIBUTING.md), the [CI workflow](.github/workflows/ci.yml), and [dependency license inventory](docs/dependency-license-inventory.md).
 
-See [the rc14 cache, Library, collection tools and UI report](docs/app-revamp-rc14.md), [the rc12 Settings and Downloads report](docs/app-revamp-rc12.md), [the rc11 downloads, caching and official-video report](docs/app-revamp-rc11.md), [the rc10 haptics, navigation and radio report](docs/app-revamp-rc10.md), [the rc9 fixes and Android 12 report](docs/app-revamp-rc9.md), [the rc8 reference and restoration report](docs/app-revamp-rc8.md), [the rc7 app revamp report](docs/app-revamp-rc7.md), [the UI polish report](docs/ui-polish-2026-09-30.md) and [the demo-removal report](docs/no-demo-update-2026-09-30.md). Older documents and release artifacts are historical records.
+## Support, privacy, and license
 
-This project is GPL-3.0. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md). Distribute corresponding source and license notices with the APK.
-The latest implementation and verification record is [rc20](docs/app-revamp-rc20.md), including the [rc19 playback, queue and Data saver changes](docs/app-revamp-rc19.md). Artwork provenance and prompts are in [placeholder-art](licenses/placeholder-art.md).
+Use [GitHub Issues](https://github.com/leovaldez2k20/riff/issues/new/choose) for bugs and feature requests. Include the app version, Android version, phone model, reproduction steps, and sanitized playback diagnostics when relevant. **Settings → About → Copy playback diagnostics** provides a bounded event log; review anything you post publicly.
 
-The rc20 lyrics hierarchy is Better Lyrics TTML → QQ → NetEase Cloud Music → Kugou → LRCLIB → YouTube Music → Lyrics.ovh. Word timing is preferred over line timing and plain text; source order breaks ties. NetEase uses public metadata matching with artist and recording-duration checks. Lyrics.ovh is a plain-text fallback. NetEase can require anonymous-client verification; the app then continues to later sources. Spicy Lyrics is excluded and Megalobiz is deferred because its replacement API requires application authentication. Synced results are cached for seven days; cached plain lyrics continue searching for synced results. Refresh retries providers.
+For security issues, use [private vulnerability reporting](https://github.com/leovaldez2k20/riff/security/advisories/new). See [SECURITY](SECURITY.md). This personal project has no guaranteed response schedule.
+
+[Privacy and permissions](docs/privacy.md) explains local storage, provider requests, sign-in, translation, and optional voice search. Android cloud backup and device transfer are disabled. App-local saves and downloads are account-scoped and do not provide cross-device sync.
+
+Riff is licensed under **[GNU GPL v3](LICENSE)**. Distribute corresponding source and [third-party notices](NOTICE.md) with the app. See [artwork provenance](licenses/placeholder-art.md), the dependency inventory, and the licenses included in the source archive. Historical implementation reports remain in [docs](docs/).

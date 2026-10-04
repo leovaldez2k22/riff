@@ -1,0 +1,38 @@
+name: Bug report
+description: Report a reproducible Riff problem.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: "Please search existing issues first. Do not share account cookies, credentials, signed URLs, or private screenshots. Report security concerns privately."
+  - type: input
+    id: version
+    attributes:
+      label: Riff version
+      placeholder: 0.9.0-rc20
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Phone model and Android version
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include Data saver, network type, and queue state for playback problems.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics or screenshots
+      description: Optional sanitized output from Settings → About → Copy playback diagnostics. Inspect all attachments before posting.

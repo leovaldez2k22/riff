@@ -22,7 +22,8 @@ foreach ($root in $roots) {
 $topLevel = @('app\build.gradle.kts', 'app\proguard-rules.pro',
     'build.gradle.kts', 'settings.gradle.kts', 'gradle.properties', 'gradle\libs.versions.toml',
     'gradlew', 'gradlew.bat', 'CHANGELOG.md', 'LICENSE', 'NOTICE.md', 'README.md',
-    'MUSIC_APP_IMPLEMENTATION_PLAN.md', 'YTMUSIC_INTEGRATION_AGENT_GUIDE.md')
+    'MUSIC_APP_IMPLEMENTATION_PLAN.md', 'YTMUSIC_INTEGRATION_AGENT_GUIDE.md',
+    'CONTRIBUTING.md', 'SECURITY.md')
 foreach ($file in $topLevel) {
     $path = Join-Path $project $file
     if (-not (Test-Path -LiteralPath $path)) { throw "Source input missing: $file" }
