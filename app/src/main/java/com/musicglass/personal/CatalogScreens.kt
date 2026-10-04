@@ -50,8 +50,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     var menu by remember(card.key()) {mutableStateOf(false)}
     var playlistTrack by remember {mutableStateOf<ProviderTrack?>(null)}
     playlistTrack?.let {PlaylistPicker(it,{playlistTrack=null},{})}
-    Row(Modifier.fillMaxWidth().heightIn(min=60.dp).clip(RoundedCornerShape(14.dp))
-        .clickable(onClick = hapticClick(onOpen)).testTag("catalog_${card.kind.name.lowercase()}_${card.key()}"),
+    Row(Modifier.fillMaxWidth().heightIn(min=60.dp).cardPeek(card,14.dp,onOpen).testTag("catalog_${card.kind.name.lowercase()}_${card.key()}"),
         verticalAlignment=Alignment.CenterVertically) {
         CatalogArtwork(card.artworkUrl,card.key(),
             modifier=Modifier.size(48.dp).clip(if(card.kind==CatalogKind.Artist) CircleShape else RoundedCornerShape(12.dp)).background(Raised))

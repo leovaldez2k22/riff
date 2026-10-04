@@ -19,11 +19,11 @@ import androidx.compose.ui.unit.sp
     val icon=when(label) {
         "View artist"->Icons.Rounded.Person;"View album"->Icons.Rounded.Album
         "Play next"->Icons.Rounded.PlaylistPlay;"Add to queue"->Icons.Rounded.QueueMusic
-        "Add to playlist"->Icons.Rounded.PlaylistAdd;"Share song"->Icons.Rounded.Share
+        "Add to playlist"->Icons.Rounded.PlaylistAdd;"Share song","Share"->Icons.Rounded.Share
         "Sleep timer"->Icons.Rounded.Bedtime;"View credits"->Icons.Rounded.Info;"Favorite"->Icons.Rounded.StarBorder
         "Download details"->Icons.Rounded.Info;"Resume download","Retry missing assets"->Icons.Rounded.Refresh
         "Keep downloaded"->Icons.Rounded.DownloadDone;"Pause download"->Icons.Rounded.Pause;"Remove download"->Icons.Rounded.DeleteOutline
-        "Download song"->Icons.Rounded.Download;"Remove from queue"->Icons.Rounded.DeleteOutline;else->Icons.Rounded.LibraryMusic
+        "Download song"->Icons.Rounded.Download;"Not interested"->Icons.Rounded.Block;"Open"->Icons.Rounded.OpenInNew;"Remove from queue"->Icons.Rounded.DeleteOutline;else->Icons.Rounded.LibraryMusic
     }
     DropdownMenuItem(text={Text(label,color=if(label.startsWith("Remove")) Pink else White,fontSize=14.sp)},onClick = if(label in setOf("Favorite","Play next","Add to queue","Add to playlist")) onClick else hapticClick(onClick),
         trailingIcon={Icon(icon,null,tint=if(label.startsWith("Remove")) Pink else White.copy(alpha=.7f),modifier=Modifier.size(18.dp))},

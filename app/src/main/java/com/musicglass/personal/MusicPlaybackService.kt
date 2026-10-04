@@ -39,10 +39,11 @@ import io.ktor.client.engine.okhttp.OkHttp
 class MusicPlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private val volumeBoost = VolumeBoostProcessor()
+    private val audioEffects by lazy {AudioSessionEffects(this, volumeBoost.boost) {events.append(it)}}
     private val boostPrefs by lazy {getSharedPreferences(AUDIO_BOOST_PREFS, MODE_PRIVATE)}
     private val boostListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener {_, _ -> updateBoost()}
     private fun updateBoost() {
-        volumeBoost.boost.targetGain = boostGain(boostPrefs.getBoolean("enabled", false), boostPrefs.getInt("percent", 200))
+        audioEffects.setGain(boostGain(boostPrefs.getBoolean("enabled", false), boostPrefs.getInt("percent", 200)))
     }
     private val events by lazy { PlaybackEventLog(this) }
     private val serviceScope = CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
@@ -150,8 +151,10 @@ class MusicPlaybackService : MediaSessionService() {
                 androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.Builder()
                     .setAudioOffloadMode(androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED).build()).build()
             setHandleAudioBecomingNoisy(true)
+            audioEffects.attach(audioSessionId)
             repeatMode = Player.REPEAT_MODE_OFF
             addListener(object : Player.Listener {
+                override fun onAudioSessionIdChanged(audioSessionId: Int) = audioEffects.attach(audioSessionId)
                 override fun onEvents(player: Player,events: Player.Events) {saveSnapshot(player);RiffWidgets.publish(this@MusicPlaybackService,player)}
                 override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                     events.append("play_when_ready=$playWhenReady reason=$reason")
@@ -507,7 +510,8 @@ class MusicPlaybackService : MediaSessionService() {
                     if(generation!=queueGeneration) return@launch
                     radioContinuation=token
                     val known=(0 until player.mediaItemCount).map {val m=player.getMediaItemAt(it).mediaMetadata;queueRecordingKey(m.title.toString(),m.artist.toString())}.toSet()
-                    queueCandidates.addAll(queueCandidates(tracks,queuedIds,known))
+                    val hidden=NotInterestedStore.get(this@MusicPlaybackService).keys.toSet()
+                    queueCandidates.addAll(queueCandidates(tracks,queuedIds+hidden,known))
                 }
                 var added=0;var attempted=0
                 while(queueCandidates.isNotEmpty() && added<6 && attempted<12) {
@@ -574,6 +578,7 @@ class MusicPlaybackService : MediaSessionService() {
         endNetworkRecovery()
         boostPrefs.unregisterOnSharedPreferenceChangeListener(boostListener)
         sleepTimer.close()
+        audioEffects.release()
         val player=session?.player
         val playWhenReady=player?.playWhenReady==true
         events.append(runCatching {stopContext(this,playWhenReady,player?.playbackState?:0,taskRemoved)}.getOrDefault("service_destroy"))

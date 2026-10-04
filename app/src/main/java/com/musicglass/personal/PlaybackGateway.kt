@@ -67,6 +67,8 @@ internal interface PlaybackGateway {
     fun attachVideo(surface:android.view.SurfaceView?) {}
     fun detachVideo(surface:android.view.SurfaceView) {attachVideo(null)}
     fun removeQueueItem(index: Int)
+    /** Skips [videoId] if it is playing and takes every copy of it out of the queue. */
+    fun dropTrack(videoId: String) {}
     fun playProvider(track: ProviderTrack, stream: ProviderStream, startPositionMs: Long = 0L)
     fun playLocal(track: LocalAudioTrack)
     fun clearProviderPlayback()
@@ -207,6 +209,15 @@ internal class MusicPlaybackGateway(context: Context) : PlaybackGateway {
     override fun removeQueueItem(index: Int) = withPlayer { player ->
         if (player.mediaItemCount > 1 && index in 0 until player.mediaItemCount)
             player.removeMediaItem(index)
+    }
+    override fun dropTrack(videoId: String) = withPlayer { player ->
+        val matches = (0 until player.mediaItemCount).filter { player.getMediaItemAt(it).mediaId == "yt:$videoId" }
+        if (matches.isEmpty()) return@withPlayer
+        val current = player.currentMediaItemIndex in matches
+        val remaining = player.mediaItemCount - matches.size
+        if (remaining == 0) { player.pause(); matches.drop(1).asReversed().forEach(player::removeMediaItem); return@withPlayer }
+        matches.asReversed().forEach(player::removeMediaItem)
+        if (current) { if (player.playbackState == Player.STATE_IDLE) player.prepare(); player.play() }
     }
     override fun seekQueueItem(index: Int) = withPlayer { player ->
         if(index in 0 until player.mediaItemCount) { player.seekTo(index,0);if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play() }

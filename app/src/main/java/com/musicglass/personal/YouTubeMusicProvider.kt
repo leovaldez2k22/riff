@@ -63,7 +63,8 @@ internal data class ProviderTrack(val videoId: String, val title: String, val ar
 internal data class ProviderSearchPage(val tracks: List<ProviderTrack>, val nextToken: String?)
 internal data class ProviderHomeCard(val title: String, val subtitle: String,
     val artworkUrl: String?, val videoId: String? = null, val browseId: String? = null, val kind: CatalogKind = CatalogKind.Song,
-    val artistId: String? = null, val albumId: String? = null, val album: String = "",val musicVideo:Boolean=false,val officialMusicVideo:Boolean=false,val setVideoId:String?=null,val addedAt:Long?=null)
+    val artistId: String? = null, val albumId: String? = null, val album: String = "",val musicVideo:Boolean=false,val officialMusicVideo:Boolean=false,val setVideoId:String?=null,val addedAt:Long?=null,
+    val notInterestedToken:String?=null)
 internal data class ProviderHomeSection(val title: String, val cards: List<ProviderHomeCard>)
 internal data class ProviderProfile(val name: String, val artworkUrl: String?)
 internal data class ProviderStream(
@@ -592,6 +593,19 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
             check(revision == authRevision && signedIn) { "Account changed while saving" }
             songLikes[videoId] = liked; libraryRevision++
         }
+    }
+    /** Sends YouTube Music's "Not interested" feedback; looks the token up from the song's radio when none is known. */
+    suspend fun sendNotInterested(videoId: String?, token: String?): Result<Boolean> = providerResult {
+        if (!signedIn) return@providerResult false
+        val revision = authRevision
+        val feedback = token ?: videoId?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }?.let { id ->
+            val response = innerTube.next(YouTubeClient.WEB_REMIX, videoId = id, playlistId = "RDAMVM$id")
+            if (response.status.value >= 400) null
+            else notInterestedTokenFor(json.parseToJsonElement(response.bodyAsText()), id)
+        } ?: return@providerResult false
+        val response = innerTube.feedback(YouTubeClient.WEB_REMIX, listOf(feedback))
+        check(response.status.value < 400 && revision == authRevision) { "YouTube Music did not accept the feedback" }
+        true
     }
     suspend fun liveStations(category:String="Featured"):Result<List<ProviderHomeSection>> = providerResult {
         feedCache.get(feedKey(radioFeedKey(category))) {liveStationsFresh(category).getOrThrow()}

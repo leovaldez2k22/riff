@@ -52,7 +52,8 @@ private class UnfoldShape(val progress: Float, val anchor: androidx.compose.ui.g
 }
 
 @Composable internal fun PlayerActionMenu(expanded: Boolean, onDismissRequest: () -> Unit,
-    anchorBounds: IntRect?, content: @Composable ColumnScope.() -> Unit) {
+    anchorBounds: IntRect?, place: (IntRect, IntSize, IntSize, Int, Int, Int) -> IntOffset = ::playerMenuPosition,
+    paneTitle: String = "Song options", content: @Composable ColumnScope.() -> Unit) {
     val motion = LocalMotionPolicy.current
     val progress = remember {Animatable(0f)}
     var visible by remember {mutableStateOf(false)}
@@ -63,12 +64,12 @@ private class UnfoldShape(val progress: Float, val anchor: androidx.compose.ui.g
     val bottom = WindowInsets.navigationBars.getBottom(density)
     val margin = with(density) {12.dp.roundToPx()}
     val suppliedAnchor=anchorBounds
-    val positioner = remember(suppliedAnchor, top, bottom, margin) {
+    val positioner = remember(suppliedAnchor, top, bottom, margin, place) {
         object : PopupPositionProvider {
             override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize,
                 layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
                 val anchor = suppliedAnchor ?: anchorBounds
-                val offset = playerMenuPosition(anchor, windowSize, popupContentSize, margin, top, bottom)
+                val offset = place(anchor, windowSize, popupContentSize, margin, top, bottom)
                 origin = androidx.compose.ui.geometry.Offset(anchor.center.x-offset.x.toFloat(), anchor.center.y-offset.y.toFloat())
                 return offset
             }
@@ -86,7 +87,7 @@ private class UnfoldShape(val progress: Float, val anchor: androidx.compose.ui.g
             properties=PopupProperties(focusable=true)) {
             Box(Modifier.width(with(density) {(window.width-2*margin).toDp()}.coerceIn(1.dp,290.dp))
                 .heightIn(max=with(density) {(window.height-top-bottom-2*margin).coerceAtLeast(1).toDp()})
-                .testTag("player_action_menu").semantics {paneTitle="Song options";testTagsAsResourceId=true}
+                .testTag("player_action_menu").semantics {this.paneTitle=paneTitle;testTagsAsResourceId=true}
                 .graphicsLayer {
                     shape=UnfoldShape(progress.value,origin);clip=true
                     shadowElevation=16.dp.toPx()*progress.value.coerceIn(0f,1f)

@@ -92,7 +92,8 @@ internal fun parseCatalogCards(root: JsonElement): List<ProviderHomeCard> {
                             (albumRun as? JsonObject)?.get("text")?.jsonPrimitive?.contentOrNull.orEmpty(),
                             catalogValue(item,"musicVideoType") in setOf("MUSIC_VIDEO_TYPE_OMV","MUSIC_VIDEO_TYPE_UGC"),
                             catalogValue(item,"musicVideoType")=="MUSIC_VIDEO_TYPE_OMV",
-                            catalogValue(item["playlistItemData"],"playlistSetVideoId")?:catalogValue(item,"setVideoId"),playlistEntryAddedAt(item))
+                            catalogValue(item["playlistItemData"],"playlistSetVideoId")?:catalogValue(item,"setVideoId"),playlistEntryAddedAt(item),
+                            notInterestedToken(item["menu"]))
                         result[card.key()] = card
                     }
                 }
@@ -147,6 +148,16 @@ internal fun catalogPage(root: JsonElement): CatalogPage {
 internal fun parseQueueTracks(root: JsonElement): List<ProviderTrack> = parseCatalogCards(
     catalogRenderer(root,"playlistPanelRenderer") ?: catalogRenderer(root,"playlistPanelContinuation") ?: root)
     .mapNotNull { it.track() }.filterNot(ProviderTrack::isLive).distinctBy(ProviderTrack::videoId)
+/** The "Not interested" token of [videoId]'s own row in a watch-next response, if YouTube Music offers one. */
+internal fun notInterestedTokenFor(root: JsonElement, videoId: String): String? {
+    fun visit(node: JsonElement): String? = when(node) {
+        is JsonObject -> (node["playlistPanelVideoRenderer"] as? JsonObject)?.takeIf { (it["videoId"] as? JsonPrimitive)?.contentOrNull == videoId }
+            ?.let { notInterestedToken(it["menu"]) } ?: node.values.firstNotNullOfOrNull(::visit)
+        is JsonArray -> node.firstNotNullOfOrNull(::visit)
+        else -> null
+    }
+    return visit(root)
+}
 internal fun parseLikeStatus(root: JsonElement): Boolean? = catalogValue(root,"likeStatus")?.let {
     when(it) { "LIKE" -> true; "DISLIKE","INDIFFERENT" -> false; else -> null }
 }

@@ -92,9 +92,10 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
     } }
     val recent = if(feedReady && mood.isBlank()) collections.onlineHistory.map(ProviderTrack::homeCard) else emptyList()
     val favorites = if(feedReady && mood.isBlank()) collections.onlineFavorites.map(ProviderTrack::homeCard) else emptyList()
-    val musicShelves = shelves.filterNot(::podcastShelf)
-    val speed = if(feedReady) homeSpeedDialCandidates(recent,musicShelves) else emptyList()
     val photoContext=androidx.compose.ui.platform.LocalContext.current
+    val hidden = remember(photoContext) { NotInterestedStore.get(photoContext) }
+    val musicShelves = shelves.filterNot(::podcastShelf).withoutNotInterestedCards(hidden)
+    val speed = if(feedReady) homeSpeedDialCandidates(recent,musicShelves).withoutNotInterested(hidden) else emptyList()
     val photoRepository=remember(photoContext) {MoodPhotos.get(photoContext)}
     val photos by photoRepository.photos.collectAsState()
     var photoCredits by remember {mutableStateOf(false)}
@@ -203,10 +204,10 @@ private fun HomeSpeedDial(cards: List<ProviderHomeCard>, onOpen: (ProviderHomeCa
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         repeat(3) { column ->
                             val card = cards.getOrNull(page * 9 + row * 3 + column)
-                            Box(Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(13.dp))
-                                .background(White.copy(alpha = .08f))
-                                .then(if (card != null) Modifier.clickable { uiHaptic();  onOpen(card) }
-                                    else Modifier)) {
+                            Box(Modifier.weight(1f).aspectRatio(1f)
+                                .then(if (card != null) Modifier.cardPeek(card, 13.dp) { onOpen(card) }
+                                    else Modifier).clip(RoundedCornerShape(13.dp))
+                                .background(White.copy(alpha = .08f))) {
                                 if (card != null) {
                                     HomeArtwork(card.artworkUrl,card.key(), Modifier.fillMaxSize())
                                     Box(Modifier.fillMaxWidth().height(42.dp)
@@ -255,8 +256,8 @@ internal fun HomeRowShelf(title: String, cards: List<ProviderHomeCard>,
             cards.chunked(4).forEach { group ->
                 Column(Modifier.width(300.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     group.forEach { card ->
-                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                            .clickable { uiHaptic();  onOpen(card) }, verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().cardPeek(card, 12.dp) { onOpen(card) },
+                            verticalAlignment = Alignment.CenterVertically) {
                             HomeArtwork(card.artworkUrl,card.key(), Modifier.size(58.dp)
                                 .clip(RoundedCornerShape(9.dp)))
                             Column(Modifier.weight(1f).padding(start = 10.dp)) {
@@ -283,7 +284,7 @@ internal fun HomeCardShelf(title: String, cards: List<ProviderHomeCard>, width: 
         else LazyRow(Modifier.fillMaxWidth(),contentPadding=PaddingValues(horizontal=20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             itemsIndexed(cards.take(maxCards),key={index,card->"$index:${card.key()}"}) {_,card->
-                Column(Modifier.width(width).clickable { uiHaptic();  onOpen(card) }) {
+                Column(Modifier.width(width).cardPeek(card, 15.dp) { onOpen(card) }) {
                     HomeArtwork(card.artworkUrl,card.key(), Modifier.fillMaxWidth()
                         .aspectRatio(if (width > 200.dp && title.contains("videos", true)) 1.7f
                             else 1f).clip(RoundedCornerShape(15.dp)))

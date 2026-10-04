@@ -373,7 +373,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 PlayerActionMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }, anchorBounds=moreAnchor) {
                     if(state.source=="YouTube Music") DownloadSongAction(providerTrack(),onNotice,onDismiss={moreExpanded=false})
                     val options = if (state.source == "YouTube Music")
-                        listOf("View credits", "Add to playlist", "Share song", "View album", "View artist", "Favorite", "Play next", "Add to queue", "Save on this phone", "Library shortcuts", "Sleep timer") + if(hasQueue) listOf("Remove from queue") else emptyList()
+                        listOf("View credits", "Add to playlist", "Share song", "View album", "View artist", "Favorite", "Play next", "Add to queue", "Save on this phone", "Library shortcuts", "Sleep timer") + (if(hasQueue) listOf("Remove from queue") else emptyList()) + (if(state.live) emptyList() else listOf("Not interested"))
                         else listOf("Library shortcuts", "View credits", "Sleep timer")
                     options.forEach { option ->
                         SongActionItem(if(option=="Sleep timer" && state.sleepDeadlineMs>0) "Sleep timer · ${sleepMinutesRemaining(state.sleepDeadlineMs,android.os.SystemClock.elapsedRealtime())} min" else option, onClick = { 
@@ -383,6 +383,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                                     provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);collections.setOnlineFavorite(providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:"Could not save like")})
                                 }
                                 "Remove from queue" -> playback.removeQueueItem(state.index)
+                                "Not interested" -> scope.launch {markNotInterested(context,provider,playback,videoId,null,true,onNotice)}
                                 "View artist" -> onArtist()
                                 "View album" -> onAlbum()
                                 "Play next", "Add to queue" -> scope.launch {

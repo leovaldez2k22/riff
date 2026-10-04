@@ -316,6 +316,7 @@ internal fun RiffApp() {
     }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val cardPeek = remember(scope) { CardPeekController(scope) }
     val queueSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     val playerMorph = remember { PlayerMorphController() }
     var draggingMini by remember { mutableStateOf(false) }
@@ -371,7 +372,7 @@ internal fun RiffApp() {
 
     CompositionLocalProvider(LocalGlassBounds provides categoryBounds,LocalGlassChips provides categoryChips,
         androidx.compose.foundation.LocalOverscrollFactory provides StretchOverscrollFactory,LocalAccessibilitySettings provides accessibility,
-        LocalMotionPolicy provides motion) {
+        LocalMotionPolicy provides motion,LocalCardPeek provides cardPeek) {
     MaterialTheme(colorScheme = darkColorScheme(primary = Pink, background = Ink, surface = Raised),
         typography = GlassTypography) {
         SharedTransitionLayout {
@@ -516,6 +517,7 @@ internal fun RiffApp() {
                 }
                 }
             }
+            CardPeekLayer(cardPeek, model, provider, playback, onNotice = { scope.launch { snackbar.showSnackbar(it) } })
             SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter)
                 .padding(WindowInsets.safeDrawing.asPaddingValues()).padding(top = 12.dp))
         }
