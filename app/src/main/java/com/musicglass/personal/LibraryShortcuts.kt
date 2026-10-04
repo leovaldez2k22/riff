@@ -14,9 +14,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,9 +62,9 @@ internal data class DownloadSummary(val ready: Int, val active: Int, val covers:
         if (permitted) deviceCount = LocalAudioRepository(context).list().getOrNull()?.size
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        ShortcutTile("Downloads", downloads?.label ?: " ", Modifier.weight(1f).testTag("library_downloads"),
+        ShortcutTile("library:tile:downloads", "Downloads", downloads?.label ?: " ", Modifier.weight(1f).testTag("library_downloads"),
             { model.push("downloads") }) { CoverCollage(downloads?.covers.orEmpty(), Icons.Rounded.DownloadDone) }
-        ShortcutTile("On device", when {
+        ShortcutTile("library:tile:device", "On device", when {
             !permitted -> "Allow access"
             deviceCount == null -> " "
             else -> songCountLabel(deviceCount!!, "file")
@@ -73,10 +76,28 @@ internal data class DownloadSummary(val ready: Int, val active: Int, val covers:
     }
 }
 
-@Composable private fun ShortcutTile(title: String, subtitle: String, modifier: Modifier, onClick: () -> Unit,
+/**
+ * A Library tile. With glass on it is a liquid-glass shape like the filter chips: its bounds and corner go to the
+ * scene shader and its face is drawn above it, while the cover and text stay in the page, inside the refracting rim.
+ */
+@Composable private fun ShortcutTile(key: String, title: String, subtitle: String, modifier: Modifier, onClick: () -> Unit,
     visual: @Composable () -> Unit) {
-    Row(modifier.height(58.dp).clip(RoundedCornerShape(16.dp)).background(White.copy(alpha = .06f))
-        .clickable(onClick = hapticClick(onClick)).padding(horizontal = 9.dp),
+    val bounds = LocalGlassBounds.current; val chips = LocalGlassChips.current
+    val glass = !LocalAccessibilitySettings.current.solidControls && bounds != null && chips != null
+    val corner = with(LocalDensity.current) { 16.dp.toPx() }
+    val body = remember(title, subtitle, visual) { @Composable { TileBody(title, subtitle, visual) } }
+    SideEffect { chips?.let { val style = it[key]; if (style?.corner != corner || style.content !== body)
+        it[key] = GlassChipStyle("", false, corner = corner, content = body) } }
+    DisposableEffect(key, bounds, chips) { onDispose { bounds?.remove(key); chips?.remove(key) } }
+    Box(modifier.height(58.dp).onGloballyPositioned { bounds?.set(key, it.transformedBoundsInRoot()) }
+        .clip(RoundedCornerShape(16.dp)).then(if (glass) Modifier else Modifier.background(White.copy(alpha = .06f)))
+        .clickable(onClick = hapticClick(onClick))) {
+        Box(Modifier.graphicsLayer { alpha = if (glass) 0f else 1f }) { body() }
+    }
+}
+
+@Composable private fun TileBody(title: String, subtitle: String, visual: @Composable () -> Unit) {
+    Row(Modifier.fillMaxSize().padding(horizontal = 9.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))) { visual() }
         Column(Modifier.weight(1f)) {

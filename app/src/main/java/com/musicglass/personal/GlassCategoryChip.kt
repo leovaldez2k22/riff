@@ -19,7 +19,11 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.*
 
 /** What the label layer draws for a glass chip; its geometry lives in [LocalGlassBounds] under the same key. */
-internal data class GlassChipStyle(val label:String,val selected:Boolean,val natural:IntSize=IntSize.Zero)
+internal data class GlassChipStyle(val label:String,val selected:Boolean,val natural:IntSize=IntSize.Zero,
+    /** Corner radius in px for a rounded-rectangle tile; 0 is a pill-shaped chip with a label. */
+    val corner:Float=0f,
+    /** A tile's content, drawn above the glass so frost and refraction never blur its cover or text. */
+    val content:(@Composable () -> Unit)?=null)
 internal val LocalGlassChips=compositionLocalOf<SnapshotStateMap<String,GlassChipStyle>?> {null}
 
 internal fun categoryKeyVisible(key:String,tab:String):Boolean=when(tab) {
@@ -37,7 +41,7 @@ internal fun visibleGlassChips(bounds:Map<String,Rect>,tab:String,route:String,w
     }.sortedWith(compareBy({it.value.top},{it.value.left})).map {it.key to it.value}.take(8)
 
 /** Bounds after ancestor layer transforms, so a chip inside a stretching list reports its stretched size. */
-private fun LayoutCoordinates.transformedBoundsInRoot():Rect {
+internal fun LayoutCoordinates.transformedBoundsInRoot():Rect {
     val a=localToRoot(Offset.Zero);val b=localToRoot(Offset(size.width.toFloat(),size.height.toFloat()))
     return Rect(minOf(a.x,b.x),minOf(a.y,b.y),maxOf(a.x,b.x),maxOf(a.y,b.y))
 }
@@ -72,6 +76,13 @@ private fun Modifier.chipFace(selected:Boolean,solid:Boolean)=clip(chipShape).ba
     Box(Modifier.fillMaxSize().clip(androidx.compose.ui.graphics.RectangleShape).clearAndSetSemantics {}) {
         chips.forEach { (key,r)->
             val style=styles[key]?:return@forEach
+            if(style.corner>0f) {
+                // A tile's face, outline and content; the page keeps an invisible copy for touch and accessibility.
+                val shape=RoundedCornerShape(with(density) {style.corner.toDp()})
+                Box(Modifier.offset {IntOffset(r.left.toInt(),r.top.toInt())}.size(with(density){r.width.toDp()},with(density){r.height.toDp()})
+                    .clip(shape).background(White.copy(alpha=.04f)).border(.7.dp,White.copy(alpha=.35f),shape)) {style.content?.invoke()}
+                return@forEach
+            }
             Box(Modifier.offset {IntOffset(r.left.toInt(),r.top.toInt())}.size(with(density){r.width.toDp()},with(density){r.height.toDp()})
                 .chipFace(style.selected,false),contentAlignment=Alignment.Center) {
                 // Stretch the label with its chip while the page overscrolls.

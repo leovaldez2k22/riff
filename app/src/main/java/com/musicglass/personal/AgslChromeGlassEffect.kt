@@ -12,7 +12,8 @@ import androidx.compose.ui.geometry.Rect
 internal object AgslChromeGlassEffect {
     private val liquidShader by lazy {RuntimeShader(SHADER)}
     private val frostedShader by lazy {RuntimeShader(SHADER)}
-    fun create(shapes:List<Rect>,width:Int,height:Int,density:Float,frosted:Boolean,intensity:Float):RenderEffect {
+    fun create(shapes:List<Rect>,width:Int,height:Int,density:Float,frosted:Boolean,intensity:Float,
+        categoryRadii:List<Float> = emptyList()):RenderEffect {
         fun configure(shader:RuntimeShader, frost:Float) {
         listOf("nav","search","mini").forEachIndexed {index,name->
             val rect=shapes[index]
@@ -26,6 +27,8 @@ internal object AgslChromeGlassEffect {
             categories[index*4+2]=rect.width;categories[index*4+3]=rect.height
         }
         shader.setFloatUniform("categoryRects",categories)
+        // A radius of 0 (or none) keeps the shape a pill; tiles pass their own corner radius.
+        shader.setFloatUniform("categoryRadii",FloatArray(8) {i->shapes.getOrNull(3+i)?.let {glassCornerRadius(it,categoryRadii.getOrNull(i))}?:1f})
         val visible=shapes.drop(3).take(8)
         shader.setFloatUniform("categoryCount",visible.size.toFloat())
         shader.setFloatUniform("categoryBand",visible.minOfOrNull {it.top}?:-10000f,
@@ -58,6 +61,7 @@ private const val SHADER = """
     uniform float2 miniSize;
     uniform float miniRadius;
     uniform float4 categoryRects[8];
+    uniform float categoryRadii[8];
     uniform float categoryCount;
     uniform float2 categoryBand;
     uniform float2 viewport;
@@ -85,7 +89,14 @@ private const val SHADER = """
             shape < 7.5 ? categoryRects[4] :
             shape < 8.5 ? categoryRects[5] :
             shape < 9.5 ? categoryRects[6] : categoryRects[7];
-        return distanceTo(p, rect.xy, rect.zw, rect.w * 0.5);
+        float radius = shape < 3.5 ? categoryRadii[0] :
+            shape < 4.5 ? categoryRadii[1] :
+            shape < 5.5 ? categoryRadii[2] :
+            shape < 6.5 ? categoryRadii[3] :
+            shape < 7.5 ? categoryRadii[4] :
+            shape < 8.5 ? categoryRadii[5] :
+            shape < 9.5 ? categoryRadii[6] : categoryRadii[7];
+        return distanceTo(p, rect.xy, rect.zw, radius);
     }
     half4 main(float2 p) {
         float d0 = distanceTo(p, navOrigin, navSize, navRadius);
@@ -97,7 +108,7 @@ private const val SHADER = """
             for (int i=0; i<8; i++) {
                 if (float(i) >= categoryCount) break;
                 float4 rect=categoryRects[i];
-                float candidate=distanceTo(p,rect.xy,rect.zw,rect.w*0.5);
+                float candidate=distanceTo(p,rect.xy,rect.zw,categoryRadii[i]);
                 if(candidate<d) {d=candidate;shape=float(i)+3.0;}
             }
         }

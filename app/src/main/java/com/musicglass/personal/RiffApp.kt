@@ -380,7 +380,7 @@ internal fun RiffApp() {
         Box(Modifier.fillMaxSize().preferredFrameRate(LocalUiRefreshRate.current).background(Ink)
             .onSizeChanged { area = it }
             .semantics { testTagsAsResourceId = true }) {
-            GlassScene(categoryBounds,area,density,compact,showMini,sceneHasChrome,bottomInset,
+            GlassScene(categoryBounds,categoryChips,area,density,compact,showMini,sceneHasChrome,bottomInset,
                 model.tab,model.route,accessibility) {
                 ShellScene(model, compact, sceneHasChrome, playback, collections, provider,
                     ambient,
@@ -1031,18 +1031,20 @@ private fun NavItem(name: String, selected: Boolean, showLabel: Boolean,
 }
 
 /** Snapshot geometry reads stay inside layer updates; scrolling does not recompose the shell. */
-@Composable private fun GlassScene(bounds:Map<String,Rect>,area:IntSize,density:Float,compact:Boolean,
+@Composable private fun GlassScene(bounds:Map<String,Rect>,styles:Map<String,GlassChipStyle>,area:IntSize,density:Float,compact:Boolean,
     showMini:Boolean,chrome:Boolean,inset:Int,tab:String,route:String,settings:AccessibilitySettings,content:@Composable ()->Unit) {
     val solid=settings.solidControls;val frosted=settings.frostedGlass;val intensity=settings.glassIntensity
     // The cache itself is not snapshot state; mutating it inside a layer never schedules composition.
     val cache=remember {GlassEffectCache()}
     Box(Modifier.fillMaxSize().imePadding().testTag("scene").graphicsLayer {
-        val categories=visibleGlassChips(bounds,tab,route,area.width,area.height).map {it.second}
-        val key=listOf(area,density,compact,showMini,chrome,inset,solid,frosted,intensity,categories)
+        val visible=visibleGlassChips(bounds,tab,route,area.width,area.height)
+        val categories=visible.map {it.second}
+        val radii=visible.map {styles[it.first]?.corner?:0f}
+        val key=listOf(area,density,compact,showMini,chrome,inset,solid,frosted,intensity,categories,radii)
         if(cache.key!=key) {
             cache.key=key
             cache.effect=if(chrome && !solid) chromeGlassEffect(area.width,area.height,density,showMini,compact,
-                false,inset,categories,frosted,intensity)?.asComposeRenderEffect() else null
+                false,inset,categories,frosted,intensity,radii)?.asComposeRenderEffect() else null
         }
         renderEffect=cache.effect
     },content={content()})
