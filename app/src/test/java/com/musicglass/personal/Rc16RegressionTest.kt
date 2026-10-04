@@ -86,24 +86,27 @@ class Rc16RegressionTest {
         val song=ProviderTrack("song0000001", "Song", "Artist", album="Album",artistId="artist",albumId="album").homeCard()
         assertEquals(CatalogKind.Song, song.kind);assertEquals("Album",song.album);assertEquals("artist",song.artistId)
     }
-    @Test fun speedDialIncludesAllListenAgainSongsWithOtherSongsAndCapsCollections() {
+    @Test fun speedDialIsThreePagesOfListenAgainSongs() {
+        val listen = (1..40).map { song("listen$it") }
+        val shelves = listOf(ProviderHomeSection("Listen again", listen + collection("list", CatalogKind.Playlist)),
+            ProviderHomeSection("Quick picks", (1..35).map { song("new$it") }))
+        val actual = homeSpeedDialCandidates(listOf(song("recent")), shelves)
+        assertEquals(listen.take(SPEED_DIAL_SIZE), actual)
+    }
+    @Test fun shortListenAgainShelfComesFirstAndIsToppedUpWithSongsOnly() {
         val listen = (1..20).map { song("listen$it") }
-        val songs = (1..35).map { song("new$it") }
-        val collections = (1..12).map { collection("list$it", CatalogKind.Playlist) }
         val podcasts = listOf(collection("podcast", CatalogKind.Podcast), song("episode").copy(kind=CatalogKind.Episode))
-        val shelves = listOf(ProviderHomeSection("Listen again", listen), ProviderHomeSection("Quick picks", songs + collections + podcasts))
-        val actual = homeSpeedDialCandidates(listOf(song("recent"),listen.first()), shelves)
-        assertEquals(41, actual.size); assertEquals("recent", actual.first().key())
-        assertEquals(20, actual.count { it.key().startsWith("listen") })
-        assertEquals(3, actual.count { it.kind == CatalogKind.Playlist })
-        assertTrue(actual.none { it.kind in setOf(CatalogKind.Podcast, CatalogKind.Episode) })
+        val shelves = listOf(ProviderHomeSection("Listen again", listen),
+            ProviderHomeSection("Quick picks", (1..35).map { song("new$it") } + collection("list", CatalogKind.Playlist) + podcasts))
+        val actual = homeSpeedDialCandidates(listOf(song("recent"), listen.first()), shelves)
+        assertEquals(27, actual.size); assertEquals(listen, actual.take(20)); assertEquals("recent", actual[20].key())
+        assertTrue(actual.all { it.kind == CatalogKind.Song })
         assertEquals(actual.size, actual.map { it.key() }.toSet().size)
-        assertEquals(listen, shelves.first().cards)
     }
     @Test fun smallSpeedDialKeepsAvailableSongsWithoutDuplicatesOrPodcastPadding() {
         val actual = homeSpeedDialCandidates(listOf(song("one")),listOf(ProviderHomeSection("Listen again", listOf(song("one"),song("two"))),
             ProviderHomeSection("Other",listOf(song("three"),song("one"),collection("pod",CatalogKind.Podcast)))))
-        assertEquals(setOf("one","two","three"),actual.map {it.key()}.toSet());assertEquals(3,actual.size)
+        assertEquals(listOf("one","two","three"),actual.map {it.key()})
     }
     @Test fun speedDialDropsPodcastsThatLookLikeSongs() {
         val recent = listOf(song("one"), ProviderTrack("podcast0001", "Episode", "Show", isMusic=false).homeCard())
@@ -118,12 +121,11 @@ class Rc16RegressionTest {
     @Test fun speedDialIncludesRecentSongsEvenWhenThereIsNoListenAgainShelf() {
         assertEquals(listOf("one","two"),homeSpeedDialCandidates(listOf(song("one")),listOf(ProviderHomeSection("Quick picks",listOf(song("one"),song("two"))))).map {it.key()})
     }
-    @Test fun entireLargeListenAgainShelfIsRetainedWithoutItsSeparateHomeSection() {
+    @Test fun largeListenAgainShelfIsCappedWithoutItsSeparateHomeSection() {
         val listen=(1..70).map {song("listen$it")}
-        val shelves=listOf(ProviderHomeSection("Listen again",listen+listen.take(2)),ProviderHomeSection("Quick picks",listOf(song("fresh"))))
+        val shelves=listOf(ProviderHomeSection("Listen again",listen.take(2)+listen),ProviderHomeSection("Quick picks",listOf(song("fresh"))))
         val actual=homeSpeedDialCandidates(emptyList(),shelves)
-        assertTrue(actual.map {it.key()}.containsAll(listen.map {it.key()}))
-        assertEquals(actual.size,actual.map {it.key()}.toSet().size)
+        assertEquals(listen.take(SPEED_DIAL_SIZE),actual)
         assertEquals(listOf("Quick picks"),homeDiscoveryShelves(shelves).map {it.title})
     }
 

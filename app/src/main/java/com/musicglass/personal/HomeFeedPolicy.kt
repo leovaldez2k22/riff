@@ -10,30 +10,14 @@ internal fun ProviderHomeCard.podcastLike() =
 internal fun listenAgainShelf(shelf: ProviderHomeSection) = shelf.title.contains("listen again", true)
 internal fun homeDiscoveryShelves(shelves: List<ProviderHomeSection>) = shelves.filterNot(::listenAgainShelf)
 
-/** Keep the current mix and include every Listen again song, without duplicate cards or podcasts. */
+/** Speed dial pages: three grids of nine. */
+internal const val SPEED_DIAL_SIZE = 27
+
+/** Three pages of Listen again songs; a short shelf is topped up with other songs, never podcasts or collections. */
 internal fun homeSpeedDialCandidates(recent: List<ProviderHomeCard>, shelves: List<ProviderHomeSection>): List<ProviderHomeCard> {
+    fun ProviderHomeCard.playableSong() = kind == CatalogKind.Song && videoId != null && !podcastLike()
     val musicShelves = shelves.filterNot(::podcastShelf)
-    val listen = musicShelves.filter(::listenAgainShelf).flatMap { it.cards }
-        .filter { it.kind == CatalogKind.Song && it.videoId != null && !it.podcastLike() }.distinctBy { it.key() }
-    val listenKeys = musicShelves.filter(::listenAgainShelf).flatMap { it.cards }.map { it.key() }.toSet()
-    val other = musicShelves.filterNot(::listenAgainShelf).flatMap { it.cards }.filterNot { it.podcastLike() }
-    val songs = (recent.filterNot { it.podcastLike() } + other).filter { it.kind == CatalogKind.Song && it.videoId != null && it.key() !in listenKeys }
-        .distinctBy { it.key() }.toMutableList()
-    val repeats = listen.toMutableList()
-    val collections = other.filter { it.kind in setOf(CatalogKind.Album, CatalogKind.Playlist, CatalogKind.Artist) }
-        .distinctBy { it.key() }.take(3).toMutableList()
-    val result = mutableListOf<ProviderHomeCard>()
-    while (result.size < 27) {
-        val pool = when {
-            result.size % 9 == 8 && collections.isNotEmpty() -> collections
-            result.size % 3 == 2 && repeats.isNotEmpty() -> repeats
-            songs.isNotEmpty() -> songs
-            repeats.isNotEmpty() -> repeats
-            collections.isNotEmpty() -> collections
-            else -> break
-        }
-        val card = pool.removeAt(0)
-        if (result.none { it.key() == card.key() }) result += card
-    }
-    return (result + listen).distinctBy { it.key() }
+    val listen = musicShelves.filter(::listenAgainShelf).flatMap { it.cards }.filter { it.playableSong() }
+    val other = recent + musicShelves.filterNot(::listenAgainShelf).flatMap { it.cards }
+    return (listen + other.filter { it.playableSong() }).distinctBy { it.key() }.take(SPEED_DIAL_SIZE)
 }

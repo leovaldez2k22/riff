@@ -148,7 +148,7 @@ class OfflineSmokeInstrumentation:Instrumentation() {
                     val listen=home.filter(::listenAgainShelf).flatMap {it.cards}.filter {it.kind==CatalogKind.Song && it.videoId!=null && !it.podcastLike()}.distinctBy {it.key()}
                     val recent=LocalCollections(targetContext,provider.accountScopeKey()).onlineHistory.map {it.homeCard()}
                     val speed=homeSpeedDialCandidates(recent,home)
-                    check(listen.all {card->speed.any {it.key()==card.key()}})
+                    check(speed.take(listen.size).map {it.key()}==listen.take(SPEED_DIAL_SIZE).map {it.key()} && speed.size<=SPEED_DIAL_SIZE)
                     check(speed.map {it.key()}.toSet().size==speed.size)
                     check(homeDiscoveryShelves(home).none(::listenAgainShelf))
                     check(home===provider.homeSections().getOrThrow())
@@ -360,7 +360,7 @@ class OfflineSmokeInstrumentation:Instrumentation() {
                     check(speed.size==speed.map {it.key()}.toSet().size)
                     check(speed.count {it.kind!=CatalogKind.Song}<=3)
                     check(speed.none {it.kind==CatalogKind.Podcast || it.kind==CatalogKind.Episode})
-                    check(listen.filterNot {it.podcastLike()}.all {c->speed.any {it.key()==c.key()}})
+                    check(listen.filterNot {it.podcastLike()}.take(SPEED_DIAL_SIZE).all {c->speed.any {it.key()==c.key()}})
                     result.putString("home",JSONObject().put("shelves",home.size).put("speed",speed.size).put("listen_songs",listen.size).put("overlap",overlap).put("songs",speed.count {it.kind==CatalogKind.Song}).put("collections",speed.count {it.kind!=CatalogKind.Song}).toString())
                     sendStatus(1,Bundle(result))
                     val lyrics=org.json.JSONArray()
@@ -379,7 +379,7 @@ class OfflineSmokeInstrumentation:Instrumentation() {
                 runBlocking {withTimeout(240_000) {
                     val home=provider.homeSections().getOrThrow();check(home===provider.homeSections().getOrThrow())
                     val speed=homeSpeedDialCandidates(emptyList(),home);val listen=home.filter {it.title.contains("listen again",true)}.flatMap {it.cards}
-                    check(listen.filter {it.kind==CatalogKind.Song && !it.podcastLike()}.all {c->speed.any {it.key()==c.key()}})
+                    check(listen.filter {it.kind==CatalogKind.Song && !it.podcastLike()}.take(SPEED_DIAL_SIZE).all {c->speed.any {it.key()==c.key()}})
                     result.putString("home",JSONObject().put("shelves",home.size).put("speed_dial",speed.size).put("listen_again",listen.size).toString());sendStatus(1,Bundle(result))
                     val photos=MoodPhotos.get(targetContext);val mood=provider.homeMoods.firstOrNull {it.title.contains("relax",true)}?.title?:"Relax"
                     val photo=photos.refresh(mood);check(photo!=null && photo.file.length()>0) {"No daily photograph was downloaded for $mood: ${photos.lastStatus}"}

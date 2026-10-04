@@ -16,6 +16,7 @@ Work from [the 2026-10-03 improvement plan](docs/improvement-plan-2026-10-03.md)
 - **Sleep timer (W6):** keeps its deadline when Android kills the app.
 - **Tests and CI (W7):** Robolectric Compose UI tests, GitHub Actions CI with an unsigned release build and a 40 MiB size budget.
 - **Found on the phone during the overnight check (2026-10-03):** an instrumental no longer says "Couldn't load lyrics" when one lyrics source fails but the others answer; offline, screens say "You're offline. Check your connection and try again." instead of a raw DNS error; the crash notice is shortened to fit the mini player; Riff no longer stacks extra copies of its main screen (a launcher tap after opening it from the notification or a widget added one each time; 40 copies and 710 MB in the overnight random-input run); after a network error, Play works on the first tap (it used to need two); and playback that stopped because the connection dropped now resumes by itself when the network comes back (it used to stay stopped until Play was tapped).
+- **Speed dial:** now exactly three pages (27 songs) taken from YouTube Music's Listen again, in its order. If Listen again has fewer than 27 songs, recent and other Home songs fill the rest. Albums, playlists and podcasts are no longer mixed in.
 - **Build hygiene (W8):** removed the retired `:core:glass` module (tag `archive/core-glass`), added the Unix `gradlew`, and moved this history out of the README.
 
 ## 0.9.0-rc17
