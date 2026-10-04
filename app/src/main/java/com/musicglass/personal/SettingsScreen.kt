@@ -1,5 +1,7 @@
 package com.musicglass.personal
 
+import kotlin.math.roundToInt
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -33,6 +35,8 @@ import kotlinx.coroutines.withContext
     val context=androidx.compose.ui.platform.LocalContext.current
     val audio=remember(context) {AudioBoostSettings(context)}
     var boostLevel by remember(audio) {mutableFloatStateOf(audio.percent.toFloat())}
+    val crossfade=remember(context) {CrossfadeSettings(context)}
+    var crossfadeLength by remember(crossfade) {mutableFloatStateOf(crossfade.seconds.toFloat())}
     val scope=rememberCoroutineScope()
     ScreenList(model,bottom) {
         item {BackHeading("Back",model::back);ScreenTitle("Settings")}
@@ -72,6 +76,22 @@ import kotlinx.coroutines.withContext
                         onValueChangeFinished={audio.updatePercent(boostLevel.toInt())},
                         haptics=SliderHaptics.Intensity,
                         modifier=Modifier.fillMaxWidth().testTag("settings_boost_level"))
+                }
+            }
+            SettingsDivider()
+            SettingsToggleRow("Crossfade",crossfade.enabled,hapticToggle(crossfade::updateEnabled),
+                Icons.Rounded.Shuffle,"settings_crossfade","Blend the end of each song into the next")
+            if(crossfade.enabled) {
+                SettingsDivider()
+                Column(Modifier.padding(vertical=8.dp)) {
+                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                        Text("Crossfade length",color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
+                        Text("${crossfadeLength.roundToInt()} s",color=White,fontSize=13.sp)
+                    }
+                    CapsuleSlider(crossfadeLength,{crossfadeLength=it},valueRange=1f..12f,steps=10,
+                        onValueChangeFinished={crossfade.updateSeconds(crossfadeLength.roundToInt())},
+                        haptics=SliderHaptics.Intensity,
+                        modifier=Modifier.fillMaxWidth().testTag("settings_crossfade_length"))
                 }
             }
         }}

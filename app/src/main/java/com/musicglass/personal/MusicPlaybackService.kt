@@ -42,8 +42,10 @@ class MusicPlaybackService : MediaSessionService() {
     private val audioEffects by lazy {AudioSessionEffects(this, volumeBoost.boost) {events.append(it)}}
     private val boostPrefs by lazy {getSharedPreferences(AUDIO_BOOST_PREFS, MODE_PRIVATE)}
     private val boostListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener {_, _ -> updateBoost()}
+    private var crossfader: Crossfader? = null
+    private fun currentBoostGain() = boostGain(boostPrefs.getBoolean("enabled", false), boostPrefs.getInt("percent", 200))
     private fun updateBoost() {
-        audioEffects.setGain(boostGain(boostPrefs.getBoolean("enabled", false), boostPrefs.getInt("percent", 200)))
+        audioEffects.setGain(currentBoostGain())
     }
     private val events by lazy { PlaybackEventLog(this) }
     private val serviceScope = CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
@@ -142,6 +144,19 @@ class MusicPlaybackService : MediaSessionService() {
         updateBoost()
         boostPrefs.registerOnSharedPreferenceChangeListener(boostListener)
         val renderers = riffAudioRenderers(this, volumeBoost)
+        val audioAttributes = AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).setUsage(C.USAGE_MEDIA).build()
+        val pcmOnly = androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.Builder()
+            .setAudioOffloadMode(androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED).build()
+        crossfader = Crossfader(this, serviceScope, createTail = {
+            // The outgoing song's copy: same sources and loudness, no audio focus or session of its own.
+            val processor = VolumeBoostProcessor()
+            val tail = ExoPlayer.Builder(this, riffAudioRenderers(this, processor)).setMediaSourceFactory(mediaFactory).build()
+            tail.setAudioAttributes(audioAttributes, false)
+            tail.trackSelectionParameters = tail.trackSelectionParameters.buildUpon().setAudioOffloadPreferences(pcmOnly).build()
+            val effects = AudioSessionEffects(this, processor.boost)
+            effects.setGain(currentBoostGain()); effects.attach(tail.audioSessionId)
+            tail to { effects.release() }
+        }, sleepActive = { (session?.sessionExtras?.getLong("sleepDeadlineMs") ?: 0L) > 0L }) { events.append(it) }
         val player = ExoPlayer.Builder(this, renderers).setMediaSourceFactory(mediaFactory)
             .build().apply {
             setAudioAttributes(AudioAttributes.Builder()
@@ -153,6 +168,7 @@ class MusicPlaybackService : MediaSessionService() {
                     .setAudioOffloadMode(androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED).build()).build()
             setHandleAudioBecomingNoisy(true)
             audioEffects.attach(audioSessionId)
+            crossfader?.start(this)
             repeatMode = Player.REPEAT_MODE_OFF
             addListener(object : Player.Listener {
                 override fun onAudioSessionIdChanged(audioSessionId: Int) = audioEffects.attach(audioSessionId)
@@ -593,6 +609,7 @@ class MusicPlaybackService : MediaSessionService() {
         endNetworkRecovery()
         boostPrefs.unregisterOnSharedPreferenceChangeListener(boostListener)
         sleepTimer.close()
+        crossfader?.release()
         audioEffects.release()
         val player=session?.player
         val playWhenReady=player?.playWhenReady==true

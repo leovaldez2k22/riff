@@ -207,6 +207,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         context.startActivity(Intent.createChooser(intent, "Share"))
     }
     var dragX by remember { mutableFloatStateOf(0f) }
+    val seekNudge = remember { SeekNudge() }
     val density = LocalDensity.current.density
     val viewportHeight = LocalWindowInfo.current.containerSize.height / density
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -301,9 +302,10 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                         if (hasQueue && dragX > 65.dp.toPx()) {playback.previous();uiHaptic(HapticCue.Selection)}
                         dragX = 0f
                     }, onDragCancel = { dragX = 0f })
-                }) {
+                }.doubleTapSeek(!state.live && renderer != 2 && itemId == state.mediaId, seekNudge, playback, state.durationMs)) {
                     if(renderer==2) InlineYouTubeVideo(playback,videoId,Modifier.fillMaxSize()) else if(renderer==1) NativeSongVideo(playback,Modifier.fillMaxSize()) else PlayerArtwork(itemArtwork ?: providerArtworkUrl(itemId.removePrefix("yt:")),
                         Modifier.fillMaxSize().sharedBounds(rememberSharedContentState("queue-art"),queueVisibility))
+                    SeekNudgeOverlay(seekNudge)
                 }
             }
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
