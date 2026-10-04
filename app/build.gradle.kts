@@ -1,4 +1,4 @@
-﻿import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
@@ -17,8 +17,8 @@ android {
         applicationId = "com.musicglass.personal"
         minSdk = 31
         targetSdk = 36
-        versionCode = 19
-        versionName = "0.9.0-rc18"
+        versionCode = 21
+        versionName = "0.9.0-rc20"
         buildConfigField("boolean", "LITE", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

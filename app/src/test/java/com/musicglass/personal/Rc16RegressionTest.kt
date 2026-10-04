@@ -69,13 +69,13 @@ class Rc16RegressionTest {
             assertTrue(decodeLyricsDocument(Json.parseToJsonElement(dir.listFiles()!!.single().readText()).jsonObject).timed)
         } finally { repo.close(); dir.listFiles().orEmpty().forEach { it.delete() }; dir.delete() }
     }
-    @Test fun exactYoutubeTimingReplacesEqualQualityMetadataFallback() = runBlocking {
+    @Test fun lrclibKeepsPriorityOverEqualQualityYoutubeTiming() = runBlocking {
         val dir = Files.createTempDirectory("rc16-priority").toFile()
         val repo = LyricsRepository(dir) { endpoint, _ -> if (endpoint.endsWith("/api/get"))
             Json.parseToJsonElement("""{"trackName":"Morning Path","artistName":"Paper Birds","duration":20,"syncedLyrics":"[00:03.00]Morning path"}""") else null }
         try {
             val docs = repo.lyrics(track) { delay(40); parseYoutubeLyrics(timedRows(rows),20_000) }.toList()
-            assertEquals("YouTube Music", docs.last().source); assertEquals(2000L,docs.last().lines.first().startMs)
+            assertEquals("LRCLIB", docs.last().source); assertEquals(3000L,docs.last().lines.first().startMs)
         } finally { repo.close(); dir.listFiles().orEmpty().forEach { it.delete() }; dir.delete() }
     }
     private fun song(id: String) = ProviderHomeCard(id, "Artist", null, videoId = id)

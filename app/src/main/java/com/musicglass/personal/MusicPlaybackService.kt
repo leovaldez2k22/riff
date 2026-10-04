@@ -70,7 +70,10 @@ class MusicPlaybackService : MediaSessionService() {
     }
     private var liveFallbackJob: Job? = null
     private val failedLiveProfiles = linkedSetOf<String>()
-    private val attestationRefreshed = mutableSetOf<String>()
+    private var streamRecovery = StreamRecoveryBudget()
+    private var streamRecoveryJob: Job? = null
+    private var recoveryReplacement: MediaItem? = null
+    private val resolvedStreams = ConcurrentHashMap<MediaItem,ProviderStream>()
     private var queueJob: Job? = null
     private var queueGeneration = 0
     private var radioSeed: String? = null
@@ -116,6 +119,7 @@ class MusicPlaybackService : MediaSessionService() {
                         val start=android.os.SystemClock.elapsedRealtime()
                         val stream=withTimeout(if(track.isLive) 60_000 else 30_000) {provider.resolve(track.videoId,track.isLive,video=track.isLive).getOrThrow()}
                         events.append("selected_stream_ready ms=${android.os.SystemClock.elapsedRealtime()-start}")
+                        resolvedStreams[item]=stream
                         createMediaSource(providerItem(track,stream))
                     }
                 }
@@ -184,7 +188,12 @@ class MusicPlaybackService : MediaSessionService() {
                 }
                 override fun onIsPlayingChanged(isPlaying:Boolean) {offline.playbackBusy=isPlaying || this@apply.playbackState==Player.STATE_BUFFERING;lastListenTick=android.os.SystemClock.elapsedRealtime()}
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                    listeningId="";historyItem=null;lastListenTick=android.os.SystemClock.elapsedRealtime();attestationRefreshed.clear()
+                    if(reason!=Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED || mediaItem!==recoveryReplacement) {
+                        listeningId="";historyItem=null;lastListenTick=android.os.SystemClock.elapsedRealtime()
+                        streamRecoveryJob?.cancel();streamRecoveryJob=null;recoveryReplacement=null
+                        streamRecovery=StreamRecoveryBudget()
+                        providerRetrying(this@apply,false)
+                    }
                     if(mediaItem == null) cancelRadio() else replenishQueue(this@apply)
                 }
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -198,7 +207,7 @@ class MusicPlaybackService : MediaSessionService() {
                     }
                     if(error.errorCode==androidx.media3.common.PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS)
                         retryLiveProfile(this@apply)
-                    recoverSabr(this@apply,error)
+                    recoverProviderStream(this@apply,error)
                     if(NetworkRecovery.isNetworkFailure(error.errorCodeName,generateSequence(error as Throwable?) {it.cause}.take(8).toList()))
                         startNetworkRecovery(this@apply)
                     else networkFailure=false  // other errors are never retried by this path
@@ -341,7 +350,7 @@ class MusicPlaybackService : MediaSessionService() {
                     return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
                 if(videoUrl!=null && videoBootstrap==null) {val v=Uri.parse(videoUrl)
                     if(v.scheme!="https" || !(v.host=="googlevideo.com" || v.host.orEmpty().endsWith(".googlevideo.com"))) return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))}
-                val stream = ProviderStream(url,headers,args.getString("mimeType"),bootstrap,args.getString("profileId"),videoUrl,args.getString("videoMimeType"),videoBootstrap,includesVideo=args.getBoolean("includesVideo"))
+                val stream = ProviderStream(url,headers,args.getString("mimeType"),bootstrap,args.getString("profileId"),videoUrl,args.getString("videoMimeType"),videoBootstrap,sourceVideoId=streamVideoId,includesVideo=args.getBoolean("includesVideo"))
                 if(args.getBoolean("replaceCurrent") && player.mediaItemCount>0) {
                     val index=player.currentMediaItemIndex;val wants=player.playWhenReady
                     player.replaceMediaItem(index,providerItem(track,stream));player.seekTo(index,args.getLong("position").coerceAtLeast(0))
@@ -467,7 +476,7 @@ class MusicPlaybackService : MediaSessionService() {
         val videoUri=stream.sabrVideoBootstrap?.let {val key=UUID.randomUUID().toString();sabrSelections[key]=it;Uri.parse("sabrvideo://$key")}
             ?:stream.videoUrl?.let(Uri::parse)
         videoUri?.let {streamHeaders[it.toString()]=stream.headers.filterKeys {k->k.lowercase() in setOf("user-agent","accept","accept-language","referer","origin")}}
-        val extra=Bundle().apply {putString("videoUri",videoUri?.toString());putBoolean("video",videoUri!=null || track.isLive || stream.includesVideo); putString("artistId",track.artistId);putString("albumId",track.albumId);putBoolean("live",track.isLive);putString("profileId",stream.profileId);putBoolean("music",track.isMusic) }
+        val extra=Bundle().apply {putString("videoUri",videoUri?.toString());putBoolean("video",videoUri!=null || track.isLive || stream.includesVideo); putString("artistId",track.artistId);putString("albumId",track.albumId);putBoolean("live",track.isLive);putString("profileId",stream.profileId);putString("sourceVideoId",stream.sourceVideoId?:track.videoId);putBoolean("music",track.isMusic) }
         val hls=stream.mimeType?.contains("mpegurl",true)==true
         // HLS forbids MediaItem custom cache keys; live/video also bypass the audio cache.
         val cacheKey=if(!hls && !track.isLive && !stream.includesVideo && videoUri==null)
@@ -476,27 +485,48 @@ class MusicPlaybackService : MediaSessionService() {
             .apply { if(stream.mimeType?.contains("mpegurl",true)==true) setMimeType(MimeTypes.APPLICATION_M3U8) }
             .setMediaMetadata(MediaMetadata.Builder().setTitle(track.title).setArtist(track.artist).setAlbumTitle(track.album)
                 .setArtworkUri(validProviderArtworkUrl(track.artworkUrl)?.let(Uri::parse)).setExtras(extra).build()).build()
+            .also {resolvedStreams[it]=stream}
     }
     private fun cancelRadio() {
+        streamRecoveryJob?.cancel();streamRecoveryJob=null;recoveryReplacement=null
+        streamRecovery=StreamRecoveryBudget();resolvedStreams.clear()
         liveFallbackJob?.cancel();liveFallbackJob=null;failedLiveProfiles.clear()
         queueGeneration++;queueJob?.cancel();queueJob=null;radioSeed=null;radioContinuation=null;queueCandidates.clear()
         session?.player?.setPlaylistMetadata(MediaMetadata.EMPTY)
     }
-    /**
-     * innertubex's SABR recovery for songs: on ATTESTATION_REQUIRED, refresh the attestation once per
-     * track and re-prepare at the same position. The minted attestation can go stale after a network
-     * change; without this, every later attempt in the process failed until the app restarted.
-     */
-    private fun recoverSabr(player: Player, error: androidx.media3.common.PlaybackException) {
-        val item=player.currentMediaItem?:return
-        val videoId=sabrAttestationRetryId(error,item.mediaId,item.mediaMetadata.extras?.getBoolean("live")==true,attestationRefreshed)?:return
-        attestationRefreshed+=videoId
-        events.append("sabr_attestation_refresh")
-        val index=player.currentMediaItemIndex;val position=player.currentPosition;val generation=queueGeneration
-        serviceScope.launch {
-            provider.invalidateAttestation();provider.invalidateStream(videoId)
-            if(generation!=queueGeneration || player.currentMediaItem?.mediaId!=item.mediaId) return@launch
-            player.seekTo(index,position);player.prepare()
+    private fun providerRetrying(player: Player, value: Boolean) {
+        player.setPlaylistMetadata(player.playlistMetadata.buildUpon().setExtras(
+            Bundle(player.playlistMetadata.extras ?: Bundle()).apply {putBoolean("providerRetrying",value)}).build())
+    }
+    /** Replace the rejected source as well as its credentials, keeping queue order and position. */
+    private fun recoverProviderStream(player: Player, error: androidx.media3.common.PlaybackException) {
+        val item=player.currentMediaItem ?: return
+        if(!item.mediaId.startsWith("yt:") || item.mediaMetadata.extras?.getBoolean("live")==true || streamRecoveryJob?.isActive==true) return
+        val causes=generateSequence(error as Throwable?) {it.cause}.take(16).toList()
+        val kind=causes.filterIsInstance<SabrPlaybackFailure>().firstOrNull()?.kind
+        val status=causes.filterIsInstance<androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException>().firstOrNull()?.responseCode
+        val previous=resolvedStreams[item]
+        val profile=previous?.profileId ?: item.mediaMetadata.extras?.getString("profileId")
+        val action=streamRecovery.next(kind,status,profile) ?: return
+        val excluded=streamRecovery.excludedProfiles.toSet()
+        val generation=queueGeneration
+        val track=trackFromItem(item)
+        val sourceId=item.mediaMetadata.extras?.getString("sourceVideoId") ?: previous?.sourceVideoId ?: track.videoId
+        val video=previous?.includesVideo==true || item.mediaMetadata.extras?.getBoolean("video")==true
+        events.append("provider_stream_recovery action=$action attempt=${excluded.size}")
+        providerRetrying(player,true)
+        streamRecoveryJob=serviceScope.launch {
+            try {
+                if(action==StreamRecoveryAction.REFRESH_ATTESTATION) provider.invalidateAttestation()
+                provider.invalidateStream(sourceId)
+                val stream=withTimeout(60_000) {provider.resolve(sourceId,video=video,excludedProfiles=excluded).getOrThrow()}
+                if(generation!=queueGeneration || player.currentMediaItem!==item) return@launch
+                val replacement=providerItem(track,stream)
+                recoveryReplacement=replacement
+                if(replaceFailedStream(player,item,replacement)) events.append("provider_stream_replaced")
+            } catch(e:CancellationException) {throw e}
+            catch(e:Exception) {events.append("provider_stream_recovery_failed type=${e::class.simpleName}")}
+            finally {if(generation==queueGeneration && (player.currentMediaItem===item || player.currentMediaItem===recoveryReplacement)) providerRetrying(player,false)}
         }
     }
     /** Only retry a rejected live transport through the provider's supported client selection. */

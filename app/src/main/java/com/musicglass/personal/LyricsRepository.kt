@@ -41,7 +41,7 @@ internal class LyricsRepository(private val directory: File,
     }
     private val client = OkHttpClient.Builder().connectTimeout(5,TimeUnit.SECONDS)
         .readTimeout(8,TimeUnit.SECONDS).callTimeout(10,TimeUnit.SECONDS).build()
-    private val gates = mapOf("lrclib.net" to Mutex(),"api.betterlyrics.org" to Mutex())
+    private val gates = listOf("lrclib.net", "api.betterlyrics.org", "music.163.com", "api.lyrics.ovh").associateWith { Mutex() }
     private val nextRequest = mutableMapOf<String,Long>()
     private val missing = mutableMapOf<String,Long>()
     private val json = Json { ignoreUnknownKeys = true }
@@ -81,72 +81,82 @@ internal class LyricsRepository(private val directory: File,
             if (it.timed || it.instrumental) return@channelFlow
         }
         val key = cacheKey(track)
-        var cachedFallback: LyricsDocument?=offline
+        var cachedFallback: LyricsDocument? = offline
         if (!force) {
             val cached = withContext(Dispatchers.IO) { readCache(key) }
-            if (cached != null && cached.source.startsWith("Better Lyrics")) { send(cached); return@channelFlow }
-            cachedFallback=cached ?: offline
+            if (cached != null) {
+                send(cached)
+                if (cached.timed || cached.instrumental) return@channelFlow
+                cachedFallback = cached
+            }
             if (synchronized(missing) { (missing[key] ?: 0) > (System.nanoTime()/1_000_000) }) return@channelFlow
         }
-        val selection = Mutex()
-        var best: LyricsDocument? = null
+        var best: LyricsDocument? = cachedFallback
         var errors = 0
-        // Sources that answered at all. One unreachable source must not turn "this song has no
-        // lyrics" (an instrumental, say) into "check your connection" when the others answered.
         var answered = 0
         suspend fun offer(doc: LyricsDocument?) {
             if (doc == null || (!doc.instrumental && doc.lines.isEmpty())) return
-            selection.withLock {
-                if (best == null || doc.quality > best!!.quality ||
-                    (doc.quality == best!!.quality && doc.timed && doc.source == "YouTube Music" && best!!.source != "YouTube Music")) { best = doc; send(doc) }
+            // Providers run in priority order. Only a better timing tier replaces a result.
+            if (best == null || doc.quality > best!!.quality ||
+                (doc.quality == best!!.quality && lyricsProviderPriority(doc.source) < lyricsProviderPriority(best!!.source))) {
+                best = doc; send(doc)
             }
         }
-        suspend fun request(url: String, params: Map<String,String>): JsonElement? = try { get(url,params).also { selection.withLock { answered++ } } }
-            catch (e: CancellationException) { throw e }
-            catch (_: Exception) { selection.withLock { errors++ }; null }
-        run {
-                val params = mapOf("s" to lyricsQueryTitle(track.title),
-                    "a" to playerArtistLabel(track.artist).removeSuffix(" - Topic"),"al" to track.album,
-                    "d" to ((track.durationMs + 500)/1000).toString())
-                val ttml = request("https://api.betterlyrics.org/getLyrics",params) as? JsonObject
-                val score = ttml?.get("score")?.jsonPrimitive?.doubleOrNull
-                val doc = ttml?.get("ttml")?.jsonPrimitive?.contentOrNull?.takeIf { score == null || score >= .8 }
-                    ?.let { parseTtml(it,track.durationMs) }
-                offer(doc)
-                if (doc?.wordTimed != true) {
-                    val qq = request("https://api.betterlyrics.org/qq/getLyrics",params) as? JsonObject
-                    val qScore = qq?.get("score")?.jsonPrimitive?.doubleOrNull
-                    val words = qq?.get("lyrics")?.jsonPrimitive?.contentOrNull?.takeIf { qScore == null || qScore >= .8 }
-                        ?.let { parseQrc(it,track.durationMs,track.title,track.artist) }
-                    offer(words)
-                    if (words?.wordTimed != true && selection.withLock { best?.timed != true }) {
-                        val kugou = request("https://api.betterlyrics.org/kugou/getLyrics",params) as? JsonObject
-                        offer(kugou?.get("lyrics")?.jsonPrimitive?.contentOrNull?.let {
-                            parseLrc(it,track.durationMs,"Better Lyrics \u00B7 Kugou","https://betterlyrics.org") })
-                    }
-                }
+        suspend fun request(url: String, params: Map<String,String>): JsonElement? = try {
+            get(url,params).also { answered++ }
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { errors++; null }
+        suspend fun provider(block: suspend () -> Unit) {
+            if (best?.wordTimed == true) return
+            // Bound a whole provider (search plus candidates), not just each HTTP call.
+            try {
+                if (withTimeoutOrNull(15_000) { block(); true } == null) errors++
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { errors++ }
         }
-        // Better Lyrics has exclusive priority, including its line-timed/plain documents.
-        if(best==null) coroutineScope {
-            offer(cachedFallback)
-            launch {
-                val params = mutableMapOf("track_name" to lyricsQueryTitle(track.title),
-                    "artist_name" to playerArtistLabel(track.artist).removeSuffix(" - Topic"),
-                    "duration" to (track.durationMs/1000.0).toString())
-                if (track.album.isNotBlank()) params["album_name"] = track.album
-                val exact = request("https://lrclib.net/api/get",params) as? JsonObject
-                val doc = exact?.let { fromLrclib(it,track) }
-                offer(doc)
-                if (doc?.timed != true && doc?.instrumental != true) {
-                    val results = request("https://lrclib.net/api/search",params.filterKeys { it != "duration" }) as? JsonArray
-                    results.orEmpty().mapNotNull { it as? JsonObject }.sortedByDescending { score(it,track) }
-                        .filter { score(it,track) > 0 }.forEach { offer(fromLrclib(it,track)) }
-                }
+        val title = lyricsQueryTitle(track.title)
+        val artist = playerArtistLabel(track.artist).removeSuffix(" - Topic")
+        val params = mapOf("s" to title, "a" to artist, "al" to track.album,
+            "d" to ((track.durationMs + 500)/1000).toString())
+        provider {
+            val row = request("https://api.betterlyrics.org/getLyrics",params) as? JsonObject
+            val score = row?.get("score")?.jsonPrimitive?.doubleOrNull
+            offer(row?.get("ttml")?.jsonPrimitive?.contentOrNull?.takeIf { score == null || score >= .8 }
+                ?.let { parseTtml(it,track.durationMs) })
+        }
+        provider {
+            val row = request("https://api.betterlyrics.org/qq/getLyrics",params) as? JsonObject
+            val score = row?.get("score")?.jsonPrimitive?.doubleOrNull
+            offer(row?.get("lyrics")?.jsonPrimitive?.contentOrNull?.takeIf { score == null || score >= .8 }
+                ?.let { parseQrc(it,track.durationMs,track.title,track.artist) })
+        }
+        provider { offer(netEase(track,::request)) }
+        provider {
+            val row = request("https://api.betterlyrics.org/kugou/getLyrics",params) as? JsonObject
+            val score = row?.get("score")?.jsonPrimitive?.doubleOrNull
+            offer(row?.get("lyrics")?.jsonPrimitive?.contentOrNull?.takeIf { score == null || score >= .8 }
+                ?.let { parseLrc(it,track.durationMs,"Better Lyrics · Kugou","https://betterlyrics.org") })
+        }
+        provider {
+            val query = mutableMapOf("track_name" to title, "artist_name" to artist,
+                "duration" to (track.durationMs/1000.0).toString())
+            if (track.album.isNotBlank()) query["album_name"] = track.album
+            val exact = request("https://lrclib.net/api/get",query) as? JsonObject
+            val doc = exact?.let { fromLrclib(it,track) }
+            offer(doc)
+            if (doc?.wordTimed != true && doc?.instrumental != true) {
+                val results = request("https://lrclib.net/api/search",query.filterKeys { it != "duration" }) as? JsonArray
+                results.orEmpty().mapNotNull { it as? JsonObject }.sortedByDescending { score(it,track) }
+                    .filter { score(it,track) > 0 }.forEach { offer(fromLrclib(it,track)) }
             }
-            if (track.mediaId.startsWith("yt:")) launch {
-                try { offer(youtube()); selection.withLock { answered++ } } catch (e: CancellationException) { throw e }
-                catch (_: Exception) { selection.withLock { errors++ } }
-            }
+        }
+        if (track.mediaId.startsWith("yt:")) provider {
+            try { offer(youtube()); answered++ } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { errors++ }
+        }
+        // This provider supplies plain text, so there is no benefit in requesting it after synced lyrics.
+        if (best?.timed != true && best?.instrumental != true) provider {
+            offer(ovh(track,::request))
         }
         val found = best
         if (found != null) withContext(Dispatchers.IO) { writeCache(key,found) }
@@ -155,6 +165,36 @@ internal class LyricsRepository(private val directory: File,
             if (missing.size > 100) missing.clear()
             missing[key] = (System.nanoTime()/1_000_000)+5*60_000
         }
+    }
+    internal suspend fun netEase(track: LyricsTrack,
+        request: suspend (String,Map<String,String>) -> JsonElement? = ::get): LyricsDocument? {
+        val title = lyricsQueryTitle(track.title)
+        val artist = playerArtistLabel(track.artist).removeSuffix(" - Topic")
+        val search = request("https://music.163.com/api/search/get",
+            mapOf("s" to "$title $artist", "type" to "1", "limit" to "10", "offset" to "0")) as? JsonObject
+        checkNetEaseResponse(search)
+        val songs = (search?.get("result") as? JsonObject)?.get("songs") as? JsonArray
+        var best: LyricsDocument? = null
+        for ((song,_) in songs.orEmpty().mapNotNull { it as? JsonObject }
+            .map { it to netEaseMatchScore(it,track) }.filter { it.second > 0 }
+            .sortedByDescending { it.second }.take(3)) {
+            val id = song["id"]?.jsonPrimitive?.contentOrNull?.takeIf { it.matches(Regex("[0-9]+")) } ?: continue
+            val row = request("https://music.163.com/api/song/lyric",
+                mapOf("id" to id, "lv" to "-1", "kv" to "-1", "tv" to "-1", "yv" to "-1")) as? JsonObject
+            checkNetEaseResponse(row)
+            val doc = netEaseLyrics(row,track.durationMs,id)
+            if (doc != null && (best == null || doc.quality > best.quality)) best = doc
+            if (best?.wordTimed == true) break
+        }
+        return best
+    }
+    internal suspend fun ovh(track: LyricsTrack,
+        request: suspend (String,Map<String,String>) -> JsonElement? = ::get): LyricsDocument? {
+        val artist = playerArtistLabel(track.artist).removeSuffix(" - Topic")
+        val url = "https://api.lyrics.ovh".toHttpUrl().newBuilder().addPathSegment("v1")
+            .addPathSegment(artist.take(220)).addPathSegment(lyricsQueryTitle(track.title).take(220)).build()
+        val row = request(url.toString(),emptyMap()) as? JsonObject
+        return row?.get("lyrics")?.jsonPrimitive?.contentOrNull?.let { plainLyrics(it,"Lyrics.ovh","https://lyrics.ovh") }
     }
     private fun score(row: JsonObject, track: LyricsTrack): Double = lyricsMatchScore(track,
         row["trackName"]?.jsonPrimitive?.contentOrNull.orEmpty(),row["artistName"]?.jsonPrimitive?.contentOrNull.orEmpty(),
@@ -180,7 +220,9 @@ internal class LyricsRepository(private val directory: File,
             if (wait > 30_000) throw IOException("Lyrics source is cooling down")
             if (wait > 0) delay(wait)
             val request = Request.Builder().url(url).header("Accept","application/json")
-                .header("User-Agent","Riff/${BuildConfig.VERSION_NAME} (Android app)").build()
+                .header("User-Agent","Riff/${BuildConfig.VERSION_NAME} (Android app)")
+                .apply { if (url.host == "music.163.com") header("Referer","https://music.163.com/") }
+                .build()
             val result: Pair<Int,String?> = suspendCancellableCoroutine { continuation ->
                 val call = client.newCall(request)
                 continuation.invokeOnCancellation { call.cancel() }
@@ -213,7 +255,7 @@ internal class LyricsRepository(private val directory: File,
                     }
                 })
             }
-            if (result.first >= 500 || result.first == 429) throw IOException("Lyrics source temporarily unavailable")
+            if (result.first >= 500 || result.first == 429 || result.first == 401 || result.first == 403) throw IOException("Lyrics source temporarily unavailable")
             result.second?.let { json.parseToJsonElement(it) }
         }
     }
@@ -225,7 +267,7 @@ internal class LyricsRepository(private val directory: File,
         return millis.coerceIn(1000,86400_000)
     }
     private fun cacheKey(track: LyricsTrack): String = MessageDigest.getInstance("SHA-256")
-        .digest("${track.mediaId}\u0000${track.title}\u0000${track.artist}\u0000${track.album}\u0000${track.durationMs}".toByteArray())
+        .digest("hierarchy-v2\u0000${track.mediaId}\u0000${track.title}\u0000${track.artist}\u0000${track.album}\u0000${track.durationMs}".toByteArray())
         .joinToString("") { "%02x".format(it.toInt() and 255) }
     private fun readCache(key: String): LyricsDocument? = runCatching {
         val file = File(directory,"$key.json")

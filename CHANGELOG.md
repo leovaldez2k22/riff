@@ -2,6 +2,19 @@
 
 Newest first. Release candidates before 0.9.0-rc16 were recorded only in the README; their text is kept here unchanged. Detailed implementation and verification records are in `docs/`.
 
+## 0.9.0-rc20
+
+- **Lyrics:** adds anonymous NetEase Cloud Music matching with synced lyrics and supplied YRC word timing when available, plus Lyrics.ovh as the final plain-text fallback. Priority is Better Lyrics TTML, QQ, NetEase, Kugou, LRCLIB, YouTube Music, Lyrics.ovh. Word timing beats line timing, which beats plain text; provider order breaks ties. Lower-quality results keep searching, and complete results share the existing preload/cache pipeline.
+- **Provider limits:** Spicy Lyrics is excluded by request. Megalobiz is deferred by request after live checks found its old search route gone and its new API requires an application token.
+- NetEase may require anonymous-client verification; those responses automatically fall through to later sources. Matched NetEase lyrics could not be verified live on the connected phone.
+- Includes rc19 playback recovery, visible queue removal and Data saver changes.
+
+## 0.9.0-rc19
+
+- **Playback recovery:** credential refresh now resolves and replaces the rejected stream instead of preparing the same source again. Prefetched stream cache entries are invalidated together after attestation refresh. HTTP 403/410 gets a fresh stream, and repeated SABR failures use bounded alternate-profile recovery. Queue order, position, and a pause or song change during recovery are respected.
+- **Queue:** every Up next and History row has a visible remove button alongside its drag handle. The last song can also be removed, leaving playback paused and the queue empty.
+- **Data saver:** Settings -> Data usage offers a persistent toggle that requests lower-bitrate audio and up to 360p video for new streams. The setting has its own stream-cache identity, so a previously resolved higher-quality stream isn't reused. Downloads retain their existing high-quality selection.
+
 ## 0.9.0-rc18
 
 Work from [the 2026-10-03 improvement plan](docs/improvement-plan-2026-10-03.md), on top of rc17.

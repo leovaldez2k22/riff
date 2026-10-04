@@ -127,6 +127,8 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     fun cachedLibrary(kind:String):CatalogPage?=collectionCache.peek(feedKey("library:$libraryRevision:$kind"))
     fun checkFeedWindow()=feedCache.checkWindow()
     fun discardPageMemory() {cachedHome=emptyList();podcastEndpoint=null;feedCache.clear();collectionCache.clear();homeMoods=emptyList();libraryPlaylistSnapshot=emptyList();libraryScanRevision=0}
+    private val dataSaverPrefs=appContext.getSharedPreferences(DATA_SAVER_PREFS,Context.MODE_PRIVATE)
+    private var streamRevision=0L
     private val streamCache=linkedMapOf<String,ProviderStream>()
     private val streamFlights=mutableMapOf<String,Deferred<Result<ProviderStream>>>()
     private val playbackEvents = PlaybackEventLog(context)
@@ -914,38 +916,44 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     }
     /** Signed URLs stay in a bounded RAM cache and never enter the durable music database. */
     suspend fun resolve(videoId:String,live:Boolean=false,excludedProfiles:Set<String> = emptySet(),video:Boolean=false,download:Boolean=false):Result<ProviderStream> {
-        val key="$authRevision:$videoId:$live:$video:$download"
-        if(excludedProfiles.isNotEmpty()) {synchronized(cacheLock) {streamCache.remove(key)};return resolveFresh(videoId,live,excludedProfiles,video,download)}
+        val quality=streamingAudioQuality(dataSaverPrefs.getBoolean("enabled",false),download)
+        if(excludedProfiles.isNotEmpty()) return resolveFresh(videoId,live,excludedProfiles,video,download,quality)
         val flight=synchronized(cacheLock) {
+            val revision=streamRevision
+            val key="$authRevision:$videoId:$live:$video:$download:$quality:$revision"
             streamCache[key]?.takeIf { reusableStream(it.expiresAtMs,System.currentTimeMillis(),live) }?.let {return Result.success(it)}
             streamFlights[key] ?: runtimeScope.async {
                 val result=withTimeout(60_000) {
-                    try {resolveFresh(videoId,live,emptySet(),video,download)}
+                    try {resolveFresh(videoId,live,emptySet(),video,download,quality)}
                     catch(e:CancellationException) {
                         currentCoroutineContext().ensureActive()
                         playbackEvents.append("provider_session_refresh_retry")
-                        delay(150);resolveFresh(videoId,live,emptySet(),video,download)
+                        delay(150);resolveFresh(videoId,live,emptySet(),video,download,quality)
                     }
                 }
-                result.getOrNull()?.let {stream->synchronized(cacheLock) {streamCache[key]=stream;while(streamCache.size>32) streamCache.remove(streamCache.keys.first())}}
+                result.getOrNull()?.let {stream->synchronized(cacheLock) {if(revision==streamRevision) {streamCache[key]=stream;while(streamCache.size>32) streamCache.remove(streamCache.keys.first())}}}
                 result
             }.also {job->streamFlights[key]=job;job.invokeOnCompletion {synchronized(cacheLock) {if(streamFlights[key]===job) streamFlights.remove(key)}}}
         }
         return flight.await()
     }
     /** Drops the minted attestation so the next stream mints a fresh one (it can go stale after a network change). */
-    suspend fun invalidateAttestation() = streamTokens.invalidateAttestation()
+    suspend fun invalidateAttestation() {
+        streamTokens.invalidateAttestation()
+        // Every prefetched bootstrap using that attestation is stale, not just the failed song.
+        synchronized(cacheLock) {streamRevision++;streamCache.clear();streamFlights.clear()}
+    }
     fun invalidateStream(videoId:String) {synchronized(cacheLock) {streamCache.keys.filter {it.contains(":$videoId:")}.forEach {streamCache.remove(it)}}}
-    private suspend fun resolveFresh(videoId: String, live: Boolean, excludedProfiles: Set<String>, video:Boolean,download:Boolean): Result<ProviderStream> = withContext(Dispatchers.IO) {
+    private suspend fun resolveFresh(videoId: String, live: Boolean, excludedProfiles: Set<String>, video:Boolean,download:Boolean,quality:AudioQuality): Result<ProviderStream> = withContext(Dispatchers.IO) {
         try {
             val revision = authRevision
             require(videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) { "Invalid video ID" }
             val stream = extractor.extract(
                 videoId = videoId,
-                hints = ContentHints(wantVideo = video,isLive = live,maxVideoHeight=720).withStreamCapabilities(
+                hints = ContentHints(wantVideo = video,isLive = live,maxVideoHeight=if(quality==AudioQuality.LOW) 360 else 720).withStreamCapabilities(
                     allowHls = !download, allowSabr = true, allowBoundedRange = download),
                 excludedClients = excludedProfiles + if(live || video) setOf("WEB_REMIX","WEB_REMIX_SABR","ANDROID_MUSIC","IOS_MUSIC") else emptySet(),
-                audioQuality = if(download) AudioQuality.HIGH else AudioQuality.AUTO,
+                audioQuality = quality,
             ) ?: return@withContext Result.failure(
                 IllegalStateException("No playable audio stream is available for this track"))
             if (authRevision != revision) return@withContext Result.failure(

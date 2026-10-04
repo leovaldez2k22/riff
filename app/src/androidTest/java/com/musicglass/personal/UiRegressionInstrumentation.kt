@@ -129,6 +129,39 @@ class UiRegressionInstrumentation {
         settle()
     }
 
+    private fun scrollToDataSaver() {
+        val metrics=compose.activity.resources.displayMetrics
+        repeat(8) {
+            val row=compose.onAllNodesWithTag("settings_data_saver",useUnmergedTree=true).fetchSemanticsNodes().firstOrNull()
+            if(row!=null && row.boundsInRoot.top>=0 && row.boundsInRoot.bottom<metrics.heightPixels*.8f) return
+            val x=metrics.widthPixels/2
+            shell("input swipe $x ${(metrics.heightPixels*.75f).toInt()} $x ${(metrics.heightPixels*.22f).toInt()} 400")
+            settle()
+        }
+        throw AssertionError("Data saver row could not be scrolled into view")
+    }
+
+    @Test fun dataSaverTogglePersistsAcrossSettingsOpenings() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs=context.getSharedPreferences(DATA_SAVER_PREFS,android.content.Context.MODE_PRIVATE)
+        val original=prefs.getBoolean("enabled",false)
+        try {
+            openTab("home");openTab("home")
+            compose.onNodeWithTag("home_settings").performClick();settle()
+            scrollToDataSaver()
+            compose.onNodeWithTag("settings_data_saver").performClick();settle()
+            assertEquals(!original,prefs.getBoolean("enabled",false))
+            shell("input keyevent KEYCODE_BACK");settle()
+            compose.onNodeWithTag("home_settings").performClick();settle()
+            scrollToDataSaver()
+            compose.onNodeWithTag("settings_data_saver").assertIsDisplayed()
+            assertEquals(!original,DataSaverSettings(context).enabled)
+        } finally {
+            prefs.edit().putBoolean("enabled",original).commit()
+            shell("input keyevent KEYCODE_BACK");settle()
+        }
+    }
+
     // 4. Font size: the shell and the mini player stay usable at 1.3x.
     @Test fun largerFontKeepsTheShellUsable() {
         shell("settings put system font_scale 1.3")

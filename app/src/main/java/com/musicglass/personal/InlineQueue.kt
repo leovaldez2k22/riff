@@ -97,7 +97,7 @@ private class QueueCoordinates {var value:LayoutCoordinates?=null}
                 Row(Modifier.fillMaxWidth().height(54.dp).zIndex(if(dragged) 1f else 0f).then(if(motion.reduced || dragged) Modifier else Modifier.animateItem())
                     .graphicsLayer {val info=if(dragged) listState.layoutInfo.visibleItemsInfo.firstOrNull {it.key==key} else null;translationY=if(info!=null) fingerY-grabY-info.offset else 0f;scaleX=if(dragged) 1.015f else 1f;scaleY=scaleX}
                     .background(if(dragged) White.copy(alpha=.1f) else Color.Transparent,RoundedCornerShape(8.dp))
-                    .pointerInput(item.mediaId,index) {detectHorizontalDragGestures(onHorizontalDrag={change,x->val before=swipe;swipe+=x;if(before>= -70.dp.toPx() && swipe< -70.dp.toPx()) uiHaptic(HapticCue.Threshold);change.consume()},onDragEnd={if(swipe< -70.dp.toPx()) {playback.removeQueueItem(index);uiHaptic(HapticCue.Confirm)};swipe=0f})}
+                    .pointerInput(item.mediaId,index) {detectHorizontalDragGestures(onHorizontalDrag={change,x->val before=swipe;swipe+=x;if(before>= -70.dp.toPx() && swipe< -70.dp.toPx()) uiHaptic(HapticCue.Threshold);change.consume()},onDragCancel={swipe=0f},onDragEnd={if(swipe< -70.dp.toPx()) {playback.removeQueueItem(latestIndex);uiHaptic(HapticCue.Confirm)};swipe=0f})}
                     .clickable { uiHaptic(); playback.seekQueueItem(index)}.semantics {
                         customActions=listOf(CustomAccessibilityAction("Move up"){playback.moveQueueItem(index,index-1);uiHaptic(HapticCue.Selection);true},
                             CustomAccessibilityAction("Move down"){playback.moveQueueItem(index,index+1);uiHaptic(HapticCue.Selection);true},
@@ -107,6 +107,10 @@ private class QueueCoordinates {var value:LayoutCoordinates?=null}
                     Column(Modifier.weight(1f).padding(horizontal=10.dp)) {
                         Text(item.title,color=White,fontSize=13.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                         Text(playerArtistLabel(item.artist),color=White.copy(alpha=.55f),fontSize=11.sp,maxLines=1)
+                    }
+                    IconButton(onClick=hapticClick {playback.removeQueueItem(latestIndex)},
+                        modifier=Modifier.size(48.dp).testTag("queue_remove_$index")) {
+                        Icon(Icons.Rounded.RemoveCircleOutline,"Remove ${item.title} from queue",tint=White.copy(alpha=.65f),modifier=Modifier.size(22.dp))
                     }
                     Icon(Icons.Rounded.DragHandle,"Reorder ${item.title}",tint=White.copy(alpha=.45f),modifier=Modifier.size(40.dp)
                          .testTag("queue_drag_$index").onGloballyPositioned {handleCoordinates.value=it}.clickable {uiHaptic(HapticCue.Selection)}.pointerInput(key) {

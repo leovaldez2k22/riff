@@ -137,7 +137,7 @@ internal class MusicPlaybackGateway(context: Context) : PlaybackGateway {
             durationMs = player.duration.coerceAtLeast(0),
             shuffle = player.shuffleModeEnabled,
             repeat = player.repeatMode,
-            error = if(player.playlistMetadata.extras?.getBoolean("liveRetrying")==true || (embeddedId!=null && embeddedId==player.currentMediaItem?.mediaId)) null else commandError ?: player.playerError?.let { error ->
+            error = if(player.playlistMetadata.extras?.getBoolean("providerRetrying")==true || player.playlistMetadata.extras?.getBoolean("liveRetrying")==true || (embeddedId!=null && embeddedId==player.currentMediaItem?.mediaId)) null else commandError ?: player.playerError?.let { error ->
                 if(player.currentMediaItem?.mediaMetadata?.extras?.getBoolean("live")==true) "YouTube could not start this live stream. Try refreshing Radio."
                 else if (player.currentMediaItem?.mediaId?.startsWith("yt:") == true)
                     "YouTube Music could not start this track. Try another track."
@@ -207,8 +207,10 @@ internal class MusicPlaybackGateway(context: Context) : PlaybackGateway {
             player.moveMediaItem(from, to)
     }
     override fun removeQueueItem(index: Int) = withPlayer { player ->
-        if (player.mediaItemCount > 1 && index in 0 until player.mediaItemCount)
-            player.removeMediaItem(index)
+        if (index in 0 until player.mediaItemCount) {
+            commandError = null
+            removePlaybackQueueItem(player,index)
+        }
     }
     override fun dropTrack(videoId: String) = withPlayer { player ->
         val matches = (0 until player.mediaItemCount).filter { player.getMediaItemAt(it).mediaId == "yt:$videoId" }
@@ -354,3 +356,10 @@ internal class MusicPlaybackGateway(context: Context) : PlaybackGateway {
  */
 internal fun toggleShouldPause(isPlaying: Boolean, playWhenReady: Boolean, idle: Boolean): Boolean =
     !idle && (isPlaying || playWhenReady)
+
+/** Deleting the final item leaves an empty, paused queue. Media3 adjusts the index for other removals. */
+internal fun removePlaybackQueueItem(player: Player, index: Int) {
+    if (index !in 0 until player.mediaItemCount) return
+    if (player.mediaItemCount == 1) player.pause()
+    player.removeMediaItem(index)
+}

@@ -37,6 +37,7 @@ import kotlinx.coroutines.withContext
     var boostLevel by remember(audio) {mutableFloatStateOf(audio.percent.toFloat())}
     val crossfade=remember(context) {CrossfadeSettings(context)}
     var crossfadeLength by remember(crossfade) {mutableFloatStateOf(crossfade.seconds.toFloat())}
+    val dataSaver=remember(context) {DataSaverSettings(context)}
     val scope=rememberCoroutineScope()
     ScreenList(model,bottom) {
         item {BackHeading("Back",model::back);ScreenTitle("Settings")}
@@ -94,6 +95,11 @@ import kotlinx.coroutines.withContext
                         modifier=Modifier.fillMaxWidth().testTag("settings_crossfade_length"))
                 }
             }
+        }}
+        item {SettingsSection("Data usage") {
+            SettingsToggleRow("Data saver",dataSaver.enabled,hapticToggle(dataSaver::updateEnabled),
+                Icons.Rounded.DataSaverOn,"settings_data_saver",
+                "Lower-bitrate audio and up to 360p video for new streams. Downloads keep their quality.")
         }}
         item {SettingsSection("Appearance") {
             SettingsToggleRow("Frosted glass",preferences.frostedGlass,

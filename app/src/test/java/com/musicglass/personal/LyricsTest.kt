@@ -117,17 +117,17 @@ class LyricsTest {
             assertEquals(count,calls)
         } finally { repo.close(); dir.listFiles().orEmpty().forEach { it.delete() }; dir.delete() }
     }
-    @Test fun betterLyricsLineTimingHasPriorityOverEveryFallback() = runBlocking {
+    @Test fun betterLyricsLineTimingKeepsPriorityWhenFallbacksHaveTheSameTimingTier() = runBlocking {
         val dir=Files.createTempDirectory("lyrics-priority").toFile()
         val calls=mutableListOf<String>()
         val repo=LyricsRepository(dir) {endpoint,_->calls+=endpoint
             when {endpoint=="https://api.betterlyrics.org/getLyrics"->buildJsonObject {put("ttml","<tt xmlns='http://www.w3.org/ns/ttml'><body><div><p begin='2s' end='5s'>Morning path</p></div></body></tt>")}
                 endpoint.contains("betterlyrics")->null
-                else->error("Fallback must not be requested")}
+                else->lrclib()}
         }
-        try {val docs=repo.lyrics(track) {error("YouTube must not be requested")}.toList()
+        try {val docs=repo.lyrics(track) {null}.toList()
             assertTrue(docs.single().source.startsWith("Better Lyrics"));assertTrue(docs.single().timed)
-            assertTrue(calls.all {it.contains("betterlyrics")})
+            assertTrue(calls.any {it.contains("lrclib")});assertTrue(calls.any {it.contains("music.163.com")})
         } finally {repo.close();dir.listFiles().orEmpty().forEach {it.delete()};dir.delete()}
     }
     @Test fun providerFailureDoesNotPreventTheIndependentFallback() = runBlocking {
