@@ -235,8 +235,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
             listOf("All","Songs","Favorites","Playlists","Albums","Artists","Podcasts","History").forEach {filter->
                 GlassCategoryChip(if(filter=="Favorites") "Liked songs" else filter,key="library:$filter",selected=kind==filter,tag="library_filter_${filter.lowercase()}") {model.libraryFilter=filter}}
         }}
-        item {ToolLink("Downloads"){model.push("downloads")}}
-        item {ToolLink("On-device audio"){model.push("device")}}
+        item {LibraryShortcutTiles(model)}
         if(!provider.signedIn) item {ToolLink("Sign in to YouTube Music"){model.push("account")}}
         if(loading) item {Text("Loading your library\u2026",color=Muted)}
         error?.let {item {Text(it,color=Pink);TextButton({ uiHaptic(); retry++}){Text("Retry")}}}
