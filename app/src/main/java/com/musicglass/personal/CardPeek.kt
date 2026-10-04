@@ -185,7 +185,8 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
             held.browseId?.let { id -> SongActionItem("Share") { peek.dismiss(); share("${held.title}\n${collectionLink(id)}") } }
         }
         if (track?.isLive != true && (track != null || held.notInterestedToken != null))
-            SongActionItem("Not interested") { act { markNotInterested(context, provider, playback, held.key(), held.notInterestedToken, track != null, onNotice) } }
+            SongActionItem("Not interested") { act { markNotInterested(context, provider, playback,
+                NotInterestedEntry(held.key(), held.title, held.subtitle, held.artworkUrl, track != null), held.notInterestedToken, onNotice) } }
     }
 }
 

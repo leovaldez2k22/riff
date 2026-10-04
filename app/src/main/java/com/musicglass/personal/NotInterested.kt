@@ -18,17 +18,47 @@ internal fun notInterestedToken(menu: JsonElement?): String? = when (menu) {
     else -> null
 }
 
-/** Keys (video or browse IDs) are newest last; the oldest are dropped past [limit]. */
-internal fun addNotInterested(keys: List<String>, key: String, limit: Int = 2000) = (keys - key + key).takeLast(limit)
+/** One hidden song or collection; [key] is its video or browse ID. */
+internal data class NotInterestedEntry(val key: String, val title: String = "", val subtitle: String = "",
+    val artworkUrl: String? = null, val song: Boolean = true, val at: Long = 0L)
+
+/** Entries are newest last; re-adding moves an entry to the end; the oldest are dropped past [limit]. */
+internal fun addNotInterested(entries: List<NotInterestedEntry>, entry: NotInterestedEntry, limit: Int = 2000) =
+    (entries.filterNot { it.key == entry.key } + entry).takeLast(limit)
+
+internal fun encodeNotInterested(entries: List<NotInterestedEntry>) = buildJsonArray {
+    entries.forEach { e -> addJsonObject { put("key", e.key); put("title", e.title.take(180)); put("subtitle", e.subtitle.take(180))
+        put("artwork", e.artworkUrl ?: ""); put("song", e.song); put("at", e.at) } }
+}.toString()
+
+internal fun decodeNotInterested(json: String?, legacyKeys: String?): List<NotInterestedEntry> {
+    fun JsonObject.text(name: String) = (this[name] as? JsonPrimitive)?.contentOrNull.orEmpty()
+    val parsed = runCatching {
+        Json.parseToJsonElement(json ?: "[]").jsonArray.mapNotNull { item -> (item as? JsonObject)?.let { o ->
+            NotInterestedEntry(o.text("key").takeIf(String::isNotBlank) ?: return@let null, o.text("title"), o.text("subtitle"),
+                o.text("artwork").takeIf { it.startsWith("https://") }, (o["song"] as? JsonPrimitive)?.booleanOrNull ?: true,
+                (o["at"] as? JsonPrimitive)?.longOrNull ?: 0L)
+        } }
+    }.getOrDefault(emptyList())
+    // Before the list in Settings, only the keys were saved.
+    val legacy = legacyKeys.orEmpty().split('\n').filter(String::isNotBlank).filter { key -> parsed.none { it.key == key } }
+        .map { NotInterestedEntry(it, song = it.matches(Regex("[A-Za-z0-9_-]{11}"))) }
+    return legacy + parsed
+}
 
 /** Songs and collections the listener marked "Not interested". Hidden from Home and never added by autoplay. */
 internal class NotInterestedStore private constructor(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("not_interested", Context.MODE_PRIVATE)
-    var keys by mutableStateOf(load()); private set
-    private fun load() = prefs.getString("keys", "").orEmpty().split('\n').filter(String::isNotBlank)
+    var entries by mutableStateOf(load()); private set
+    /** Reading it subscribes Compose to changes, like [entries]. */
+    var keys by mutableStateOf(entries.mapTo(HashSet()) { it.key }.toSet()); private set
+    private fun load() = decodeNotInterested(prefs.getString("entries", null), prefs.getString("keys", null))
+    private fun save(next: List<NotInterestedEntry>) {
+        entries = next; keys = next.mapTo(HashSet()) { it.key }; prefs.edit { putString("entries", encodeNotInterested(next)); remove("keys") }
+    }
     operator fun contains(key: String?) = key != null && key in keys
-    fun add(key: String) = synchronized(this) { keys = addNotInterested(load(), key); prefs.edit {putString("keys", keys.joinToString("\n"))} }
-    fun remove(key: String) = synchronized(this) { keys = load() - key; prefs.edit {putString("keys", keys.joinToString("\n"))} }
+    fun add(entry: NotInterestedEntry) = synchronized(this) { save(addNotInterested(load(), entry)) }
+    fun remove(key: String) = synchronized(this) { save(load().filterNot { it.key == key }) }
     companion object {
         @Volatile private var instance: NotInterestedStore? = null
         fun get(context: Context) = instance ?: synchronized(this) { instance ?: NotInterestedStore(context).also { instance = it } }
@@ -44,10 +74,10 @@ internal fun List<ProviderHomeSection>.withoutNotInterestedCards(store: NotInter
  * and a song is skipped and taken out of the queue.
  */
 internal suspend fun markNotInterested(context: Context, provider: YouTubeMusicProvider, playback: PlaybackGateway,
-    key: String, token: String?, song: Boolean, onNotice: (String) -> Unit) {
-    NotInterestedStore.get(context).add(key)
-    if (song) playback.dropTrack(key)
-    val sent = provider.sendNotInterested(key.takeIf { song }, token).getOrDefault(false)
+    entry: NotInterestedEntry, token: String?, onNotice: (String) -> Unit) {
+    NotInterestedStore.get(context).add(entry.copy(at = System.currentTimeMillis()))
+    if (entry.song) playback.dropTrack(entry.key)
+    val sent = provider.sendNotInterested(entry.key.takeIf { entry.song }, token).getOrDefault(false)
     onNotice(if (sent) "Got it. YouTube Music will suggest this less"
-        else if (song) "Got it. Riff won't suggest this song" else "Got it. Riff will hide this")
+        else if (entry.song) "Got it. Riff won't suggest this song" else "Got it. Riff will hide this")
 }

@@ -41,9 +41,20 @@ class NotInterestedTest {
         assertNull(notInterestedTokenFor(root, "missingSong"))
     }
 
+    private fun keys(vararg k: String) = k.map { NotInterestedEntry(it) }
     @Test fun listKeepsNewestAndDropsDuplicates() {
-        assertEquals(listOf("b", "a"), addNotInterested(listOf("a", "b"), "a"))
-        assertEquals(listOf("c", "d"), addNotInterested(listOf("a", "b", "c"), "d", limit = 2))
+        assertEquals(listOf("b", "a"), addNotInterested(keys("a", "b"), NotInterestedEntry("a")).map { it.key })
+        assertEquals(listOf("c", "d"), addNotInterested(keys("a", "b", "c"), NotInterestedEntry("d"), limit = 2).map { it.key })
+    }
+
+    @Test fun storedEntriesRoundTripAndKeepLegacyKeys() {
+        val entry = NotInterestedEntry("abcdefghijk", "Song", "Artist", "https://i.ytimg.com/x.jpg", true, 42L)
+        val album = NotInterestedEntry("MPREalbum", "Album", "", null, false, 43L)
+        assertEquals(listOf(entry, album), decodeNotInterested(encodeNotInterested(listOf(entry, album)), null))
+        val migrated = decodeNotInterested(encodeNotInterested(listOf(entry)), "abcdefghijk\nzyxwvutsrqp\nVLplaylist")
+        assertEquals(listOf("zyxwvutsrqp", "VLplaylist", "abcdefghijk"), migrated.map { it.key })
+        assertEquals(listOf(true, false, true), migrated.map { it.song })
+        assertTrue(decodeNotInterested("not json", null).isEmpty())
     }
 
     @Test fun boostMapsToMillibels() {

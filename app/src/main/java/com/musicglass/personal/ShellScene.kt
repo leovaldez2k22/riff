@@ -159,6 +159,8 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
             "accessibility" -> AccessibilityScreen(model, totalBottomPadding)
             "downloads" -> DownloadsScreen(model,totalBottomPadding,playback,onNotice)
             "settings" -> SettingsScreen(model,totalBottomPadding,provider,collections,onNotice)
+            "listening_history" -> ListeningHistoryScreen(model,totalBottomPadding,provider,playback,onNotice)
+            "not_interested" -> NotInterestedScreen(model,totalBottomPadding,onNotice)
             "remote_library" -> ProviderCollectionScreen(model, totalBottomPadding, provider, playback, onNotice, liked = true)
             "collection" -> CatalogDetailScreen(model,totalBottomPadding,provider,playback,onNotice)
             else -> androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {

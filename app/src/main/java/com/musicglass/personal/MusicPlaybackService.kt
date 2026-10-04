@@ -80,6 +80,7 @@ class MusicPlaybackService : MediaSessionService() {
     private val sabrSelections = ConcurrentHashMap<String,SabrBootstrap>()
     private val offline by lazy {OfflineMusicStore.get(this)}
     private var listeningId=""
+    private var historyItem:String?=null
     private var lastListenTick=android.os.SystemClock.elapsedRealtime()
     private val snapshotPrefs by lazy {getSharedPreferences("last_playback",MODE_PRIVATE)}
     private var discardingSession=false
@@ -167,7 +168,7 @@ class MusicPlaybackService : MediaSessionService() {
                 }
                 override fun onIsPlayingChanged(isPlaying:Boolean) {offline.playbackBusy=isPlaying || this@apply.playbackState==Player.STATE_BUFFERING;lastListenTick=android.os.SystemClock.elapsedRealtime()}
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                    listeningId="";lastListenTick=android.os.SystemClock.elapsedRealtime();attestationRefreshed.clear()
+                    listeningId="";historyItem=null;lastListenTick=android.os.SystemClock.elapsedRealtime();attestationRefreshed.clear()
                     if(mediaItem == null) cancelRadio() else replenishQueue(this@apply)
                 }
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -369,6 +370,7 @@ class MusicPlaybackService : MediaSessionService() {
         OfflineDownloadScheduler.schedule(this)
         saveJob=serviceScope.launch {while(isActive){delay(5000);saveSnapshot(player)
             val now=android.os.SystemClock.elapsedRealtime();val delta=(now-lastListenTick).coerceIn(0,5000);lastListenTick=now
+            recordHistory(player)
             if(player.isPlaying && player.currentMediaItem?.mediaId?.startsWith("yt:")==true) {
                 val track=trackFromItem(player.currentMediaItem!!);val id=track.videoId
                 val duration=player.duration.coerceAtLeast(0);val newPlay=id!=listeningId;listeningId=id
@@ -391,6 +393,19 @@ class MusicPlaybackService : MediaSessionService() {
         return result
     }
 
+    /** A play counts once it has been heard for one tick (about 5 s); repeats of the same item count again. */
+    private fun recordHistory(player: Player) {
+        val item=player.currentMediaItem?:return
+        if(!player.isPlaying || item.mediaId==historyItem) return
+        val m=item.mediaMetadata
+        if(m.extras?.getBoolean("live")==true || !(item.mediaId.startsWith("yt:") || item.mediaId.startsWith("local:"))) return
+        historyItem=item.mediaId
+        val history=ListeningHistory.get(this)
+        if(!ListeningHistory.enabled(this)) return
+        val art=m.artworkUri?.toString()?.takeUnless {item.mediaId.startsWith("yt:") && !it.startsWith("https://")}
+        val entry=HistoryEntry(item.mediaId,m.title?.toString().orEmpty(),m.artist?.toString().orEmpty(),art,System.currentTimeMillis(),m.extras?.getBoolean("music",true)!=false)
+        serviceScope.launch(Dispatchers.IO) {history.record(entry)}
+    }
     private fun trackFromItem(item: MediaItem):ProviderTrack {
         val m=item.mediaMetadata;val e=m.extras
         return ProviderTrack(item.mediaId.removePrefix("yt:"),m.title?.toString().orEmpty(),m.artist?.toString().orEmpty(),
@@ -510,7 +525,7 @@ class MusicPlaybackService : MediaSessionService() {
                     if(generation!=queueGeneration) return@launch
                     radioContinuation=token
                     val known=(0 until player.mediaItemCount).map {val m=player.getMediaItemAt(it).mediaMetadata;queueRecordingKey(m.title.toString(),m.artist.toString())}.toSet()
-                    val hidden=NotInterestedStore.get(this@MusicPlaybackService).keys.toSet()
+                    val hidden=NotInterestedStore.get(this@MusicPlaybackService).keys
                     queueCandidates.addAll(queueCandidates(tracks,queuedIds+hidden,known))
                 }
                 var added=0;var attempted=0

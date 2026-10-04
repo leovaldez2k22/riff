@@ -99,6 +99,11 @@ import kotlinx.coroutines.withContext
         item {SettingsSection("Library") {
             SettingsToggleRow("Save listening history",collections.historyEnabled,
                 hapticToggle(collections::updateHistoryPreference),Icons.Rounded.History,"settings_history")
+            SettingsDivider()
+            val hidden=remember(context) {NotInterestedStore.get(context)}
+            SettingsLinkRow("Not interested",hidden.entries.size.takeIf {it>0}?.toString(),Icons.Rounded.Block,"settings_not_interested") {
+                model.push("not_interested")
+            }
         }}
         item {SettingsSection("About") {
             SettingsLinkRow("Copy playback diagnostics",icon=Icons.Rounded.BugReport,tag="settings_copy_diagnostics") {

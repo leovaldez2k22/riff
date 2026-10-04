@@ -383,7 +383,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                                     provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);collections.setOnlineFavorite(providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:"Could not save like")})
                                 }
                                 "Remove from queue" -> playback.removeQueueItem(state.index)
-                                "Not interested" -> scope.launch {markNotInterested(context,provider,playback,videoId,null,true,onNotice)}
+                                "Not interested" -> scope.launch {markNotInterested(context,provider,playback,NotInterestedEntry(videoId,state.title,state.artist,state.artworkUrl),null,onNotice)}
                                 "View artist" -> onArtist()
                                 "View album" -> onAlbum()
                                 "Play next", "Add to queue" -> scope.launch {

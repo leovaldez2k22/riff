@@ -225,7 +225,12 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     }
     fun open(card:ProviderHomeCard)=openCatalogCard(model,card){scope.launch {playRealTrack(provider,playback,it,onNotice)}}
     ScreenList(model,bottom) {
-        item {ScreenTitle("Library","Your YouTube Music collection")}
+        item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top) {
+            Box(Modifier.weight(1f)) {ScreenTitle("Library","Your YouTube Music collection")}
+            IconButton({uiHaptic();model.push("listening_history")},modifier=Modifier.testTag("library_history")) {
+                Icon(Icons.Rounded.History,"Listening history",tint=White)
+            }
+        }}
         item {Row(Modifier.fillMaxWidth().fullBleed(20.dp).horizontalScroll(rememberScrollState()).padding(horizontal=20.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("All","Songs","Favorites","Playlists","Albums","Artists","Podcasts","History").forEach {filter->
                 GlassCategoryChip(if(filter=="Favorites") "Liked songs" else filter,key="library:$filter",selected=kind==filter,tag="library_filter_${filter.lowercase()}") {model.libraryFilter=filter}}
