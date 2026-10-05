@@ -2,6 +2,16 @@ package com.musicglass.personal
 import org.junit.Assert.*
 import org.junit.Test
 class MusicCachePolicyTest {
+    @Test fun transportChangesCannotReuseAnIncompatiblePartialAudioFile() {
+        val direct=audioStreamCacheKey("account","abcdefghijk",140,"audio/mp4",128000,false)
+        val sabr=audioStreamCacheKey("account","abcdefghijk",140,"audio/mp4",128000,true)
+        assertNotEquals(direct,sabr)
+        // Old keys mixed both byte layouts; neither transport may trust those entries after updating.
+        val legacy="audio:account:abcdefghijk:140:audio/mp4:128000"
+        assertNotEquals(legacy,direct);assertNotEquals(legacy,sabr)
+        assertNotEquals(direct,audioStreamCacheKey("other-account","abcdefghijk",140,"audio/mp4",128000,false))
+    }
+
     @Test fun cachedSignedStreamsExpireWithSafetyMarginAndLiveAlwaysRefreshes() {
         assertTrue(reusableStream(120_000,10_000,false));assertFalse(reusableStream(50_000,10_000,false));assertFalse(reusableStream(120_000,10_000,true))
     }

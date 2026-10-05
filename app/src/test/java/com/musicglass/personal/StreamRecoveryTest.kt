@@ -13,6 +13,17 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class StreamRecoveryTest {
+    @Test fun tokenlessAttestationFailureMovesToAnotherProfileImmediately() {
+        val budget=StreamRecoveryBudget()
+        assertEquals(StreamRecoveryAction.EXCLUDE_PROFILE,
+            budget.next(SabrFailureKind.ATTESTATION_REQUIRED,null,"VISIONOS_SABR__nopo"))
+        assertEquals(setOf("VISIONOS_SABR__nopo"),budget.excludedProfiles)
+        assertNull(budget.next(SabrFailureKind.ATTESTATION_REQUIRED,null,"VISIONOS_SABR__nopo"))
+        // A subsequent attested profile still gets its one credential refresh.
+        assertEquals(StreamRecoveryAction.REFRESH_ATTESTATION,
+            budget.next(SabrFailureKind.ATTESTATION_REQUIRED,null,"WEB_REMIX_SABR__po"))
+    }
+
     @Test fun attestationRefreshThenRejectedProfilesAreBounded() {
         val budget=StreamRecoveryBudget()
         assertEquals(StreamRecoveryAction.REFRESH_ATTESTATION,budget.next(SabrFailureKind.ATTESTATION_REQUIRED,null,"first"))

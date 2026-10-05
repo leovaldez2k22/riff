@@ -13,7 +13,10 @@ internal class StreamRecoveryBudget {
     val excludedProfiles = linkedSetOf<String>()
 
     fun next(kind: SabrFailureKind?, httpStatus: Int?, profile: String?): StreamRecoveryAction? {
-        if (kind == SabrFailureKind.ATTESTATION_REQUIRED && !attestationRefreshed) {
+        // A profile that never supplied a token cannot benefit from minting it again:
+        // extraction would choose the same tokenless bootstrap and interrupt playback twice.
+        if (kind == SabrFailureKind.ATTESTATION_REQUIRED && !attestationRefreshed &&
+            profile?.endsWith("__nopo") != true) {
             attestationRefreshed = true
             return StreamRecoveryAction.REFRESH_ATTESTATION
         }

@@ -951,7 +951,9 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
             val stream = extractor.extract(
                 videoId = videoId,
                 hints = ContentHints(wantVideo = video,isLive = live,maxVideoHeight=if(quality==AudioQuality.LOW) 360 else 720).withStreamCapabilities(
-                    allowHls = !download, allowSabr = true, allowBoundedRange = download),
+                    // Tokenless SABR can fail after its first chunk; HLS can adapt between
+                    // variants. Direct audio retains the format selected for this quality setting.
+                    allowHls = !download && (video || live), allowSabr = video || live || download, allowBoundedRange = download),
                 excludedClients = excludedProfiles + if(live || video) setOf("WEB_REMIX","WEB_REMIX_SABR","ANDROID_MUSIC","IOS_MUSIC") else emptySet(),
                 audioQuality = quality,
             ) ?: return@withContext Result.failure(

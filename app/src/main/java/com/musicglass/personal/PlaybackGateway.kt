@@ -277,6 +277,7 @@ internal class MusicPlaybackGateway(context: Context) : PlaybackGateway {
         val args = Bundle().apply {
             putString("url", stream.url)
             putString("mimeType", stream.mimeType)
+            putInt("itag",stream.itag);putInt("bitrate",stream.bitrate)
             putString("profileId",stream.profileId);putBoolean("includesVideo",stream.includesVideo)
             putString("streamVideoId",stream.sourceVideoId);putString("videoUrl",stream.videoUrl);putString("videoMimeType",stream.videoMimeType)
             stream.sabrVideoBootstrap?.let {putString("sabrVideoKey",SabrPlaybackRegistry.register(it))}

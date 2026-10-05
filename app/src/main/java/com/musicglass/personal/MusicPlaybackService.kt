@@ -350,7 +350,8 @@ class MusicPlaybackService : MediaSessionService() {
                     return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
                 if(videoUrl!=null && videoBootstrap==null) {val v=Uri.parse(videoUrl)
                     if(v.scheme!="https" || !(v.host=="googlevideo.com" || v.host.orEmpty().endsWith(".googlevideo.com"))) return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))}
-                val stream = ProviderStream(url,headers,args.getString("mimeType"),bootstrap,args.getString("profileId"),videoUrl,args.getString("videoMimeType"),videoBootstrap,sourceVideoId=streamVideoId,includesVideo=args.getBoolean("includesVideo"))
+                val stream = ProviderStream(url,headers,args.getString("mimeType"),bootstrap,args.getString("profileId"),videoUrl,args.getString("videoMimeType"),videoBootstrap,sourceVideoId=streamVideoId,
+                    itag=args.getInt("itag"),bitrate=args.getInt("bitrate"),includesVideo=args.getBoolean("includesVideo"))
                 if(args.getBoolean("replaceCurrent") && player.mediaItemCount>0) {
                     val index=player.currentMediaItemIndex;val wants=player.playWhenReady
                     player.replaceMediaItem(index,providerItem(track,stream));player.seekTo(index,args.getLong("position").coerceAtLeast(0))
@@ -480,7 +481,8 @@ class MusicPlaybackService : MediaSessionService() {
         val hls=stream.mimeType?.contains("mpegurl",true)==true
         // HLS forbids MediaItem custom cache keys; live/video also bypass the audio cache.
         val cacheKey=if(!hls && !track.isLive && !stream.includesVideo && videoUri==null)
-            "audio:${offline.currentScope}:${stream.sourceVideoId?:track.videoId}:${stream.itag}:${stream.mimeType}:${stream.bitrate}" else null
+            audioStreamCacheKey(offline.currentScope,stream.sourceVideoId?:track.videoId,stream.itag,
+                stream.mimeType,stream.bitrate,stream.sabrBootstrap!=null) else null
         return MediaItem.Builder().setMediaId("yt:${track.videoId}").setUri(uri).setCustomCacheKey(cacheKey)
             .apply { if(stream.mimeType?.contains("mpegurl",true)==true) setMimeType(MimeTypes.APPLICATION_M3U8) }
             .setMediaMetadata(MediaMetadata.Builder().setTitle(track.title).setArtist(track.artist).setAlbumTitle(track.album)

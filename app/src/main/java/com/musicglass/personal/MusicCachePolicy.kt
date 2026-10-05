@@ -1,6 +1,10 @@
 package com.musicglass.personal
 
 internal fun reusableStream(expiresAt:Long,now:Long,live:Boolean)=!live && expiresAt>now+60_000
+
+/** SABR fragments and direct files can share an itag but have different byte layouts. */
+internal fun audioStreamCacheKey(scope:String,videoId:String,itag:Int,mimeType:String?,bitrate:Int,sabr:Boolean):String =
+    "audio:v2:$scope:${if(sabr) "sabr" else "direct"}:$videoId:$itag:$mimeType:$bitrate"
 internal data class SmartCandidate(val id:String,val lastPlayed:Long,val plays:Int,val listenedMs:Long,val durationMs:Long,val favorite:Boolean=false,val live:Boolean=false,val music:Boolean=true)
 /** Membership is the most recent 250 qualifying songs; score only determines download priority. */
 internal fun smartCandidates(rows:List<SmartCandidate>,now:Long):List<SmartCandidate> = rows.filter {
