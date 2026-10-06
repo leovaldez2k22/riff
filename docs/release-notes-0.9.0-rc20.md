@@ -2,6 +2,12 @@
 
 Release candidate published 4 October 2026. Standard ARM64 build for Android 12+.
 
+## Newer changes on main
+
+The published APK and its checksum below describe the 4 October build. Newer work is merged into `main`: bulk playlist/album downloads, confirmed download deletion and cache clearing, Unlimited storage, a search clear icon, frosted menus with an independent intensity slider, +0.2-second lyrics timing, queue-thumbnail return, and smooth automatic audio/visual crossfades. Direct online audio also addresses the earlier short playback interruption.
+
+These updates passed 273 JVM/Compose tests and 17 distinct phone tests with zero lint errors. The tested local APK retains version `0.9.0-rc20` / code 21, but has a different checksum and **has not replaced the published release asset**. See [the full current update](https://github.com/leovaldez2k20/riff/blob/main/docs/update-2026-10-06.md) and [verification](https://github.com/leovaldez2k20/riff/blob/main/docs/downloads-crossfade-verification-2026-10-06.md).
+
 ## Download and install
 
 Download **riff-0.9.0-rc20.apk** from Assets below and open it on your phone. Allow installation from your browser or file manager if Android asks. Existing same-certificate Riff installations update in place; uninstalling deletes app-private data. Older Lite installations use a separate package and are not updated by this standard APK.

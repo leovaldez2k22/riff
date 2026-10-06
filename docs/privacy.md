@@ -1,10 +1,12 @@
 # Privacy and permissions
 
-Updated 4 October 2026 for Riff 0.9.0-rc20. This page describes the current implementation; external providers have their own terms and privacy policies.
+Updated 6 October 2026 for the current `main` implementation. The published 4 October rc20 APK predates the latest download and cache controls; see [update notes](update-2026-10-06.md). External providers have their own terms and privacy policies.
 
 ## Local data
 
 Riff stores playback position and queue, settings, account-scoped local saves and listening history, catalog caches, downloaded audio/artwork/lyrics, and a small playback diagnostic ring on the phone. Downloads are app-private. Signing out hides account-scoped local collections; returning to the same account can make them available again. Uninstalling deletes app-private data. Android cloud backup and device transfer are disabled. These local collections do not provide cross-device synchronization.
+
+Downloads → Delete all downloads asks for confirmation, removes the current account's downloaded audio, artwork and lyrics, and cancels pending transfers. Clear playback cache also asks for confirmation and retains permanent downloaded bundles. Unlimited removes the app's configured download-budget cap; the device free-space reserve remains in force. These actions do not remove songs or playlists from the provider account.
 
 The diagnostics ring is bounded and avoids track names, signed URLs, and credentials. Copy playback diagnostics additionally scrubs URLs and token-like fields. Sharing the copied report is a user action; inspect reports and screenshots before posting publicly.
 
@@ -19,6 +21,8 @@ Mood images are discovered through Openverse and Wikimedia Commons and loaded fr
 ## Translation and voice search
 
 ML Kit translates lyrics on the device. Google supplies downloadable language models and receives SDK performance/usage metrics. See [ML Kit terms and privacy](https://developers.google.com/ml-kit/terms).
+
+The short translation metrics sentence was removed from the lyrics screen in the latest UI update. Translation processing and model/metrics behavior remain as described here.
 
 Voice search uses Android's configured speech-recognition service when invoked. That service may process audio remotely according to its own settings and policies; Riff does not promise offline recognition. Microphone permission is requested for voice search.
 

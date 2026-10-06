@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+Merged into `main` and verified 6 October 2026. The local tested APK retains version `0.9.0-rc20` / code 21; the published 4 October rc20 APK does not include this section. See [the update notes](docs/update-2026-10-06.md) and [device verification](docs/downloads-crossfade-verification-2026-10-06.md). All 273 JVM/Compose tests and 17 distinct phone tests passed; lint completed with zero errors.
+
+- Ordinary online audio now uses direct transport to address the short playback interruption. Cache identities distinguish transport, format and bitrate so different byte layouts or qualities do not share entries. See [the playback verification](docs/playback-fix-2026-10-05.md).
 - Downloads replaces its settings shortcut with Delete all downloads, with confirmation and cancellation of pending transfers. Playlist and album pages offer Download all songs after the complete collection loads; repeated songs and existing downloads are retained once.
 - Search has a clear-text cross icon. Download storage budgets extend through 24, 32, 64, 128 and 256 GB to Unlimited; device free-space reserves still apply. Clearing playback cache requires confirmation.
 - Crossfade accepts audio metadata with a null video URI, prepares the outgoing copy early, preloads the next song, and blends with equal-power gains. Pauses, seeks, live/video items and sleep timers remain excluded or cancel the blend.

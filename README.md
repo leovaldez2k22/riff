@@ -1,6 +1,6 @@
 # Riff
 
-An Android music player with YouTube Music browsing, synced lyrics, offline downloads, and a glass interface.
+An Android music player with YouTube Music browsing, synced lyrics, offline downloads, automatic crossfades, and customizable glass controls.
 
 [![CI](https://github.com/leovaldez2k20/riff/actions/workflows/ci.yml/badge.svg)](https://github.com/leovaldez2k20/riff/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/leovaldez2k20/riff?include_prereleases&label=release)](https://github.com/leovaldez2k20/riff/releases)
@@ -10,6 +10,25 @@ An Android music player with YouTube Music browsing, synced lyrics, offline down
 **[Download rc20 APK](https://github.com/leovaldez2k20/riff/releases/download/v0.9.0-rc20/riff-0.9.0-rc20.apk)** · [Release notes](https://github.com/leovaldez2k20/riff/releases/tag/v0.9.0-rc20) · [All releases](https://github.com/leovaldez2k20/riff/releases) · [Report a bug](https://github.com/leovaldez2k20/riff/issues/new/choose)
 
 Riff is an independent personal project and is not affiliated with Google or YouTube. The current version is a **release candidate**. Online playback and catalog availability depend on the providers.
+
+## Latest development update — 6 October 2026
+
+The changes below are merged into `main` and were tested on an Android 16 phone. **The published rc20 APK above is from 4 October and does not contain these updates.** The tested local update still reports `0.9.0-rc20` (version code 21); a new public APK release has not been published.
+
+| Area | Current behavior on main |
+|---|---|
+| Downloads | **Delete all downloads** replaces the Downloads settings shortcut, asks for confirmation, and cancels pending transfers. Playlist and album pages offer **Download all songs** after the full collection loads, preserving completed downloads and deduplicating repeats. |
+| Storage and cache | Budgets extend beyond 16 GB through **24, 32, 64, 128 and 256 GB**, with **Unlimited** last. Device free-space reserves still apply. **Clear playback cache** asks for confirmation and retains downloaded songs. |
+| Crossfade audio | Automatic queue handoffs blend both songs with smooth equal-power gains. Startup and buffering hold progress; delayed updates and an early outgoing end cannot abruptly restore volume. Both players use matching volume-boost processing. |
+| Crossfade visuals | Artwork, song title and artist fade for the **entire actual crossfade**, following live audio progress in the player, mini player and queue header. Manual song changes and crossfade-off playback replace them immediately; reduced motion is respected. |
+| Search and queue | A cross icon clears search text. Tapping the current-song thumbnail in the queue returns to the expanded player. |
+| Lyrics and menus | Lyrics timing defaults and resets to **+0.2 seconds**. Timing controls, three-dot menus, song long-press menus, sorting and language menus use frosted backgrounds. The translation metrics sentence has been removed from the lyrics screen. |
+| Appearance | **Frosted glass intensity** has its own slider, separate from Glass intensity. High-contrast controls retain opaque backgrounds. |
+| Playback continuity | Direct online audio and separate cache identities address the earlier short playback interruption while retaining the selected format and bitrate. |
+
+**Verified:** 273 JVM/Robolectric/Compose tests across 52 suites, 17 distinct phone instrumentation tests, zero lint errors, and a signed-release queue-navigation check. [GitHub CI passed for the implementation](https://github.com/leovaldez2k20/riff/actions/runs/37412870176). Device tests measured playback, gain progression and visual behavior; they do not establish subjective loudness equivalence between differently mastered songs.
+
+See [the complete update notes](docs/update-2026-10-06.md), [crossfade and UI verification](docs/downloads-crossfade-verification-2026-10-06.md), [playback continuity verification](docs/playback-fix-2026-10-05.md), and [the changelog](CHANGELOG.md).
 
 ## Install
 
@@ -30,20 +49,20 @@ This APK uses the existing release signing key. The stable application ID is `co
 
 The release also includes `LICENSE` and `NOTICE.md`. GitHub's automatically generated source archives refer to the release tag. To check a download in PowerShell, use `Get-FileHash .\riff-0.9.0-rc20.apk -Algorithm SHA256` and compare it with `SHA256SUMS.txt`. The public signing certificate fingerprint is in [release signing](docs/release-signing.md).
 
-## What Riff does
+## What Riff does on main
 
 - Browse recommendations, search, albums, playlists, artists, podcasts, and live radio.
-- Play audio in the background, view an exact official video counterpart when available, and control the queue with Play next, reorder, and remove actions.
-- Read word-synced or line-synced lyrics, with on-device English translation when supported.
-- Download songs, artwork, and available lyrics for offline playback; optional Smart Downloads use a storage budget and network preferences.
+- Play audio in the background, blend automatic queue changes with crossfade, view an exact official video counterpart when available, and control the queue with Play next, reorder, and remove actions.
+- Read word-synced or line-synced lyrics, adjust timing from a +0.2-second default, and use on-device English translation when supported.
+- Download individual songs or whole playlists/albums, including artwork and available lyrics; optional Smart Downloads use a configurable budget up to Unlimited and network preferences.
 - Access on-device audio, local saves, listening history, sleep timers, and home-screen widgets.
-- Customize glass effects, motion, contrast, haptics, and Data saver.
+- Customize glass and frosted intensity independently, motion, contrast, haptics, and Data saver.
 
 Read the [detailed feature and behavior guide](docs/features.md) for network, cache, queue, download, and account behavior.
 
 ## Screenshots
 
-Actual rc20 phone screenshots. Album artwork belongs to its respective owners; screenshots illustrate the app interface.
+Actual screenshots of the published 4 October rc20 build. They predate the latest download, menu and appearance changes. Album artwork belongs to its respective owners; screenshots illustrate the app interface.
 
 <table>
   <tr>
@@ -54,7 +73,9 @@ Actual rc20 phone screenshots. Album artwork belongs to its respective owners; s
   <tr><td>Now playing</td><td>Queue controls</td><td>Data saver</td></tr>
 </table>
 
-## What's new in rc20
+## Published rc20 APK — 4 October 2026
+
+These changes and checks describe the APK currently available in Releases. The newer work on `main` is described above.
 
 - Replaces rejected streams during recovery, invalidates stale prefetched streams, and tries a bounded set of alternate profiles while preserving queue position and user pauses.
 - Adds a visible remove button to every queue row, including removal of the final song.
