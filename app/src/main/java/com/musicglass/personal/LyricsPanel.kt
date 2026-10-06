@@ -46,6 +46,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 
+internal const val DEFAULT_LYRICS_OFFSET_MS = 200L
+
 @Composable
 internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvider,
     repository: LyricsRepository, onBack: () -> Unit) {
@@ -58,7 +60,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
     var failed by remember(track) { mutableStateOf(false) }
     var refresh by remember(track) { mutableIntStateOf(0) }
     var follow by rememberSaveable(state.mediaId) { mutableStateOf(true) }
-    var offsetMs by rememberSaveable(state.mediaId) { mutableLongStateOf(0) }
+    var offsetMs by rememberSaveable(state.mediaId) { mutableLongStateOf(DEFAULT_LYRICS_OFFSET_MS) }
     var timingDialog by remember { mutableStateOf(false) }
     val context=LocalContext.current
     var translate by rememberSaveable(state.mediaId) {mutableStateOf(false)}
@@ -139,13 +141,12 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                     leadingIcon={Icon(Icons.Rounded.Translate,null,modifier=Modifier.size(18.dp))},modifier=Modifier.testTag("lyrics_translate"))
                 Spacer(Modifier.width(8.dp))
                 Box {TextButton({ uiHaptic(); languageMenu=true}) {Text(sourceLanguage?.let {java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.ENGLISH)}?:"Auto language",maxLines=1)}
-                    DropdownMenu(languageMenu,{languageMenu=false},modifier=Modifier.heightIn(max=340.dp)) {
+                    SongActionMenu(languageMenu,{languageMenu=false},modifier=Modifier.heightIn(max=340.dp)) {
                         DropdownMenuItem(text={Text("Auto detect")},onClick={ uiHaptic(); sourceLanguage=null;languageMenu=false})
                         languages.forEach {language->DropdownMenuItem(text={Text(java.util.Locale.forLanguageTag(language).getDisplayLanguage(java.util.Locale.ENGLISH))},onClick={ uiHaptic(); sourceLanguage=language;languageMenu=false})}
                     }
                 }
             }
-            Text("Translation stays on your device. Google provides models and receives SDK performance metrics.",color=Muted,fontSize=10.sp,modifier=Modifier.padding(horizontal=28.dp,vertical=2.dp))
             if(translate && translationStatus.isNotBlank()) Text(translationStatus,color=Muted,fontSize=12.sp,modifier=Modifier.padding(horizontal=28.dp,vertical=4.dp))
             when {
                 songLyrics?.instrumental == true -> LyricsMessage("Instrumental","This recording has no sung lyrics.",Modifier.weight(1f))
@@ -207,7 +208,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
             }
         }
     }
-    if (timingDialog) AlertDialog(onDismissRequest = { timingDialog = false },
+    if (timingDialog) FrostedAlertDialog(onDismissRequest = { timingDialog = false },
         title = { Text("Lyrics timing") },text = {
             Column {
                 Text("Adjust the highlight if this recording is slightly out of sync.")
@@ -217,7 +218,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                     Text("${if (offsetMs >= 0) "+" else ""}${offsetMs/1000f}s")
                     TextButton(onClick = { uiHaptic();  offsetMs = (offsetMs+100).coerceAtMost(5000) },modifier = Modifier.testTag("lyrics_offset_plus")) { Text("+ 0.1s") }
                 }
-                TextButton(onClick = { uiHaptic();  offsetMs = 0 }) { Text("Reset") }
+                TextButton(onClick = { uiHaptic();  offsetMs = DEFAULT_LYRICS_OFFSET_MS }) { Text("Reset") }
             }
         },confirmButton = { TextButton(onClick = { uiHaptic();  timingDialog = false }) { Text("Done") } })
 }

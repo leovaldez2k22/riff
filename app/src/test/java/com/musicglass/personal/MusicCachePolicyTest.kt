@@ -38,4 +38,15 @@ class MusicCachePolicyTest {
         assertTrue(smartDownloadNetworkAllowed(true,true,false,true))
         assertFalse(smartDownloadNetworkAllowed(false,true,true,false))
     }
+    @Test fun unlimitedBudgetStillReservesDeviceSpaceAndCannotOverflow() {
+        val gb=1073741824L
+        assertTrue(downloadFits(256*gb,gb,Long.MAX_VALUE,100*gb,512*gb))
+        assertFalse(downloadFits(256*gb,gb,Long.MAX_VALUE,gb,512*gb))
+        assertFalse(downloadFits(Long.MAX_VALUE-10,100,Long.MAX_VALUE,1000*gb,2000*gb))
+        assertFalse(downloadFits(0,Long.MAX_VALUE,Long.MAX_VALUE,1000*gb,2000*gb))
+        assertEquals(Long.MAX_VALUE,downloadBudgets.last())
+        assertTrue(downloadBudgets.dropLast(1).last()>16*gb)
+        assertEquals("Unlimited",downloadBudgetLabel(downloadBudgets[downloadBudgetIndex(Long.MAX_VALUE)]))
+        assertEquals(4*gb,downloadBudgets[downloadBudgetIndex(4*gb)])
+    }
 }

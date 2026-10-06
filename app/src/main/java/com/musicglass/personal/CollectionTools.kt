@@ -44,7 +44,7 @@ internal fun <T> collectionView(rows:List<T>,query:String,sort:CollectionSort,ti
             modifier=Modifier.fillMaxWidth().testTag("collection_search"))
         Box {
             FilterChip(true,{uiHaptic();expanded=true},label={Text(sort.label,fontSize=12.sp)},leadingIcon={Icon(Icons.Rounded.Sort,null,modifier=Modifier.size(16.dp))},modifier=Modifier.testTag("collection_sort"))
-            DropdownMenu(expanded,{expanded=false},containerColor=Raised) {
+            SongActionMenu(expanded,{expanded=false}) {
                 CollectionSort.entries.forEach {option->
                     val enabled=hasDates || option !in setOf(CollectionSort.Newest,CollectionSort.Oldest)
                     DropdownMenuItem(text={Column {

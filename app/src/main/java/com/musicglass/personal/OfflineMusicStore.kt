@@ -64,10 +64,30 @@ internal class OfflineMusicStore private constructor(private val context:Context
         val values=ContentValues();fields.forEach {(k,v)->when(v) {is String->values.put(k,v);is Long->values.put(k,v);is Int->values.put(k,v);else->error("Unsupported field")}}
         db.writableDatabase.update("songs",values,"scope=? AND id=?",arrayOf(scope,id));changed()
     }
-    fun enqueue(track:ProviderTrack,pinned:Boolean=true) {
-        val scope=currentScope;remember(track,scope);val old=song(scope,track.videoId)
+    @Synchronized fun enqueue(track:ProviderTrack,pinned:Boolean=true,scope:String=currentScope) {
+        remember(track,scope);val old=song(scope,track.videoId)
         require(!track.isLive && track.isMusic) {"Only songs can be downloaded"}
         update(scope,track.videoId,"pinned" to if(pinned || old?.pinned==true) 1 else 0,"state" to "queued","excluded" to 0,"error" to "")
+    }
+    @Synchronized fun enqueueSongs(tracks:List<ProviderTrack>,scope:String=currentScope):Int {
+        val songs=tracks.filter {!it.isLive && it.isMusic && it.videoId.matches(VIDEO_ID)}.distinctBy {it.videoId}
+        songs.forEach {track->
+            val old=song(scope,track.videoId)
+            if(old?.state=="complete" && audio(scope,track.videoId)!=null) update(scope,track.videoId,"pinned" to 1,"excluded" to 0)
+            else if(old?.state in setOf("queued","downloading","assets")) update(scope,track.videoId,"pinned" to 1,"excluded" to 0)
+            else enqueue(track,scope=scope)
+        }
+        return songs.size
+    }
+    @Synchronized fun beginDownload(scope:String,id:String):Boolean {
+        if(song(scope,id)?.state !in setOf("queued","failed")) return false
+        update(scope,id,"state" to "downloading","error" to "")
+        return true
+    }
+    @Synchronized fun updateDownload(scope:String,id:String,vararg fields:Pair<String,Any>):Boolean {
+        if(song(scope,id)?.state !in setOf("downloading","assets")) return false
+        update(scope,id,*fields)
+        return true
     }
     fun audio(scope:String,id:String):File? {
         val dir=directory(scope,id);return runCatching {File(dir,"audio.media").takeIf {it.isFile && it.length()>0 && File(dir,"ready").let {ready->ready.isFile && (ready.readText().trim()=="1" || ready.readText().trim().toLongOrNull()==it.length())}}}.getOrNull()
@@ -108,9 +128,13 @@ internal class OfflineMusicStore private constructor(private val context:Context
     }.getOrNull()
     @Synchronized fun remove(scope:String,id:String,exclude:Boolean=true) {
         update(scope,id,"state" to "cancelled","pinned" to 0,"excluded" to if(exclude) 1 else 0)
-        val dir=directory(scope,id);check(dir.canonicalPath.startsWith(root.canonicalPath+File.separator));dir.deleteRecursively()
+        val dir=directory(scope,id);check(dir.canonicalPath.startsWith(root.canonicalPath+File.separator));check(dir.deleteRecursively()) {"Could not remove download files"}
         markArtwork(scope,id,false)
         update(scope,id,"state" to "metadata","downloaded_at" to 0L,"bytes" to 0L,"total" to 0L,"quality" to "","artwork" to "pending","lyrics" to "pending")
+    }
+    @Synchronized fun removeAll(scope:String=currentScope) {
+        // Preserve listening metadata and exclude removed songs from automatic re-downloads.
+        rows(scope).filter {it.state!="metadata" || it.pinned || it.bytes>0}.forEach {remove(scope,it.track.videoId)}
     }
     @Synchronized fun cancelAutomatic(scope:String) {rows(scope).filter {!it.pinned && it.state in setOf("queued","downloading","assets")}.forEach {update(scope,it.track.videoId,"state" to "paused")}}
     @Synchronized fun recover() {

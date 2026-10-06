@@ -36,6 +36,7 @@ private class QueueCoordinates {var value:LayoutCoordinates?=null}
 @Composable internal fun InlineQueue(playback:PlaybackGateway,provider:YouTubeMusicProvider,
     onClose:()->Unit,onLike:()->Unit,onMore:()->Unit,artworkModifier:Modifier=Modifier,onMoreBounds:(IntRect)->Unit={}) {
     val state=playback.state
+    val songTransition=rememberSongPresentationTransition(state)
     val motion=LocalMotionPolicy.current
     var history by remember {mutableStateOf(false)}
     val listState=rememberLazyListState()
@@ -62,10 +63,19 @@ private class QueueCoordinates {var value:LayoutCoordinates?=null}
     DisposableEffect(Unit) {onDispose {autoScroll?.cancel()}}
     Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal=20.dp).testTag("inline_queue")) {
         Row(Modifier.fillMaxWidth().height(62.dp),verticalAlignment=Alignment.CenterVertically) {
-            AsyncImage(state.artworkUrl,null,contentScale=ContentScale.Crop,modifier=artworkModifier.size(48.dp).clip(RoundedCornerShape(8.dp)))
-            Column(Modifier.weight(1f).padding(horizontal=12.dp)) {
-                Text(state.title,color=White,fontSize=15.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
-                Text(playerArtistLabel(state.artist),color=White.copy(alpha=.6f),fontSize=12.sp,maxLines=1)
+            // Keep the hit target outside the shared artwork layer: its animated overlay can
+            // otherwise leave touch coordinates at the full-size hero's position.
+            Box(Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+                .clickable(onClick=hapticClick(onClose)).semantics {contentDescription="Back to player"}.testTag("queue_artwork_back")) {
+                songTransition.SongContentFade(artworkModifier.fillMaxSize()) {song->
+                    AsyncImage(song.artworkUrl,null,contentScale=ContentScale.Crop,modifier=Modifier.fillMaxSize())
+                }
+            }
+            songTransition.SongContentFade(Modifier.weight(1f).padding(horizontal=12.dp)) {song->
+            Column {
+                Text(song.title,color=White,fontSize=15.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                Text(playerArtistLabel(song.artist),color=White.copy(alpha=.6f),fontSize=12.sp,maxLines=1)
+            }
             }
             IconButton(onLike) {Icon(if(provider.songLikes[state.mediaId.removePrefix("yt:")]==true) Icons.Rounded.Star else Icons.Rounded.StarBorder,"Like on YouTube Music",tint=White)}
             IconButton(hapticClick(onMore),modifier=Modifier.testTag("queue_more").onGloballyPositioned {val r=it.boundsInWindow();onMoreBounds(IntRect(r.topLeft.round(),r.bottomRight.round()))}) {Icon(Icons.Rounded.MoreHoriz,"Song options",tint=White)}

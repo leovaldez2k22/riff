@@ -13,8 +13,8 @@ internal object AgslChromeGlassEffect {
     private val liquidShader by lazy {RuntimeShader(SHADER)}
     private val frostedShader by lazy {RuntimeShader(SHADER)}
     fun create(shapes:List<Rect>,width:Int,height:Int,density:Float,frosted:Boolean,intensity:Float,
-        categoryRadii:List<Float> = emptyList()):RenderEffect {
-        fun configure(shader:RuntimeShader, frost:Float) {
+        categoryRadii:List<Float> = emptyList(),frostIntensity:Float=1f):RenderEffect {
+        fun configure(shader:RuntimeShader, frost:Float, strength:Float) {
         listOf("nav","search","mini").forEachIndexed {index,name->
             val rect=shapes[index]
             shader.setFloatUniform("${name}Origin",rect.left,rect.top)
@@ -35,16 +35,16 @@ internal object AgslChromeGlassEffect {
             visible.maxOfOrNull {it.bottom}?:-10000f)
         shader.setFloatUniform("viewport",width.toFloat(),height.toFloat())
         shader.setFloatUniform("bevel",14f*density)
-        shader.setFloatUniform("refraction",3f*density*intensity)
+        shader.setFloatUniform("refraction",3f*density*strength)
         shader.setFloatUniform("frosted",frost)
-        shader.setFloatUniform("intensity",intensity)
+        shader.setFloatUniform("intensity",strength)
         }
-        configure(liquidShader,0f)
+        configure(liquidShader,0f,intensity)
         val liquid=RenderEffect.createRuntimeShaderEffect(liquidShader,"backdrop")
-        if(!frosted || intensity<=0f) return liquid
-        configure(frostedShader,1f)
+        if(!frosted || frostIntensity<=0f) return liquid
+        configure(frostedShader,1f,frostIntensity)
         val mask=RenderEffect.createRuntimeShaderEffect(frostedShader,"backdrop")
-        val radius=22f*density*intensity
+        val radius=22f*density*frostIntensity
         val blur=RenderEffect.createBlurEffect(radius,radius,Shader.TileMode.CLAMP)
         return RenderEffect.createBlendModeEffect(liquid,RenderEffect.createChainEffect(mask,blur),BlendMode.SRC_OVER)
     }

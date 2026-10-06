@@ -47,18 +47,33 @@ internal suspend fun requestSongDownload(context:Context,track:ProviderTrack,onN
     SongActionItem("Download song",onClick={onDismiss();scope.launch {requestSongDownload(context,track,onNotice)}})
 }
 internal fun storageLabel(bytes:Long)=if(bytes>=1024L*1024*1024) "%.1f GB".format(bytes/(1024.0*1024*1024)) else "%.1f MB".format(bytes/(1024.0*1024))
+internal val downloadBudgets=(1..16).map {it*1073741824L}+listOf(24L,32L,64L,128L,256L).map {it*1073741824L}+Long.MAX_VALUE
+internal fun downloadBudgetIndex(bytes:Long)=downloadBudgets.indexOfFirst {it>=bytes}.let {if(it<0) downloadBudgets.lastIndex else it}
+internal fun downloadBudgetLabel(bytes:Long)=if(bytes==Long.MAX_VALUE) "Unlimited" else "${bytes/1073741824L} GB"
+
+internal suspend fun requestCollectionDownload(context:Context,tracks:List<ProviderTrack>,onNotice:(String)->Unit) {
+    try {
+        val count=withContext(Dispatchers.IO) {OfflineMusicStore.get(context).enqueueSongs(tracks)}
+        if(count==0) {onNotice("No downloadable songs in this collection");return}
+        context.startForegroundService(Intent(context,OfflineDownloadService::class.java))
+        OfflineDownloadScheduler.resumeManualLater(context);uiHaptic(HapticCue.Confirm)
+        onNotice("$count ${if(count==1) "song" else "songs"} queued for download")
+    } catch(e:CancellationException) {throw e} catch(_:Exception) {uiHaptic(HapticCue.Reject);onNotice("Could not start playlist download. Retry from Downloads.")}
+}
 @androidx.annotation.OptIn(markerClass=[androidx.media3.common.util.UnstableApi::class])
 @Composable internal fun DownloadSettings(model:ShellModel,onNotice:(String)->Unit) {
     val context=LocalContext.current;val store=remember {OfflineMusicStore.get(context)}
     val revision by store.revision.collectAsState();val scope=rememberCoroutineScope()
     var enabled by remember {mutableStateOf(store.smartEnabled)}
     var mobile by remember {mutableStateOf(store.allowMobileData)}
-    var budgetGb by remember {mutableFloatStateOf((store.budgetBytes/1073741824f).coerceIn(1f,16f))}
+    var budgetIndex by remember {mutableFloatStateOf(downloadBudgetIndex(store.budgetBytes).toFloat())}
     var dragging by remember {mutableStateOf(false)}
     var cacheBytes by remember {mutableLongStateOf(0)}
+    var confirmClearCache by remember {mutableStateOf(false)}
+    var clearingCache by remember {mutableStateOf(false)}
     LaunchedEffect(revision) {
         enabled=store.smartEnabled;mobile=store.allowMobileData
-        if(!dragging) budgetGb=(store.budgetBytes/1073741824f).coerceIn(1f,16f)
+        if(!dragging) budgetIndex=downloadBudgetIndex(store.budgetBytes).toFloat()
         cacheBytes=withContext(Dispatchers.IO) {MusicDiskCache.get(context).cacheSpace}
     }
     SettingsToggleRow("Smart Downloads",enabled,{value->enabled=value;uiHaptic(if(value) HapticCue.ToggleOn else HapticCue.ToggleOff)
@@ -72,23 +87,31 @@ internal fun storageLabel(bytes:Long)=if(bytes>=1024L*1024*1024) "%.1f GB".forma
     Column(Modifier.padding(vertical=12.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             Text("Storage budget",color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
-            Text("${budgetGb.roundToInt()} GB",color=White,fontSize=14.sp,fontWeight=FontWeight.Medium,
+            Text(downloadBudgetLabel(downloadBudgets[budgetIndex.roundToInt()]),color=White,fontSize=14.sp,fontWeight=FontWeight.Medium,
                 modifier=Modifier.testTag("settings_download_budget_value"))
         }
-        CapsuleSlider(budgetGb,{dragging=true;budgetGb=it},valueRange=1f..16f,steps=14,
-            onValueChangeFinished={val bytes=budgetGb.roundToInt()*1073741824L
+        CapsuleSlider(budgetIndex,{dragging=true;budgetIndex=it},valueRange=0f..downloadBudgets.lastIndex.toFloat(),steps=downloadBudgets.size-2,
+            onValueChangeFinished={val bytes=downloadBudgets[budgetIndex.roundToInt()]
                 scope.launch {withContext(Dispatchers.IO) {store.setBudget(bytes)};dragging=false}},
-            modifier=Modifier.fillMaxWidth().testTag("settings_download_budget").semantics {contentDescription="Download storage budget";stateDescription="${budgetGb.roundToInt()} GB"})
+            modifier=Modifier.fillMaxWidth().testTag("settings_download_budget").semantics {contentDescription="Download storage budget";stateDescription=downloadBudgetLabel(downloadBudgets[budgetIndex.roundToInt()])})
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-            Text("1 GB",color=Muted,fontSize=11.sp);Text("16 GB",color=Muted,fontSize=11.sp)
+            Text("1 GB",color=Muted,fontSize=11.sp);Text("Unlimited",color=Muted,fontSize=11.sp)
         }
     }
     SettingsDivider()
     SettingsLinkRow("Downloaded songs",icon=Icons.Rounded.DownloadDone,tag="settings_downloads") {model.push("downloads")}
     SettingsDivider()
     SettingsLinkRow("Clear playback cache",storageLabel(cacheBytes),Icons.Rounded.CleaningServices,"settings_clear_cache") {
-        scope.launch {withContext(Dispatchers.IO) {MusicDiskCache.clear(context)};cacheBytes=0;uiHaptic(HapticCue.Confirm);onNotice("Playback cache cleared; downloads kept")}
+        confirmClearCache=true
     }
+    if(confirmClearCache) FrostedAlertDialog(onDismissRequest={if(!clearingCache) confirmClearCache=false},
+        title={Text("Clear playback cache?")},text={Text("Remove cached streaming audio (${storageLabel(cacheBytes)})? Downloaded songs will be kept.")},
+        confirmButton={TextButton(enabled=!clearingCache,onClick={clearingCache=true;scope.launch {
+            try {withContext(Dispatchers.IO) {MusicDiskCache.clear(context)};cacheBytes=0;confirmClearCache=false;uiHaptic(HapticCue.Confirm);onNotice("Playback cache cleared; downloads kept")}
+            catch(e:CancellationException) {throw e} catch(_:Exception) {onNotice("Could not clear playback cache. Try again.")}
+            finally {clearingCache=false}
+        }},modifier=Modifier.testTag("confirm_clear_cache")) {Text("Clear")}},
+        dismissButton={TextButton(enabled=!clearingCache,onClick={confirmClearCache=false}) {Text("Cancel")}})
 }
 
 private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val artwork:String?)
@@ -104,6 +127,16 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
     var playlistTrack by remember {mutableStateOf<ProviderTrack?>(null)}
     playlistTrack?.let {PlaylistPicker(it,{playlistTrack=null},onNotice)}
     var detailsId by rememberSaveable {mutableStateOf<String?>(null)}
+    var deleteScope by remember {mutableStateOf<String?>(null)}
+    var deleting by remember {mutableStateOf(false)}
+    deleteScope?.let {account->FrostedAlertDialog(onDismissRequest={if(!deleting) deleteScope=null},title={Text("Delete all downloads?")},
+        text={Text("Remove all downloaded songs, artwork and lyrics from this account on this phone, and cancel its pending downloads?")},
+        confirmButton={TextButton(enabled=!deleting,onClick={deleting=true;scope.launch {
+            try {withContext(Dispatchers.IO) {store.removeAll(account)};deleteScope=null;uiHaptic(HapticCue.Confirm);onNotice("All downloads deleted")}
+            catch(e:CancellationException) {throw e} catch(_:Exception) {onNotice("Could not delete all downloads. Try again.")}
+            finally {deleting=false}
+        }},modifier=Modifier.testTag("confirm_delete_downloads")) {Text("Delete all",color=Pink)}},
+        dismissButton={TextButton(enabled=!deleting,onClick={deleteScope=null}) {Text("Cancel")}})}
     LaunchedEffect(revision,provider.authRevision) {
         val scopeKey=store.currentScope
         val result=withContext(Dispatchers.IO) {
@@ -152,8 +185,8 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
                     colors=ButtonDefaults.buttonColors(containerColor=White,contentColor=tone)) {
                     Icon(Icons.Rounded.PlayArrow,null);Spacer(Modifier.width(8.dp));Text("Play",fontSize=22.sp,fontWeight=FontWeight.SemiBold)
                 }
-                FilledTonalIconButton({uiHaptic();model.push("settings")},modifier=Modifier.size(52.dp).testTag("downloads_settings"),
-                    colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=White.copy(alpha=.12f))) {Icon(Icons.Rounded.Settings,"Download settings",tint=White)}
+                FilledTonalIconButton({uiHaptic();deleteScope=store.currentScope},enabled=entries.isNotEmpty() && !deleting,modifier=Modifier.size(52.dp).testTag("downloads_delete_all"),
+                    colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=White.copy(alpha=.12f))) {Icon(Icons.Rounded.DeleteOutline,"Delete all downloads",tint=White)}
             }
         }
         item {CollectionTools("downloaded songs",query,{query=it},sort,{sortName=it.name},true)}

@@ -39,7 +39,7 @@ class AudioContinuityInstrumentation : Instrumentation() {
                     }
                     val controller=withContext(Dispatchers.IO) {connection.get(15,java.util.concurrent.TimeUnit.SECONDS)}
                     player=controller
-                    val tracks=listOfNotNull(saved?.queue?.getOrNull(saved.index)?.takeIf {it.mediaId.startsWith("yt:") && !it.live}?.let {
+                    val tracks=listOfNotNull(saved?.queue?.getOrNull(saved.index)?.takeIf {it.mediaId.startsWith("yt:") && !it.live && it.music}?.let {
                         ProviderTrack(it.mediaId.removePrefix("yt:"),it.title,it.artist)
                     },ProviderTrack("5qZQEq_C3vc","Numb","Linkin Park"),
                         ProviderTrack("4NRXx6U8ABQ","Blinding Lights","The Weeknd")).distinctBy {it.videoId}
@@ -68,7 +68,9 @@ class AudioContinuityInstrumentation : Instrumentation() {
                             delay(250)
                             val now=withContext(Dispatchers.Main) {
                                 controller.playerError?.let {error(it.errorCodeName)}
-                                check(controller.playbackState==Player.STATE_READY && controller.isPlaying) {"Audio interrupted"}
+                                check(controller.playbackState==Player.STATE_READY && controller.isPlaying) {
+                                    "Audio interrupted state=${controller.playbackState} playing=${controller.isPlaying} suppression=${controller.playbackSuppressionReason} position=${controller.currentPosition} buffered=${controller.bufferedPosition}"
+                                }
                                 check(controller.playlistMetadata.extras?.getBoolean("providerRetrying")!=true) {"Stream recovery interrupted audio"}
                                 controller.currentPosition
                             }

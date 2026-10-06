@@ -15,7 +15,8 @@ internal fun smartCandidates(rows:List<SmartCandidate>,now:Long):List<SmartCandi
 }
 internal fun downloadFits(currentBytes:Long,expectedBytes:Long,budgetBytes:Long,availableBytes:Long,totalBytes:Long):Boolean {
     val reserve=maxOf(1_073_741_824L,totalBytes/10)
-    return expectedBytes>0 && currentBytes+expectedBytes<=budgetBytes && availableBytes-expectedBytes>=reserve
+    return currentBytes>=0 && expectedBytes>0 && expectedBytes<=budgetBytes && currentBytes<=budgetBytes-expectedBytes &&
+        expectedBytes<=availableBytes && availableBytes-expectedBytes>=reserve
 }
 
 /** Mobile-data permission also covers metered Wi-Fi/VPN; Wi-Fi-only remains conservative by default. */

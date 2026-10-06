@@ -43,9 +43,11 @@ class MusicPlaybackService : MediaSessionService() {
     private val boostPrefs by lazy {getSharedPreferences(AUDIO_BOOST_PREFS, MODE_PRIVATE)}
     private val boostListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener {_, _ -> updateBoost()}
     private var crossfader: Crossfader? = null
+    private var tailAudioEffects:AudioSessionEffects?=null
     private fun currentBoostGain() = boostGain(boostPrefs.getBoolean("enabled", false), boostPrefs.getInt("percent", 200))
     private fun updateBoost() {
         audioEffects.setGain(currentBoostGain())
+        tailAudioEffects?.setGain(currentBoostGain())
     }
     private val events by lazy { PlaybackEventLog(this) }
     private val serviceScope = CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
@@ -158,9 +160,15 @@ class MusicPlaybackService : MediaSessionService() {
             tail.setAudioAttributes(audioAttributes, false)
             tail.trackSelectionParameters = tail.trackSelectionParameters.buildUpon().setAudioOffloadPreferences(pcmOnly).build()
             val effects = AudioSessionEffects(this, processor.boost)
+            tailAudioEffects=effects
             effects.setGain(currentBoostGain()); effects.attach(tail.audioSessionId)
-            tail to { effects.release() }
-        }, sleepActive = { (session?.sessionExtras?.getLong("sleepDeadlineMs") ?: 0L) > 0L }) { events.append(it) }
+            tail.addListener(object:Player.Listener {
+                override fun onAudioSessionIdChanged(audioSessionId:Int)=effects.attach(audioSessionId)
+            })
+            tail to { if(tailAudioEffects===effects) tailAudioEffects=null; effects.release() }
+        }, sleepActive = { (session?.sessionExtras?.getLong("sleepDeadlineMs") ?: 0L) > 0L },
+            tailItem={item->resolvedStreams[item]?.let {providerItem(trackFromItem(item),it)}?:item},
+            onBlend={SongCrossfadeState.active=it}) { events.append(it) }
         val player = ExoPlayer.Builder(this, renderers).setMediaSourceFactory(mediaFactory)
             .build().apply {
             setAudioAttributes(AudioAttributes.Builder()
@@ -239,6 +247,7 @@ class MusicPlaybackService : MediaSessionService() {
                 if(customCommand.customAction==SET_SLEEP_TIMER) {
                     val minutes=args.getInt("minutes")
                     if(minutes !in 0..1440) return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
+                    if(minutes>0) crossfader?.cancel()
                     sleepTimer.set(minutes)
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }

@@ -100,7 +100,10 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         item { OutlinedTextField(model.searchQuery,{ model.searchQuery=it.take(160) },singleLine=true,shape=RoundedCornerShape(28.dp),
             label={ Text("Search YouTube Music") },modifier=Modifier.fillMaxWidth().focusRequester(focus).testTag("search_input"),
             keyboardOptions=KeyboardOptions(imeAction=ImeAction.Search),keyboardActions=KeyboardActions(onSearch={history.record(model.searchQuery);keyboard?.hide()}),
-            trailingIcon={IconButton({ uiHaptic(); if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) voice.start {model.searchQuery=it} else micPermission.launch(Manifest.permission.RECORD_AUDIO)}) {Icon(Icons.Rounded.Mic,"Voice search")}}) }
+            trailingIcon={Row {
+                if(model.searchQuery.isNotEmpty()) IconButton({uiHaptic();model.searchQuery=""},modifier=Modifier.testTag("search_clear")) {Icon(Icons.Rounded.Close,"Clear search")}
+                IconButton({ uiHaptic(); if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) voice.start {model.searchQuery=it} else micPermission.launch(Manifest.permission.RECORD_AUDIO)}) {Icon(Icons.Rounded.Mic,"Voice search")}
+            }}) }
         item { Row(Modifier.fillMaxWidth().fullBleed(20.dp).horizontalScroll(rememberScrollState()).padding(horizontal=20.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("All","Songs","Albums","Artists","Playlists","Podcasts","Videos").forEach { kind ->
                 GlassCategoryChip(kind,"search:$kind",model.searchFilter==kind) {model.searchFilter=kind}
@@ -146,7 +149,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     }
     val shown=page?:provider.partialCollection(id)
     if(shown!=null && (id.startsWith("MPRE") || id.startsWith("UC") || id.startsWith("VL"))) {
-        key(id) {ImmersiveCollectionDetail(model,bottom,shown,provider,playback,onNotice,complete=page!=null)};return
+        key(id) {ImmersiveCollectionDetail(model,bottom,shown,provider,playback,onNotice,complete=page!=null,loadingError=error,onRetry={retry++})};return
     }
     fun open(card:ProviderHomeCard)=openCatalogCard(model,card) { scope.launch { playRealTrack(provider,playback,it,onNotice) } }
     ScreenList(model,bottom) {
