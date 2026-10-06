@@ -12,6 +12,11 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.isDisplayed
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.lang.ref.WeakReference
@@ -129,16 +134,83 @@ class UiRegressionInstrumentation {
         settle()
     }
 
-    private fun scrollToDataSaver() {
+    private fun scrollToDataSaver() = scrollTo("settings_data_saver")
+
+    private fun scrollTo(tag:String) {
         val metrics=compose.activity.resources.displayMetrics
-        repeat(8) {
-            val row=compose.onAllNodesWithTag("settings_data_saver",useUnmergedTree=true).fetchSemanticsNodes().firstOrNull()
-            if(row!=null && row.boundsInRoot.top>=0 && row.boundsInRoot.bottom<metrics.heightPixels*.8f) return
+        repeat(20) {
+            val row=compose.onAllNodesWithTag(tag,useUnmergedTree=true).fetchSemanticsNodes().firstOrNull()
+            if(row!=null && row.boundsInRoot.height>0 && row.boundsInRoot.top>=0 && row.boundsInRoot.bottom<metrics.heightPixels*.8f &&
+                compose.onNodeWithTag(tag,useUnmergedTree=true).isDisplayed()) return
             val x=metrics.widthPixels/2
-            shell("input swipe $x ${(metrics.heightPixels*.75f).toInt()} $x ${(metrics.heightPixels*.22f).toInt()} 400")
+            shell("input swipe $x ${(metrics.heightPixels*.72f).toInt()} $x ${(metrics.heightPixels*.38f).toInt()} 250")
             settle()
         }
-        throw AssertionError("Data saver row could not be scrolled into view")
+        throw AssertionError("$tag could not be scrolled into view")
+    }
+
+    @Test fun searchCrossClearsTheEntireQuery() {
+        openTab("search")
+        compose.onNodeWithTag("search_input").performTextClearance()
+        compose.onNodeWithTag("search_input").performTextInput("cross clear fixture")
+        settle()
+        compose.onNodeWithTag("search_clear").performClick();settle()
+        compose.onNodeWithTag("search_input").assertTextContains("")
+        compose.onNodeWithTag("search_clear").assertDoesNotExist()
+    }
+
+    @Test fun queueThumbnailReturnsToTheExpandedPlayer() {
+        runCatching {waitFor(10_000) {exists("mini_player")}}
+        assumeTrue("no restored queue on this phone",exists("mini_player"))
+        compose.onNode(hasContentDescription("Open player:",substring=true)).performClick()
+        waitFor {exists("player_queue_bottom")}
+        compose.onNodeWithTag("player_queue_bottom",useUnmergedTree=true).performSemanticsAction(SemanticsActions.OnClick) {it()}
+        waitFor {exists("queue_artwork_back")}
+        settle(1000)
+        compose.onNodeWithTag("queue_artwork_back",useUnmergedTree=true).performClick()
+        waitFor {!exists("inline_queue") && exists("playback_toggle")}
+        shell("input keyevent KEYCODE_BACK");settle()
+    }
+
+    @Test fun separateFrostedSliderAndCacheConfirmationWorkOnDevice() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs=context.getSharedPreferences("accessibility_display",android.content.Context.MODE_PRIVATE)
+        val original=prefs.getFloat("frosted_intensity",1f)
+        val glass=prefs.getFloat("glass_intensity",1f)
+        val offline=context.getSharedPreferences("offline_settings",android.content.Context.MODE_PRIVATE)
+        val budget=offline.getLong("budget_bytes",4L*1073741824)
+        try {
+            openTab("home");openTab("home")
+            compose.onNodeWithTag("home_settings").performClick();settle()
+            scrollTo("settings_frosted_intensity")
+            compose.onNodeWithTag("settings_frosted_intensity").performSemanticsAction(SemanticsActions.SetProgress) {it(.35f)}
+            settle()
+            assertEquals(.35f,prefs.getFloat("frosted_intensity",1f),.02f)
+            assertEquals(glass,prefs.getFloat("glass_intensity",1f),.001f)
+            compose.onNodeWithTag("settings_frosted_intensity").performSemanticsAction(SemanticsActions.SetProgress) {it(original)}
+            scrollTo("settings_download_budget")
+            compose.onNodeWithTag("settings_download_budget").performSemanticsAction(SemanticsActions.SetProgress) {it(downloadBudgets.lastIndex.toFloat())}
+            waitFor {offline.getLong("budget_bytes",0)==Long.MAX_VALUE}
+            settle()
+            compose.onNodeWithTag("settings_download_budget_value").assertTextContains("Unlimited")
+            compose.onNodeWithTag("settings_download_budget").performSemanticsAction(SemanticsActions.SetProgress) {it(downloadBudgetIndex(budget).toFloat())}
+            waitFor {offline.getLong("budget_bytes",0)==budget}
+            scrollTo("settings_clear_cache")
+            compose.onNodeWithTag("settings_clear_cache").assertIsDisplayed()
+            compose.onNodeWithTag("settings_clear_cache").performSemanticsAction(SemanticsActions.OnClick) {it()};settle()
+            compose.onNodeWithText("Clear playback cache?").assertIsDisplayed()
+            val directory=java.io.File(context.getExternalFilesDir(null),"device-checks").apply {mkdirs()}
+            InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()?.let {bitmap->
+                java.io.File(directory,"cache-confirmation.png").outputStream().use {bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+                bitmap.recycle()
+            }
+            compose.onNodeWithText("Cancel").performClick();settle()
+            compose.onNodeWithText("Clear playback cache?").assertDoesNotExist()
+        } finally {
+            prefs.edit().putFloat("frosted_intensity",original).commit()
+            offline.edit().putLong("budget_bytes",budget).commit()
+            shell("input keyevent KEYCODE_BACK");settle()
+        }
     }
 
     @Test fun dataSaverTogglePersistsAcrossSettingsOpenings() {
@@ -149,7 +221,10 @@ class UiRegressionInstrumentation {
             openTab("home");openTab("home")
             compose.onNodeWithTag("home_settings").performClick();settle()
             scrollToDataSaver()
-            compose.onNodeWithTag("settings_data_saver").performClick();settle()
+            // Native scroll/fling and the manually driven Compose clock can disagree on a row's
+            // screen position. Use its accessibility click action after checking it is visible.
+            compose.onNodeWithTag("settings_data_saver").assertIsDisplayed()
+            compose.onNodeWithTag("settings_data_saver").performSemanticsAction(SemanticsActions.OnClick) {it()};settle()
             assertEquals(!original,prefs.getBoolean("enabled",false))
             shell("input keyevent KEYCODE_BACK");settle()
             compose.onNodeWithTag("home_settings").performClick();settle()

@@ -171,6 +171,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     onLyrics: () -> Unit, onArtist: () -> Unit, onAlbum: () -> Unit, onRetry: () -> Unit,
     onNotice: (String) -> Unit) {
     val state = playback.state
+    val songTransition=rememberSongPresentationTransition(state)
     val artworkColor=rememberArtworkColorState(state.artworkUrl)
     val context = LocalContext.current
     val motion = LocalMotionPolicy.current
@@ -285,14 +286,9 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     }
                 },onMore={moreExpanded=true},onMoreBounds={moreAnchor=it},artworkModifier=Modifier.sharedBounds(rememberSharedContentState("queue-art"),this))
             } else Box(Modifier.fillMaxSize()) {
-            AnimatedContent(targetState =
-                Triple(state.mediaId,state.artworkUrl,if(state.embedded) 2 else if(state.video) 1 else 0),
-                transitionSpec = {
-                    fadeIn(GlassMotion.timed(GlassMotion.artworkMs, motion)) togetherWith
-                        fadeOut(GlassMotion.timed(GlassMotion.artworkMs, motion))
-                },
-                label = "player artwork", modifier = Modifier.fillMaxSize()
-                    .graphicsLayer { alpha = artworkAlpha() }) { (itemId, itemArtwork,renderer) ->
+            songTransition.SongContentFade(
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = artworkAlpha() }) { song ->
+                val itemId=song.mediaId;val itemArtwork=song.artworkUrl;val renderer=song.renderer
                 Box(Modifier.fillMaxSize().pointerInput(itemId, hasQueue) {
                     detectHorizontalDragGestures(onHorizontalDrag = { change, amount ->
                         dragX += amount
@@ -313,7 +309,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 .padding(top = statusInset + 2.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = hapticClick(onClose), modifier = Modifier.testTag("player_close")) {
+                IconButton(onClick = hapticClick(onClose),enabled=!queueOpen, modifier = Modifier.testTag("player_close")) {
                     Icon(Icons.Rounded.Close, contentDescription = "Close player", tint = White)
                 }
                 Text("NOW PLAYING", color = White, fontSize = 12.sp,
@@ -327,21 +323,23 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         Column(Modifier.fillMaxWidth().height(controlHeight).padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.SpaceBetween) {
         Row(Modifier.fillMaxWidth().graphicsLayer {alpha=if(queueOpen) 0f else 1f}.then(if(queueOpen) Modifier.clearAndSetSemantics {} else Modifier), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(state.title, color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+            songTransition.SongContentFade(Modifier.weight(1f)) {song->
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(song.title, color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold,
                     maxLines = if (fontScale >= 1.5f) 2 else 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.lyricsSharedBounds("song-title:${state.mediaId}").graphicsLayer { alpha = sharedContentAlpha() }
+                    modifier = Modifier.lyricsSharedBounds("song-title:${song.mediaId}").graphicsLayer { alpha = sharedContentAlpha() }
                         .onGloballyPositioned {
-                            onMorphElementBounds("title", it) })
-                Text(playerArtistLabel(state.artist), color = Muted, fontSize = 13.sp,
+                            if(song.mediaId==state.mediaId) onMorphElementBounds("title", it) })
+                Text(playerArtistLabel(song.artist), color = Muted, fontSize = 13.sp,
                     maxLines = if (fontScale >= 1.5f) 2 else 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.lyricsSharedBounds("song-artist:${state.mediaId}")
-                        .then(if(state.source=="YouTube Music" && !queueOpen) Modifier.clickable(onClick = hapticClick(onArtist)).testTag("player_artist") else Modifier)
+                    modifier = Modifier.lyricsSharedBounds("song-artist:${song.mediaId}")
+                        .then(if(state.source=="YouTube Music" && !queueOpen && song.mediaId==state.mediaId) Modifier.clickable(onClick = hapticClick(onArtist)).testTag("player_artist") else Modifier)
                         .graphicsLayer { alpha = sharedContentAlpha() }
                         .onGloballyPositioned {
-                            onMorphElementBounds("artist", it) })
+                            if(song.mediaId==state.mediaId) onMorphElementBounds("artist", it) })
+            }
             }
             IconButton(onClick = {
                 if(!provider.signedIn) onNotice("Sign in from Settings to like songs on YouTube Music")

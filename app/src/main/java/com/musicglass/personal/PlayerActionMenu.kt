@@ -91,7 +91,7 @@ private class UnfoldShape(val progress: Float, val anchor: androidx.compose.ui.g
                 .graphicsLayer {
                     shape=UnfoldShape(progress.value,origin);clip=true
                     shadowElevation=16.dp.toPx()*progress.value.coerceIn(0f,1f)
-                }.background(Color(0xF02A2B32))) {
+                }.frostedPopupBackground()) {
                 Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical=8.dp)
                     .graphicsLayer {
                         alpha=motionRamp(progress.value,.18f,.85f)

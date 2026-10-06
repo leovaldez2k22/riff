@@ -26,6 +26,9 @@ internal class AccessibilitySettings(context: Context) {
         private set
     var glassIntensity by mutableStateOf(prefs.getFloat("glass_intensity",1f).coerceIn(0f,1.5f))
         private set
+    var frostedIntensity by mutableStateOf(prefs.getFloat("frosted_intensity",1f).coerceIn(0f,1.5f))
+        private set
+    fun updateFrostedIntensity(value:Float) {frostedIntensity=value.coerceIn(0f,1.5f);prefs.edit().putFloat("frosted_intensity",frostedIntensity).apply()}
     fun updateFrostedGlass(enabled:Boolean) {frostedGlass=enabled;prefs.edit().putBoolean("frosted_glass",enabled).apply()}
     fun updateGlassIntensity(value:Float) {glassIntensity=value.coerceIn(0f,1.5f);prefs.edit().putFloat("glass_intensity",glassIntensity).apply()}
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Downloads replaces its settings shortcut with Delete all downloads, with confirmation and cancellation of pending transfers. Playlist and album pages offer Download all songs after the complete collection loads; repeated songs and existing downloads are retained once.
+- Search has a clear-text cross icon. Download storage budgets extend through 24, 32, 64, 128 and 256 GB to Unlimited; device free-space reserves still apply. Clearing playback cache requires confirmation.
+- Crossfade accepts audio metadata with a null video URI, prepares the outgoing copy early, preloads the next song, and blends with equal-power gains. Pauses, seeks, live/video items and sleep timers remain excluded or cancel the blend.
+- Lyrics timing starts and resets at +0.2s. Timing, player, song, long-press, sort and language menus have frosted backgrounds with sharp text. Appearance has an independent Frosted glass intensity slider. The translation metrics text is removed from the lyrics page.
+- Tapping the queue's current-song thumbnail returns to the player through its existing artwork transition.
+- Artwork, title and artist fade only during an actual automatic audio crossfade. The full player, mini player and queue header follow the audio engine's live progress for the entire blend; manual song changes and crossfade-off playback replace content immediately, respecting reduced motion.
+- Both crossfade volumes use a smooth monotonic clock. Decoder startup and buffering no longer compress the fade, timestamp jumps cannot jump either gain, and an early outgoing end cannot snap the incoming volume to full. The outgoing copy attaches the same loudness processing as the main player when its audio session becomes ready.
+
 Newest first. Release candidates before 0.9.0-rc16 were recorded only in the README; their text is kept here unchanged. Detailed implementation and verification records are in `docs/`.
 
 ## 0.9.0-rc20

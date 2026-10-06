@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -23,10 +24,12 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 
 @Composable internal fun ImmersiveCollectionDetail(model:ShellModel,bottom:Dp,data:CatalogPage,
-    provider:YouTubeMusicProvider,playback:PlaybackGateway,onNotice:(String)->Unit,complete:Boolean=true) {
+    provider:YouTubeMusicProvider,playback:PlaybackGateway,onNotice:(String)->Unit,complete:Boolean=true,
+    loadingError:String?=null,onRetry:()->Unit={}) {
     val artist=model.selectedPlaylistId.startsWith("UC")
     val playlist=model.selectedPlaylistId.startsWith("VL")
     val scope=rememberCoroutineScope();val tone=rememberArtworkColor(data.artworkUrl).readableArtworkTone()
+    val context=LocalContext.current
     val height=(LocalConfiguration.current.screenHeightDp*(if(artist) .5f else .57f)).dp
     var playlistTrack by remember {mutableStateOf<ProviderTrack?>(null)}
     playlistTrack?.let {PlaylistPicker(it,{playlistTrack=null},onNotice)}
@@ -45,6 +48,13 @@ import kotlinx.coroutines.launch
         artworkUrl=if(artist || playlist) it.artworkUrl else data.artworkUrl?:it.artworkUrl,artist=it.artist.ifBlank {if(playlist) "" else data.artistName},artistId=it.artistId?:data.artistId.takeUnless {playlist})}
     // While later pages are still loading, hold the request so the queue gets the whole collection.
     var pendingPlay by remember(model.selectedPlaylistId) {mutableStateOf<Pair<String?,Boolean>?>(null)}
+    var pendingDownload by remember(model.selectedPlaylistId) {mutableStateOf(false)}
+    var downloading by remember(model.selectedPlaylistId) {mutableStateOf(false)}
+    LaunchedEffect(complete,pendingDownload) {
+        if(!complete || !pendingDownload) return@LaunchedEffect
+        try {requestCollectionDownload(context,tracks,onNotice)}
+        finally {pendingDownload=false;downloading=false}
+    }
     fun play(index:Int,shuffle:Boolean=false) {
         if(tracks.isEmpty()) return
         if(!complete) {pendingPlay=(if(shuffle) null else tracks.getOrNull(index)?.videoId) to shuffle;onNotice("Starting once all songs load");return}
@@ -88,6 +98,20 @@ import kotlinx.coroutines.launch
                 }},modifier=Modifier.size(52.dp).testTag("album_save"),colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=White.copy(alpha=.12f))) {
                     Icon(Icons.Rounded.Add,if(playlist) "Save playlist" else "Save album",tint=White)
                 }
+            }
+        }
+        if(!artist && tracks.isNotEmpty()) item {
+            OutlinedButton(onClick={uiHaptic();downloading=true;pendingDownload=true
+                if(!complete) onNotice("Download will start once all songs load")},enabled=!downloading,
+                modifier=Modifier.fillMaxWidth().padding(horizontal=28.dp).testTag("collection_download_all"),shape=RoundedCornerShape(50)) {
+                Icon(Icons.Rounded.Download,null);Spacer(Modifier.width(8.dp))
+                Text(if(downloading && !complete) "Waiting for all songs…" else if(downloading) "Queuing downloads…" else "Download all songs",color=White)
+            }
+        }
+        if(loadingError!=null) item {
+            Column(Modifier.padding(horizontal=20.dp)) {
+                Text(loadingError,color=Pink)
+                TextButton(onClick=hapticClick(onRetry)) {Text("Retry loading songs")}
             }
         }
         if(data.description.isNotBlank()) item {

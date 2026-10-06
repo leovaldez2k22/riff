@@ -16,6 +16,9 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 
+/** Empty host lets instrumentation own its animation clock without starting the music service. */
+class FeatureTestActivity:ComponentActivity()
+
 /** Isolated visual fixture: never writes the user's accessibility preferences or playback queue. */
 class FeaturePreviewActivity:ComponentActivity() {
     var navBounds:Rect?=null

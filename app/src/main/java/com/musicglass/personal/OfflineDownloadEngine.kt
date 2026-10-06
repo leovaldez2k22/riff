@@ -54,7 +54,8 @@ internal object OfflineDownloadEngine {
                 }
                 var phase="resolve"
                 try {
-                    store.update(scope,id,"state" to "downloading","error" to "");progress("Downloading ${job.track.title}")
+                    if(!store.beginDownload(scope,id)) continue
+                    checkState();progress("Downloading ${job.track.title}")
                     if(store.audio(scope,id)==null) {
                         var stream=provider.resolve(id,download=true).getOrThrow()
                         val expected=stream.contentLength?:((stream.durationMs.takeIf {it>0}?:job.durationMs)*maxOf(stream.bitrate,320_000)/8000)
@@ -119,7 +120,7 @@ internal object OfflineDownloadEngine {
                         check(downloaded)
                     }
                     phase="assets"
-                    store.update(scope,id,"state" to "assets")
+                    if(!store.updateDownload(scope,id,"state" to "assets")) throw CancellationException("Download removed")
                     val duration=store.song(scope,id)?.durationMs?:job.durationMs
                     val art=store.artwork(scope,id)
                     if(art==null) {
@@ -145,13 +146,15 @@ internal object OfflineDownloadEngine {
                         } catch(e:CancellationException) {throw e}
                         catch(_:Exception) {store.update(scope,id,"lyrics" to "failed")}
                     }
-                    checkState();store.update(scope,id,"state" to "complete","error" to "")
+                    checkState();store.updateDownload(scope,id,"state" to "complete","error" to "")
                 } catch(e:CancellationException) {
-                    if(store.song(scope,id)?.state in setOf("downloading","assets")) store.update(scope,id,"state" to "queued")
+                    store.updateDownload(scope,id,"state" to "queued")
                     raw.delete();assembled.delete();throw e
                 } catch(error:Exception) {
+                    // A bulk removal may delete a file during IO. Never resurrect its row as failed.
+                    if(store.song(scope,id)?.state !in setOf("downloading","assets")) {raw.delete();assembled.delete();continue}
                     PlaybackEventLog(context).append("download_failed phase=$phase kind=${error::class.simpleName}")
-                    raw.delete();assembled.delete();store.update(scope,id,"state" to if(store.audio(scope,id)!=null) "complete" else "failed","error" to "Download incomplete. Check storage and connection, then retry.")
+                    raw.delete();assembled.delete();store.updateDownload(scope,id,"state" to if(store.audio(scope,id)!=null) "complete" else "failed","error" to "Download incomplete. Check storage and connection, then retry.")
                 }
             }
             true

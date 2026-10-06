@@ -35,7 +35,7 @@ import kotlinx.coroutines.withContext
     val context=androidx.compose.ui.platform.LocalContext.current
     val audio=remember(context) {AudioBoostSettings(context)}
     var boostLevel by remember(audio) {mutableFloatStateOf(audio.percent.toFloat())}
-    val crossfade=remember(context) {CrossfadeSettings(context)}
+    val crossfade=remember(context) {CrossfadeSettings.get(context)}
     var crossfadeLength by remember(crossfade) {mutableFloatStateOf(crossfade.seconds.toFloat())}
     val dataSaver=remember(context) {DataSaverSettings(context)}
     val scope=rememberCoroutineScope()
@@ -112,6 +112,15 @@ import kotlinx.coroutines.withContext
                 }
                 CapsuleSlider(preferences.glassIntensity,preferences::updateGlassIntensity,valueRange=0f..1.5f,
                     haptics=SliderHaptics.Intensity,modifier=Modifier.fillMaxWidth().testTag("settings_glass_intensity"))
+            }
+            SettingsDivider()
+            Column(Modifier.padding(vertical=8.dp)) {
+                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                    Text("Frosted glass intensity",color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
+                    Text("${(preferences.frostedIntensity*100).toInt()}%",color=Muted,fontSize=13.sp)
+                }
+                CapsuleSlider(preferences.frostedIntensity,preferences::updateFrostedIntensity,valueRange=0f..1.5f,
+                    haptics=SliderHaptics.Intensity,modifier=Modifier.fillMaxWidth().testTag("settings_frosted_intensity"))
             }
             SettingsDivider()
             SettingsToggleRow("Reduce motion",preferences.reduceMotion,

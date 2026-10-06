@@ -366,11 +366,15 @@ internal fun RiffApp() {
     val miniElementBounds = remember { mutableStateMapOf<String, Rect>() }
     val categoryBounds = remember { mutableStateMapOf<String, Rect>() }
     val categoryChips = remember { mutableStateMapOf<String, GlassChipStyle>() }
+    val backdropLayer=androidx.compose.ui.graphics.rememberGraphicsLayer()
+    val frostedBackdrop=remember(backdropLayer) {FrostedBackdrop(backdropLayer)}
     BackHandler(enabled = !keyboardOpen && (model.sheet.isNotEmpty() || model.route.isNotEmpty() || model.tab != "Home")) {
         model.back()
     }
 
     CompositionLocalProvider(LocalGlassBounds provides categoryBounds,LocalGlassChips provides categoryChips,
+        LocalFrostedBackdrop provides frostedBackdrop,LocalFrostedIntensity provides if(accessibility.solidControls) -1f else accessibility.frostedIntensity,
+        LocalSongCrossfade provides SongCrossfadeState.active,
         androidx.compose.foundation.LocalOverscrollFactory provides StretchOverscrollFactory,LocalAccessibilitySettings provides accessibility,
         LocalMotionPolicy provides motion,LocalCardPeek provides cardPeek) {
     MaterialTheme(colorScheme = darkColorScheme(primary = Pink, background = Ink, surface = Raised),
@@ -378,6 +382,7 @@ internal fun RiffApp() {
         SharedTransitionLayout {
         CompositionLocalProvider(LocalLyricsSharedScope provides this) {
         Box(Modifier.fillMaxSize().preferredFrameRate(LocalUiRefreshRate.current).background(Ink)
+            .frostedBackdropSource(frostedBackdrop)
             .onSizeChanged { area = it }
             .semantics { testTagsAsResourceId = true }) {
             GlassScene(categoryBounds,categoryChips,area,density,compact,showMini,sceneHasChrome,bottomInset,
@@ -591,6 +596,7 @@ private fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
     actionsAlpha: Float = 1f, artworkAlpha: Float = 1f,
     onElementBounds: (String, Rect) -> Unit = { _, _ -> }) {
     val state = playback.state
+    val songTransition=rememberSongPresentationTransition(state)
     val largeText = LocalDensity.current.fontScale >= 1.6f
     val context = LocalContext.current
     // W1.5: after a crash the queue comes back paused; say why once, until the user plays.
@@ -599,19 +605,22 @@ private fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
     val crashNotice = CrashNotice.pending
     Row(verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-        AsyncImage(model = state.artworkUrl
-            ?: providerArtworkUrl(state.mediaId.removePrefix("yt:")),
+        songTransition.SongContentFade(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))) {song->
+        AsyncImage(model = song.artworkUrl
+            ?: providerArtworkUrl(song.mediaId.removePrefix("yt:")),
             contentDescription = null, contentScale = ContentScale.Crop,
-            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
+            modifier = Modifier.fillMaxSize()
                 .graphicsLayer { alpha = artworkAlpha }
                 .background(Brush.linearGradient(
                     listOf(Color(0xFF655080), Color(0xFF315B75)))))
-        Column(Modifier.weight(1f).clickable(onClick = hapticClick(onOpen))
+        }
+        songTransition.SongContentFade(Modifier.weight(1f).clickable(onClick = hapticClick(onOpen))
             .padding(start = 12.dp).semantics { contentDescription = "Open player: ${state.title}" }) {
-            Text(state.title, color = White, fontSize = if (largeText) 12.sp else 14.sp,
+            song->Column {
+            Text(song.title, color = White, fontSize = if (largeText) 12.sp else 14.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.onGloballyPositioned {
-                    onElementBounds("title", it.unclippedBoundsInRoot()) })
+                    if(song.mediaId==state.mediaId) onElementBounds("title", it.unclippedBoundsInRoot()) })
             if (crashNotice)
                 // The mini player fits about 20 characters here (checked on a 1080 px phone); the
                 // full sentence goes to TalkBack.
@@ -621,9 +630,10 @@ private fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
                         .semantics { liveRegion = LiveRegionMode.Polite
                             contentDescription = "Playback stopped unexpectedly. Tap play to continue." })
             else if (LocalDensity.current.fontScale < 1.8f)
-                Text(playerArtistLabel(state.artist), color = Muted, fontSize = 11.sp,
+                Text(playerArtistLabel(song.artist), color = Muted, fontSize = 11.sp,
                     maxLines = 1, modifier = Modifier.onGloballyPositioned {
-                        onElementBounds("artist", it.unclippedBoundsInRoot()) })
+                        if(song.mediaId==state.mediaId) onElementBounds("artist", it.unclippedBoundsInRoot()) })
+            }
         }
         if (crashNotice)
             IconButton(onClick = hapticClick { CrashNotice.clear(context) },
@@ -1034,17 +1044,18 @@ private fun NavItem(name: String, selected: Boolean, showLabel: Boolean,
 @Composable private fun GlassScene(bounds:Map<String,Rect>,styles:Map<String,GlassChipStyle>,area:IntSize,density:Float,compact:Boolean,
     showMini:Boolean,chrome:Boolean,inset:Int,tab:String,route:String,settings:AccessibilitySettings,content:@Composable ()->Unit) {
     val solid=settings.solidControls;val frosted=settings.frostedGlass;val intensity=settings.glassIntensity
+    val frostIntensity=settings.frostedIntensity
     // The cache itself is not snapshot state; mutating it inside a layer never schedules composition.
     val cache=remember {GlassEffectCache()}
     Box(Modifier.fillMaxSize().imePadding().testTag("scene").graphicsLayer {
         val visible=visibleGlassChips(bounds,tab,route,area.width,area.height)
         val categories=visible.map {it.second}
         val radii=visible.map {styles[it.first]?.corner?:0f}
-        val key=listOf(area,density,compact,showMini,chrome,inset,solid,frosted,intensity,categories,radii)
+        val key=listOf(area,density,compact,showMini,chrome,inset,solid,frosted,intensity,frostIntensity,categories,radii)
         if(cache.key!=key) {
             cache.key=key
             cache.effect=if(chrome && !solid) chromeGlassEffect(area.width,area.height,density,showMini,compact,
-                false,inset,categories,frosted,intensity,radii)?.asComposeRenderEffect() else null
+                false,inset,categories,frosted,intensity,radii,frostIntensity)?.asComposeRenderEffect() else null
         }
         renderEffect=cache.effect
     },content={content()})
