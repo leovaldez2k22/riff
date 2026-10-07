@@ -5,6 +5,55 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ProviderCatalogTest {
+    @Test fun podcastViewsCannotReplaceTheChannelByline() {
+        val card=parse("""{"musicMultiRowListItemRenderer":{"title":{"simpleText":"An episode"},"subtitle":{"simpleText":"230K views • 2 days ago"},"longBylineText":{"runs":[{"text":"The Channel","navigationEndpoint":{"browseEndpoint":{"browseId":"UC_channel"}}}]},"navigationEndpoint":{"watchEndpoint":{"videoId":"video000001","watchEndpointMusicSupportedConfigs":{"watchEndpointMusicConfig":{"musicVideoType":"MUSIC_VIDEO_TYPE_PODCAST_EPISODE"}}}}}}""").single()
+        assertEquals(CatalogKind.Episode,card.kind)
+        assertEquals("The Channel",card.track()!!.artist)
+        assertEquals("UC_channel",card.track()!!.artistId)
+    }
+    @Test fun unlinkedChannelBylineStillWinsOverStatistics() {
+        val card=parse("""{"videoRenderer":{"videoId":"video000001","title":{"simpleText":"Episode"},"subtitle":{"simpleText":"2M views"},"ownerText":{"simpleText":"Channel without a link"}}}""").single()
+        assertEquals("Channel without a link",card.track()!!.artist)
+    }
+    @Test fun modernTileKeepsLinkedCreatorSeparateFromViewCount() {
+        val card=parse("""{"lockupViewModel":{"contentId":"video000001","metadata":{"lockupMetadataViewModel":{"title":{"content":"Episode"},"metadata":{"metadataRows":[{"text":{"content":"100K views"}},{"text":{"content":"Podcast Channel","commandRuns":[{"onTap":{"innertubeCommand":{"browseEndpoint":{"browseId":"UC_podcast"}}}}]}}]}}}}}""").single()
+        assertEquals("Podcast Channel",card.track()!!.artist)
+        assertEquals("UC_podcast",card.artistId)
+    }
+    @Test fun playlistSortsUseOnlyProviderCommands() {
+        val root=Json.parseToJsonElement("""{"musicSortFilterButtonRenderer":{"menu":{"musicMultiSelectMenuRenderer":{"options":[{"musicMultiSelectMenuItemRenderer":{"title":{"simpleText":"Top voted"},"selectedCommand":{"commandExecutorCommand":{"commands":[{"browseSectionListReloadEndpoint":{"continuation":{"reloadContinuationData":{"continuation":"votes-token"}}}}]}}}},{"musicMultiSelectMenuItemRenderer":{"title":{"simpleText":"Newest first"},"selectedCommand":{"browseEndpoint":{"browseId":"VL_playlist","params":"date-params"}}}},{"musicMultiSelectMenuItemRenderer":{"title":{"simpleText":"Oldest first"}}}]}}}}""")
+        assertEquals(CollectionSortEndpoint(continuation="votes-token"),collectionSortEndpoints(root)[CollectionSort.TopVoted])
+        assertEquals(CollectionSortEndpoint("VL_playlist","date-params"),collectionSortEndpoints(root)[CollectionSort.Newest])
+        assertFalse(collectionSortEndpoints(root).containsKey(CollectionSort.Oldest))
+    }
+
+    @Test fun realPlaylistSubmenuKeepsSortCommandsAndSelectedPreference() {
+        val root=Json.parseToJsonElement("""{"sortFilterSubMenuRenderer":{"title":"Sort","subMenuItems":[
+          {"title":"Top voted","selected":false,"serviceEndpoint":{"playlistEditEndpoint":{"playlistId":"PL_example","actions":[{"action":"ACTION_SET_PLAYLIST_VIDEO_ORDER","playlistVideoOrder":6}],"params":"votes-opaque"}}},
+          {"title":"Manual ordering","serviceEndpoint":{"playlistEditEndpoint":{"playlistId":"PL_example","actions":[{"action":"ACTION_SET_PLAYLIST_VIDEO_ORDER","playlistVideoOrder":0}]}}},
+          {"title":"Newest first","selected":true,"serviceEndpoint":{"playlistEditEndpoint":{"playlistId":"PL_example","actions":[{"action":"ACTION_SET_PLAYLIST_VIDEO_ORDER","playlistVideoOrder":1}],"params":"date-opaque"}}},
+          {"title":"Oldest first","serviceEndpoint":{"playlistEditEndpoint":{"playlistId":"PL_example","actions":[{"action":"ACTION_SET_PLAYLIST_VIDEO_ORDER","playlistVideoOrder":2}]}}},
+          {"title":"Title","serviceEndpoint":{"playlistEditEndpoint":{"playlistId":"PL_example","actions":[{"action":"ACTION_SET_PLAYLIST_DYNAMIC_SORT_PREFERENCE","playlistDynamicSortPreference":"TITLE"}]}}}
+        ]}}""")
+        val page=catalogPage(root)
+        assertEquals(setOf(CollectionSort.TopVoted,CollectionSort.Original,CollectionSort.Newest,CollectionSort.Oldest,CollectionSort.Title),page.sortEndpoints.keys)
+        assertEquals(CollectionSort.Newest,page.selectedSort)
+        val edit=page.sortEndpoints.getValue(CollectionSort.Newest).playlistEdit!!
+        assertEquals("date-opaque",edit.params)
+        assertTrue(edit.validFor("VLPL_example"))
+        assertFalse(edit.validFor("VLPL_other"))
+    }
+    @Test fun sortMenusRejectUnrelatedOrCompoundPlaylistEdits() {
+        for(actions in listOf(
+            """[{"action":"ACTION_REMOVE_VIDEO","playlistVideoOrder":1}]""",
+            """[{"action":"ACTION_SET_PLAYLIST_VIDEO_ORDER","playlistVideoOrder":99}]""",
+            """[{"action":"ACTION_SET_PLAYLIST_VIDEO_ORDER","playlistVideoOrder":1,"removedVideoId":"video"}]""",
+            """[{"action":"ACTION_SET_PLAYLIST_VIDEO_ORDER","playlistVideoOrder":1},{"action":"ACTION_REMOVE_VIDEO"}]""")) {
+            val root=Json.parseToJsonElement("""{"sortFilterSubMenuRenderer":{"subMenuItems":[{"title":"Newest first","serviceEndpoint":{"playlistEditEndpoint":{"playlistId":"PL_example","actions":$actions}}}]}}""")
+            assertTrue(collectionSortEndpoints(root).isEmpty())
+        }
+    }
+
     @Test fun detailAlbumHeaderRetainsLinkedArtist() {
         val root=Json.parseToJsonElement("""{"header":{"musicDetailHeaderRenderer":{"title":{"runs":[{"text":"Graduation"}]},"subtitle":{"runs":[{"text":"Album • "},{"text":"Kanye West","navigationEndpoint":{"browseEndpoint":{"browseId":"UCartist"}}},{"text":" • 2007"}]}}}}""")
         val page=catalogPage(root)

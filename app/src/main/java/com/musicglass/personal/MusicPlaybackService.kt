@@ -35,7 +35,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 
 /** Background playback for real provider streams and on-device audio. */
-@androidx.annotation.OptIn(markerClass = [UnstableApi::class])
+@androidx.annotation.OptIn(markerClass = [UnstableApi::class, androidx.media3.common.util.ExperimentalApi::class])
 class MusicPlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private val volumeBoost = VolumeBoostProcessor()
@@ -155,8 +155,10 @@ class MusicPlaybackService : MediaSessionService() {
             .setAudioOffloadMode(androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED).build()
         crossfader = Crossfader(this, serviceScope, createTail = {
             // The outgoing song's copy: same sources and loudness, no audio focus or session of its own.
+            // Match the main player's frequent position updates for muted synchronization.
             val processor = VolumeBoostProcessor()
-            val tail = ExoPlayer.Builder(this, riffAudioRenderers(this, processor)).setMediaSourceFactory(mediaFactory).build()
+            val tail = ExoPlayer.Builder(this, riffAudioRenderers(this, processor)).setMediaSourceFactory(mediaFactory)
+                .experimentalSetDynamicSchedulingEnabled(false).build()
             tail.setAudioAttributes(audioAttributes, false)
             tail.trackSelectionParameters = tail.trackSelectionParameters.buildUpon().setAudioOffloadPreferences(pcmOnly).build()
             val effects = AudioSessionEffects(this, processor.boost)
@@ -169,7 +171,9 @@ class MusicPlaybackService : MediaSessionService() {
         }, sleepActive = { (session?.sessionExtras?.getLong("sleepDeadlineMs") ?: 0L) > 0L },
             tailItem={item->resolvedStreams[item]?.let {providerItem(trackFromItem(item),it)}?:item},
             onBlend={SongCrossfadeState.active=it}) { events.append(it) }
+        // Crossfade synchronization requires frequent decoder-position updates.
         val player = ExoPlayer.Builder(this, renderers).setMediaSourceFactory(mediaFactory)
+            .experimentalSetDynamicSchedulingEnabled(false)
             .build().apply {
             setAudioAttributes(AudioAttributes.Builder()
                 .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
@@ -478,7 +482,8 @@ class MusicPlaybackService : MediaSessionService() {
             if(sequence==snapshotSequence.get()) snapshotPrefs.edit().putString("snapshot",encoded).apply()
         }
     }
-    private fun providerItem(track: ProviderTrack, stream: ProviderStream): MediaItem {
+    private fun providerItem(listedTrack: ProviderTrack, stream: ProviderStream): MediaItem {
+        val track = resolvedPlaybackTrack(listedTrack, stream)
         val uri = stream.sabrBootstrap?.let { bootstrap ->
             val key=UUID.randomUUID().toString();sabrSelections[key]=bootstrap;Uri.parse("sabr://$key")
         } ?: Uri.parse(stream.url)

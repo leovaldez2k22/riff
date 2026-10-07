@@ -44,7 +44,20 @@ internal fun playerArtistLabel(subtitle: String): String {
     val kinds = setOf("song", "video", "album", "ep", "single", "playlist", "podcast", "episode")
     return parts.firstOrNull {
         !it.equals("YouTube Music", ignoreCase = true) &&
+            !providerStatisticLabel(it) &&
             !it.matches(Regex("(?:\\d+:)?\\d{1,2}:\\d{2}")) &&
             !(parts.size > 1 && it.lowercase() in kinds)
     }.orEmpty()
+}
+
+/** Counts and relative dates are listing metadata, never a creator name. */
+internal fun providerStatisticLabel(value: String): Boolean = value.trim().matches(
+    Regex("(?i)(?:[\\d.,]+\\s*[KMB]?\\s+(?:views?|plays?|listeners?|subscribers?|likes?|votes?)|no views|\\d+\\s+(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)\\s+ago|streamed\\s+.*ago)"))
+
+internal fun resolvedPlaybackTrack(track: ProviderTrack, stream: ProviderStream): ProviderTrack {
+    val listed = playerArtistLabel(track.artist)
+    val author = playerArtistLabel(stream.resolvedAuthor)
+    val useResolved = author.isNotBlank() && (!track.isMusic || listed.isBlank())
+    return track.copy(artist = if (useResolved) author else listed,
+        artistId = if (useResolved) stream.resolvedChannelId ?: track.artistId else track.artistId)
 }

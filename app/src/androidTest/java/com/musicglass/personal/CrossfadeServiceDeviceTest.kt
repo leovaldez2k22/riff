@@ -31,7 +31,11 @@ class CrossfadeServiceDeviceTest {
     @Test fun crossfadeOffNeverPublishesAVisualFade()=exercise("off",false)
     @Test fun streamedSongsCrossfadeWithBoostAndLiveVisualProgress()=exercise("stream",true)
 
-    private fun exercise(mode:String,boosted:Boolean)=runBlocking {
+    @Test fun streamedOneSecondFadeAfterSeekingSevenSecondsBeforeEnd()=exercise("stream",true,1,7000)
+    @Test fun streamedTwoSecondFadeAfterSeekingSevenSecondsBeforeEnd()=exercise("stream",true,2,7000)
+    @Test fun streamedThreeSecondFadeAfterSeekingSevenSecondsBeforeEnd()=exercise("stream",true,3,7000)
+
+    private fun exercise(mode:String,boosted:Boolean,seconds:Int=6,seekLead:Long=12_000)=runBlocking {
         val instrumentation=InstrumentationRegistry.getInstrumentation()
         val context=instrumentation.targetContext
         val saved=context.getSharedPreferences("last_playback",Context.MODE_PRIVATE)
@@ -83,7 +87,7 @@ class CrossfadeServiceDeviceTest {
             assertEquals(SessionResult.RESULT_SUCCESS,withContext(Dispatchers.IO) {reset.get(10,java.util.concurrent.TimeUnit.SECONDS)}.resultCode)
             withContext(Dispatchers.Main) {
                 collections.edit().putBoolean("history_enabled",false).commit()
-                fadePrefs.edit().putBoolean("enabled",mode!="off").putInt("seconds",6).commit()
+                fadePrefs.edit().putBoolean("enabled",mode!="off").putInt("seconds",seconds).commit()
                 boostPrefs.edit().putBoolean("enabled",boosted).putInt("percent",300).commit()
                 fun item(id:Int)=MediaItem.Builder().setMediaId("local:$id").setUri(Uri.fromFile(wav))
                     .setMediaMetadata(MediaMetadata.Builder().setTitle("Crossfade fixture $id").setArtist("Device verification")
@@ -99,8 +103,8 @@ class CrossfadeServiceDeviceTest {
             await("initial playback") {player.isPlaying && player.currentMediaItemIndex==0}
             if(mode=="stream") {
                 await("stream duration") {player.duration>20_000}
-                withContext(Dispatchers.Main) {player.seekTo(player.duration-12_000)}
-                await("stream tail seek") {player.isPlaying && player.currentPosition>=player.duration-13_000}
+                withContext(Dispatchers.Main) {player.seekTo(player.duration-seekLead)}
+                await("stream tail seek") {player.isPlaying && player.currentPosition>=player.duration-seekLead-1000}
             }
             if(mode=="off") {
                 val end=android.os.SystemClock.elapsedRealtime()+12_000
@@ -113,6 +117,9 @@ class CrossfadeServiceDeviceTest {
             } else {
                 await("actual blend") {SongCrossfadeState.active!=null && player.currentMediaItemIndex==1}
                 val blend=withContext(Dispatchers.Main) {SongCrossfadeState.active!!}
+                if(mode=="stream" && seekLead==7000L) assertTrue(
+                    "Short streamed fade must retain its selected duration: ${blend.durationMs} ms for $seconds seconds",
+                    blend.durationMs>=seconds*1000L-250)
                 assertEquals(if(mode=="stream") "yt:5qZQEq_C3vc" else "local:800000001",blend.outgoing.mediaId)
                 assertEquals(if(mode=="stream") "Numb" else "Crossfade fixture 800000001",blend.outgoing.title)
                 assertEquals(if(mode=="stream") "Linkin Park" else "Device verification",blend.outgoing.artist)
@@ -122,21 +129,27 @@ class CrossfadeServiceDeviceTest {
                     await("manual selection") {player.currentMediaItemIndex==2 && SongCrossfadeState.active==null && player.volume>.799f}
                 } else {
                     val samples=mutableListOf<Pair<Float,Float>>()
+                    val sampleTimes=mutableListOf<Long>()
                     val began=android.os.SystemClock.elapsedRealtime()
                     while(withContext(Dispatchers.Main) {SongCrossfadeState.active===blend}) {
-                        withContext(Dispatchers.Main) {samples+=blend.progress to player.volume;assertNull(player.playerError)}
+                        withContext(Dispatchers.Main) {samples+=blend.progress to player.volume;sampleTimes+=android.os.SystemClock.elapsedRealtime();assertNull(player.playerError)}
                         delay(20)
                         assertTrue("Blend must complete",android.os.SystemClock.elapsedRealtime()-began<(if(mode=="stream") 60_000 else 20_000))
                     }
                     await("restored volume") {player.volume>.799f}
                     assertTrue("Visuals span the audio blend",android.os.SystemClock.elapsedRealtime()-began>=blend.durationMs-200)
-                    assertTrue(samples.size>50)
-                    samples.zipWithNext().forEach {(before,after)->
-                        assertTrue("Live progress cannot jump",after.first-before.first in -.001f.. .05f)
-                        assertTrue("Controller volume rises gradually",after.second-before.second in -.002f.. .10f)
+                    assertTrue("Sample the fade at its configured duration",samples.size>=maxOf(8,(blend.durationMs/40).toInt()))
+                    samples.zipWithNext().forEachIndexed {index,(before,after)->
+                        val elapsed=sampleTimes[index+1]-sampleTimes[index]
+                        val allowed=maxOf(.05f,(elapsed+50).toFloat()/blend.durationMs)
+                        assertTrue("Live progress must follow elapsed time",after.first-before.first in -.001f..allowed)
+                        // Controller notifications can coalesce several renderer updates in a short fade.
+                        // Exact per-tick gains are checked on the actual renderers in CrossfadeDeviceTest.
+                        assertTrue("Controller volume rises without reversing",after.second>=before.second-.002f)
+                        assertTrue("Controller volume stays within the original level",after.second in 0f.. .801f)
                     }
                     withContext(Dispatchers.Main) {assertTrue(player.isPlaying);assertNull(SongCrossfadeState.active)}
-                    instrumentation.sendStatus(0,Bundle().apply {putString("service_crossfade","mode=$mode boost=$boosted samples=${samples.size} duration=${blend.durationMs}ms")})
+                    instrumentation.sendStatus(0,Bundle().apply {putString("service_crossfade","mode=$mode boost=$boosted seconds=$seconds seekLead=$seekLead samples=${samples.size} duration=${blend.durationMs}ms")})
                 }
             }
         } finally {

@@ -20,7 +20,7 @@ internal class DeferredProviderSource(private val item: MediaItem,
     private var scope: CoroutineScope?=null
     private var child: MediaSource?=null
     private var failure: IOException?=null
-    override fun getMediaItem()=item
+    override fun getMediaItem()=child?.mediaItem ?: item
     override fun prepareSourceInternal(mediaTransferListener: TransferListener?) {
         super.prepareSourceInternal(mediaTransferListener)
         failure=null

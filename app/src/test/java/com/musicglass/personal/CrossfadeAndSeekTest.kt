@@ -5,6 +5,56 @@ import org.junit.Test
 import kotlin.math.abs
 
 class CrossfadeAndSeekTest {
+    @Test fun mutedAlignmentCorrectsClockDriftBeforeItCanCrossTheAudibleCutoff() {
+        val sync=CrossfadeTailSynchronizer()
+        assertEquals(.95f,sync.update(-110,2000,true,true),0f)
+        assertFalse(sync.ready(2300))
+        assertEquals(1f,sync.update(-20,2400,true,true),0f)
+        assertFalse(sync.ready(2599))
+        assertTrue(sync.ready(2600))
+        // Jitter just outside the tighter preparation target must restart alignment.
+        assertEquals(.95f,sync.update(-90,2610,true,true),0f)
+        assertFalse(sync.ready(2900))
+        sync.update(0,3000,true,true)
+        sync.update(0,3100,true,false)
+        assertFalse(sync.ready(3300))
+    }
+    @Test fun bufferedSpeedChangesSettleWithoutRepeatedlyOvershootingAlignment() {
+        // The phone trace showed roughly 700 ms of already queued audio after each speed change.
+        for(initial in listOf(-150.0,150.0)) {
+            val sync=CrossfadeTailSynchronizer()
+            val queued=java.util.ArrayDeque<Float>().apply {repeat(70) {addLast(1f)}}
+            var difference=initial
+            var corrections=0
+            var previous=1f
+            for(now in 0L..10_000L step 10) {
+                difference+=(1f-queued.removeFirst())*10
+                val speed=sync.update(difference.toLong(),now,true,true)
+                if(speed!=1f && previous==1f) corrections++
+                queued.addLast(speed);previous=speed
+                if(now>=6000) {
+                    assertTrue("Queued audio must settle safely: $difference",abs(difference)<=80)
+                    assertTrue(sync.ready(now))
+                    assertEquals(1f,speed,0f)
+                }
+            }
+            assertEquals("One correction should settle either direction",1,corrections)
+        }
+    }
+
+    @Test fun delayedOutgoingCopyCannotReplayAnEarlierPassage() {
+        assertTrue(crossfadeTailAligned(194_000,193_920))
+        assertFalse(crossfadeTailAligned(194_000,192_500))
+        assertFalse(crossfadeTailAligned(194_000,194_500))
+    }
+
+    @Test fun bufferingOutgoingCopyNeverBecomesAudibleAgainDuringTheSameBlend() {
+        val tail = CrossfadeTailContinuity()
+        assertTrue(tail.audible(true))
+        assertFalse(tail.audible(false))
+        assertFalse(tail.audible(true))
+        assertTrue(CrossfadeTailContinuity().audible(true)) // The next blend gets its own state.
+    }
     @Test fun doubleTapMovesTenSecondsInsideTheSong() {
         assertEquals(40_000L, seekNudgeTarget(30_000, 200_000, forward = true))
         assertEquals(20_000L, seekNudgeTarget(30_000, 200_000, forward = false))
@@ -98,6 +148,15 @@ class CrossfadeAndSeekTest {
         assertFalse(start(195_000, playing = false))
         assertFalse(start(15_000, duration = 20_000)) // Too short to fade.
         assertEquals(12, crossfadeSeconds(30)); assertEquals(1, crossfadeSeconds(0))
+    }
+
+    @Test fun shortDurationsRemainEligibleAfterSeekingSevenSecondsBeforeTheEnd() {
+        for(seconds in 1..3) {
+            val fade=seconds*1000L
+            assertTrue(shouldPrepareCrossfade(fade,193_000,200_000,true,true,false,false,false))
+            assertTrue(shouldStartCrossfade(fade,200_000-fade,200_000,true,true,false,false,false))
+            assertFalse(shouldStartCrossfade(fade,200_000,200_000,true,true,false,false,false))
+        }
     }
 
     @Test fun preparationHasTimeToResolveAndBufferBeforeTheAudibleFade() {

@@ -6,10 +6,12 @@ internal enum class CatalogKind(val label: String) { Song("Song"), Album("Album"
 internal data class CatalogPage(val cards: List<ProviderHomeCard>, val next: String? = null,
     val title: String = "", val subtitle: String = "", val artworkUrl: String? = null,
     val shelves: List<ProviderHomeSection> = emptyList(), val description: String = "",
-    val collectionNext:String?=null,val albumTracks: List<ProviderHomeCard> = emptyList(),val artistName:String="",val artistId:String?=null,val editable:Boolean=false)
+    val collectionNext:String?=null,val albumTracks: List<ProviderHomeCard> = emptyList(),val artistName:String="",val artistId:String?=null,val editable:Boolean=false,val sortEndpoints:Map<CollectionSort,CollectionSortEndpoint> = emptyMap()) {
+    val selectedSort:CollectionSort? get()=sortEndpoints.entries.firstOrNull {it.value.selected}?.key
+}
 internal fun ProviderHomeCard.key() = videoId ?: browseId ?: "$title:$subtitle"
 internal fun ProviderHomeCard.track(): ProviderTrack? = videoId?.takeIf { kind in setOf(CatalogKind.Song,CatalogKind.Episode,CatalogKind.Live) }?.let {
-    ProviderTrack(it,title,subtitle,artworkUrl,artistId,albumId,album,kind == CatalogKind.Live,kind == CatalogKind.Song)
+    ProviderTrack(it,title,playerArtistLabel(subtitle),artworkUrl,artistId,albumId,album,kind == CatalogKind.Live,kind == CatalogKind.Song)
 }
 internal fun catalogText(node: JsonElement?): String = when(node) {
     is JsonObject -> node["simpleText"]?.jsonPrimitive?.contentOrNull
@@ -54,7 +56,8 @@ internal fun parseCatalogCards(root: JsonElement): List<ProviderHomeCard> {
                     val live = image.toString().contains("THUMBNAIL_OVERLAY_BADGE_STYLE_LIVE")
                         || catalogValue(image,"text") == "LIVE"
                     if(id?.matches(Regex("[A-Za-z0-9_-]{11}")) == true && title.isNotBlank()) {
-                        val card = ProviderHomeCard(title,"",providerThumbnail(image),videoId=id,
+                        val creator = catalogLockupCreator(meta)
+                        val card = ProviderHomeCard(title,creator?.first.orEmpty(),providerThumbnail(image),videoId=id,artistId=creator?.second,
                             kind=if(live) CatalogKind.Live else CatalogKind.Song)
                         result[id] = card
                     }
@@ -77,16 +80,16 @@ internal fun parseCatalogCards(root: JsonElement): List<ProviderHomeCard> {
                         ?: catalogValue(catalogRenderer(item["overlay"],"musicPlayButtonRenderer")?.get("playNavigationEndpoint"),"videoId"))?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }
                     val live = item.toString().contains("\"LIVE\"") || item.toString().contains("BADGE_STYLE_TYPE_LIVE_NOW")
                     val kind = catalogKind(page,browse,subtitle,live).let {
-                        if(it == CatalogKind.Song && catalogValue(navigation,"musicVideoType") == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE") CatalogKind.Episode else it }
+                        if(it == CatalogKind.Song && (catalogValue(navigation,"musicVideoType") ?: catalogValue(item["playNavigationEndpoint"],"musicVideoType")) == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE") CatalogKind.Episode else it }
                     // A collection's menu can contain playable video IDs. Only the main endpoint defines its kind.
                     if (title.isNotBlank() && (video != null || browse != null)) {
-                        val artistRun = (subtitleNode as? JsonObject)?.get("runs")?.jsonArray?.firstOrNull {
-                            catalogValue(it,"browseId")?.startsWith("UC") == true }
+                        val bylines = listOf(item["longBylineText"], item["shortBylineText"], item["ownerText"], subtitleNode, column(1), column(2))
+                        val artistRun = bylines.firstNotNullOfOrNull(::catalogArtistRun)
                         val albumRun = (subtitleNode as? JsonObject)?.get("runs")?.jsonArray?.firstOrNull {
                             catalogValue(it,"browseId")?.startsWith("MPRE") == true }
                         val artistName = catalogText(artistRun).ifBlank { (artistRun as? JsonObject)?.get("text")?.jsonPrimitive?.contentOrNull.orEmpty() }
                         val art = providerThumbnail(item["thumbnail"]) ?: providerThumbnail(item["thumbnailRenderer"]) ?: providerThumbnail(item["thumbnails"])
-                        val card = ProviderHomeCard(title, if (video != null) artistName.ifBlank { subtitle } else subtitle,
+                        val card = ProviderHomeCard(title, if (video != null) artistName.ifBlank { bylines.firstNotNullOfOrNull { playerArtistLabel(catalogText(it)).takeIf(String::isNotBlank) }.orEmpty() } else subtitle,
                             art ?: video?.let(::providerArtworkUrl), video,browse,kind,
                             catalogValue(artistRun,"browseId"),catalogValue(albumRun,"browseId"),
                             (albumRun as? JsonObject)?.get("text")?.jsonPrimitive?.contentOrNull.orEmpty(),
@@ -143,7 +146,7 @@ internal fun catalogPage(root: JsonElement): CatalogPage {
         collectionShelf(root)?.let(::catalogContinuation),orderedCollectionTracks(root),
         catalogText(header?.get("straplineText")).ifBlank {catalogText(header?.get("strapline"))}.ifBlank {artistRun?.get("text")?.jsonPrimitive?.contentOrNull.orEmpty()},
         catalogValue(header?.get("straplineText"),"browseId")?:catalogValue(artistRun,"browseId"),
-        catalogRenderer(root,"musicEditablePlaylistDetailHeaderRenderer")!=null || catalogValue(root,"isEditable")=="true" || catalogRenderer(root,"playlistEditEndpoint")!=null)
+        catalogRenderer(root,"musicEditablePlaylistDetailHeaderRenderer")!=null || catalogValue(root,"isEditable")=="true" || catalogRenderer(root,"playlistEditEndpoint")!=null,collectionSortEndpoints(root))
 }
 internal fun parseQueueTracks(root: JsonElement): List<ProviderTrack> = parseCatalogCards(
     catalogRenderer(root,"playlistPanelRenderer") ?: catalogRenderer(root,"playlistPanelContinuation") ?: root)
@@ -233,7 +236,7 @@ internal fun orderedCollectionTracks(root:JsonElement):List<ProviderHomeCard> {
 
 private fun collectionShelf(root:JsonElement):JsonObject? = listOf("musicPlaylistShelfRenderer","musicPlaylistShelfContinuation","musicShelfContinuation","musicShelfRenderer")
     .firstNotNullOfOrNull {catalogRenderer(root,it)}
-    ?: (catalogRenderer(root,"appendContinuationItemsAction")?.get("continuationItems") as? JsonArray)
+    ?: ((catalogRenderer(root,"appendContinuationItemsAction") ?: catalogRenderer(root,"reloadContinuationItemsCommand"))?.get("continuationItems") as? JsonArray)
         ?.let {JsonObject(mapOf("contents" to it))}
 
 internal fun parseHomeMoods(root:JsonElement):List<HomeMood> {
@@ -260,4 +263,76 @@ internal fun playlistEntryAddedAt(item:JsonObject):Long? {
     val text=listOf("dateAdded","addedAt","addedTimestamp").firstNotNullOfOrNull {key->catalogValue(item["playlistItemData"],key)?: (item[key] as? JsonPrimitive)?.contentOrNull}?:return null
     return text.toLongOrNull()?.takeIf {it>0}?.let {if(it<1_000_000_000_000) it*1000 else it}
         ?: runCatching {java.time.Instant.parse(text).toEpochMilli()}.getOrNull()
+}
+
+/** Modern video tiles put creator links in attributed text, apart from the view-count row. */
+private fun catalogLockupCreator(node: JsonElement?): Pair<String,String>? = when(node) {
+    is JsonObject -> {
+        val id = catalogValue(node["commandRuns"], "browseId")?.takeIf { it.startsWith("UC") }
+        val content = (node["content"] as? JsonPrimitive)?.contentOrNull
+        if(id != null && !content.isNullOrBlank()) content to id
+        else node.values.firstNotNullOfOrNull(::catalogLockupCreator)
+    }
+    is JsonArray -> node.firstNotNullOfOrNull(::catalogLockupCreator)
+    else -> null
+}
+
+internal data class CollectionSortEndpoint(
+    val browseId:String?=null,val params:String?=null,val continuation:String?=null,
+    val playlistEdit:PlaylistSortEdit?=null,val selected:Boolean=false
+)
+
+/** Only preference changes from a provider sort menu may be sent to edit_playlist. */
+internal data class PlaylistSortEdit(val playlistId:String,val action:JsonObject,val params:String?=null) {
+    fun validFor(id:String):Boolean = playlistId==id.removePrefix("VL") &&
+        playlistId.matches(Regex("[A-Za-z0-9_-]{2,200}")) && validPlaylistSortAction(action)
+}
+internal fun validPlaylistSortAction(action:JsonObject):Boolean = when((action["action"] as? JsonPrimitive)?.contentOrNull) {
+    "ACTION_SET_PLAYLIST_VIDEO_ORDER" -> action.keys==setOf("action","playlistVideoOrder") &&
+        (action["playlistVideoOrder"] as? JsonPrimitive)?.intOrNull in setOf(0,1,2,6)
+    "ACTION_SET_PLAYLIST_DYNAMIC_SORT_PREFERENCE" -> action.keys==setOf("action","playlistDynamicSortPreference") &&
+        (action["playlistDynamicSortPreference"] as? JsonPrimitive)?.contentOrNull?.isNotBlank()==true
+    else -> false
+}
+
+/** Follow supplied commands, preserving opaque params; never infer dates or vote counts. */
+internal fun collectionSortEndpoints(root:JsonElement):Map<CollectionSort,CollectionSortEndpoint> {
+    val found=linkedMapOf<CollectionSort,CollectionSortEndpoint>()
+    fun item(item:JsonObject) {
+        val label=catalogText(item["title"]).ifBlank {catalogText(item["text"])}
+        val sort=when(label.lowercase()) {
+            "top voted"->CollectionSort.TopVoted
+            "manual ordering", "playlist order", "default"->CollectionSort.Original
+            "newest first", "date added (newest)", "date added (newest first)"->CollectionSort.Newest
+            "oldest first", "date added (oldest)", "date added (oldest first)"->CollectionSort.Oldest
+            "title"->CollectionSort.Title
+            "artist"->CollectionSort.Artist
+            "album"->CollectionSort.Album
+            else->return
+        }
+        val command=item["selectedCommand"] ?: item["navigationEndpoint"] ?: item["serviceEndpoint"]
+        val reload=catalogRenderer(command,"browseSectionListReloadEndpoint") ?: catalogRenderer(command,"reloadContinuationItemsCommand")
+        val token=catalogValue(reload,"continuation") ?: catalogValue(reload,"token")
+        val browse=catalogRenderer(command,"browseEndpoint")
+        val edit=catalogRenderer(command,"playlistEditEndpoint")
+        val action=(edit?.get("actions") as? JsonArray)?.singleOrNull() as? JsonObject
+        val playlistId=(edit?.get("playlistId") as? JsonPrimitive)?.contentOrNull
+        val playlistEdit=if(playlistId!=null && action!=null && validPlaylistSortAction(action))
+            PlaylistSortEdit(playlistId,action,(edit["params"] as? JsonPrimitive)?.contentOrNull) else null
+        if(token!=null || browse!=null || playlistEdit!=null) found[sort]=CollectionSortEndpoint(
+            catalogValue(browse,"browseId"),catalogValue(browse,"params"),token,playlistEdit,
+            (item["selected"] as? JsonPrimitive)?.booleanOrNull==true || (item["isSelected"] as? JsonPrimitive)?.booleanOrNull==true)
+    }
+    fun visit(node:JsonElement) {when(node) {
+        is JsonObject -> {
+            (node["musicMultiSelectMenuItemRenderer"] as? JsonObject)?.let(::item)
+            val submenu=node["sortFilterSubMenuRenderer"] as? JsonObject
+            (submenu?.get("subMenuItems") as? JsonArray)?.forEach {(it as? JsonObject)?.let(::item)}
+            node.values.forEach(::visit)
+        }
+        is JsonArray->node.forEach(::visit)
+        else->Unit
+    }}
+    visit(root)
+    return found
 }

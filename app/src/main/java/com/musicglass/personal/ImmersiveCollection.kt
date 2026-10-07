@@ -39,15 +39,25 @@ import kotlinx.coroutines.launch
         confirmButton={TextButton(enabled=!removeBusy,onClick={removeBusy=true;scope.launch {provider.removePlaylistSong(model.selectedPlaylistId,card).fold(onSuccess={uiHaptic(HapticCue.Confirm);removing=null;onNotice("Removed from playlist");provider.refreshLibraryIndex()},onFailure={onNotice(it.message?:"Could not remove song")});removeBusy=false}}) {Text("Remove")}},
         dismissButton={TextButton(enabled=!removeBusy,onClick={removing=null}) {Text("Cancel")}})}
     var expanded by remember(model.selectedPlaylistId) {mutableStateOf(false)}
-    val songs=if(data.albumTracks.isNotEmpty()) data.albumTracks else data.cards.filter {it.kind==CatalogKind.Song}
+    var sortedPage by remember(data) {mutableStateOf<CatalogPage?>(null)}
+    var remoteSort by remember(data) {mutableStateOf<CollectionSort?>(data.selectedSort)}
+    var sorting by remember(model.selectedPlaylistId) {mutableStateOf(false)}
+    val source=sortedPage?:data
+    val songs=if(source.albumTracks.isNotEmpty()) source.albumTracks else source.cards.filter {it.kind in setOf(CatalogKind.Song,CatalogKind.Episode)}
     var query by rememberSaveable(model.selectedPlaylistId) {mutableStateOf("")}
-    var sortName by rememberSaveable(model.selectedPlaylistId) {mutableStateOf(CollectionSort.Original.name)}
+    var sortName by rememberSaveable(model.selectedPlaylistId) {mutableStateOf((data.selectedSort?:CollectionSort.Original).name)}
     val sort=CollectionSort.valueOf(sortName)
-    val visible=remember(songs,query,sort) {collectionView(songs,query,sort,{it.title},{it.subtitle},{it.addedAt})}
+    LaunchedEffect(data) {
+        data.selectedSort?.let {sortName=it.name;remoteSort=it} ?: run {
+            if(sort==CollectionSort.TopVoted || sort in setOf(CollectionSort.Newest,CollectionSort.Oldest) && data.albumTracks.none {it.addedAt!=null}) sortName=CollectionSort.Original.name
+        }
+    }
+    val ordered=remember(songs,sort,remoteSort) {collectionView(songs,"",if(remoteSort==sort) CollectionSort.Original else sort,{it.title},{it.subtitle},{it.addedAt},{it.album})}
+    val visible=remember(songs,query,sort,remoteSort) {collectionView(songs,query,if(remoteSort==sort) CollectionSort.Original else sort,{it.title},{it.subtitle},{it.addedAt},{it.album})}
     val tracks=songs.mapNotNull {it.track()}.map {it.copy(albumId=if(playlist) it.albumId else model.selectedPlaylistId,album=if(playlist) it.album else data.title,
         artworkUrl=if(artist || playlist) it.artworkUrl else data.artworkUrl?:it.artworkUrl,artist=it.artist.ifBlank {if(playlist) "" else data.artistName},artistId=it.artistId?:data.artistId.takeUnless {playlist})}
     // While later pages are still loading, hold the request so the queue gets the whole collection.
-    var pendingPlay by remember(model.selectedPlaylistId) {mutableStateOf<Pair<String?,Boolean>?>(null)}
+    var pendingPlay by remember(model.selectedPlaylistId) {mutableStateOf<Pair<Int?,Boolean>?>(null)}
     var pendingDownload by remember(model.selectedPlaylistId) {mutableStateOf(false)}
     var downloading by remember(model.selectedPlaylistId) {mutableStateOf(false)}
     LaunchedEffect(complete,pendingDownload) {
@@ -55,16 +65,18 @@ import kotlinx.coroutines.launch
         try {requestCollectionDownload(context,tracks,onNotice)}
         finally {pendingDownload=false;downloading=false}
     }
-    fun play(index:Int,shuffle:Boolean=false) {
+    fun play(index:Int?=null,shuffle:Boolean=false) {
         if(tracks.isEmpty()) return
-        if(!complete) {pendingPlay=(if(shuffle) null else tracks.getOrNull(index)?.videoId) to shuffle;onNotice("Starting once all songs load");return}
-        playback.playCollection(tracks,index,data.title,shuffle)
+        if(!complete) {pendingPlay=index to shuffle;onNotice("Starting once all songs load");return}
+        val queue=ordered.mapNotNull {tracks.getOrNull(it.index)}
+        val start=if(index==null) 0 else ordered.indexOfFirst {it.index==index}.coerceAtLeast(0)
+        playback.playCollection(queue,start,data.title,shuffle)
     }
     LaunchedEffect(complete,pendingPlay) {
-        val (videoId,shuffle)=pendingPlay?:return@LaunchedEffect
+        val (index,shuffle)=pendingPlay?:return@LaunchedEffect
         if(!complete || tracks.isEmpty()) return@LaunchedEffect
         pendingPlay=null
-        play(if(shuffle) tracks.indices.random() else tracks.indexOfFirst {it.videoId==videoId}.coerceAtLeast(0),shuffle)
+        play(index,shuffle)
     }
     LazyColumn(Modifier.fillMaxSize().background(tone).testTag(if(artist) "artist_detail" else if(playlist) "playlist_detail" else "album_detail"),
         contentPadding=PaddingValues(bottom=bottom)) {
@@ -89,7 +101,7 @@ import kotlinx.coroutines.launch
                 horizontalArrangement=Arrangement.spacedBy(14.dp)) {
                 FilledTonalIconButton({ uiHaptic(); play(tracks.indices.random(),true)},modifier=Modifier.size(52.dp),
                     colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=White.copy(alpha=.12f))) {Icon(Icons.Rounded.Shuffle,if(playlist) "Shuffle playlist" else "Shuffle album",tint=White)}
-                Button({ uiHaptic(); play(0)},modifier=Modifier.weight(1f).height(56.dp).testTag("album_play"),shape=RoundedCornerShape(50),
+                Button({ uiHaptic(); play()},modifier=Modifier.weight(1f).height(56.dp).testTag("album_play"),shape=RoundedCornerShape(50),
                     colors=ButtonDefaults.buttonColors(containerColor=White,contentColor=tone)) {
                     Icon(Icons.Rounded.PlayArrow,null);Spacer(Modifier.width(8.dp));Text("Play",fontSize=22.sp,fontWeight=FontWeight.SemiBold)
                 }
@@ -120,7 +132,18 @@ import kotlinx.coroutines.launch
                 TextButton({ uiHaptic(); expanded=!expanded}) {Text(if(expanded) "Less" else "More",color=White)}
             }
         }
-        if(!artist) item {CollectionTools(if(playlist) "this playlist" else "this album",query,{query=it},sort,{sortName=it.name},songs.any {it.addedAt!=null})}
+        if(!artist) item {CollectionTools(if(playlist) "this playlist" else "this album",query,{query=it},sort,{option->
+            val endpoint=source.sortEndpoints[option]
+            if(endpoint!=null) {
+                sorting=true
+                scope.launch {
+                    try {provider.sortedCollection(model.selectedPlaylistId,endpoint).fold(onSuccess={
+                        sortedPage=it;remoteSort=option;sortName=option.name
+                    },onFailure={onNotice(it.message?:"Could not sort playlist")})} finally {sorting=false}
+                }
+            } else {sortedPage=null;remoteSort=null;sortName=option.name}
+        },songs.any {it.addedAt!=null},playlist,source.sortEndpoints.keys,sorting || !complete)}
+        if(sorting) item {Text("Sorting playlist…",color=Muted,modifier=Modifier.padding(horizontal=20.dp))}
         if(!complete) item {Text("Loading more songs… ${songs.size} so far",color=White.copy(alpha=.7f),fontSize=14.sp,
             modifier=Modifier.padding(horizontal=20.dp,vertical=8.dp).testTag("collection_loading_more"))}
         if(!artist && query.isNotBlank() && visible.isEmpty()) item {Text("No songs match this search.",color=Muted,modifier=Modifier.padding(20.dp))}

@@ -6,6 +6,10 @@ class CollectionToolsTest {
     private data class Song(val title:String,val artist:String,val date:Long?=null)
     private val songs=listOf(Song("Zulu","Singer",100),Song("Été","Other",300),Song("Alpha","Singer",200),Song("Unknown","Singer"))
     private fun view(query:String="",sort:CollectionSort=CollectionSort.Original)=collectionView(songs,query,sort,{it.title},{it.artist},{it.date})
+    @Test fun albumSortKeepsUnknownAlbumsLastAndDuplicateRowsDistinct() {
+        val rows=listOf(ProviderHomeCard("Zulu","Singer",null,album="B"),ProviderHomeCard("Alpha","Singer",null,album="A"),ProviderHomeCard("Alpha","Singer",null,album="A"),ProviderHomeCard("First","Singer",null))
+        assertEquals(listOf(1,2,0,3),collectionView(rows,"",CollectionSort.Album,{it.title},{it.subtitle},album={it.album}).map {it.index})
+    }
     @Test fun searchStaysWithinCollectionAndKeepsOriginalQueueIndexes() {
         assertEquals(listOf(1),view("ete").map {it.index});assertEquals(listOf(0,2,3),view("singer").map {it.index});assertEquals(listOf(2),view("singer alpha").map {it.index});assertTrue(view("not in collection").isEmpty())
     }

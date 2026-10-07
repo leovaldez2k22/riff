@@ -91,7 +91,6 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
         scope.launch { playRealTrack(provider,playback,track,onNotice) }
     } }
     val recent = if(feedReady && mood.isBlank()) collections.onlineHistory.map(ProviderTrack::homeCard) else emptyList()
-    val favorites = if(feedReady && mood.isBlank()) collections.onlineFavorites.map(ProviderTrack::homeCard) else emptyList()
     val photoContext=androidx.compose.ui.platform.LocalContext.current
     val hidden = remember(photoContext) { NotInterestedStore.get(photoContext) }
     val musicShelves = shelves.filterNot(::podcastShelf).withoutNotInterestedCards(hidden)
@@ -152,7 +151,6 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
             HomeSpeedDial(speed, ::open)
         }
         if (recent.isNotEmpty() && musicShelves.none {it.title.contains("listen again",true)}) item { HomeRowShelf("Recently played", recent, ::open) }
-        if (favorites.isNotEmpty()) item { HomeCardShelf("Favorites", favorites, 150.dp, onOpen=::open) }
         val shown=homeDiscoveryShelves(musicShelves)+if(mood.isBlank() && !loading && error==null && musicShelves.none {it.title.contains("forgotten fav",true)}) listOf(ProviderHomeSection("Forgotten favourites",emptyList())) else emptyList()
         orderedHomeShelves(shown).forEachIndexed {index,shelf->
             if(shelf.cards.isNotEmpty()) item(key="shelf:$index") {

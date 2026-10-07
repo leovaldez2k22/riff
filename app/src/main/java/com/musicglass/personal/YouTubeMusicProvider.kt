@@ -303,6 +303,48 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         return refreshAccount()
     }
 
+    /** Capture on the UI thread; checking a candidate never replaces the committed provider session. */
+    fun signInCandidate(visitor: String?, syncId: String?, accountIndex: String?): WebSignInCandidate? {
+        val cookies = CookieManager.getInstance().getCookie("https://music.youtube.com") ?: return null
+        if (signInCookieIdentity(cookies).isEmpty()) return null
+        val index = accountIndex?.takeIf { it.isNotBlank() && it.all(Char::isDigit) } ?: return null
+        // Never connect without the identity used to isolate this account's local collections.
+        val sync = signInSyncId(syncId) ?: return null
+        return WebSignInCandidate(cookies, visitor?.takeUnless { it.isBlank() || it == "null" },
+            sync, index, authRevision)
+    }
+
+    suspend fun verifySignIn(candidate: WebSignInCandidate): Result<VerifiedSignIn> = withContext(Dispatchers.IO) {
+        try {
+            val isolated = InnerTube(http)
+            isolated.replaceSession(candidate.cookies, candidate.visitor, candidate.syncId,
+                candidate.accountIndex, useLoginForBrowse = true)
+            val response = isolated.accountMenu(YouTubeClient.WEB_REMIX)
+            val text = response.bodyAsText()
+            val body = runCatching { json.parseToJsonElement(text) as? JsonObject }.getOrNull()
+            when (classifySessionProbe(response.status.value, body, text, networkError = false)) {
+                SessionState.Valid -> Result.success(VerifiedSignIn(candidate, body?.let(::parseAccountProfile)))
+                SessionState.Expired -> Result.failure(IllegalStateException("Google has not completed sign-in. Continue in the sign-in page."))
+                else -> Result.failure(IllegalStateException("Could not verify your account. Check your connection and try again."))
+            }
+        } catch (error: CancellationException) { throw error }
+        catch (_: Exception) {
+            Result.failure(IllegalStateException("Could not verify your account. Check your connection and try again."))
+        }
+    }
+
+    /** Reject stale verification after sign-out, account changes, or changed browser credentials. */
+    fun commitSignIn(verified: VerifiedSignIn): Boolean {
+        val candidate = verified.candidate
+        val current = CookieManager.getInstance().getCookie("https://music.youtube.com")
+        if (authRevision != candidate.revision ||
+            signInCookieIdentity(current) != signInCookieIdentity(candidate.cookies)) return false
+        if (!useWebSession(candidate.visitor, candidate.syncId, candidate.accountIndex)) return false
+        sessionState = SessionState.Valid
+        accountProfile = verified.profile
+        return true
+    }
+
     fun signOut() {
         visitorData = null
         dataSyncId = null
@@ -347,12 +389,12 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     }
     private class CatalogHttpException(val status: Int) : IllegalStateException("YouTube Music is unavailable (HTTP $status)")
     // Retries a collection page on network errors, timeouts, 429 and 5xx; other HTTP errors and account changes fail at once.
-    private suspend fun requestCollectionPage(id: String, token: String? = null): CatalogPage {
+    private suspend fun requestCollectionPage(id: String, token: String? = null, params: String? = null): CatalogPage {
         val revision = authRevision
         var attempt = 0
         while (true) {
             try {
-                return withTimeout(15_000) { requestCatalog(id, token, paced = false) }
+                return withTimeout(15_000) { requestCatalog(id, token, params, paced = false) }
             } catch (e: Exception) {
                 val retryable = when (e) {
                     is TimeoutCancellationException, is java.io.IOException -> true
@@ -436,24 +478,47 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     // Pages loaded so far for collections still fetching their continuations, so screens can render before the last page.
     private val partialCollections=mutableStateMapOf<String,CatalogPage>()
     fun partialCollection(id:String):CatalogPage?=partialCollections[feedKey("collection:$id")]
-    private suspend fun completeCollectionFresh(id:String):Result<CatalogPage> = providerResult {
+    private val collectionSortGate=Mutex()
+    suspend fun sortedCollection(id:String,endpoint:CollectionSortEndpoint):Result<CatalogPage> = providerResult {
+        collectionSortGate.withLock {
+            val revision=authRevision
+            val key=feedKey("collection:$id")
+            endpoint.playlistEdit?.let {edit->
+                check(signedIn) {"Sign in to sort this playlist"}
+                require(edit.validFor(id)) {"This playlist sort command is unavailable"}
+                val session=innerTube.sessionSnapshot()
+                check(revision==authRevision) {"Account changed while sorting"}
+                // Do not retry this write: a timeout can mean the preference was already applied.
+                collectionCache.invalidate(key)
+                applyPlaylistSort(http,json,session,edit)
+                check(revision==authRevision) {"Account changed while sorting"}
+            }
+            val page=completeCollectionFresh(id,endpoint.takeIf {it.playlistEdit==null}).getOrThrow()
+            check(revision==authRevision) {"Account changed while sorting"}
+            check(page.albumTracks.isNotEmpty() || page.cards.any {it.track()!=null}) {"YouTube Music did not return a sorted track list"}
+            if(endpoint.playlistEdit!=null) collectionCache.put(key,page)
+            page
+        }
+    }
+    private suspend fun completeCollectionFresh(id:String, sort:CollectionSortEndpoint?=null):Result<CatalogPage> = providerResult {
         val revision=authRevision;val key=feedKey("collection:$id")
+        val publishPartial=sort==null
         fun styled(page:CatalogPage)=if(id=="VLLM") page.copy(artworkUrl=likedArtwork()) else page
         try {
             // Collection pages arrive one after another, so they skip the search pacer rather than queueing 800 ms apart.
-            val first=requestCollectionPage(id)
+            val first=requestCollectionPage(sort?.browseId?:id,sort?.continuation,sort?.params)
             var page=first.copy(next=first.collectionNext)
             val seen=mutableSetOf<String>()
             while(page.next!=null && seen.add(page.next!!)) {
                 check(page.albumTracks.size<2000) {"This collection exceeds the supported 2,000-song queue"}
-                if(revision==authRevision) partialCollections[key]=styled(page.copy(next=null))
+                if(publishPartial && revision==authRevision) partialCollections[key]=styled(page.copy(next=null))
                 val more=requestCollectionPage(id,page.next)
                 page=page.copy(cards=page.cards+more.cards,albumTracks=page.albumTracks+more.albumTracks,next=more.collectionNext)
             }
             check(page.albumTracks.size<=2000) {"This collection exceeds the supported 2,000-song queue"}
             check(revision==authRevision) {"Account changed while loading this collection"}
             styled(page)
-        } finally {partialCollections.remove(key)}
+        } finally {if(publishPartial) partialCollections.remove(key)}
     }
     private fun likedArtwork()="android.resource://${appContext.packageName}/${R.drawable.liked_music_art}"
     private fun libraryArtwork(page:CatalogPage)=page.copy(cards=page.cards.map {if(it.browseId=="VLLM") it.copy(artworkUrl=likedArtwork()) else it})

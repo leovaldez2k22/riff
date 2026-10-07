@@ -10,3 +10,11 @@ artifacts/release/
 .kotlin/
 artifacts/
 __pycache__/
+
+# Local credentials and signing keys
+.env
+.env.*
+*.jks
+*.keystore
+*.p12
+*.pfx
