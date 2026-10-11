@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07-Q18 TODO
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08-Q18 TODO
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -360,6 +360,87 @@ Device state: emulator shut down with adb emu kill, adb server stopped, Gradle d
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
 Commit: 2128b2a on local branch codex/riff-quality-m0 (not pushed).
 Next exact action: Q07, when the user says to start it.
+
+## Q07
+### Q07 completion (11 October 2026)
+Status: PASS locally and on the disposable emulator. Physical-phone and live-provider checks are BLOCKED (below).
+Source: 69d7b931f6c38aa01a164740a0a1b65fc883110e dirty, digest e16f428c57d8d5a88eb8f1816949c34d2a568ff9f96a29e38d7166e2af5a9137. Evidence root: artifacts/quality/69d7b931f6c38aa01a164740a0a1b65fc883110e-dirty-e16f428c57d8/
+User instruction on 11 October 2026: start Q07 (standing rule: complete every aspect of the phase). The lettered v1.1 packages were not started and remain unauthorized.
+
+Implemented (PlaybackRecovery.kt new; MusicPlaybackService.kt, PlaybackGateway.kt, PlaybackState.kt, PlaybackProtocol.kt, NowPlaying.kt, RiffApp.kt, StreamRecovery.kt, RemoteCipherClient.kt, YouTubeMusicProvider.kt, DeferredProviderSource.kt; NetworkRecovery.kt removed):
+- classifyFault sorts every playback failure into one of ten classes: Offline, Timeout, RejectedStream, AttestationExpired, SessionExpired, RateLimited, ProviderUnavailable, SolverUnavailable, UnsupportedMedia, LocalFileMissing. A classified fault holds the class, the source, an HTTP status, a Retry-After value and a profile; no exception text.
+- RecoveryEpisode is the one budget per selected entry: 3 automatic attempts, delays 0, 1 s and 3 s with up to 250 ms injected jitter, 60 s of active time. Attestation is refreshed once (not for a profile without a token), a 403 or 410 stream is refreshed once, after that the rejected profile is excluded. Retry-After is honoured up to 60 s and not counted as active time; longer stops with Retry.
+- RecoveryCoordinator runs one episode at a time. Offline waits without limit for a validated connection that stays 500 ms. A pause holds it; play afterwards starts over. Another entry, a replaced or emptied queue ends it and a late lookup is dropped. A failure reported while it waits or tries starts nothing. A recovery that lasts less than 10 s continues the same episode. A player that never answers and a lookup that hangs both end at the 60 s limit.
+- Session expiry, unsupported media and missing files stop at once. Session expiry offers Sign in; signing in starts nothing.
+- Recommendation entries may be passed over at most 3 times in a row; entries the user queued stop with Retry and Skip.
+- The service's three retry paths (recoverProviderStream, retryLiveProfile, network recovery with its own timers and callback) and StreamRecoveryBudget are removed. The service implements RecoveryHost and publishes recovery, failure and recoveryHeld in the session extras. A RETRY_PLAYBACK command retries the selected entry in place.
+- The app no longer derives a failure from the player's own error. Failure texts follow plan section 20.6, with actions (Retry, Skip, Sign in, Redownload, Remove). "Connection lost; waiting to reconnect" is a notice, not a failure.
+- Solver failures have their own exception type. The provider's generic lookup failure keeps its cause so it can be classified; the cause is not shown or logged.
+- Docs: docs/quality/recovery.md (new), docs/quality/playback-state.md, CHANGELOG.
+
+Verification:
+- Debug (q07-debug-01/manifest.json): PASS_LOCAL. 520 JVM tests / 71 suites, zero failures, errors or skips (Q06: 488 / 71). Lint 0 errors, 84 warnings, 5 hints; no issue added or removed against q06-debug-02. APK SHA-256 ddffc5454889f2563e519fb351ef356bef071fa668230b8452d1787c0d5f7914.
+- New JVM tests: PlaybackRecoveryTest (36, virtual time), three in ComponentUiTest. Removed with their code: NetworkRecoveryTest (3) and the four budget tests of StreamRecoveryTest; their cases are covered in PlaybackRecoveryTest.
+- Emulator (q07-debug-fixture-02/manifest.json, log q07-instrumentation-01.log, install-01.log): PASS_LOCAL, all five gates PASS. 16 tests, 85.969 s: the 14 of Q06 plus two RecoveryDeviceTest. Test APK SHA-256 53e5e0a21e7aea8d0b91c4c51aa49adda7c9d9fbeccdecb334d26c1050cffc43. riff_q02_fixture, API 31, network disabled and confirmed unreachable, synthetic entries, fixture audio only. The service's recovery events of the run are in q07-recovery-events-01.txt (13 lines).
+- Release (q07-release-01/manifest.json): PASS_LOCAL. junit {"suites": 71, "tests": 520, "failures": 0, "errors": 0, "skipped": 0}; lint {"Warning": 84, "Hint": 5}; no issue added or removed against q06-release-01. APK SHA-256 b139a2123c43d83de23e1a3a8c3a0f99057cefc6402c3ab9b3f357ba59ae2940. Shrunk unsigned release 26.43 MiB. No device run of the release artifact.
+- Stress (stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only. The stress fault injection (SabrFaultInjection) still enters through the player error and is now classified as AttestationExpired; it was not run.
+- The evidence was taken before this ledger entry was written; the entry is the only change after it.
+
+Failed attempts, preserved:
+- q07-debug-fixture-01/manifest.json: FAIL on the artifactIdentity gate, "Signed APK requires apksigner certificate verification". The binding step was run from a shell without the toolchain variables, so apksigner was not found. Same APKs and same log bound again with the variables set as q07-debug-fixture-02: PASS. No test was rerun.
+- First run of PlaybackRecoveryTest: 1 of 36 failed. The test helper passed only the outer exception instead of the cause chain the service passes. Helper corrected; the classifier was not changed.
+- First compile: a missing import. A scripted edit of StreamRecovery.kt did not match because the file has Windows line endings; the file was rewritten instead.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| Every classification | PASS | PlaybackRecoveryTest: each class by its own signal, and the order of the rules |
+| No retry storm | PASS (JVM, virtual time) | Exhaustion after 3 attempts at 0, 1 and 4 s, then nothing for 10 minutes; all causes share the 3 attempts; a stream that becomes ready and fails again within 10 s stays in the same episode; the 60 s limit for an unanswered attempt and a hung lookup |
+| No simultaneous duplicated recovery | PASS | Seven further failure reports during one attempt: one attempt, one event |
+| Connectivity flaps | PASS | Six up/down cycles of 300 ms start nothing; a rise that drops inside 500 ms does not count; a connection lost during a delay costs no attempt; an unreported change is noticed by the 15 s check |
+| Pause, skip, switch during retry | PASS | JVM: pause while waiting, during a delay, and one the coordinator was not told about; skip during a delay. Emulator, real service: pause ends the wait and nothing resumes in 3 s; play waits again for the same entry; next ends recovery for the entry left |
+| Obsolete completion | PASS | A lookup that completes after the entry was left does not reach the player; the host reporting the entry gone clears the episode |
+| Missing bundle | PASS | Download source: storage failure, no attempt, no skip; partial downloads are still never played as downloads (OfflineMusicStore.audio requires the ready marker, unchanged). Emulator: a library file deleted under a queued entry stops as "File unavailable on this device" with 0 attempts |
+| No unwanted playback | PASS (JVM and emulator) | Nothing resumes after a pause; a failure while paused is held; an expired session and a later sign-in start nothing; restored queues stay paused (Q06, unchanged) |
+| Session expiry offers Sign in | PASS (JVM) | Classification, stop, action list and the action row. The path from the button to the Account screen is one line and was not exercised |
+| Retry-After | PASS (JVM) | 45 s honoured twice without using active time; 60 s honoured; over 60 s stops with Retry. The header is read from Media3's InvalidResponseCodeException; no real server answer was seen |
+| Recommendation skip limit; authored collections stop | PASS (JVM) | Three skipped, the fourth stops; reset only after 10 s of playback; no skip when paused; an authored entry stops with Retry and Skip |
+| Events carry class, attempt, timing only | PASS | Every event matches a fixed key=value form; no profile, entry or address |
+| Offline 60 s then online resumes if intent remained (PLY04) | PASS (JVM, virtual time); emulator covers the offline half only | An hour offline uses no attempt, then the attempt is made 500 ms after the connection returns. On the emulator the network stays off, so the resume itself was not observed there |
+| Wi-Fi/mobile handover keeps position and intent (PLY03) | BLOCKED | Needs a phone |
+| Rejected or expired stream, solver death against the provider (PLY05, PLY06) | BLOCKED | Needs a connection to the provider |
+
+Decisions (mine, not the user's):
+- With a validated connection a network error is Timeout and is retried on the back-off; without one it is Offline and waits. The plan names both classes but not how to tell them apart.
+- A delay asked by the provider is not counted in the 60 s of an episode, like the offline wait. Otherwise a 60 s Retry-After could never be honoured.
+- An episode ends after 10 s of playback, not at the first ready state. The plan does not say; ending it at ready would let a stream that starts and is rejected loop without limit.
+- The time the player takes to answer an attempt counts as active time, and an attempt it never answers ends the episode at 60 s. Playback that then starts anyway clears the failure.
+- Any pause holds recovery, including the sleep timer and loss of audio focus, not only a button.
+- Play after a hold or a stop is a retry with a full budget, also from the notification, a headset or a widget. Before, play did nothing for a failed entry outside the app.
+- Retry now keeps the queue. The old Retry replaced the queue with the one song.
+- Only entries added by recommendations are passed over, and only while the service that added them runs. A restored queue is treated as queued by the user.
+- A failure while paused is not shown unless it is one that is never retried.
+- An age-restricted item is UnsupportedMedia. It does not offer Sign in.
+- Without a connection a 403 or an attestation failure is treated as Offline.
+- Redownload and Remove delete the unusable download files at the user's tap, then try the entry again.
+- The old failure texts were replaced by those of plan section 20.6. PlaybackFailureKind lost ProviderTrack, LiveStream and Player.
+- The network callback is registered for the life of the service instead of only while recovering.
+- SabrRecoveryPolicy.sabrAttestationRetryId is unused by the app and was left in place with its tests.
+
+Known limits:
+- A VPN or captive portal that reports itself validated counts as online.
+- A provider failure with no status and no known message is retried three times even if the item will never play.
+- The Redownload, Remove and Sign in actions were not exercised end to end.
+- On the emulator, provider entries only ever wait; no online retry of a provider stream was observed outside the JVM tests.
+
+BLOCKED:
+- PLY03 and PLY04 on a physical phone. Needs an authorized device and explicit approval for installation. Rerun: install the debug APK; play a provider song on Wi-Fi, walk out of range onto mobile data and confirm playback continues near the same position; turn on airplane mode for 60 s while playing, confirm "Connection lost; waiting to reconnect", turn it off and confirm playback resumes at the same position without a tap; repeat and press pause during the wait, then confirm nothing resumes when the connection returns. Collect the recovery lines of the playback event log.
+- PLY05 and PLY06 against the provider. Needs a connection to the provider and a test account. Rerun: stress build, send the attestation fault through StressDiagnostics while a song plays and confirm one "recovery class=attestation attempt=1 action=attestation" line and uninterrupted intent; kill the solver process during a lookup and confirm at most three attempts and "Online playback resolver unavailable" if it stays down.
+- Carried from Q04 to Q06: upgrade over a real earlier install; privacy actions on a phone; the Q06 phone checks; phone-only checks compiled only; NativeIslandInstrumentation not ported.
+
+Device state: emulator shut down with adb emu kill, adb server stopped, Gradle daemons stopped once before the stress build. Data created and removed was synthetic fixture data on the emulator only. No physical device, real account, provider request, publication, push or user-data deletion. Deleted build outputs were regenerable files under app/build only.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q08, when the user says to start it.
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.

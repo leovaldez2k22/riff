@@ -44,11 +44,9 @@ class PlaybackStateTest {
             status(state = Player.STATE_IDLE, wants = true, failed = true, recovering = true))
     }
 
-    @Test fun failuresKeepTheWordingUsersAlreadySee() {
+    @Test fun commandFailuresKeepTheirWording() {
+        // Failures of the player itself are worded by recovery (Q07, PlaybackRecoveryTest).
         fun text(kind: PlaybackFailureKind, detail: String = "") = PlaybackFailure(kind, detail).message()
-        assertEquals("YouTube Music could not start this track. Try another track.", text(PlaybackFailureKind.ProviderTrack))
-        assertEquals("YouTube could not start this live stream. Try refreshing Radio.", text(PlaybackFailureKind.LiveStream))
-        assertEquals("Playback failed (ERROR_CODE_IO_FILE_NOT_FOUND)", text(PlaybackFailureKind.Player, "ERROR_CODE_IO_FILE_NOT_FOUND"))
         assertEquals("This collection is too large to queue", text(PlaybackFailureKind.CollectionTooLarge))
         assertEquals("This on-device audio file is unavailable", text(PlaybackFailureKind.LocalUnavailable))
         PlaybackFailureKind.entries.forEach { assertTrue(it.name, text(it).isNotBlank()) }

@@ -1120,7 +1120,8 @@ internal class YouTubeMusicProvider(context: Context,
             else "Track unavailable: ${error.reason}"))
         } catch (error: Exception) {
             playbackEvents.append("stream_prepare_failed type=${error::class.simpleName}")
-            Result.failure(IllegalStateException("Could not prepare this track (${error::class.simpleName})"))
+            // The cause is kept for recovery to classify; it is never shown or logged.
+            Result.failure(IllegalStateException("Could not prepare this track (${error::class.simpleName})",error))
         }
     }
 

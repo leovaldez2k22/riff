@@ -70,7 +70,7 @@ class AudioContinuityInstrumentation : Instrumentation() {
                                 check(controller.playbackState==Player.STATE_READY && controller.isPlaying) {
                                     "Audio interrupted state=${controller.playbackState} playing=${controller.isPlaying} suppression=${controller.playbackSuppressionReason} position=${controller.currentPosition} buffered=${controller.bufferedPosition}"
                                 }
-                                check(controller.playlistMetadata.extras?.getBoolean("providerRetrying")!=true) {"Stream recovery interrupted audio"}
+                                check(controller.sessionExtras.getString("recovery").isNullOrEmpty()) {"Stream recovery interrupted audio"}
                                 controller.currentPosition
                             }
                             // MediaController extrapolates position between IPC updates; the first

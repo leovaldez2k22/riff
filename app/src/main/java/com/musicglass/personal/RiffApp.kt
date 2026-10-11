@@ -360,6 +360,9 @@ internal fun RiffApp() {
     LaunchedEffect(playback.state.error) {
         playback.state.error?.takeUnless {playback.state.live}?.let { snackbar.showSnackbar(it) }
     }
+    LaunchedEffect(playback.state.notice) {
+        playback.state.notice?.let { snackbar.showSnackbar(it) }
+    }
     val density = LocalDensity.current.density
     val compact = LocalWindowInfo.current.containerSize.width / density < 390f ||
         LocalDensity.current.fontScale >= 1.3f
@@ -500,15 +503,25 @@ internal fun RiffApp() {
                                 onFailure={snackbar.showSnackbar(it.message?:"Could not open album")})
                         }
                     },
-                    onRetry = {
+                    onFailureAction = { action ->
                         val state = playback.state
-                        scope.launch {
-                            val track = ProviderTrack(state.mediaId.removePrefix("yt:"),
-                                state.title,state.artist,state.artworkUrl,state.artistId,state.albumId,state.album,state.live)
-                            if(!state.live) {playback.restoreAudio(track,playback.positionMs);return@launch}
-                            provider.resolve(track.videoId,state.live).fold(
-                                onSuccess = { playback.playProvider(track, it, playback.positionMs) },
-                                onFailure = { snackbar.showSnackbar(it.message ?: "Retry failed") })
+                        val track = ProviderTrack(state.mediaId.removePrefix("yt:"),
+                            state.title,state.artist,state.artworkUrl,state.artistId,state.albumId,state.album,state.live,state.music)
+                        when(action) {
+                            // The service tries again and keeps the queue, the position and the entry.
+                            FailureAction.Retry -> playback.retry()
+                            FailureAction.Skip -> playback.next()
+                            FailureAction.SignIn -> {model.sheet="";model.push("account")}
+                            // The files of this download are unusable. Removing them lets the song stream; downloading again replaces them.
+                            FailureAction.Redownload, FailureAction.RemoveDownload -> scope.launch {
+                                val store=OfflineMusicStore.get(context)
+                                val done=withContext(Dispatchers.IO) {runCatching {
+                                    store.remove(store.currentScope,track.videoId,exclude=action==FailureAction.RemoveDownload)
+                                    if(action==FailureAction.Redownload) store.enqueue(track)
+                                }.isSuccess}
+                                snackbar.showSnackbar(if(!done) "Could not change this download" else if(action==FailureAction.Redownload) "Downloading again" else "Download removed")
+                                if(done) playback.retry()
+                            }
                         }
                     })
             }
@@ -716,7 +729,7 @@ private const val morphHandoffStart = .96f
 private fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: Boolean,
     playback: PlaybackGateway, collections: LocalCollections, bottomInset: Float,
     miniBounds: Rect?, miniElementBounds: Map<String, Rect>, fullDragging: Boolean, provider: YouTubeMusicProvider,
-    onRetry: () -> Unit, onMorphDrag: (Float, Long) -> Unit,
+    onFailureAction: (FailureAction) -> Unit, onMorphDrag: (Float, Long) -> Unit,
     onNotice: (String) -> Unit, onArtist: () -> Unit, onAlbum: () -> Unit,
     onMorphRelease: (Float) -> Unit) {
     val p = progress().coerceIn(0f, 1f)
@@ -802,7 +815,7 @@ private fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: B
                         queueOpen=model.sheet=="queue",onQueueClose={model.sheet="mini"},
                         onLibrary = { model.sheet = "libraryShortcuts" },
                         onLyrics = { model.sheet = "lyrics" },onArtist=onArtist,onAlbum=onAlbum,
-                        onRetry = onRetry,
+                        onFailureAction = onFailureAction,
                         onNotice = onNotice)
                     if (p < .999f) {
                         Box(Modifier.fillMaxSize()

@@ -68,10 +68,10 @@ internal class RemoteCipherClient(context: Context, private val onEvent: (String
                 lost = died
                 awaitProcessGone(target)
             } catch (failed: RemoteException) {
-                throw IOException("Solver request failed (${failed.javaClass.simpleName})", failed)
+                throw SolverUnavailableException("Solver request failed (${failed.javaClass.simpleName})", failed)
             }
         }
-        throw IOException("Solver process died during the request", lost)
+        throw SolverUnavailableException("Solver process died during the request", lost)
     }
 
     /**
@@ -89,10 +89,10 @@ internal class RemoteCipherClient(context: Context, private val onEvent: (String
         try {
             data.writeInterfaceToken(SolverProtocol.DESCRIPTOR)
             write(data)
-            if (!target.transact(code, data, reply, 0)) throw IOException("Solver rejected the request")
+            if (!target.transact(code, data, reply, 0)) throw SolverUnavailableException("Solver rejected the request")
             val status = reply.readInt()
             val payload = reply.readString()
-            if (status != SolverProtocol.STATUS_OK) throw IOException("Solver failed ($payload)")
+            if (status != SolverProtocol.STATUS_OK) throw SolverUnavailableException("Solver failed ($payload)")
             return payload
         } finally {
             data.recycle(); reply.recycle()
@@ -107,28 +107,28 @@ internal class RemoteCipherClient(context: Context, private val onEvent: (String
             if (clearIfCurrent(current)) recordDeath()
         }
         unbindLocked()
-        if (!health.available()) throw IOException("Solver paused after repeated crashes")
+        if (!health.available()) throw SolverUnavailableException("Solver paused after repeated crashes")
         val ready = CompletableDeferred<IBinder>()
         val conn = object : ServiceConnection {
             override fun onServiceConnected(name: ComponentName?, service: IBinder) {
                 val linked = runCatching { service.linkToDeath({ onSolverDeath(service) }, 0) }.isSuccess
-                if (linked) ready.complete(service) else ready.completeExceptionally(IOException("Solver died while starting"))
+                if (linked) ready.complete(service) else ready.completeExceptionally(SolverUnavailableException("Solver died while starting"))
             }
             override fun onServiceDisconnected(name: ComponentName?) = Unit // the death recipient handles it
-            override fun onBindingDied(name: ComponentName?) { ready.completeExceptionally(IOException("Solver binding died")) }
-            override fun onNullBinding(name: ComponentName?) { ready.completeExceptionally(IOException("Solver refused to bind")) }
+            override fun onBindingDied(name: ComponentName?) { ready.completeExceptionally(SolverUnavailableException("Solver binding died")) }
+            override fun onNullBinding(name: ComponentName?) { ready.completeExceptionally(SolverUnavailableException("Solver refused to bind")) }
         }
         // A unique identity per binding: Android caches the binder per (filter-equal) Intent and, while a
         // crashed solver's restart is pending, hands that dead binder to new bindings (seen on device).
         val intent = Intent(app, SolverService::class.java).setIdentifier("solver-${++bindGeneration}")
         val bound = runCatching { app.bindService(intent, conn, Context.BIND_AUTO_CREATE) }.getOrDefault(false)
-        if (!bound) { runCatching { app.unbindService(conn) }; throw IOException("Solver could not be started") }
+        if (!bound) { runCatching { app.unbindService(conn) }; throw SolverUnavailableException("Solver could not be started") }
         connection = conn
         try {
             withTimeout(15_000) { ready.await() }.also { synchronized(this) { binder = it }; onEvent("solver_connected") }
         } catch (e: Exception) {
             unbindLocked()
-            throw if (e is IOException) e else IOException("Solver did not start in time", e)
+            throw if (e is IOException) e else SolverUnavailableException("Solver did not start in time", e)
         }
     }
 

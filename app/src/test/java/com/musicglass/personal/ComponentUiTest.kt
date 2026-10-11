@@ -3,6 +3,8 @@ package com.musicglass.personal
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -31,6 +33,40 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36])
 class ComponentUiTest {
     @get:Rule val compose = createComposeRule()
+
+    // ---- Q07 playback problems
+    @Test fun aFailureOffersItsActionsAndReportsTheOneChosen() {
+        val chosen = mutableListOf<FailureAction>()
+        val failure = PlaybackFailure(PlaybackFailureKind.CouldNotPlay)
+        compose.setContent { PlaybackProblem(null, failure.message(), failure) { chosen += it } }
+        compose.onNodeWithTag("playback_error").assertIsDisplayed()
+        compose.onNodeWithText("Could not play this item").assertIsDisplayed()
+        compose.onNodeWithTag("playback_retry").assertIsDisplayed().assertHeightIsAtLeast(48.dp).performClick()
+        compose.onNodeWithTag("playback_skip").assertIsDisplayed().assertHeightIsAtLeast(48.dp).performClick()
+        assertEquals(listOf(FailureAction.Retry, FailureAction.Skip), chosen)
+    }
+
+    @Test fun everyRecoveryFailureShowsItsOwnActionsAndNoOthers() {
+        var failure by androidx.compose.runtime.mutableStateOf(PlaybackFailure(PlaybackFailureKind.SessionExpired))
+        compose.setContent { PlaybackProblem(null, failure.message(), failure) {} }
+        for (kind in listOf(PlaybackFailureKind.SessionExpired, PlaybackFailureKind.DownloadInvalid, PlaybackFailureKind.LocalFileMissing,
+            PlaybackFailureKind.SolverUnavailable, PlaybackFailureKind.CouldNotPlay, PlaybackFailureKind.CollectionTooLarge)) {
+            failure = PlaybackFailure(kind); compose.waitForIdle()
+            compose.onNodeWithText(failure.message()).assertIsDisplayed()
+            FailureAction.entries.forEach { action ->
+                val shown = compose.onAllNodes(androidx.compose.ui.test.hasTestTag("playback_${action.name.lowercase()}")).fetchSemanticsNodes().size
+                assertEquals("$kind $action", if (action in failure.actions()) 1 else 0, shown)
+            }
+        }
+    }
+
+    @Test fun waitingToReconnectIsANoticeWithoutActions() {
+        compose.setContent { PlaybackProblem(RecoveryReason.Network.notice(), null, null) {} }
+        compose.onNodeWithTag("playback_notice").assertIsDisplayed()
+        compose.onNodeWithText("Connection lost; waiting to reconnect").assertIsDisplayed()
+        assertEquals(0, compose.onAllNodes(androidx.compose.ui.test.hasTestTag("playback_error")).fetchSemanticsNodes().size)
+        FailureAction.entries.forEach { assertEquals(0, compose.onAllNodes(androidx.compose.ui.test.hasTestTag("playback_${it.name.lowercase()}")).fetchSemanticsNodes().size) }
+    }
 
     // ---- W5 session banner
     @Test fun sessionBannerOffersSignInAgainAndDismiss() {

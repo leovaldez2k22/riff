@@ -1,6 +1,6 @@
 # Playback state and command order (Q06)
 
-How the app describes what the player is doing, how queue entries are identified, and how commands that arrive close together are ordered. Recovery policy is Q07 and is not changed here.
+How the app describes what the player is doing, how queue entries are identified, and how commands that arrive close together are ordered. Recovery policy is described in [recovery.md](recovery.md) (Q07).
 
 ## Typed state
 
@@ -14,8 +14,8 @@ How the app describes what the player is doing, how queue entries are identified
 | `queueItemId` | The selected entry |
 | `owner` | Storage key of the owner whose queue is loaded; blank when nothing is, or when it may not be saved |
 | `durationMs` | Duration of the selected entry |
-| `failure` | A typed failure with a fixed kind; the message shown is derived from it |
-| `recovery` | Why the app is retrying by itself: provider stream, live profile or network |
+| `failure` | A typed failure with a fixed kind; the message shown and the actions offered are derived from it |
+| `recovery` | Why the app is retrying by itself: looking a stream up again, the same for a live stream, or waiting for a connection |
 
 | Status | When |
 |---|---|
@@ -32,7 +32,7 @@ The position is separate (`PlaybackGateway.positionMs`) and does not cause the b
 
 The service publishes queue revision, owner, the entry being looked up and the recovery reason in the session extras, next to the sleep-timer deadline. They contain no stream address, cookie or account identifier other than the opaque storage key.
 
-Screens still read the older fields (`playing`, `wantsPlayback`, `error`), which are filled from the same refresh. The wording of every error is unchanged. Moving screens to `status` belongs to Q11 and Q12.
+Screens still read the older fields (`playing`, `wantsPlayback`, `error`), which are filled from the same refresh. Since Q07 a failure of the player is worded by recovery and published by the service; the wording of command failures is unchanged. Moving screens to `status` belongs to Q11 and Q12.
 
 ## Queue entries
 
@@ -54,7 +54,7 @@ Commands that change the queue (open a collection, play a song, play on-device a
 - A command built for a previous account is still dropped, as before.
 - A command that fails while it is read or applied is answered as failed. It does not stop the service or hold up the commands behind it.
 - The app side orders its own requests the same way before they are sent, so a request still being written when a later one is made is not sent.
-- Moving to another entry cancels stream recovery and live fallback for the entry left behind.
+- Moving to another entry ends recovery for the entry left behind.
 
 Main thread: every Media3 call. Background: request files, the database, history.
 
@@ -93,4 +93,3 @@ Not verified here:
 
 - Queue edits are validated by entry in the app before the standard player command is sent. The command itself still carries an index, so a change made by the service in the few milliseconds between the two is not excluded.
 - With shuffle on, removing every copy of a song (**Not interested**) leaves the choice of the next entry to the player.
-- Network recovery still shows the failure text while it waits, as before; the status says Recovering. Q07 replaces this path.

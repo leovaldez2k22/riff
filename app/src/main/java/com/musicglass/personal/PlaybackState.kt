@@ -26,25 +26,35 @@ internal enum class PlaybackStatus {
     Failed,
 }
 
-/** Why the app is retrying by itself. The text is what the service publishes; it never carries content. */
+/**
+ * Why the app is retrying by itself: looking a stream up again, the same for a live stream, or
+ * waiting for the connection. The text is what the service publishes; it never carries content.
+ */
 internal enum class RecoveryReason(val wire: String) {
     ProviderStream("stream"), LiveProfile("live"), Network("network");
+    /** What the user is told while this goes on; null when the retry needs no words. */
+    fun notice(): String? = if (this == Network) "Connection lost; waiting to reconnect" else null
     companion object { fun of(wire: String?) = entries.firstOrNull { it.wire == wire } }
 }
 
 internal enum class PlaybackFailureKind {
-    Connection, ProviderTrack, LiveStream, Player,
+    Connection,
     CollectionInvalid, CollectionTooLarge, CollectionRejected, CollectionPrepare,
     StreamRejected, StreamCommand, LocalUnavailable, LocalCommand,
+    // Decided by recovery (Q07) and published by the service.
+    CouldNotPlay, SessionExpired, LocalFileMissing, DownloadInvalid, SolverUnavailable;
+    companion object { fun of(name: String?) = entries.firstOrNull { it.name == name } }
 }
 
-/** A failure the user is told about. [detail] is a fixed code or exception text, never a URL or account data. */
+/** What the user can do about a failure. */
+internal enum class FailureAction(val label: String) {
+    Retry("Retry"), Skip("Skip"), SignIn("Sign in"), Redownload("Redownload"), RemoveDownload("Remove"),
+}
+
+/** A failure the user is told about. [detail] is a fixed code, never provider text, a URL or account data. */
 internal data class PlaybackFailure(val kind: PlaybackFailureKind, val detail: String = "") {
     fun message(): String = when (kind) {
         PlaybackFailureKind.Connection -> "Playback could not connect: $detail"
-        PlaybackFailureKind.ProviderTrack -> "YouTube Music could not start this track. Try another track."
-        PlaybackFailureKind.LiveStream -> "YouTube could not start this live stream. Try refreshing Radio."
-        PlaybackFailureKind.Player -> "Playback failed ($detail)"
         PlaybackFailureKind.CollectionInvalid -> "Could not open this collection"
         PlaybackFailureKind.CollectionTooLarge -> "This collection is too large to queue"
         PlaybackFailureKind.CollectionRejected -> "Could not open collection queue"
@@ -53,6 +63,19 @@ internal data class PlaybackFailure(val kind: PlaybackFailureKind, val detail: S
         PlaybackFailureKind.StreamCommand -> "Could not start provider playback"
         PlaybackFailureKind.LocalUnavailable -> "This on-device audio file is unavailable"
         PlaybackFailureKind.LocalCommand -> "Could not open this on-device audio file"
+        PlaybackFailureKind.CouldNotPlay -> "Could not play this item"
+        PlaybackFailureKind.SessionExpired -> "Sign in again to access account content"
+        PlaybackFailureKind.LocalFileMissing -> "File unavailable on this device"
+        PlaybackFailureKind.DownloadInvalid -> "Download incomplete or unavailable"
+        PlaybackFailureKind.SolverUnavailable -> "Online playback resolver unavailable"
+    }
+    fun actions(): List<FailureAction> = when (kind) {
+        PlaybackFailureKind.CouldNotPlay -> listOf(FailureAction.Retry, FailureAction.Skip)
+        PlaybackFailureKind.SessionExpired -> listOf(FailureAction.SignIn)
+        PlaybackFailureKind.LocalFileMissing -> listOf(FailureAction.Skip)
+        PlaybackFailureKind.DownloadInvalid -> listOf(FailureAction.Redownload, FailureAction.RemoveDownload)
+        PlaybackFailureKind.SolverUnavailable -> listOf(FailureAction.Retry)
+        else -> emptyList()
     }
 }
 

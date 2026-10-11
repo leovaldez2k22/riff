@@ -29,6 +29,8 @@ internal data class PlaybackUiState(
     val shuffle: Boolean = false,
     val repeat: Int = Player.REPEAT_MODE_OFF,
     val error: String? = null,
+    /** What the user is told while the app retries by itself; not a failure. */
+    val notice: String? = null,
     val source: String = "",
     val title: String = "",
     val artist: String = "",
@@ -53,6 +55,8 @@ internal interface PlaybackGateway {
     fun setSleepTimer(minutes:Int)
     fun pause()
     fun resume()
+    /** Tries the selected entry again after a failure, and plays it. */
+    fun retry() = resume()
     fun next()
     fun previous()
     fun seekTo(positionMs: Long)
@@ -163,19 +167,15 @@ internal class MusicPlaybackGateway(context: Context,
         val player = controller ?: return
         val embedded = embeddedId != null && embeddedId == player.currentMediaItem?.mediaId
         val extras = player.sessionExtras
-        val retrying = player.playlistMetadata.extras?.getBoolean("providerRetrying") == true || player.playlistMetadata.extras?.getBoolean("liveRetrying") == true
-        val failure = if (retrying || embedded) null else commandError ?: player.playerError?.let { error ->
-            if (player.currentMediaItem?.mediaMetadata?.extras?.getBoolean("live") == true) PlaybackFailure(PlaybackFailureKind.LiveStream)
-            else if (player.currentMediaItem?.mediaId?.startsWith("yt:") == true) PlaybackFailure(PlaybackFailureKind.ProviderTrack)
-            else PlaybackFailure(PlaybackFailureKind.Player, error.errorCodeName)
-        }
-        // Waiting for the network counts as recovering only while the user still wants playback.
-        val recovery = RecoveryReason.of(extras.getString("recovery")).takeIf { !embedded && (it != RecoveryReason.Network || player.playWhenReady) }
+        // A player failure is described by the service, which decides whether it is retried (Q07).
+        // The player's own error is not read here: it arrives before that decision does.
+        val failure = if (embedded) null else commandError ?: PlaybackFailureKind.of(extras.getString("failure"))?.let(::PlaybackFailure)
+        val recovery = RecoveryReason.of(extras.getString("recovery")).takeIf { !embedded && failure == null }
         val entry = player.currentMediaItem?.entryId().orEmpty()
         val typed = PlaybackState(
             status = if (embedded) { if (embeddedPlaying) PlaybackStatus.Playing else PlaybackStatus.Paused }
                 else playbackStatus(player.mediaItemCount, player.playbackState, player.playWhenReady, player.isPlaying,
-                    failed = failure != null, recovering = retrying || recovery != null,
+                    failed = failure != null, recovering = recovery != null,
                     resolving = entry.isNotEmpty() && extras.getString("resolving") == entry),
             desiredPlayWhenReady = if (embedded) embeddedPlaying else player.playWhenReady,
             queueRevision = extras.getLong("queueRevision"),
@@ -183,7 +183,7 @@ internal class MusicPlaybackGateway(context: Context,
             owner = extras.getString("queueOwner").orEmpty(),
             durationMs = player.duration.coerceAtLeast(0),
             failure = failure,
-            recovery = recovery ?: if (!retrying) null else if (player.playlistMetadata.extras?.getBoolean("liveRetrying") == true) RecoveryReason.LiveProfile else RecoveryReason.ProviderStream,
+            recovery = recovery,
         )
         val updated = PlaybackUiState(
             playback = typed,
@@ -197,6 +197,7 @@ internal class MusicPlaybackGateway(context: Context,
             shuffle = player.shuffleModeEnabled,
             repeat = player.repeatMode,
             error = failure?.message(),
+            notice = recovery?.notice(),
             source = when {
                 player.currentMediaItem?.mediaId?.startsWith("yt:") == true -> "YouTube Music"
                 player.currentMediaItem?.mediaId?.startsWith("local:") == true -> "On device"
@@ -235,11 +236,18 @@ internal class MusicPlaybackGateway(context: Context,
         }
         commandError = null
         if (toggleShouldPause(it.isPlaying,it.playWhenReady,it.playbackState==Player.STATE_IDLE)) { transport(false); it.pause() }
-        else { transport(true); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() }
+        else { transport(true); start(it) }
     }
+    /** Play, as asked by the user. An entry that failed is tried again by the service, which keeps the queue and the position. */
+    private fun start(player: MediaController) {
+        if (player.playerError == null) { if (player.playbackState == Player.STATE_IDLE) player.prepare(); player.play(); return }
+        player.play()
+        player.sendCustomCommand(SessionCommand(RETRY_PLAYBACK, Bundle.EMPTY), Bundle().apply { putString("entry", player.currentMediaItem?.entryId().orEmpty()) })
+    }
+    override fun retry() { transport(true); withPlayer { commandError = null; start(it) } }
     override fun setSleepTimer(minutes:Int) = withPlayer {it.sendCustomCommand(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY),Bundle().apply {putInt("minutes",minutes)})}
     override fun pause() { transport(false); withPlayer { it.pause();if(state.embedded) embeddedControl?.invoke(false) } }
-    override fun resume() { transport(true); withPlayer { if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
+    override fun resume() { transport(true); withPlayer { start(it) } }
     override fun next() { transport(true); withPlayer { commandError = null; it.seekToNextMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
     override fun previous() { transport(true); withPlayer { commandError = null; it.seekToPreviousMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
     override fun currentPositionMs(): Long = controller?.currentPosition?.coerceAtLeast(0) ?: positionMs

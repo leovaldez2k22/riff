@@ -22,6 +22,12 @@
 - Changed: removing the playing song when it is last in the queue now selects the song before it, paused. Before, the player jumped to the first song.
 - A switch between a song's audio and video no longer lands on a different song if you skipped in the meantime.
 - Known change: searches saved before this update are not shown, because the old list was shared by every account on the phone. Earlier data offers to import them or delete them.
+- Playback that fails is retried in one place with one budget: at most three attempts for a song, after 0, 1 and 3 seconds, within 60 seconds. Before, three separate retry paths could run for the same failure.
+- Without a connection the player shows **Connection lost; waiting to reconnect** and resumes when the connection has been back for half a second, however long that takes. Pause ends the wait and nothing resumes afterwards by itself.
+- Changed: failure messages. A song that cannot be played says **Could not play this item** with **Retry** and **Skip**; an expired session says **Sign in again to access account content** with **Sign in**; a missing file says **File unavailable on this device**; unreadable download files say **Download incomplete or unavailable** with **Redownload** and **Remove**. No technical error text is shown.
+- Changed: **Retry** keeps the queue and the position. Before, it replaced the queue with that one song.
+- Play in the notification, on a headset or on a widget now retries a song that failed. Before, it did nothing until the app was opened.
+- A recommendation queue passes over at most three unavailable songs in a row. Albums, playlists and songs you queued stop at the song that failed.
 
 ### Historical October 6 update
 

@@ -71,11 +71,10 @@ class MusicPlaybackService : MediaSessionService() {
             SleepRestore.None -> if(saved>0) persistSleepDeadline(0)
         }
     }
-    private var liveFallbackJob: Job? = null
-    private val failedLiveProfiles = linkedSetOf<String>()
-    private var streamRecovery = StreamRecoveryBudget()
-    private var streamRecoveryJob: Job? = null
     private var recoveryReplacement: MediaItem? = null
+    /** Entries added by recommendations. Only these may be passed over when they cannot be played. */
+    private val autoEntries = hashSetOf<String>()
+    private var recoverySignal = RecoverySignal()
     private val resolvedStreams = ConcurrentHashMap<MediaItem,ProviderStream>()
     private var queueJob: Job? = null
     private var queueGeneration = 0
@@ -120,7 +119,6 @@ class MusicPlaybackService : MediaSessionService() {
     private inline fun <T> internally(block:()->T):T {val was=internalChange;internalChange=true;try {return block()} finally {internalChange=was}}
     /** Entries whose stream is being looked up now. Written from the playback thread. */
     private val resolving=ConcurrentHashMap.newKeySet<String>()
-    private var liveFallbackEntry:String?=null
     private var sleepDeadlineMs=0L
     private var publishedState=""
     private fun newEntryId()=UUID.randomUUID().toString()
@@ -130,19 +128,14 @@ class MusicPlaybackService : MediaSessionService() {
     private fun publishState() {
         val media=session?:return;val player=media.player
         val entry=player.currentMediaItem?.entryId().orEmpty().takeIf {it in resolving}.orEmpty()
-        val flags=player.playlistMetadata.extras
-        val recovery=when {
-            flags?.getBoolean("liveRetrying")==true -> RecoveryReason.LiveProfile
-            flags?.getBoolean("providerRetrying")==true -> RecoveryReason.ProviderStream
-            networkFailure -> RecoveryReason.Network
-            else -> null
-        }
+        val signal=recoverySignal
         val owner=snapshotTicket?.scope.orEmpty()
-        val key="$sleepDeadlineMs|${order.queueRevision}|$owner|$entry|$recovery"
+        val key="$sleepDeadlineMs|${order.queueRevision}|$owner|$entry|$signal"
         if(key==publishedState) return
         publishedState=key
         media.setSessionExtras(Bundle().apply {putLong("sleepDeadlineMs",sleepDeadlineMs);putLong("queueRevision",order.queueRevision)
-            putString("queueOwner",owner);putString("resolving",entry);putString("recovery",recovery?.wire.orEmpty())})
+            putString("queueOwner",owner);putString("resolving",entry);putString("recovery",signal.recovery?.wire.orEmpty())
+            putString("failure",signal.failure?.name.orEmpty());putBoolean("recoveryHeld",signal.held)})
     }
     /**
      * A command that changes the queue. [prepare] may read files off the main thread; [apply] then
@@ -158,6 +151,16 @@ class MusicPlaybackService : MediaSessionService() {
         super.onCreate()
         events.append("service_create")
         serviceScope.launch(Dispatchers.IO) {logNewProcessExits(this@MusicPlaybackService,events)}
+        runCatching {
+            val callback=object:android.net.ConnectivityManager.NetworkCallback() {
+                private fun changed() {serviceScope.launch {recovery.connectivityChanged()}}
+                override fun onAvailable(network:android.net.Network)=changed()
+                override fun onLost(network:android.net.Network)=changed()
+                override fun onCapabilitiesChanged(network:android.net.Network,capabilities:android.net.NetworkCapabilities)=changed()
+            }
+            getSystemService(android.net.ConnectivityManager::class.java).registerDefaultNetworkCallback(callback)
+            networkCallback=callback
+        }
         serviceScope.launch(Dispatchers.IO) {runCatching {offline.indexArtwork(offline.currentScope)}}
         serviceScope.launch(Dispatchers.IO) {
             for(write in snapshotWrites) runCatching {when(write) {
@@ -262,24 +265,24 @@ class MusicPlaybackService : MediaSessionService() {
                     events.append("play_when_ready=$playWhenReady reason=$reason")
                     // The app, the notification, a headset or a widget: all arrive as a user request.
                     if(reason==Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST && !internalChange) order.userIntent(playWhenReady)
+                    // A pause holds recovery whatever caused it; play after that starts it again.
+                    if(!internalChange) recovery.intentChanged(playWhenReady)
                     if(playWhenReady) replenishQueue(this@apply)
                 }
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     events.append("playback_state=$playbackState")
                     offline.playbackBusy=playbackState==Player.STATE_BUFFERING || this@apply.isPlaying
-                    if(playbackState==Player.STATE_READY) {replenishQueue(this@apply);endNetworkRecovery()}
+                    if(playbackState==Player.STATE_READY) {replenishQueue(this@apply);this@apply.currentMediaItem?.entryId()?.let(recovery::ready)}
                     if(playbackState==Player.STATE_ENDED) plays.completed()
                 }
                 override fun onIsPlayingChanged(isPlaying:Boolean) {offline.playbackBusy=isPlaying || this@apply.playbackState==Player.STATE_BUFFERING;lastListenTick=android.os.SystemClock.elapsedRealtime()}
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     if(reason!=Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED || mediaItem!==recoveryReplacement) {
                         listeningId="";plays.started();lastListenTick=android.os.SystemClock.elapsedRealtime()
-                        streamRecoveryJob?.cancel();streamRecoveryJob=null;recoveryReplacement=null
-                        streamRecovery=StreamRecoveryBudget()
-                        providerRetrying(this@apply,false)
-                        // A live fallback for an entry the user has left is obsolete; its own replacement keeps the entry.
-                        if(mediaItem?.entryId()!=liveFallbackEntry) {liveFallbackJob?.cancel();liveFallbackJob=null;liveFallbackEntry=null}
+                        recoveryReplacement=null
                     }
+                    // Recovery for an entry the user has left is obsolete; its own replacement keeps the entry.
+                    recovery.entryChanged(mediaItem?.entryId())
                     if(mediaItem == null) cancelRadio() else replenishQueue(this@apply)
                 }
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -291,12 +294,8 @@ class MusicPlaybackService : MediaSessionService() {
                         val uri=failure.dataSpec.uri
                         events.append("http_rejected code=${failure.responseCode} host=${uri.host} kind=${if(uri.path?.contains(".m3u8")==true) "manifest" else "segment"}")
                     }
-                    if(error.errorCode==androidx.media3.common.PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS)
-                        retryLiveProfile(this@apply)
-                    recoverProviderStream(this@apply,error)
-                    if(NetworkRecovery.isNetworkFailure(error.errorCodeName,generateSequence(error as Throwable?) {it.cause}.take(8).toList()))
-                        startNetworkRecovery(this@apply)
-                    else {networkFailure=false;publishState()}  // other errors are never retried by this path
+                    // Every retry is decided in one place (Q07).
+                    this@apply.currentMediaItem?.let {item->recovery.failed(item.entryId(),faultOf(item,error.errorCodeName,error))}
                 }
             })
         }
@@ -311,7 +310,7 @@ class MusicPlaybackService : MediaSessionService() {
                 return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                     .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
                         .buildUpon().add(SessionCommand(PLAY_PROVIDER_STREAM, Bundle.EMPTY))
-                        .add(SessionCommand(PLAY_LOCAL_AUDIO, Bundle.EMPTY))
+                        .add(SessionCommand(PLAY_LOCAL_AUDIO, Bundle.EMPTY)).add(SessionCommand(RETRY_PLAYBACK, Bundle.EMPTY))
                         .add(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY)).add(SessionCommand(RESTORE_SAVED_QUEUE,Bundle.EMPTY)).add(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY)).build())
                     .build()
             }
@@ -327,6 +326,13 @@ class MusicPlaybackService : MediaSessionService() {
                     if(minutes !in 0..1440) return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
                     if(minutes>0) crossfader?.cancel()
                     sleepTimer.set(minutes)
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                }
+                if(customCommand.customAction==RETRY_PLAYBACK) {
+                    // The user asked again for the selected entry: a new episode with a full budget.
+                    val entry=args.getString("entry").orEmpty()
+                    if(player.currentMediaItem?.entryId()!=entry) return Futures.immediateFuture(SessionResult(SessionError.INFO_CANCELLED))
+                    retryPlayback(player)
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
                 // Not an error for the new owner: the request simply no longer applies.
@@ -528,7 +534,7 @@ class MusicPlaybackService : MediaSessionService() {
             val player=session?.player?:return result
             if(player.mediaItemCount==0) return result
             when(intent.getStringExtra("command")) {
-                "toggle"->if(toggleShouldPause(player.isPlaying,player.playWhenReady,player.playbackState==Player.STATE_IDLE)) player.pause() else {if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
+                "toggle"->if(toggleShouldPause(player.isPlaying,player.playWhenReady,player.playbackState==Player.STATE_IDLE)) player.pause() else retryPlayback(player)
                 "previous"->{player.seekToPreviousMediaItem();if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
                 "next"->{player.seekToNextMediaItem();if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
             }
@@ -685,75 +691,78 @@ class MusicPlaybackService : MediaSessionService() {
             .also {resolvedStreams[it]=stream}
     }
     private fun cancelRadio() {
-        streamRecoveryJob?.cancel();streamRecoveryJob=null;recoveryReplacement=null
-        streamRecovery=StreamRecoveryBudget();resolvedStreams.clear()
-        liveFallbackJob?.cancel();liveFallbackJob=null;failedLiveProfiles.clear()
+        recoveryReplacement=null;resolvedStreams.clear()
+        recovery.clear();autoEntries.clear()
         queueGeneration++;queueJob?.cancel();queueJob=null;radioSeed=null;radioContinuation=null;queueCandidates.clear()
         session?.player?.setPlaylistMetadata(MediaMetadata.EMPTY)
     }
-    private fun providerRetrying(player: Player, value: Boolean) {
-        player.setPlaylistMetadata(player.playlistMetadata.buildUpon().setExtras(
-            Bundle(player.playlistMetadata.extras ?: Bundle()).apply {putBoolean("providerRetrying",value)}).build())
+    private var networkCallback:android.net.ConnectivityManager.NetworkCallback?=null
+    private fun faultSource(item:MediaItem)=when {
+        !item.mediaId.startsWith("yt:") -> FaultSource.Device
+        item.localConfiguration?.uri?.scheme=="file" -> FaultSource.Download
+        item.mediaMetadata.extras?.getBoolean("live")==true -> FaultSource.Live
+        else -> FaultSource.Provider
     }
-    /** Replace the rejected source as well as its credentials, keeping queue order and position. */
-    private fun recoverProviderStream(player: Player, error: androidx.media3.common.PlaybackException) {
-        val item=player.currentMediaItem ?: return
-        if(!item.mediaId.startsWith("yt:") || item.mediaMetadata.extras?.getBoolean("live")==true || streamRecoveryJob?.isActive==true) return
+    /** Sorts a failure for [item] into its class. Only the class, the status and the profile leave this function. */
+    private fun faultOf(item:MediaItem,errorCodeName:String,error:Throwable):PlaybackFault {
         val causes=generateSequence(error as Throwable?) {it.cause}.take(16).toList()
-        val kind=causes.filterIsInstance<SabrPlaybackFailure>().firstOrNull()?.kind
-        val status=causes.filterIsInstance<androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException>().firstOrNull()?.responseCode
-        val previous=resolvedStreams[item]
-        val profile=previous?.profileId ?: item.mediaMetadata.extras?.getString("profileId")
-        val action=streamRecovery.next(kind,status,profile) ?: return
-        val excluded=streamRecovery.excludedProfiles.toSet()
-        val generation=queueGeneration
-        val track=trackFromItem(item)
-        val sourceId=item.mediaMetadata.extras?.getString("sourceVideoId") ?: previous?.sourceVideoId ?: track.videoId
-        val video=previous?.includesVideo==true || item.mediaMetadata.extras?.getBoolean("video")==true
-        events.append("provider_stream_recovery action=$action attempt=${excluded.size}")
-        providerRetrying(player,true)
-        streamRecoveryJob=serviceScope.launch {
-            try {
-                if(action==StreamRecoveryAction.REFRESH_ATTESTATION) provider.invalidateAttestation()
-                provider.invalidateStream(sourceId)
-                val stream=withTimeout(60_000) {provider.resolve(sourceId,video=video,excludedProfiles=excluded).getOrThrow()}
-                if(generation!=queueGeneration || player.currentMediaItem!==item) return@launch
+        val http=causes.filterIsInstance<androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException>().firstOrNull()
+        val retryAfter=http?.headerFields?.entries?.firstOrNull {it.key.equals("Retry-After",true)}?.value?.firstOrNull()?.trim()?.toLongOrNull()?.times(1000)
+        return classifyFault(errorCodeName,causes,faultSource(item),runtime.networkConditions().validated,
+            provider.sessionState==SessionState.Expired,http?.responseCode,retryAfter,
+            resolvedStreams[item]?.profileId ?: item.mediaMetadata.extras?.getString("profileId"))
+    }
+    /** Play was asked for while the selected entry is in a failed state. */
+    private fun retryPlayback(player:Player) {
+        player.play()
+        if(!recovery.retry() && player.playbackState==Player.STATE_IDLE) player.prepare()
+    }
+    private val recovery by lazy {RecoveryCoordinator(serviceScope,runtime.clocks::monotonicMillis,runtime.wait,
+        {kotlin.random.Random.nextLong(RecoveryPolicy.MAX_JITTER_MS+1)},object:RecoveryHost {
+        override fun wantsPlayback()=session?.player?.playWhenReady==true
+        override fun online()=runtime.networkConditions().validated
+        override fun publish(signal:RecoverySignal) {recoverySignal=signal;publishState()}
+        override fun event(text:String) {events.append(text)}
+        override fun skipUnavailable(entry:String):Boolean {
+            val player=session?.player?:return false
+            if(entry !in autoEntries || player.currentMediaItem?.entryId()!=entry || !player.hasNextMediaItem()) return false
+            internally {player.seekToNextMediaItem();player.prepare()}
+            return true
+        }
+        /** Loads the entry again, keeping queue order, position and whether the user wants playback. */
+        override suspend fun attempt(entry:String,step:RecoveryStep.Attempt):AttemptOutcome {
+            val player=session?.player?:return AttemptOutcome.Obsolete
+            val item=player.currentMediaItem?.takeIf {it.entryId()==entry}?:return AttemptOutcome.Obsolete
+            val extras=item.mediaMetadata.extras
+            val scheme=item.localConfiguration?.uri?.scheme
+            val track=trackFromItem(item)
+            val previous=resolvedStreams[item]
+            val sourceId=if(track.isLive) track.videoId else extras?.getString("sourceVideoId") ?: previous?.sourceVideoId ?: track.videoId
+            if(item.mediaId.startsWith("yt:") && step.action!=RecoveryAction.Prepare) provider.invalidateStream(sourceId)
+            // An entry that was never resolved is looked up by its own source, which also prefers a download.
+            if(item.mediaId.startsWith("yt:") && scheme=="file" && step.action!=RecoveryAction.Prepare) {
+                // A download that could not be read: look the entry up again, which uses the files only when they are complete.
+                val replacement=catalogItem(track,keepEntry(item))
+                recoveryReplacement=replacement
+                return if(internally {replaceFailedStream(player,item,replacement)}) AttemptOutcome.Applied else AttemptOutcome.Obsolete
+            }
+            if(step.action==RecoveryAction.Prepare || !item.mediaId.startsWith("yt:") || scheme=="catalog") {
+                internally {player.prepare()}
+                return AttemptOutcome.Applied
+            }
+            val generation=queueGeneration
+            val video=track.isLive || previous?.includesVideo==true || extras?.getBoolean("video")==true
+            return try {
+                if(step.action==RecoveryAction.RefreshAttestation) provider.invalidateAttestation()
+                val stream=provider.resolve(sourceId,track.isLive,step.excluded,video=video).getOrThrow()
+                if(generation!=queueGeneration || player.currentMediaItem!==item) return AttemptOutcome.Obsolete
                 val replacement=providerItem(track,stream,keepEntry(item))
                 recoveryReplacement=replacement
-                if(replaceFailedStream(player,item,replacement)) events.append("provider_stream_replaced")
+                if(internally {replaceFailedStream(player,item,replacement,if(track.isLive) 0L else null)}) AttemptOutcome.Applied else AttemptOutcome.Obsolete
             } catch(e:CancellationException) {throw e}
-            catch(e:Exception) {events.append("provider_stream_recovery_failed type=${e::class.simpleName}")}
-            finally {if(generation==queueGeneration && (player.currentMediaItem===item || player.currentMediaItem===recoveryReplacement)) providerRetrying(player,false)}
+            catch(e:Exception) {AttemptOutcome.Failed(faultOf(item,"",e))}
         }
-    }
-    /** Only retry a rejected live transport through the provider's supported client selection. */
-    private fun retryLiveProfile(player: Player) {
-        val item=player.currentMediaItem?:return
-        val meta=item.mediaMetadata;val extras=meta.extras?:return
-        if(!extras.getBoolean("live") || liveFallbackJob?.isActive==true || failedLiveProfiles.size>=3) return
-        val profile=extras.getString("profileId")?:return
-        if(!failedLiveProfiles.add(profile)) return
-        val entry=item.entryId();val generation=queueGeneration
-        liveFallbackEntry=entry
-        val track=ProviderTrack(item.mediaId.removePrefix("yt:"),meta.title.toString(),meta.artist.toString(),
-            meta.artworkUri?.toString(),extras.getString("artistId"),extras.getString("albumId"),meta.albumTitle?.toString().orEmpty(),true)
-        events.append("live_profile_rejected profile=$profile attempt=${failedLiveProfiles.size}")
-        fun retrying(value:Boolean) {player.setPlaylistMetadata(player.playlistMetadata.buildUpon().setExtras(Bundle(player.playlistMetadata.extras?:Bundle()).apply {putBoolean("liveRetrying",value)}).build())}
-        retrying(true)
-        liveFallbackJob=serviceScope.launch {
-            try {
-            val stream=provider.resolve(track.videoId,true,failedLiveProfiles.toSet(),video=true).getOrNull()
-            // The entry, not the video: the same broadcast queued twice is two entries, and the index may have moved.
-            val current=player.currentMediaItem
-            if(generation!=queueGeneration || current?.mediaId!=item.mediaId || current.entryId()!=entry) return@launch
-            if(stream==null) {events.append("live_profile_fallback_unavailable");return@launch}
-            val wants=player.playWhenReady;val index=player.currentMediaItemIndex
-            player.replaceMediaItem(index,providerItem(track,stream,keepEntry(current)));player.seekTo(index,0)
-            player.prepare();player.playWhenReady=wants
-            events.append("live_profile_fallback profile=${stream.profileId.orEmpty()}")
-            } finally {if(generation==queueGeneration) retrying(false)}
-        }
-    }
+    })}
     private fun queueStatus(player: Player, loading: Boolean, message: String) {
         player.setPlaylistMetadata(MediaMetadata.Builder().setSubtitle(message)
             .setExtras(Bundle().apply {putBoolean("queueLoading",loading)}).build())
@@ -784,7 +793,7 @@ class MusicPlaybackService : MediaSessionService() {
                         queueRecordingKey(m.title.toString(),m.artist.toString())==queueRecordingKey(track.title,track.artist)
                     }) continue
                     if(!queuedIds.add(track.videoId)) continue
-                    player.addMediaItem(catalogItem(track));added++
+                    player.addMediaItem(catalogItem(track).also {autoEntries.add(it.entryId())});added++
                     if(added==1) queueStatus(player,true,"Adding YouTube Music recommendations\u2026")
                 }
                 queueStatus(player,false,if(added>0) "Music from YouTube Music" else "No more playable recommendations right now")
@@ -803,40 +812,10 @@ class MusicPlaybackService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
-    // Network recovery (2026-10-04): resume by itself after a playback error caused by a lost connection.
-    private var networkFailure=false
-    private var networkRetryAttempts=0
-    private var networkRetryJob:Job?=null
-    private var networkCallback:android.net.ConnectivityManager.NetworkCallback?=null
-    private fun startNetworkRecovery(player:Player) {
-        networkFailure=true;publishState()
-        events.append("network_failure attempts=$networkRetryAttempts")
-        networkRetryJob?.cancel()
-        networkRetryJob=serviceScope.launch {for(wait in NetworkRecovery.retryDelaysMs) {delay(wait);tryNetworkRetry(player,"timer")}}
-        if(networkCallback==null) runCatching {
-            val callback=object:android.net.ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network:android.net.Network) {serviceScope.launch {delay(1500);tryNetworkRetry(player,"network")}}
-            }
-            getSystemService(android.net.ConnectivityManager::class.java).registerDefaultNetworkCallback(callback)
-            networkCallback=callback
-        }
-    }
-    private fun tryNetworkRetry(player:Player,trigger:String) {
-        if(!NetworkRecovery.shouldRetry(networkFailure,player.playWhenReady,player.playerError!=null,networkRetryAttempts)) return
-        if(getSystemService(android.net.ConnectivityManager::class.java).activeNetwork==null) return
-        networkRetryAttempts++
-        events.append("network_retry attempt=$networkRetryAttempts trigger=$trigger")
-        player.prepare()
-    }
-    private fun endNetworkRecovery() {
-        if(networkFailure) events.append("network_recovered attempts=$networkRetryAttempts")
-        networkFailure=false;networkRetryAttempts=0;networkRetryJob?.cancel();networkRetryJob=null;publishState()
+    override fun onDestroy() {
+        recovery.clear()
         networkCallback?.let {callback-> runCatching {getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(callback)}}
         networkCallback=null
-    }
-
-    override fun onDestroy() {
-        endNetworkRecovery()
         boostPrefs.unregisterOnSharedPreferenceChangeListener(boostListener)
         sleepTimer.close()
         crossfader?.release()

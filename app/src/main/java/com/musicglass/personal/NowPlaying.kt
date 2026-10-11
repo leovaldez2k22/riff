@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.padding
@@ -73,6 +74,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -168,7 +171,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     onClose: () -> Unit,
     onSwipeDrag: (Float, Long) -> Unit, onSwipeRelease: (Float) -> Unit,
     onQueue: () -> Unit, onLibrary: () -> Unit,
-    onLyrics: () -> Unit, onArtist: () -> Unit, onAlbum: () -> Unit, onRetry: () -> Unit,
+    onLyrics: () -> Unit, onArtist: () -> Unit, onAlbum: () -> Unit, onFailureAction: (FailureAction) -> Unit,
     onNotice: (String) -> Unit) {
     val state = playback.state
     val songTransition=rememberSongPresentationTransition(state)
@@ -452,12 +455,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             } catch(e:kotlinx.coroutines.CancellationException) {throw e}
             finally {videoBusy=false}
         }},modifier=Modifier.testTag("player_video")) {Text(if(videoBusy) "Preparing video\u2026" else if(state.video) "Switch to audio" else "Play video",color=White,fontSize=13.sp)}
-        state.error?.let { error ->
-            Text(error, color = Pink)
-            if (state.source == "YouTube Music") Text("Retry track", color = White,
-                modifier = Modifier.clickable(onClick = hapticClick(onRetry)).padding(vertical = 8.dp)
-                    .testTag("playback_retry"))
-        }
+        PlaybackProblem(state.notice, state.error, state.playback.failure, onFailureAction)
         }
     }
     if (creditsVisible) AlertDialog(onDismissRequest = { creditsVisible = false },
@@ -531,3 +529,22 @@ internal fun QueuePanel(playback: PlaybackGateway, onBack: () -> Unit) {
 
 
 private fun collectionsCanSave(collections: LocalCollections) = collections.canSave
+
+/**
+ * What recovery tells the user (Q07): a notice while it waits for a connection, or a failure with
+ * what can be done about it. Waiting is not a failure: Pause ends it, and nothing else needs doing.
+ */
+@Composable
+internal fun PlaybackProblem(notice: String?, error: String?, failure: PlaybackFailure?, onAction: (FailureAction) -> Unit) {
+    Column(Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
+        notice?.let { Text(it, color = White.copy(alpha = .78f), modifier = Modifier.testTag("playback_notice")) }
+        error?.let {
+            Text(it, color = Pink, modifier = Modifier.testTag("playback_error"))
+            Row { failure?.actions().orEmpty().forEach { action ->
+                TextButton(onClick = hapticClick { onAction(action) },
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("playback_${action.name.lowercase()}")) {
+                    Text(action.label, color = White) }
+            } }
+        }
+    }
+}
