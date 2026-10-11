@@ -93,8 +93,55 @@ Lint delta versus Q01: one new warning in both variants, StaticFieldLeak at AppC
 Acceptance: critical fixture state and playback tests need no personal account or public provider PASS. First-session proof of one account-race test (PageMemoryCache generation boundary, JVM) and one fixture playback test (Media3 on emulator) PASS. Migration tests do not exist yet; they belong to Q04 and will use this harness.
 Known limits: R8/Kotlin metadata warnings persist (172 lines in the release log) and remain an unresolved Q00 toolchain risk. Emulator success does not satisfy physical audio, performance, live-provider, accessibility or upgrade gates. The account-race test is a prerequisite for Q03, not proof of a session coordinator.
 Device state: emulator shut down with adb emu kill and adb server stopped; no emulator or adb process remains. The debug and test APKs remain installed only inside the disposable AVD image. No physical device, account, publication or data deletion was involved.
-Commit: not done. Contract rule 16 requires committing Q00-Q02 on a branch before Q03; awaiting the user's go-ahead. scripts/download_favourites.py carries a pre-existing user change and must be kept out of or separated from the package commits.
-Next exact action: on approval, create branch codex/riff-quality-m0 and commit Q00, Q01 and Q02 as separate coherent commits; then start Q03 by reading YouTubeMusicProvider.kt, SignInFlow.kt, AccountScreen.kt and the PageMemoryCache generation boundary.
+Commit: done on 11 October 2026 after the user's go-ahead, on local branch codex/riff-quality-m0 (not pushed): 4392f78 plan v1.1; f477a6a Q00; 1c08a29 Q01; 2644fbc Q02. Q01 was separated from Q02 at file level (plus one hunk of app/build.gradle.kts) and was not built on its own. scripts/download_favourites.py keeps its pre-existing uncommitted user change. The repository commit-msg hook rewrote the co-author trailer on all four commits. Committing changed the revision but not the source digest (still bac26f301045), so the Q02 evidence above remains bound to the same source content under its earlier dirty identity.
+
+## Q03
+Status: IN_PROGRESS
+Authorization: Q03-Q18 authorized 9 October 2026; user said to start Q03 on 11 October 2026.
+Dependencies: Q00 PASS, Q01 PASS, Q02 PASS
+Starting revision: 2644fbc3d606d827b44dd5fe182a281078d2ff75 (dirty only for scripts/download_favourites.py)
+
+### Q03 findings before editing
+- The scope key was SHA-256 of sync identifier plus chooser position, so the same account at a different position got a different key (ACC04 defect).
+- A signed-in session with no sync identifier fell back to the "guest" download scope, merging into Guest (ACC06 defect).
+- The provider already rejects stale in-flight work with authRevision in roughly sixty places, and keys the feed, collection and stream caches by it. That barrier is kept as the single generation source.
+- An account change did not stop the previous account's provider queue; only sign-out cleared it, from screen code.
+- An interrupted transfer already re-queues itself when the active scope changes; completed files are kept.
+
+### Q03 slice 1 (implemented, verification below)
+New AccountSession.kt: AccountScope (Guest, DeviceLocal, Provider, Unverified), VerifiedAccountIdentity, scope v2 derivation without the chooser position, legacy key derivation, SessionToken with a per-process nonce, ScopeAliasStore/PreferenceScopeAliasStore, AccountScopeRegistry, SessionParticipant, SessionCoordinator.
+Decisions within the plan's ADRs:
+- Data is not moved. A legacy key is accepted as an alias only when re-deriving it from the verified identifier reproduces it and it already owns data. The storage key is chosen once and persisted, so a later reorder cannot move it. An account with no existing data uses its canonical v2 key.
+- If one account has data under several legacy keys, the current position's key stays primary and the others are retained untouched and counted in a sanitized event. Merging them is pending.
+- The provider stays the single source of the active session and publishes it as StateFlow<SessionToken>, generation equal to authRevision. The coordinator serializes sign-in commit and sign-out around the provider and rejects every token while a transition runs.
+- A fourth scope, Unverified, represents a signed-in session without a stable identifier. It has no storage key; the download store refuses writes for it and the Account screen says so.
+Changed paths: AccountSession.kt (new); YouTubeMusicProvider.kt (session flow, accountScope, alias-based accountScopeKey, storageScopeKey); OfflineMusicStore.kt (currentScope, scopes(), unverified write guards); AppContainer.kt (sessions coordinator, downloads participant, injectable storedScopeKeys); AccountScreen.kt (sign-in commit and sign-out through the coordinator, unverified notice); RiffApp.kt (playback and collections participant); AccountSessionTest.kt and AccountScopeProviderTest.kt (new).
+Behavior changes a user can see: switching to a different account, or signing in from signed-out, now stops a provider or mixed queue, as sign-out already did. On-device-only playback continues. The stopped queue is not restored yet.
+Targeted run (artifacts/quality/q03-work/targeted-01.log): exit 0; AccountSessionTest and AccountScopeProviderTest, 22 tests, zero failures/errors/skips.
+Full run q03-debug-01 (source digest 84d9225ff551): PASS_LOCAL, 340 tests / 60 suites, but debug lint gained one UseKtx warning in AccountSession.kt. Fixed by using the KTX preferences editor already used elsewhere; no test changed. Run preserved.
+Full run q03-debug-02 on the committed slice (artifacts/quality/2644fbc3d606d827b44dd5fe182a281078d2ff75-dirty-1a823ba39d6f/q03-debug-02/manifest.json, source digest 1a823ba39d6f): PASS_LOCAL; 340 JVM tests / 60 suites, zero failures/errors/skips; debug lint 0 errors, 84 warnings, 5 hints, identical to Q02; debug APK SHA-256 a504db2e54eedebb5264b28036dc5179b58f24e632649bae9ea464fcad4eb254.
+Not run for this slice: release lint and shrunk release build, stress compilation, fixture playback on the emulator, and any device or live-provider check. They are due before Q03 can be marked PASS.
+
+### Q03 acceptance so far
+| Case | State | Evidence or gap |
+|---|---|---|
+| ACC01 delayed A result after B | PASS at coordinator level (JVM) | AccountSessionTest; existing DeterministicHarnessTest covers the cache boundary |
+| ACC02 A->B->A | PARTIAL | Owner and stale-token rejection tested; scoped paused-queue restoration needs the Q04 snapshot store |
+| ACC03 cookie rotation, same identity | PASS (JVM) | Same owner, no quiesce, no new alias write |
+| ACC04 selector reorder | PASS (JVM + Robolectric provider test) | Two-account physical check BLOCKED: no device or test accounts |
+| ACC05 canceled/failed chooser | PARTIAL | Declined commit keeps the owner (JVM); chooser cancel never reaches the coordinator by construction; no UI test yet |
+| ACC06 missing stable ID | PASS (JVM + Robolectric) for scope and keys | UI: Account screen notice only; download entry points still fail silently |
+| ACC07 pure local vs mixed on switch | NOT VERIFIED | Implemented in the RiffApp participant; needs a Compose or device test |
+
+### Q03 remaining work
+1. Capture and validate SessionToken in the download engine and in MusicPlaybackService queue application; today they rely on scope-string and queue-generation checks.
+2. Scoped paused-queue persistence and restoration on switch (ADR-Q04 steps 2 and 5). Depends on the Q04 snapshot repository; until then the queue is cleared.
+3. Merge or multi-key reads for retained aliases, following the Q03 conflict rules.
+4. Truthful Unverified state at download and save entry points, with Retry verification.
+5. Tests: switch during transfer and during asset completion; mixed versus pure local playback; failed transition UI; Compose test for the Account screen flows.
+6. Resolve the scope key off the main thread; the first lookup currently runs one small query where it is called.
+7. Two-account device check for identifier stability: BLOCKED until an authorized device and two test accounts exist. Old data is retained in place regardless.
+Next exact action: read the full-suite result in artifacts/quality/<source-id>/q03-debug-01/manifest.json, fix any regression, commit slice 1, then start item 1 in OfflineDownloadEngine.kt and MusicPlaybackService.kt.
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.

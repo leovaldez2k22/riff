@@ -48,7 +48,8 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
-import java.security.MessageDigest
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 internal fun providerArtworkUrl(videoId: String): String? =
     videoId.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }
@@ -187,6 +188,13 @@ internal class YouTubeMusicProvider(context: Context,
     private var visitorData: String? = sessionPrefs.getString("visitor", null)
     private var dataSyncId: String? = sessionPrefs.getString("sync", null)
     private var authUser: String = sessionPrefs.getString("account", "0").orEmpty()
+    private val scopeRegistry = AccountScopeRegistry(PreferenceScopeAliasStore(context))
+    @Volatile private var resolvedStorage: Pair<String, ScopeStorage>? = null
+    private val sessionNonce = java.util.UUID.randomUUID().toString()
+    private val sessionFlow = MutableStateFlow(SessionToken(AccountScope.Guest, 0, sessionNonce))
+    /** Active owner and generation. Capture before async work; validate before publishing or saving. */
+    val session: StateFlow<SessionToken> get() = sessionFlow
+    private fun publishSession() { sessionFlow.value = SessionToken(accountScope(), authRevision.toLong(), sessionNonce) }
     private val searchCache = object : LinkedHashMap<String, Pair<Long, ProviderSearchPage>>(24, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Long, ProviderSearchPage>>?) =
             size > 24
@@ -283,7 +291,7 @@ internal class YouTubeMusicProvider(context: Context,
         songLikes.clear(); cachedHome = emptyList();podcastEndpoint=null
         synchronized(cacheLock) { searchCache.clear() }
         feedCache.clear();collectionCache.clear();homeMoods=emptyList();libraryPlaylistSnapshot=emptyList();libraryScanRevision=0
-        authRevision++
+        authRevision++;publishSession()
         synchronized(cacheLock) {streamCache.clear();streamFlights.values.forEach {it.cancel()};streamFlights.clear()}
         sessionChecks.reset();sessionState=if(valid) SessionState.Checking else SessionState.SignedOut
         if(valid && dependencies.startProviderBackgroundWork) runtimeScope.launch {dependencies.wait(1500);probeSession()}
@@ -355,7 +363,7 @@ internal class YouTubeMusicProvider(context: Context,
         songLikes.clear(); cachedHome = emptyList();podcastEndpoint=null
         synchronized(cacheLock) { searchCache.clear() }
         feedCache.clear();collectionCache.clear();homeMoods=emptyList();libraryPlaylistSnapshot=emptyList();libraryScanRevision=0
-        authRevision++
+        authRevision++;publishSession()
         synchronized(cacheLock) {streamCache.clear();streamFlights.values.forEach {it.cancel()};streamFlights.clear()}
         sessionChecks.reset();sessionState=SessionState.SignedOut
         CookieManager.getInstance().removeAllCookies {
@@ -363,17 +371,32 @@ internal class YouTubeMusicProvider(context: Context,
         }
     }
 
-    @Volatile private var cachedAccountScope:Pair<String,String>?=null
+    /** Signed in without a stable identifier is Unverified, never Guest. */
+    fun accountScope(): AccountScope = if (!signedIn) AccountScope.Guest
+        else verifiedAccountIdentity(dataSyncId)?.let(::providerScope) ?: AccountScope.Unverified
+
+    /** The owner a verified sign-in would become, before it is committed. */
+    fun signInScope(verified: VerifiedSignIn): AccountScope =
+        verifiedAccountIdentity(verified.candidate.syncId)?.let(::providerScope) ?: AccountScope.Unverified
+
     /** Stable, opaque local namespace; raw account identifiers never become preference keys. */
     fun accountScopeKey(): String? {
         if (!signedIn) return null
-        val sync = dataSyncId?.takeIf { it.isNotBlank() } ?: return null
-        val identity="musicglass-account:$sync:$authUser"
-        cachedAccountScope?.takeIf {it.first==identity}?.let {return it.second}
-        val key=MessageDigest.getInstance("SHA-256").digest(identity.toByteArray(Charsets.UTF_8))
-            .take(16).joinToString("") { "%02x".format(it.toInt() and 0xff) }
-        cachedAccountScope=identity to key
-        return key
+        val sync = dataSyncId ?: return null
+        val identity = verifiedAccountIdentity(sync) ?: return null
+        resolvedStorage?.takeIf { it.first == sync }?.let { return it.second.primaryKey }
+        val storage = scopeRegistry.resolve(identity, sync, authUser, dependencies.storedScopeKeys(appContext))
+        if (storage.retainedAliases.isNotEmpty())
+            playbackEvents.append("account_scope retained_aliases=${storage.retainedAliases.size}")
+        resolvedStorage = sync to storage
+        return storage.primaryKey
+    }
+
+    /** For stores that also keep signed-out data. An unverified session gets a key stores refuse to write. */
+    fun storageScopeKey(): String = when (accountScope()) {
+        AccountScope.Guest -> GUEST_SCOPE_KEY
+        is AccountScope.Provider -> accountScopeKey() ?: UNVERIFIED_SCOPE_KEY
+        else -> UNVERIFIED_SCOPE_KEY
     }
 
     private suspend fun requestCatalog(browseId: String, token: String? = null, params: String? = null, paced: Boolean = true): CatalogPage {

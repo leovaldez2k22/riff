@@ -47,6 +47,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val scope = rememberCoroutineScope()
     val attempt = remember { SignInAttempt() }
+    val sessions = remember(context) { AppContainer.get(context).sessions }
     var generation by remember { mutableIntStateOf(0) }
     var browserOpen by rememberSaveable { mutableStateOf(false) }
     var changingAccount by rememberSaveable { mutableStateOf(false) }
@@ -119,8 +120,11 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                 provider.verifySignIn(readyCandidate)
             }
             if (!attempt.accepts(token) || navigation != verifyNavigation) return@launch
-            if (outcome?.isSuccess == true && provider.commitSignIn(outcome.getOrThrow())) {
-                collections.bindAccountScope(provider.accountScopeKey())
+            // The coordinator stops the outgoing account's playback and transfers before the commit.
+            val switched = outcome?.getOrNull()?.let { verified ->
+                sessions.transition("sign_in", provider.signInScope(verified)) { provider.commitSignIn(verified) }
+            }
+            if (switched is SessionTransition.Committed) {
                 loading = false
                 stage = SignInStage.Connected
                 browserOpen = false
@@ -129,7 +133,9 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                 model.back()
             } else {
                 stage = SignInStage.Failed
-                message = outcome?.exceptionOrNull()?.message
+                message = if (switched is SessionTransition.Failed)
+                    "Could not switch accounts safely. Nothing was moved between accounts. Try again."
+                else outcome?.exceptionOrNull()?.message
                     ?: "Could not finish checking your account. Try again."
             }
         }
@@ -214,6 +220,10 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                     modifier = Modifier.fillMaxWidth().testTag("account_open_sign_in")) {
                     Text(if (provider.sessionState == SessionState.Expired) "Reconnect account" else "Change account")
                 }
+                if (provider.accountScope() == AccountScope.Unverified) {
+                    Text("Could not verify this account for local saves. Reconnect to keep downloads and saved tracks with your account. Existing data is kept.",
+                        color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp).testTag("account_unverified"))
+                }
                 Text("App-saved online tracks stay on this phone and are hidden after sign-out.",
                     color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))
                 val legacyCount = collections.legacyOnlineCount()
@@ -223,11 +233,12 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                     }, modifier = Modifier.testTag("account_import_legacy")) { Text("Import $legacyCount older app-saved entries") }
                 }
                 TextButton(onClick = {
-                    if (playback.state.queue.any { it.mediaId.startsWith("yt:") }) {
-                        playback.clearProviderPlayback(); model.miniVisible = false; model.sheet = ""
+                    scope.launch {
+                        val result = sessions.transition("sign_out", AccountScope.Guest) { provider.signOut(); true }
+                        if (result is SessionTransition.Committed) {
+                            stage = SignInStage.Ready; message = "Signed out on this phone. Reconnect whenever you're ready."
+                        } else onNotice("Could not sign out safely. Try again.")
                     }
-                    provider.signOut(); collections.bindAccountScope(null)
-                    stage = SignInStage.Ready; message = "Signed out on this phone. Reconnect whenever you're ready."
                 }, modifier = Modifier.testTag("account_sign_out")) { Text("Sign out", color = Muted) }
             } else if (!browserOpen) {
                 Button(onClick = { uiHaptic(); restart(changeAccount = false) }, shape = RoundedCornerShape(16.dp),

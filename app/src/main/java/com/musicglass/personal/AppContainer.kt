@@ -58,6 +58,7 @@ internal data class RuntimeDependencies(
     val wait: suspend (Long) -> Unit = { delay(it) },
     val providerTransport: () -> HttpClientEngine = { OriginalAudioEngine.create {} },
     val resolver: StreamResolver? = null,
+    val storedScopeKeys: (Context) -> Set<String> = ::storedAccountScopeKeys,
     val startProviderBackgroundWork: Boolean = true,
 ) {
     companion object {
@@ -94,6 +95,20 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
     private val providerDelegate=lazy {YouTubeMusicProvider(app,runtime)}
     val provider:YouTubeMusicProvider get()=providerDelegate.value
     fun existingProvider():YouTubeMusicProvider?=if(providerDelegate.isInitialized()) providerDelegate.value else null
+
+    /** Orders account switches and sign-out. Screens register playback and collections; downloads live here. */
+    val sessions: SessionCoordinator by lazy {
+        SessionCoordinator({ provider.session.value }) { PlaybackEventLog(app).append(it) }.also { coordinator ->
+            coordinator.register(object : SessionParticipant {
+                // Outgoing transfers re-queue themselves when the active scope changes; completed files stay.
+                override suspend fun bind(current: SessionToken) {
+                    if (current.scope == AccountScope.Unverified) return
+                    OfflineDownloadScheduler.schedule(app)
+                    OfflineDownloadScheduler.resumeManualLater(app)
+                }
+            })
+        }
+    }
 
     companion object {
         @Volatile private var process: AppContainer? = null

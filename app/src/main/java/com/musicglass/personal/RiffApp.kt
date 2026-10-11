@@ -296,6 +296,21 @@ internal fun RiffApp() {
     LaunchedEffect(provider.authRevision) {
         collections.bindAccountScope(provider.accountScopeKey())
     }
+    val sessions = remember(context) { AppContainer.get(context).sessions }
+    DisposableEffect(sessions, playback, collections) {
+        val registration = sessions.register(object : SessionParticipant {
+            // Provider and mixed queues stop with their owner; pure on-device audio keeps playing.
+            override suspend fun quiesce(outgoing: SessionToken) {
+                if (playback.state.queue.any { it.mediaId.startsWith("yt:") }) {
+                    playback.clearProviderPlayback(); model.miniVisible = false; model.sheet = ""
+                }
+            }
+            override suspend fun bind(current: SessionToken) {
+                collections.bindAccountScope(provider.accountScopeKey())
+            }
+        })
+        onDispose { registration.close() }
+    }
     LaunchedEffect(playback.state.mediaId, playback.state.playing) {
         collections.refresh()
         if (playback.state.playing && playback.state.source == "YouTube Music")

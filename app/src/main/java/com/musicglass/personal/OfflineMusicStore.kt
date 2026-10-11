@@ -33,7 +33,9 @@ internal class OfflineMusicStore private constructor(private val context:Context
     val smartEnabled get()=prefs.getBoolean("smart_enabled",false)
     val allowMobileData get()=prefs.getBoolean("allow_mobile_data",false)
     val budgetBytes get()=prefs.getLong("budget_bytes",4L*1024*1024*1024)
-    val currentScope get()=YouTubeMusicProvider.shared(context).accountScopeKey()?:"guest"
+    val currentScope get()=YouTubeMusicProvider.shared(context).storageScopeKey()
+    /** Every scope that owns rows; used to recognise an account's existing data without reading it. */
+    @Synchronized fun scopes():Set<String> = db.readableDatabase.rawQuery("SELECT DISTINCT scope FROM songs",null).use {c->buildSet {while(c.moveToNext()) add(c.getString(0))}}
     @Volatile var playbackBusy=false
     init {recover()}
     fun setSmart(enabled:Boolean) {prefs.edit().putBoolean("smart_enabled",enabled).apply();changed();if(!enabled) cancelAutomatic(currentScope);OfflineDownloadScheduler.schedule(context,immediate=enabled)}
@@ -47,6 +49,7 @@ internal class OfflineMusicStore private constructor(private val context:Context
     }
     private fun encode(t:ProviderTrack)=JSONObject().put("title",t.title).put("artist",t.artist).put("art",t.artworkUrl).put("artistId",t.artistId).put("albumId",t.albumId).put("album",t.album).put("live",t.isLive).put("music",t.isMusic).toString()
     @Synchronized fun remember(track:ProviderTrack,scope:String=currentScope) {
+        if(scope==UNVERIFIED_SCOPE_KEY) return // No stable account identity: nothing is saved or adopted.
         require(track.videoId.matches(Regex("[A-Za-z0-9_-]{11}")))
         db.writableDatabase.insertWithOnConflict("songs",null,ContentValues().apply {put("scope",scope);put("id",track.videoId);put("track",encode(track))},SQLiteDatabase.CONFLICT_IGNORE)
         db.writableDatabase.update("songs",ContentValues().apply {put("track",encode(track.copy(artworkUrl=validProviderArtworkUrl(track.artworkUrl)?:song(scope,track.videoId)?.track?.artworkUrl?:providerArtworkUrl(track.videoId))))},"scope=? AND id=?",arrayOf(scope,track.videoId));changed()
@@ -65,11 +68,13 @@ internal class OfflineMusicStore private constructor(private val context:Context
         db.writableDatabase.update("songs",values,"scope=? AND id=?",arrayOf(scope,id));changed()
     }
     @Synchronized fun enqueue(track:ProviderTrack,pinned:Boolean=true,scope:String=currentScope) {
+        if(scope==UNVERIFIED_SCOPE_KEY) return
         remember(track,scope);val old=song(scope,track.videoId)
         require(!track.isLive && track.isMusic) {"Only songs can be downloaded"}
         update(scope,track.videoId,"pinned" to if(pinned || old?.pinned==true) 1 else 0,"state" to "queued","excluded" to 0,"error" to "")
     }
     @Synchronized fun enqueueSongs(tracks:List<ProviderTrack>,scope:String=currentScope):Int {
+        if(scope==UNVERIFIED_SCOPE_KEY) return 0
         val songs=tracks.filter {!it.isLive && it.isMusic && it.videoId.matches(VIDEO_ID)}.distinctBy {it.videoId}
         songs.forEach {track->
             val old=song(scope,track.videoId)
