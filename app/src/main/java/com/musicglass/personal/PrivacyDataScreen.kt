@@ -83,7 +83,8 @@ internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult): St
  */
 @Composable internal fun PrivacyDataScreen(model: ShellModel, bottom: Dp, provider: YouTubeMusicProvider, collections: LocalCollections,
     playback: PlaybackGateway, onNotice: (String) -> Unit, process: AppContainer = AppContainer.get(LocalContext.current),
-    data: LocalDataController = process.localData) {
+    data: LocalDataController = process.localData, transfer: LocalDataTransfer = process.localTransfer,
+    documents: DocumentPicker = rememberSystemDocuments(), onSettingsImported: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val plays by process.history.revision.collectAsState()
@@ -103,8 +104,10 @@ internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult): St
     var failure by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(plays, queues, downloadsRevision, refresh, ownerKey) {
         val (found, waiting) = withContext(process.runtime.dispatchers.io) {
-            runCatching { process.stateReady.await(); data.summary(ownerKey) to process.legacyState.inventory() }
-                .getOrDefault(LocalDataSummary() to UnassignedInventory())
+            // A reading that was superseded must not answer: caught, its cancellation would show everything as empty.
+            try { process.stateReady.await(); data.summary(ownerKey) to process.legacyState.inventory() }
+            catch (error: kotlinx.coroutines.CancellationException) { throw error }
+            catch (error: Exception) { LocalDataSummary() to UnassignedInventory() }
         }
         summary = found; earlier = waiting
     }
@@ -194,6 +197,12 @@ internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult): St
                 SettingsLinkRow("Delete local data for this account", null, Icons.Rounded.DeleteOutline, "privacy_delete_account_data") {
                     failure = null; asking = PrivacyAction.DeleteAccountData
                 }
+            }
+        }
+        item {
+            LocalDataTransferSection(provider, ownerKey, owner, onNotice, transfer, documents) {
+                // What is on screen is read again from what the import stored.
+                collections.refresh(); retention = historyRetentionDays(context); CrossfadeSettings.get(context).reload(); onSettingsImported(); refresh++
             }
         }
         if (!earlier.empty) item {

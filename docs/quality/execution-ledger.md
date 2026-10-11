@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08-Q18 TODO
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08-Q18 TODO. Lettered package Q05A PASS locally with open items (see the Q05A section)
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -443,10 +443,96 @@ Not part of this package and left untouched: scripts/download_favourites.py and 
 Commit: 5ed2429 on local branch codex/riff-quality-m0 (not pushed).
 Next exact action: Q08, when the user says to start it.
 
+## Q05A
+### Q05A completion (11 October 2026)
+Status: PASS locally and on the disposable emulator. The system document picker and a transfer between two phones are BLOCKED (below).
+Source: e593d02cdf4dcf74434dda7c7c74994f1fbd31be dirty, digest prefix 5021be823261 (full value in the manifests). Evidence root: artifacts/quality/e593d02cdf4dcf74434dda7c7c74994f1fbd31be-dirty-5021be823261/
+User instruction on 11 October 2026: start Q05A (standing rule: complete every aspect of the phase). This authorizes Q05A only. Q05R, Q08A, Q10A, Q12A and Q15A were not started and remain unauthorized.
+
+Implemented (LocalDataTransfer.kt and LocalDataTransferScreen.kt new; PrivacyDataScreen.kt, AppContainer.kt, ShellScene.kt, LocalDataController.kt, LocalCollections.kt, SearchHistory.kt, OfflineMusicStore.kt, NotInterested.kt, AccountSession.kt, YouTubeMusicProvider.kt, AccessibilitySettings.kt, Crossfade.kt, LibraryHistoryScreens.kt):
+- Settings, Privacy and data has a section "Move to another phone" with Export local data and Import local data. Both use the system document picker. No storage permission is requested and the manifest is unchanged.
+- One file, JSON Lines, schema number 1: a header, one section per owner (device, signed-out listening, each account), an end mark. Limits: 16,384 characters per line, 128 MiB per file, 100,000 plays and 2,000 of every other kind per section.
+- Contents: device settings (13 keys, only those the user changed), items marked Not interested, tracks saved in the app, recently played, searches, listening history, and downloads as identifier, name, artist and album. The user chooses the owners and sees counts. Other accounts on the phone are offered but not preselected.
+- Not in the file: cookies, tokens, account identifiers or names, storage keys, stream addresses, audio, image bytes, diagnostics, the saved queue, and the three download settings. An account's section is named by the opaque digest of its identity. Artwork is written only as a plain address on a provider image host.
+- The export step states, before the picker opens, that the file is not encrypted, holds listening history and searches, and can be read by anyone who has it.
+- Export is assembled in private storage and copied to the chosen document only when complete.
+- Import copies the document to private storage up to the limit, reads it once for a preview, and reads it again to store. A file with no header, a higher schema number, no end mark or over the limit is refused whole. A record that cannot be read is skipped and counted.
+- Ownership: device and signed-out sections go to the same owner. An account's section goes to the account signed in now when the digest matches, also under an older storage key. Any other account's section is left out unless the user ticks it and confirms a second prompt; then it is added to the account signed in now. Without a verified account it cannot be imported. The destination is decided again when the import runs.
+- Import adds only. History is one transaction, deduplicated by event identifier, never beyond what the owner may keep, and without plays older than the history period. Saved tracks, searches, downloads and hidden items are one write each, with what is already there kept first. Downloads become rows with a name and nothing else. Nothing is queued, played or sent to the provider.
+- Cancel is honoured until the history transaction commits. A failure there changes nothing. A later kind that cannot be stored is named and the others are still stored; the same file can be imported again.
+- Runs on the IO dispatcher with progress, and shares the lock of the clear and delete actions.
+- Events: local_data action=export|import_open|import with counts and fixed words only.
+- Docs: docs/quality/local-export-import.md (new), docs/quality/privacy-controls.md, docs/privacy.md, CHANGELOG.
+
+Also changed, found while doing this:
+- PrivacyDataScreen (Q05) caught the cancellation of a superseded reading and showed it as empty counts. It could make the list lose a row for a moment. The cancellation is now passed on.
+- History replays an entry for audio on the phone only when the file's title matches as well as its number. After an import from another phone the number alone could name a different file.
+
+Verification:
+- Debug (q05a-debug-01/manifest.json): PASS_LOCAL. 547 JVM tests / 72 suites, zero failures, errors or skips (Q07: 520 / 71). Lint 0 errors, 84 warnings, 5 hints; no issue added or removed against q07-debug-01. APK SHA-256 d52fa119c9f7c4ce9996fd95c90e49a89eeabe470637cc6c2c38e63749be4da5.
+- New JVM tests: LocalDataTransferTest (22), five in PrivacyDataScreenTest.
+- Emulator (q05a-debug-fixture-01/manifest.json, log q05a-instrumentation-02.log, install-01.log): PASS_LOCAL, all five gates PASS. 18 tests, 114.435 s: the 16 of Q07 plus two LocalDataTransferDeviceTest. Test APK SHA-256 f2a0c5f0e3e08b3168522e8d5a5b28b4691d2e69511c8c119bf415c2417fa1aa. riff_q02_fixture, API 31, network disabled and confirmed unreachable, synthetic identities.
+- Release (q05a-release-01/manifest.json): PASS_LOCAL. junit {"suites": 72, "tests": 547, "failures": 0, "errors": 0, "skipped": 0}; lint {"Warning": 84, "Hint": 5}; no issue added or removed against q07-release-01. APK SHA-256 2b871fc1aafc36dd6eb0cc836bb5111e913f361e7cb06cdad2f78d23d4bf0d81. Shrunk unsigned release 26.51 MiB (Q07: 26.43). No device run of the release artifact.
+- Stress (stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only.
+- The evidence was taken before this ledger entry was written; the entry is the only change after it.
+
+Failed attempts, preserved or recorded:
+- q05a-instrumentation-01.log: 18 tests, 1 failure. RecoveryDeviceTest.aFileThatHasGoneIsAStorageFailureThatIsNotRetried (a Q07 test) timed out waiting for the fixture file to start playing. It was the first test after a cold boot of the emulator; q05a-logcat-01-excerpt.txt shows another app of the image in blocking garbage collection during those seconds. Run again on the same install without any change: 18 of 18 (q05a-instrumentation-02.log). The cause is inferred from the log, not proven. The failed run is not bound to a manifest.
+- First run of LocalDataTransferTest: 4 of 22 failed. Three were a defect: a section that is left out was counted once per record instead of once. Fixed in the code. One was the test's own seed, which put the storage key in a search text. Fixed in the test.
+- First run of the new screen tests: 1 failed. The test expected the export dialog to close when the user backs out of the picker; it stays open so the user can choose again or cancel. Test corrected.
+- One run of PrivacyDataScreenTest.earlierDataIsLinkedWhileSomethingIsWaiting failed with an index error in the list. Cause: the cancelled reading described above. It failed once in seven runs before the fix and passed in the three full runs after it (one local, the debug and the release evidence runs). Three runs do not prove a rare failure gone.
+- First lint run before evidence: 1 error (a literal byte-order mark in a source file) and 1 new warning (a cursor closed by use). Both corrected before the evidence runs.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| EXP01: export then import on a clean install restores settings, collections and history | PASS (JVM, clean stores); PASS on the emulator with the data deleted first, not a reinstall | LocalDataTransferTest.aCleanInstallMatchesTheSourceForEverythingIncluded; LocalDataTransferDeviceTest.exportThenImportAfterTheDataIsGoneRestoresItAndStartsNothing |
+| EXP01: no credentials or streams in the file (I01) | PASS | The file is scanned for session values, cookie and token words, stream hosts and parameters, storage keys, and any address that is not a plain image-host address |
+| EXP02: mismatched account is never silently adopted | PASS (JVM, Compose, emulator) | Left out by default; added only with the tick and the second prompt; not offered without a verified account; decided again at import |
+| EXP02: corrupt, truncated, newer and oversized files are rejected safely, existing data unchanged | PASS (JVM, emulator) | Refused whole with the reason; a file cut at every 97th byte; 25 kinds of unreadable record skipped one by one. Oversized is tested with a lowered limit and an endless stream; a real 128 MiB file was not used |
+| Duplicate import | PASS | The same file twice adds nothing; state identical |
+| Cancel mid-import | PASS | Cancel when every play is written but not committed: nothing changed. Cancel after the commit: the import finishes |
+| Full disk | PASS (injected failures) | While copying, while writing history, in a later kind, and during export. No real full disk was produced |
+| Import never deletes | PASS | Limits never push out what is there; a shorter history period is not applied; a later prune removes nothing |
+| Imported downloads are names only; nothing plays or reaches the provider (I12) | PASS (JVM, emulator) | Rows in state metadata, no files, download count 0; on the emulator the player stays empty and no queue is saved; the import code has no player and no network client |
+| Progress and cancellation off the main thread | PASS (JVM) for cancellation; progress is shown but its display was not asserted | |
+| System picker, no storage permission | BLOCKED for the picker itself | The manifest has no new permission. The picker is replaced in tests |
+
+Decisions (mine, not the user's):
+- JSON Lines, 128 MiB, 16,384 characters per line. The plan asks for one versioned file with a named schema and a size ceiling and leaves the rest open.
+- Items marked Not interested are included in the device section. The plan's list does not name them; without them a restored phone suggests again what the user hid.
+- A download carries its name, artist and album next to the identifier. The plan says durable IDs only; an identifier alone would give a row without a name.
+- Automatic downloads, download on mobile data and the download budget are not exported or imported.
+- Only the account signed in now can match a section. A section of another account known to this phone is treated as another account's.
+- A history period from the file is applied only when it is not shorter than the one in force.
+- Plays older than the history period in force are not imported, and never more than the owner may keep.
+- The second prompt adapts the Q04 wording to all data instead of repeating it word for word.
+- Other accounts are not preselected for export.
+- The saved queue is not exported.
+- A document that received no complete export is removed again by the app.
+- A track record in a signed-out section is refused, because signed-out listening saves no tracks.
+- NotInterestedStore's constructor and LocalDataController's lock became internal so that tests and the import can use them.
+
+Known limits:
+- The file is not encrypted and not signed.
+- Imported download names are not shown anywhere and nothing is downloaded.
+- The account digest is the same on every phone; someone who knows an account's identifier can check a section against it.
+- A large import holds the history database's write lock while it reads the file.
+- Leaving the screen during an export stops it and leaves the empty document.
+
+BLOCKED:
+- The system document picker end to end. Needs a person at a device, or UI automation of the picker, and for a phone explicit approval for installation. Rerun: install the debug APK; Settings, Privacy and data, Export local data; confirm the warning text, choose a folder, confirm the notice and that the file exists and opens as text; Import local data, pick the file, confirm the preview and the summary; start an export and cancel it in the progress dialog, confirm no file remains; confirm Android asked for no storage permission.
+- A file moved between two physical phones, with History replay of an entry for audio on the phone. Needs two authorized devices.
+- Carried from Q04 to Q07: upgrade over a real earlier install; privacy actions on a phone; the Q06 and Q07 phone and provider checks; phone-only checks compiled only; NativeIslandInstrumentation not ported.
+
+Device state: emulator shut down with adb emu kill, adb server stopped, Gradle daemons stopped once before the stress build. Data created and removed was synthetic fixture data on the emulator only. No physical device, real account, provider request, publication, push or user-data deletion. Deleted build outputs were regenerable files under app/build only.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q08, when the user says to start it.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
-New packages, all Status: TODO, implementation not yet authorized (the 9 October authorization covers Q03-Q18 only):
-- Q05A local export/import. Dependencies: Q03, Q04, Q05.
+New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
+- Q05A local export/import. Dependencies: Q03, Q04, Q05. Authorized by the user on 11 October 2026 ("start Q05A"). Status: PASS locally with open items (see the Q05A section).
 - Q05R interim release R1. Dependencies: Q00-Q05 PASS.
 - Q08A loudness normalization. Dependencies: Q08.
 - Q10A provider canary and response runbook. Dependencies: Q10.

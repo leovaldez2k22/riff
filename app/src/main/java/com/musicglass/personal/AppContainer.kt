@@ -133,6 +133,11 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
         LocalDataController(app, history, snapshots, { OfflineMusicStore.get(app) }, { SearchHistory.get(app) },
             runtime.dispatchers.io, runtime.clocks::wallTimeMillis, eventLog::append)
     }
+    val localTransfer: LocalDataTransfer by lazy {
+        LocalDataTransfer(app, libraryState, history, { OfflineMusicStore.get(app) }, { SearchHistory.get(app) }, { NotInterestedStore.get(app) },
+            { CurrentOwner(provider.storageScopeKey(), provider.accountScopeDigests()) }, runtime.dispatchers.io,
+            runtime.clocks::wallTimeMillis, localData.gate, eventLog::append)
+    }
     private val stateScope = CoroutineScope(SupervisorJob() + runtime.dispatchers.io)
 
     /**

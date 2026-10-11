@@ -6,6 +6,8 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ComposeTimeoutException
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -122,9 +124,20 @@ class PrivacyDataScreenTest {
     private fun tap(tag: String) { awaitTag(tag); compose.onNodeWithTag(tag).performSemanticsAction(SemanticsActions.OnClick) }
     private fun awaitNotice(text: String) { await("notice \"$text\", have $notices") { text in notices } }
 
+    /** Stands in for the system picker: [content] is the document the user would choose to import. */
+    private class FakeDocuments(var content: ByteArray? = null) {
+        val written = java.io.ByteArrayOutputStream(); var created: String? = null; var deleted = 0; var backOut = false
+        private fun document() = PickedDocument({ content!!.inputStream() }, { written }, { deleted++ })
+        val picker = DocumentPicker({ name, answer -> created = name; answer(if (backOut) null else document()) },
+            { answer -> answer(if (backOut || content == null) null else document()) })
+    }
+    private val documents = FakeDocuments()
+    private var settingsReloads = 0
+
     private fun show(process: AppContainer, model: ShellModel = ShellModel(), data: LocalDataController = process.localData): LocalCollections {
         val collections = LocalCollections(context, process.provider.accountScopeKey())
-        compose.setContent { PrivacyDataScreen(model, 0.dp, process.provider, collections, gateway, { notices += it }, process, data) }
+        compose.setContent { PrivacyDataScreen(model, 0.dp, process.provider, collections, gateway, { notices += it }, process, data,
+            documents = documents.picker, onSettingsImported = { settingsReloads++ }) }
         return collections
     }
 
@@ -312,5 +325,114 @@ class PrivacyDataScreenTest {
         tap("privacy_retention_keep")
         awaitNotice("History is kept until you clear it")
         assertNull(historyRetentionDays(context)); assertEquals(1, process.history.count(owner))
+    }
+
+    // ---- export and import (Q05A)
+
+    private fun exported(process: AppContainer, vararg owners: String): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        assertTrue(runBlocking { process.localTransfer.export(owners.toSet(), { out }) } is ExportOutcome.Done)
+        return out.toByteArray()
+    }
+    private fun line(json: String) = json + "\n"
+    private fun otherAccountFile() = (line("""{"riff":"local-data","schema":1,"exported_at":1}""") + line("""{"t":"owner","kind":"provider","id":"s2_${"c".repeat(64)}"}""") +
+        line("""{"t":"play","e":"x1","id":"yt:fixtureA001","title":"Song","artist":"Artist","at":1700000000000}""") +
+        line("""{"t":"search","q":"from elsewhere"}""") + line("""{"t":"end","records":2}""")).toByteArray()
+
+    @Test fun exportSaysWhatTheFileHoldsAndThatItIsNotEncryptedBeforeAnythingIsWritten() {
+        val process = start(); val owner = process.provider.storageScopeKey()
+        process.seed(owner); process.play(other); process.play(DEVICE_LOCAL_SCOPE_KEY)
+        show(process)
+        tap("privacy_export")
+        awaitTag("export_warning"); assertTrue(shown(EXPORT_WARNING))
+        awaitTag("export_owner_device_active"); awaitTag("export_owner_provider_active"); awaitTag("export_owner_provider_1")
+        assertTrue(onScreen(), shown("1 saved track, 2 searches, 3 plays, 2 download names"))
+        assertNull("nothing is created before the user confirms", documents.created)
+        tap("export_cancel"); awaitGone("export_cancel")
+        assertNull(documents.created)
+        // Backing out of the picker writes nothing either.
+        documents.backOut = true
+        tap("privacy_export"); tap("export_confirm"); compose.waitForIdle()
+        assertEquals(0, documents.written.size()); assertTrue(notices.isEmpty())
+        tap("export_cancel"); awaitGone("export_cancel")
+        documents.backOut = false
+        tap("privacy_export"); tap("export_confirm")
+        await("the export notice, have $notices") { notices.any { it.endsWith("items exported") } }
+        assertTrue(documents.created!!.matches(Regex("riff-local-data-\\d{4}-\\d{2}-\\d{2}\\.jsonl")))
+        val text = documents.written.toString("UTF-8")
+        assertTrue(text.startsWith("{\"riff\":\"local-data\",\"schema\":1,")); assertTrue(text.trimEnd().lines().last().contains("\"end\""))
+        // The other account was offered but not preselected.
+        assertEquals(2, text.lines().count { it.contains("\"owner\"") })
+        assertEquals(0, documents.deleted); assertTrue(playbackCalls.isEmpty())
+    }
+
+    @Test fun importShowsWhatWillBeAddedAndThenWhatWas() {
+        val process = start(); val owner = process.provider.storageScopeKey()
+        process.seed(owner); process.play(DEVICE_LOCAL_SCOPE_KEY)
+        context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE).edit().putInt("seconds", 9).commit()
+        documents.content = exported(process, DEVICE_LOCAL_SCOPE_KEY, owner)
+        runBlocking { process.localData.clearHistory(owner); process.localData.clearSearches(owner) }
+        val collections = show(process)
+        tap("privacy_import")
+        awaitTag("import_preview")
+        assertTrue(onScreen(), shown("1 setting, 1 play")); assertTrue(onScreen(), shown("1 saved track, 2 searches, 3 plays, 2 download names. The same account as the one signed in."))
+        assertEquals("nothing is imported before the user confirms", 0, process.history.count(owner))
+        tap("import_cancel"); awaitGone("import_cancel")
+        assertEquals(0, process.history.count(owner)); assertEquals(0, summary(process, owner).searches)
+        tap("privacy_import"); tap("import_confirm")
+        awaitText("Import finished"); awaitTag("transfer_result")
+        assertTrue(onScreen(), shown("Added: 1 setting, 2 searches, 3 plays."))
+        assertTrue(onScreen(), shown("4 items already on this phone were left as they are."))
+        tap("transfer_close"); awaitGone("transfer_close")
+        assertEquals(3, process.history.count(owner)); assertEquals(2, summary(process, owner).searches); assertEquals(1, collections.onlineFavorites.size)
+        assertEquals(1, settingsReloads)
+        awaitText("3 plays")
+        assertTrue(playbackCalls.isEmpty())
+    }
+
+    @Test fun anotherAccountsDataIsAddedOnlyAfterItsOwnConfirmation() {
+        val process = start(); val owner = process.provider.storageScopeKey()
+        documents.content = otherAccountFile()
+        show(process)
+        tap("privacy_import"); awaitTag("import_preview")
+        awaitText("From another account")
+        compose.onNodeWithTag("import_confirm").assertIsNotEnabled()
+        tap("import_adopt_0")
+        compose.waitForIdle(); compose.onNodeWithTag("import_confirm").assertIsEnabled()
+        tap("import_confirm")
+        awaitTag("import_adopt_prompt")
+        assertTrue(onScreen(), shown("They are added to the data of this account on this phone. This part of the file comes from another account, so its plays, " +
+            "searches and saved tracks are included, and they cannot be separated afterwards."))
+        assertEquals(0, process.history.count(owner))
+        tap("import_adopt_cancel"); awaitTag("import_preview")
+        assertEquals(0, process.history.count(owner))
+        tap("import_confirm"); tap("import_adopt_confirm")
+        awaitText("Import finished")
+        assertEquals(1, process.history.count(owner)); assertEquals(1, summary(process, owner).searches)
+    }
+
+    @Test fun withoutAVerifiedAccountAnotherAccountsDataIsNotOffered() {
+        val process = start(syncId = null)
+        documents.content = otherAccountFile()
+        show(process)
+        tap("privacy_import"); awaitTag("import_preview")
+        awaitText("From an account")
+        assertFalse(tagged("import_adopt_0")); compose.onNodeWithTag("import_confirm").assertIsNotEnabled()
+    }
+
+    @Test fun aFileThatCannotBeUsedSaysWhyAndChangesNothing() {
+        val process = start(); val owner = process.provider.storageScopeKey()
+        process.seed(owner)
+        val before = summary(process, owner)
+        show(process)
+        for ((content, reason) in listOf("holiday photos".toByteArray() to RejectReason.NotRiff,
+            (line("""{"riff":"local-data","schema":7}""") + line("""{"t":"end"}""")).toByteArray() to RejectReason.Newer,
+            (line("""{"riff":"local-data","schema":1}""") + line("""{"t":"owner","kind":"guest"}""")).toByteArray() to RejectReason.Truncated)) {
+            documents.content = content
+            tap("privacy_import")
+            awaitText("File not imported"); assertTrue(onScreen(), shown(rejectText(reason)))
+            tap("transfer_close"); awaitGone("transfer_close")
+        }
+        assertEquals(before, summary(process, owner)); assertTrue(notices.isEmpty())
     }
 }

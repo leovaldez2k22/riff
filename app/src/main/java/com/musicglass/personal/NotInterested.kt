@@ -47,7 +47,7 @@ internal fun decodeNotInterested(json: String?, legacyKeys: String?): List<NotIn
 }
 
 /** Songs and collections the listener marked "Not interested". Hidden from Home and never added by autoplay. */
-internal class NotInterestedStore private constructor(context: Context) {
+internal class NotInterestedStore internal constructor(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("not_interested", Context.MODE_PRIVATE)
     var entries by mutableStateOf(load()); private set
     /** Reading it subscribes Compose to changes, like [entries]. */
@@ -59,6 +59,20 @@ internal class NotInterestedStore private constructor(context: Context) {
     operator fun contains(key: String?) = key != null && key in keys
     fun add(entry: NotInterestedEntry) = synchronized(this) { save(addNotInterested(load(), entry)) }
     fun remove(key: String) = synchronized(this) { save(load().filterNot { it.key == key }) }
+    /**
+     * Adds entries from an imported file. Entries already here are kept as they are and none is
+     * dropped to make room. Returns how many were added, or null when nothing was stored.
+     */
+    @android.annotation.SuppressLint("UseKtx", "ApplySharedPref") // The result of commit() is reported.
+    fun addAll(imported: List<NotInterestedEntry>, limit: Int = 2000): Int? = synchronized(this) {
+        val kept = load(); val known = kept.mapTo(HashSet()) { it.key }
+        val fresh = imported.filter { known.add(it.key) }.takeLast((limit - kept.size).coerceAtLeast(0))
+        if (fresh.isEmpty()) return 0
+        val next = (fresh + kept).sortedBy { it.at }
+        if (!prefs.edit().putString("entries", encodeNotInterested(next)).remove("keys").commit()) return null
+        entries = next; keys = next.mapTo(HashSet()) { it.key }
+        fresh.size
+    }
     companion object {
         @Volatile private var instance: NotInterestedStore? = null
         fun get(context: Context) = instance ?: synchronized(this) { instance ?: NotInterestedStore(context).also { instance = it } }

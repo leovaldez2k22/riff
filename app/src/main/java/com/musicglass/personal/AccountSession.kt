@@ -68,6 +68,22 @@ internal class PreferenceScopeAliasStore(context: Context) : ScopeAliasStore {
     }
 }
 
+/**
+ * The digest an account's data is exported under: the one derived from its identity when this phone
+ * recorded which account [key] belongs to, otherwise [key] itself. Both are opaque.
+ */
+internal fun exportScopeDigest(context: Context, key: String): String {
+    if (key.startsWith("s2_")) return key
+    val prefs = context.applicationContext.getSharedPreferences("account_scopes", Context.MODE_PRIVATE)
+    return prefs.all.entries.firstNotNullOfOrNull { (name, value) ->
+        when {
+            name.startsWith("primary_") && value == key -> name.removePrefix("primary_")
+            name.startsWith("aliases_") && (value as? Set<*>)?.contains(key) == true -> name.removePrefix("aliases_")
+            else -> null
+        }
+    } ?: key
+}
+
 private val COLLECTION_SCOPE_KEY = Regex("account_(.+)_online_(?:favorites|playlist|history)")
 
 /** Every scope key that already owns saved tracks or download rows. Keys only; no contents are read. */

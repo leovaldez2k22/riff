@@ -30,7 +30,8 @@ internal class LocalDataController(context: Context, private val history: Histor
     private val downloads: () -> OfflineMusicStore, private val searches: () -> SearchHistory, private val io: CoroutineDispatcher,
     private val wallTime: () -> Long, private val event: (String) -> Unit = {}) {
     private val app = context.applicationContext
-    private val gate = Mutex()
+    /** Shared with export and import, so they never run alongside a clear or a delete. */
+    internal val gate = Mutex()
     private val meta get() = app.getSharedPreferences("library_state_meta", Context.MODE_PRIVATE)
 
     private fun owned(owner: String) = owner != UNVERIFIED_SCOPE_KEY && owner != DEVICE_LOCAL_SCOPE_KEY

@@ -75,7 +75,8 @@ import kotlinx.coroutines.withContext
         if (track != null) { scope.launch { playRealTrack(provider, playback, track, onNotice) }; return }
         val id = entry.mediaId.removePrefix("local:").toLongOrNull() ?: return
         scope.launch {
-            val local = LocalAudioRepository(context).list().getOrNull()?.firstOrNull { it.id == id }
+            // The name must match too: after an import from another phone the same number can be a different file.
+            val local = LocalAudioRepository(context).list().getOrNull()?.firstOrNull { it.id == id && it.title.take(180) == entry.title }
             if (local != null) playback.playLocal(local) else onNotice("This file is no longer on your phone")
         }
     }

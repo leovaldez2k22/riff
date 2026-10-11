@@ -152,7 +152,10 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
             "listening_history" -> ListeningHistoryScreen(model,totalBottomPadding,provider,playback,onNotice,onCleared=collections::refresh)
             "not_interested" -> NotInterestedScreen(model,totalBottomPadding,onNotice)
             "earlier_data" -> EarlierDataScreen(model,totalBottomPadding,provider,playback,onNotice)
-            "privacy_data" -> PrivacyDataScreen(model,totalBottomPadding,provider,collections,playback,onNotice)
+            "privacy_data" -> {
+                val accessibility=LocalAccessibilitySettings.current
+                PrivacyDataScreen(model,totalBottomPadding,provider,collections,playback,onNotice,onSettingsImported=accessibility::reload)
+            }
             "remote_library" -> ProviderCollectionScreen(model, totalBottomPadding, provider, playback, onNotice, liked = true)
             "collection" -> CatalogDetailScreen(model,totalBottomPadding,provider,playback,onNotice)
             else -> androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {

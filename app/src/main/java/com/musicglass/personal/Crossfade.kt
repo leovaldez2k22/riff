@@ -70,6 +70,8 @@ internal class CrossfadeSettings(context: Context) {
     var seconds by mutableIntStateOf(crossfadeSeconds(prefs.getInt("seconds", 6))); private set
     fun updateEnabled(value: Boolean) { enabled = value; prefs.edit { putBoolean("enabled", value) } }
     fun updateSeconds(value: Int) { seconds = crossfadeSeconds(value); prefs.edit { putInt("seconds", seconds) } }
+    /** Reads the stored values again, after an import wrote them. */
+    fun reload() { enabled = prefs.getBoolean("enabled", false); seconds = crossfadeSeconds(prefs.getInt("seconds", 6)) }
 }
 
 /** Equal-power curves keep the blend about as loud as either song: (outgoing, incoming). */

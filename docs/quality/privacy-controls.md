@@ -18,6 +18,7 @@ Each row names the owner it acts on (the account's name, **Signed-out listening*
 | Delete downloads | The active owner | Its downloaded songs, artwork and lyrics, and its waiting transfers |
 | Delete local data for this account | The active owner | Its plays, searches, saved queue, tracks saved in the app and downloads |
 | Earlier data | Data from builds before per-account storage | See [state and migration](state-and-migration.md) |
+| Export local data, Import local data | The owners the user chooses | Nothing. See [export and import](local-export-import.md) |
 
 Never removed by any of these: appearance, audio and history-saving settings; the sign-in (signing out is a separate action on the Account screen); audio files in the phone's own library; another owner's data; anything in the YouTube Music account.
 

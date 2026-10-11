@@ -37,4 +37,6 @@ Voice search uses Android's configured speech-recognition service when invoked. 
 | Foreground media playback/data sync | Background audio and download work |
 | Receive boot completed | Re-establish scheduled app work after restart |
 
+Settings → Privacy and data → Export local data writes settings, tracks saved in Riff, searches, listening history and the names of downloaded songs to one file in a place you choose through the system picker; Riff requests no storage permission for it. The file is not encrypted: anyone who has it can read your listening history and searches. It holds no passwords, sign-in data or audio. Import local data reads such a file, adds to what is on the phone and removes nothing.
+
 App data and provider-account data are separate. Removing a local download does not delete a provider-library song. To manage Google-held account data, use Google's account controls. For app questions, use [GitHub Issues](https://github.com/leovaldez2k20/riff/issues/new/choose); for security concerns, follow [SECURITY](../SECURITY.md).

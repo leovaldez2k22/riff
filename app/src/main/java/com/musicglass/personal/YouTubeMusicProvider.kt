@@ -393,6 +393,16 @@ internal class YouTubeMusicProvider(context: Context,
         return storage.primaryKey
     }
 
+    /**
+     * Every opaque key this verified account's data can be filed under: the digest of its identity,
+     * its storage key and its older keys. Empty when signed out or unverified.
+     */
+    fun accountScopeDigests(): Set<String> {
+        val primary = accountScopeKey() ?: return emptySet()
+        val storage = resolvedStorage?.second ?: return setOf(primary)
+        return setOf(storage.scope.opaqueId, storage.primaryKey) + storage.retainedAliases
+    }
+
     /** Bumped when background reconciliation changed what this account's stores hold. */
     var storageRevision by mutableIntStateOf(0)
         private set

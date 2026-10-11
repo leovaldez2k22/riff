@@ -116,6 +116,35 @@ internal class SearchHistory internal constructor(context:Context,private val di
         return merged.second
     }
 
+    /** Every owner that has stored searches. */
+    suspend fun owners():Set<String> =withContext(disk) {prefs.all.keys.mapNotNullTo(mutableSetOf()) {key->key.removePrefix("queries_").takeIf {it!=key && it.isNotEmpty()}}}
+
+    /** [ownerKey]'s stored searches, newest first. For the export. */
+    suspend fun stored(ownerKey:String):List<String> =withContext(disk) {readQueries(prefs.getString(searchKey(ownerKey),null))}
+
+    /**
+     * Adds searches from an imported file, by owner: each owner's own stay first and none is removed.
+     * One write for every owner. Returns how many were added, or null when nothing was stored.
+     */
+    @SuppressLint("UseKtx","ApplySharedPref")
+    suspend fun importEntries(additions:Map<String,List<String>>):Int? {
+        val merged=withContext(disk) {
+            val editor=prefs.edit();val lists=mutableMapOf<String,List<String>>();var added=0
+            for((ownerKey,queries) in additions) {
+                if(ownerKey==UNVERIFIED_SCOPE_KEY || ownerKey==DEVICE_LOCAL_SCOPE_KEY) continue
+                val own=readQueries(prefs.getString(searchKey(ownerKey),null));var combined=own
+                for(query in queries) {
+                    val clean=query.trim().replace(Regex("\\s+")," ").take(160)
+                    if(clean.isNotBlank() && combined.size<SEARCH_HISTORY_LIMIT && combined.none {it.equals(clean,true)}) combined=combined+clean
+                }
+                if(combined.size!=own.size) {editor.putString(searchKey(ownerKey),JSONArray(combined).toString());lists[ownerKey]=combined;added+=combined.size-own.size}
+            }
+            if(editor.commit()) lists to added else null
+        } ?: return null
+        merged.first[owner]?.takeIf {loaded}?.let {list->entries=(entries+list.filterNot {old->entries.any {it.equals(old,true)}}).take(SEARCH_HISTORY_LIMIT)}
+        return merged.second
+    }
+
     @SuppressLint("UseKtx","ApplySharedPref")
     suspend fun deleteLegacy():Boolean=withContext(disk) {prefs.edit().remove(LEGACY_SEARCH_KEY).commit()}
 }

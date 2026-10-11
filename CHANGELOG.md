@@ -28,6 +28,9 @@
 - Changed: **Retry** keeps the queue and the position. Before, it replaced the queue with that one song.
 - Play in the notification, on a headset or on a widget now retries a song that failed. Before, it did nothing until the app was opened.
 - A recommendation queue passes over at most three unavailable songs in a row. Albums, playlists and songs you queued stop at the song that failed.
+- New **Settings → Privacy and data → Export local data** and **Import local data**: settings, tracks saved in Riff, searches, listening history and the names of downloaded songs, as one file you choose the place of. The file is not encrypted and holds no sign-in data or audio. Import adds to what is on the phone and removes nothing; another account's data is added only if you confirm it. Downloads are restored as names only and must be downloaded again.
+- Changed: History replays an entry for audio stored on the phone only when the file's title still matches. Before, the entry could start a different file that had taken the same number.
+- Fixed: Privacy and data could briefly show empty counts when two of its readings overlapped.
 
 ### Historical October 6 update
 

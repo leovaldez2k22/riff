@@ -141,6 +141,30 @@ internal class OfflineMusicStore private constructor(private val context:Context
         // Preserve listening metadata and exclude removed songs from automatic re-downloads.
         rows(scope).filter {it.state!="metadata" || it.pinned || it.bytes>0}.forEach {remove(scope,it.track.videoId)}
     }
+    /** The songs [downloadCount] counts, as identifiers and names only. For the export. */
+    fun downloadList(scope:String):List<ProviderTrack> =rows(scope).filter {it.state!="metadata" || it.pinned || it.bytes>0}.map {it.track}
+    /**
+     * Notes songs from an imported download list, by owner, as rows that hold a name and nothing else:
+     * nothing is queued or fetched, and a song already listed is left exactly as it is. One
+     * transaction for every owner. Returns how many rows were added.
+     */
+    @Synchronized fun importMetadata(additions:Map<String,List<ProviderTrack>>):Int {
+        var added=0
+        val database=db.writableDatabase;database.beginTransaction()
+        try {
+            for((scope,tracks) in additions) {
+                if(scope==UNVERIFIED_SCOPE_KEY) continue
+                for(track in tracks) {
+                    if(!track.videoId.matches(VIDEO_ID)) continue
+                    val safe=track.copy(artworkUrl=validProviderArtworkUrl(track.artworkUrl)?:providerArtworkUrl(track.videoId))
+                    if(database.insertWithOnConflict("songs",null,ContentValues().apply {put("scope",scope);put("id",track.videoId);put("track",encode(safe))},SQLiteDatabase.CONFLICT_IGNORE)!=-1L) added++
+                }
+            }
+            database.setTransactionSuccessful()
+        } finally {database.endTransaction()}
+        if(added>0) changed()
+        return added
+    }
     /** Songs that [removeAll] would remove: downloaded, downloading or waiting. */
     fun downloadCount(scope:String):Int=rows(scope).count {it.state!="metadata" || it.pinned || it.bytes>0}
     /** As [removeAll], but one song that cannot be removed does not stop the rest. Returns removed to still present. */

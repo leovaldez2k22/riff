@@ -36,6 +36,51 @@ internal fun mergeCollectionScope(context: Context, from: String, to: String): B
 }
 
 private val SCOPED_COLLECTIONS = listOf("online_favorites", "online_playlist", "online_history")
+/** How many tracks each saved list holds at most. */
+internal val COLLECTION_LIMITS = mapOf("online_favorites" to 200, "online_playlist" to 200, "online_history" to 50)
+
+/** One saved list of [owner], as stored. For the export; nothing is bound or changed. */
+internal fun storedCollection(context: Context, owner: String, name: String): List<ProviderTrack> = runCatching {
+    val array = JSONArray(context.applicationContext.getSharedPreferences("music_collections", Context.MODE_PRIVATE)
+        .getString("account_${owner}_$name", "[]"))
+    (0 until array.length()).mapNotNull { index ->
+        val item = array.optJSONObject(index) ?: return@mapNotNull null
+        val id = item.optString("id")
+        if (!id.matches(Regex("[A-Za-z0-9_-]{11}"))) return@mapNotNull null
+        ProviderTrack(id, item.optString("title"), item.optString("artist"), item.optString("artwork").takeIf { it.startsWith("https://") },
+            isLive = item.optBoolean("live", false), isMusic = item.optBoolean("music", true))
+    }
+}.getOrDefault(emptyList())
+
+/** What [addToCollections] did: tracks added to favorites and the playlist, added to recents, already there, and left out of a full list. */
+internal data class CollectionImport(val saved: Int, val recents: Int, val present: Int, val full: Int)
+
+/**
+ * Adds tracks to saved lists, by owner and list name. What is already saved stays first and is never
+ * removed or reordered; a track already in a list is not added twice; a full list takes no more.
+ * One write for every owner: null means it was not stored and nothing changed.
+ */
+@android.annotation.SuppressLint("UseKtx") // The result of commit() is reported; the KTX form discards it.
+internal fun addToCollections(context: Context, additions: Map<String, Map<String, List<ProviderTrack>>>): CollectionImport? {
+    val prefs = context.applicationContext.getSharedPreferences("music_collections", Context.MODE_PRIVATE)
+    val editor = prefs.edit(); var saved = 0; var recents = 0; var present = 0; var full = 0
+    for ((owner, lists) in additions) for ((name, tracks) in lists) {
+        val limit = COLLECTION_LIMITS[name] ?: continue
+        if (owner == UNVERIFIED_SCOPE_KEY || tracks.isEmpty()) continue
+        val key = "account_${owner}_$name"
+        val kept = runCatching { JSONArray(prefs.getString(key, "[]")) }.getOrDefault(JSONArray())
+        val seen = (0 until kept.length()).mapNotNullTo(mutableSetOf()) { kept.optJSONObject(it)?.optString("id") }
+        val before = kept.length()
+        for (track in tracks) when {
+            !seen.add(track.videoId) -> present++
+            kept.length() >= limit -> full++
+            else -> { if (name == "online_history") recents++ else saved++; kept.put(JSONObject().put("id", track.videoId).put("title", track.title.take(180))
+                .put("artist", track.artist.take(180)).put("artwork", track.artworkUrl).put("live", track.isLive).put("music", track.isMusic)) }
+        }
+        if (kept.length() != before) editor.putString(key, kept.toString())
+    }
+    return if (editor.commit()) CollectionImport(saved, recents, present, full) else null
+}
 
 private fun storedCount(prefs: android.content.SharedPreferences, key: String): Int =
     runCatching { JSONArray(prefs.getString(key, "[]")).length() }.getOrDefault(0)
