@@ -62,9 +62,10 @@ class ServiceStopDiagnosticsTest {
         val lines = listOf("1 service_create", "2 http_rejected code=403 host=rr1---sn.googlevideo.com kind=segment",
             "3 oops https://rr1---sn.googlevideo.com/videoplayback?sig=abc&pot=xyz", "4 leaked pot=MnQx sig=AB12 SAPISID=zz __Secure-3PSIDTS=qq")
         val report = playbackDiagnosticsReport(lines, "0.9.0-rc18", 36, "vivo I2217")
-        assertTrue(report, report.startsWith("Riff 0.9.0-rc18, Android SDK 36, vivo I2217\n4 playback events"))
+        assertTrue(report, report.startsWith("Riff 0.9.0-rc18, Android SDK 36, vivo I2217\nBuild revision="))
         for (secret in listOf("videoplayback", "abc", "xyz", "MnQx", "AB12", "=zz", "=qq")) assertFalse(secret, report.contains(secret))
         assertTrue(report.contains("pot=<redacted>")); assertTrue(report.contains("1 service_create"))
-        assertEquals(EVENT_LOG_LINES + 2, playbackDiagnosticsReport(List(500) { "$it e" }, "v", 36, "d").lines().size)
+        assertTrue(report.contains(BuildConfig.SOURCE_REVISION)); assertTrue(report.contains("\n4 playback events"))
+        assertEquals(EVENT_LOG_LINES + 3, playbackDiagnosticsReport(List(500) { "$it e" }, "v", 36, "d").lines().size)
     }
 }

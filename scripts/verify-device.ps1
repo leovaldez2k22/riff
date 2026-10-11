@@ -1,5 +1,7 @@
 param(
     [string]$Milestone = 'M00',
+    [switch]$AllowInstall,
+    [string]$Python = 'python',
     [string]$Serial,
     [string]$PackageId = 'com.musicglass.personal',
     [string]$LauncherActivity = 'com.musicglass.personal.MainActivity',
@@ -8,6 +10,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if (-not $AllowInstall) { throw 'Installation requires -AllowInstall and an authorized test device/profile.' }
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $sdk = Join-Path $project '.toolchain\sdk'
 $adb = Join-Path $sdk 'platform-tools\adb.exe'
@@ -50,14 +53,17 @@ New-Item -ItemType Directory -Force (Join-Path $out 'screenshots'),(Join-Path $o
 Push-Location $project
 try {
     if ($BuildVariant -eq 'Release') {
-        & (Join-Path $project 'scripts\build-release-candidate.ps1') -SkipClean 2>&1 |
+        & (Join-Path $project 'scripts\build-release-candidate.ps1') -SkipClean -Python $Python 2>&1 |
             Tee-Object -FilePath (Join-Path $out 'logs\build.txt')
     } else {
-        & $gradle ':app:testDebugUnitTest' ':app:lintDebug' ':app:assembleDebug' '--console=plain' 2>&1 |
+        & $Python (Join-Path $PSScriptRoot 'quality/collect_results.py') --variant debug 2>&1 |
             Tee-Object -FilePath (Join-Path $out 'logs\build.txt')
     }
     if ($LASTEXITCODE -ne 0) { throw 'Build or lint failed. See logs/build.txt.' }
     if (-not (Test-Path -LiteralPath $apk)) { throw "Expected APK missing: $apk" }
+    $identityJson = & $Python (Join-Path $PSScriptRoot 'quality/collect_results.py') --inspect-apk $apk
+    if ($LASTEXITCODE -ne 0) { throw 'APK build identity unavailable.' }
+    $buildIdentity = $identityJson | ConvertFrom-Json
     $hash = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash
     $revision = if (Get-Command git -ErrorAction SilentlyContinue) { git rev-parse HEAD 2>$null } else { 'NO_GIT' }
     if ($LASTEXITCODE -ne 0) { $revision = 'NO_GIT' }
@@ -72,7 +78,7 @@ try {
         density = ((& $adb -s $Serial shell wm density) -join ' ').Trim()
     }
     $deviceInfo | ConvertTo-Json | Set-Content (Join-Path $out 'device.json')
-    [ordered]@{ milestone=$Milestone; apkSha256=$hash; revision=$revision; package=$PackageId; variant=$BuildVariant } |
+    [ordered]@{ milestone=$Milestone; apkSha256=$hash; revision=$revision; package=$PackageId; variant=$BuildVariant; identity=$buildIdentity } |
         ConvertTo-Json | Set-Content (Join-Path $out 'build.json')
 
     & $adb -s $Serial install -r $apk | Tee-Object -FilePath (Join-Path $out 'logs\install.txt')

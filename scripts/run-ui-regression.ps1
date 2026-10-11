@@ -1,40 +1,61 @@
-# Device UI regression suite (plan W7.4): builds the stress app and its test APK, installs both
-# and runs UiRegressionInstrumentation on the connected phone. The stress build is signed with the
-# release key, so it installs over a release install without wiping data.
-#
-#   .\scripts\run-ui-regression.ps1            # build, install, run
-#   .\scripts\run-ui-regression.ps1 -NoBuild   # reuse the last build
-#
-# The suite never starts playback. It changes font size and rotation lock and restores both;
-# keep the phone unlocked and screen-pinning prompts off for an unattended run.
-param([switch]$NoBuild, [string]$Serial)
-
+# Builds and pairs stress APKs, then records strict instrumentation evidence.
+# Installation requires explicit -AllowInstall. Personal devices/accounts are not fixtures.
+param(
+    [switch]$NoBuild,
+    [switch]$AllowInstall,
+    [string]$Serial,
+    [string]$Python = 'python',
+    [ValidateSet('R','L','emulator','unclassified')][string]$DeviceTier = 'unclassified'
+)
 $ErrorActionPreference = 'Stop'
+if (-not $AllowInstall) { throw 'Installation requires -AllowInstall and an authorized test device/profile.' }
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$adb = Join-Path $project '.toolchain\sdk\platform-tools\adb.exe'
-$adbArgs = if ($Serial) { @('-s', $Serial) } else { @() }
+$collector = Join-Path $PSScriptRoot 'quality/collect_results.py'
+$adb = Join-Path $project '.toolchain/sdk/platform-tools/adb.exe'
+$devices = & $adb devices
+if ($LASTEXITCODE -ne 0) { throw 'adb devices failed.' }
+$ready = @($devices | Select-String '^([^\s]+)\s+device$')
+if (-not $Serial) {
+    if ($ready.Count -ne 1) { throw 'Specify -Serial when exactly one authorized device is not available.' }
+    $Serial = $ready[0].Matches[0].Groups[1].Value
+}
+if (-not ($ready | Where-Object { $_.Matches[0].Groups[1].Value -eq $Serial })) { throw 'Selected device is not authorized/ready.' }
+$adbArgs = @('-s', $Serial)
 
 if (-not $NoBuild) {
-    $env:ANDROID_HOME = Join-Path $project '.toolchain\sdk'
-    $env:GRADLE_USER_HOME = Join-Path $project '.toolchain\gradle-user-home'
-    $jdk = Join-Path $project '.toolchain\jdk-21.0.12.1+1'
+    $env:ANDROID_HOME = Join-Path $project '.toolchain/sdk'
+    $env:GRADLE_USER_HOME = Join-Path $project '.toolchain/gradle-user-home'
+    $jdk = Join-Path $project '.toolchain/jdk-21.0.12.1+1'
     if (Test-Path -LiteralPath $jdk) { $env:JAVA_HOME = $jdk }
     & (Join-Path $project 'gradlew.bat') -p $project ':app:assembleStress' ':app:assembleStressAndroidTest' '-PriffTestBuildType=stress' '--console=plain'
     if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
 }
+$app = Get-ChildItem (Join-Path $project 'app/build/outputs/apk/stress') -Filter '*.apk'
+$test = Get-ChildItem (Join-Path $project 'app/build/outputs/apk/androidTest/stress') -Filter '*.apk'
+if (@($app).Count -ne 1 -or @($test).Count -ne 1) { throw 'Exactly one stress app/test APK pair is required.' }
+$appIdentityJson = & $Python $collector --inspect-apk $app.FullName
+if ($LASTEXITCODE -ne 0) { throw 'App APK has no build identity; rebuild it.' }
+$testIdentityJson = & $Python $collector --inspect-apk $test.FullName
+if ($LASTEXITCODE -ne 0 -or $appIdentityJson -ne $testIdentityJson) { throw 'App/test APK build identities do not match.' }
+$identity = $appIdentityJson | ConvertFrom-Json
+if ($identity.variant -ne 'stress') { throw 'Expected a stress APK pair.' }
 
-$app = Get-ChildItem (Join-Path $project 'app\build\outputs\apk\stress') -Filter '*.apk' | Select-Object -First 1
-$test = Get-ChildItem (Join-Path $project 'app\build\outputs\apk\androidTest\stress') -Filter '*.apk' | Select-Object -First 1
-if (-not $app -or -not $test) { throw 'Stress APKs missing; run without -NoBuild.' }
-
+$runId = 'ui-' + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ') + '-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
+$raw = Join-Path $project "artifacts/quality/$($identity.revision)-$($identity.sourceState)-$($identity.sourceDigest.Substring(0,12))/$runId-raw"
+New-Item -ItemType Directory -Path $raw | Out-Null
 & $adb @adbArgs install -r $app.FullName
-if ($LASTEXITCODE -ne 0) { throw 'Installing the stress app failed.' }
+if ($LASTEXITCODE -ne 0) { throw 'Installing the stress app failed; never uninstall to bypass a certificate mismatch.' }
 & $adb @adbArgs install -r $test.FullName
 if ($LASTEXITCODE -ne 0) { throw 'Installing the test APK failed.' }
-
-$output = & $adb @adbArgs shell am instrument -w -r -e class com.musicglass.personal.UiRegressionInstrumentation `
-    com.musicglass.personal.test/androidx.test.runner.AndroidJUnitRunner
+$startUtc = [DateTime]::UtcNow.ToString('o')
+$output = & $adb @adbArgs shell am instrument -w -r -e class com.musicglass.personal.UiRegressionInstrumentation com.musicglass.personal.test/androidx.test.runner.AndroidJUnitRunner
+$instrumentExit = $LASTEXITCODE
+$endUtc = [DateTime]::UtcNow.ToString('o')
+$log = Join-Path $raw 'instrumentation.txt'
+$output | Set-Content -LiteralPath $log -Encoding utf8
 $output
-$failures = @($output | Select-String 'INSTRUMENTATION_STATUS_CODE: -2')
-if ($failures.Count -gt 0 -or -not ($output | Select-String '^OK \(')) { throw "UI regression suite failed ($($failures.Count) failing tests)." }
-'UI regression suite passed.'
+$api = (& $adb @adbArgs shell getprop ro.build.version.sdk).Trim()
+$model = (& $adb @adbArgs shell getprop ro.product.model).Trim()
+& $Python $collector --collect-only --checks-skipped --variant stress --apk $app.FullName --test-apk $test.FullName --instrumentation $log --start-utc $startUtc --end-utc $endUtc --exit-code $instrumentExit --run-id $runId --device-tier $DeviceTier --device-api $api --device-model $model --mode live --command 'adb instrumentation UiRegressionInstrumentation (serial omitted)'
+if ($LASTEXITCODE -eq 1) { throw 'Instrumentation evidence failed validation.' }
+if ($LASTEXITCODE -eq 2) { Write-Warning 'Device evidence collected; JVM/lint checks were not run by this command and remain BLOCKED.' }

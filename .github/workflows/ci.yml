@@ -41,7 +41,9 @@ jobs:
           restore-keys: robolectric-
 
       - name: Unit and UI tests, lint, release build
-        run: ./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleRelease --console=plain
+        run: |
+          python3 -m unittest discover -s scripts/quality -p 'test_*.py'
+          python3 scripts/quality/collect_results.py --variant release
 
       - name: APK size budget (40 MiB)
         run: |
@@ -50,6 +52,14 @@ jobs:
           echo "$(basename "$apk"): $((bytes / 1024 / 1024)) MiB"
           unzip -l "$apk" | awk 'NR>3 {n=split($4,p,"/"); k=(p[1]=="lib"?p[1]"/"p[2]:p[1]); if(p[1]~/\.dex$/)k="dex"; s[k]+=$1} END {for(k in s) if(s[k]>100000) printf "%8.1f MB %s\n", s[k]/1e6, k}' | sort -rn
           if [ "$bytes" -gt $((40 * 1024 * 1024)) ]; then echo "::error::Release APK is over the 40 MiB budget"; exit 1; fi
+
+      - name: Upload quality manifests
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-manifests
+          path: artifacts/quality/**/manifest.json
+          retention-days: 14
 
       - name: Upload reports
         if: failure()

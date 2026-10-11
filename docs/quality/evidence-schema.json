@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Riff quality evidence manifest v1",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "revision",
+    "dirty",
+    "sourceState",
+    "sourceDigest",
+    "variant",
+    "versionName",
+    "versionCode",
+    "toolchain",
+    "apkSha256",
+    "certificateSha256",
+    "startUtc",
+    "endUtc",
+    "device",
+    "mode",
+    "commands",
+    "reports",
+    "gates",
+    "status"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{40,64}|local-unknown)$"
+    },
+    "dirty": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "sourceState": {
+      "enum": [
+        "clean",
+        "dirty",
+        "local-unknown"
+      ]
+    },
+    "sourceDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "variant": {
+      "enum": [
+        "debug",
+        "release",
+        "stress"
+      ]
+    },
+    "versionName": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "versionCode": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "toolchain": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "apkSha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "certificateSha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "startUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "endUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "device": {
+      "type": "object",
+      "required": [
+        "tier",
+        "api",
+        "model"
+      ],
+      "properties": {
+        "tier": {
+          "enum": [
+            "R",
+            "L",
+            "emulator",
+            "unclassified",
+            null
+          ]
+        },
+        "api": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "mode": {
+      "enum": [
+        "fixture",
+        "live",
+        "not-run"
+      ]
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "reports": {
+      "type": "object"
+    },
+    "gates": {
+      "type": "object",
+      "required": [
+        "build",
+        "artifactIdentity",
+        "jvm",
+        "lint",
+        "instrumentation"
+      ],
+      "additionalProperties": {
+        "$ref": "#/$defs/gate"
+      }
+    },
+    "status": {
+      "enum": [
+        "PASS_LOCAL",
+        "FAIL",
+        "BLOCKED"
+      ]
+    }
+  },
+  "$defs": {
+    "gate": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "BLOCKED"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

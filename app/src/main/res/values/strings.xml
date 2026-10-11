@@ -8,4 +8,5 @@
 <string name="widget_large_name">Riff · Large</string><string name="widget_large_description">Large music controls with current song artwork</string>
 <string name="widget_circle_name">Riff · Circle</string><string name="widget_circle_description">Circle music controls with current song artwork</string>
 <string name="widget_toggle">Play or pause</string><string name="widget_previous">Previous song</string><string name="widget_next">Next song</string><string name="widget_artwork">Open Riff</string>
+    <string name="about_build_identity">Riff · %1$s (%2$d)\n%3$s</string>
 </resources>

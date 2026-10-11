@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## Unreleased — 0.10.0-rc1 (code 22)
+
+- Adds source revision, content digest, dirty/local state and variant to build metadata, About and copied diagnostics.
+- Adds local evidence manifests with APK/source/report hashes and strict rejection of incomplete test runs. No new release has been published.
+
+### Historical October 6 update
 
 Merged into `main` and verified 6 October 2026. The local tested APK retains version `0.9.0-rc20` / code 21; the published 4 October rc20 APK does not include this section. See [the update notes](docs/update-2026-10-06.md) and [device verification](docs/downloads-crossfade-verification-2026-10-06.md). All 273 JVM/Compose tests and 17 distinct phone tests passed; lint completed with zero errors.
 

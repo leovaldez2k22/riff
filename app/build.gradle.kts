@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.security.MessageDigest
 
 plugins {
     alias(libs.plugins.android.application)
@@ -17,8 +18,8 @@ android {
         applicationId = "com.musicglass.personal"
         minSdk = 31
         targetSdk = 36
-        versionCode = 21
-        versionName = "0.9.0-rc20"
+        versionCode = 22
+        versionName = "0.10.0-rc1"
         buildConfigField("boolean", "LITE", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -140,4 +141,71 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.test:runner:1.5.0")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
+}
+
+abstract class GenerateBuildIdentityAssets : DefaultTask() {
+    @get:Input abstract val identityJson: Property<String>
+    @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction fun generate() {
+        val target = outputDirectory.file("quality/build-identity.json").get().asFile
+        target.parentFile.mkdirs()
+        target.writeText(identityJson.get() + "\n", Charsets.UTF_8)
+    }
+}
+
+// Provider-backed processes are configuration inputs; missing/failed Git never means clean.
+fun qualityGit(vararg arguments: String): String? = try {
+    val result = providers.exec {
+        workingDir(rootDir)
+        commandLine(listOf("git") + arguments)
+        isIgnoreExitValue = true
+    }
+    if (result.result.get().exitValue == 0) result.standardOutput.asText.get().trim() else null
+} catch (_: org.gradle.process.internal.ExecException) {
+    null
+}
+val qualityHead = qualityGit("rev-parse", "HEAD")?.takeIf { it.matches(Regex("[a-f0-9]{40,64}")) }
+val qualityStatus = qualityGit("status", "--porcelain", "--untracked-files=normal")
+val qualityRevision = if (qualityHead != null && qualityStatus != null) qualityHead else "local-unknown"
+val qualityDirty: Boolean? = if (qualityRevision == "local-unknown") null else !qualityStatus.isNullOrBlank()
+val qualityState = when (qualityDirty) { true -> "dirty"; false -> "clean"; null -> "local-unknown" }
+val qualitySourceFiles = rootProject.fileTree(rootDir) {
+    include("app/src/**", "gradle/**", "app/build.gradle.kts", "app/proguard-rules.pro",
+        "build.gradle.kts", "settings.gradle.kts", "gradle.properties", "gradlew", "gradlew.bat")
+}.files.sortedBy { it.relativeTo(rootDir).invariantSeparatorsPath }
+val qualityDigest = MessageDigest.getInstance("SHA-256").apply {
+    qualitySourceFiles.forEach { source ->
+        update(source.relativeTo(rootDir).invariantSeparatorsPath.toByteArray(Charsets.UTF_8))
+        update(byteArrayOf(0))
+        update(providers.fileContents(rootProject.layout.projectDirectory.file(
+            source.relativeTo(rootDir).invariantSeparatorsPath)).asBytes.get())
+        update(byteArrayOf(0))
+    }
+}.digest().joinToString("") { "%02x".format(it) }
+
+androidComponents {
+    onVariants { variant ->
+        val identity = groovy.json.JsonOutput.toJson(linkedMapOf<String, Any?>(
+            "revision" to qualityRevision, "dirty" to qualityDirty, "sourceState" to qualityState,
+            "sourceDigest" to qualityDigest, "variant" to variant.name,
+            "versionName" to variant.outputs.first().versionName.get(),
+            "versionCode" to variant.outputs.first().versionCode.get(),
+            "toolchain" to mapOf("gradle" to gradle.gradleVersion, "jdk" to System.getProperty("java.version"),
+                "agp" to libs.versions.agp.get(), "kotlin" to libs.versions.kotlin.get(),
+                "compileSdk" to 37, "targetSdk" to 36, "minSdk" to 31),
+        ))
+        mapOf("SOURCE_REVISION" to qualityRevision, "SOURCE_STATE" to qualityState,
+            "SOURCE_DIGEST" to qualityDigest).forEach { (name, value) ->
+            requireNotNull(variant.buildConfigFields).put(name,
+                com.android.build.api.variant.BuildConfigField("String", groovy.json.JsonOutput.toJson(value), null))
+        }
+        val taskName = "generate" + variant.name.replaceFirstChar { it.uppercaseChar() } + "BuildIdentityAssets"
+        val identityTask = tasks.register<GenerateBuildIdentityAssets>(taskName) {
+            identityJson.set(identity)
+            outputDirectory.set(layout.buildDirectory.dir("generated/qualityIdentity/${variant.name}"))
+        }
+        variant.sources.assets?.addGeneratedSourceDirectory(identityTask, GenerateBuildIdentityAssets::outputDirectory)
+        variant.androidTest?.sources?.assets?.addGeneratedSourceDirectory(identityTask, GenerateBuildIdentityAssets::outputDirectory)
+    }
 }

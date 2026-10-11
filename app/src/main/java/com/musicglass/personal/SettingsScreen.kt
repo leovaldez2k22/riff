@@ -153,7 +153,7 @@ import kotlinx.coroutines.withContext
                 }
             }
         }}
-        item {Text("Riff \u00B7 ${BuildConfig.VERSION_NAME}",color=Muted,fontSize=12.sp,
+        item {Text(androidx.compose.ui.res.stringResource(R.string.about_build_identity, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildIdentity.current().shortId),color=Muted,fontSize=12.sp,
             modifier=Modifier.fillMaxWidth().padding(vertical=20.dp),textAlign=androidx.compose.ui.text.style.TextAlign.Center)}
     }
 }

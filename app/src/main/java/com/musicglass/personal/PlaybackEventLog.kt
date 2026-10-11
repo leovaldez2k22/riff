@@ -30,9 +30,9 @@ private val secretPattern = Regex("(?i)\\b(pot|sig|signature|n|key|token|sapisid
  * The text "Copy playback diagnostics" puts on the clipboard (plan W1.4). The log is written
  * without URLs or tokens; this scrubs them again in case a future event line slips one in.
  */
-internal fun playbackDiagnosticsReport(lines: List<String>, version: String, sdk: Int, device: String): String {
+internal fun playbackDiagnosticsReport(lines: List<String>, version: String, sdk: Int, device: String, identity: BuildIdentity = BuildIdentity.current()): String {
     val body = lines.takeLast(EVENT_LOG_LINES).joinToString("\n") {
         it.replace(urlPattern, "<url>").replace(secretPattern) { match -> match.groupValues[1] + "=<redacted>" }
     }
-    return "Riff $version, Android SDK $sdk, $device\n${lines.size.coerceAtMost(EVENT_LOG_LINES)} playback events (oldest first)\n$body"
+    return "Riff $version, Android SDK $sdk, $device\n${identity.diagnosticLine}\n${lines.size.coerceAtMost(EVENT_LOG_LINES)} playback events (oldest first)\n$body"
 }

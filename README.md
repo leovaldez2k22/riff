@@ -8,7 +8,7 @@ An Android music player with YouTube Music browsing, synced lyrics, offline down
 
 Riff is an independent personal project and is not affiliated with Google or YouTube. Online playback and catalog availability depend on the providers.
 
-This repository continues the project under **leovaldez2k21**, preserving its Git history and including the latest local changes. Historical documentation may refer to the previous account. No APK release has been published from this new repository yet; the source currently reports `0.9.0-rc20` and includes changes newer than the original rc20 APK.
+This repository continues the project under **leovaldez2k21**, preserving its Git history and including the latest local changes. Historical documentation may refer to the previous account. No APK release has been published from this new repository yet; the source currently reports `0.10.0-rc1` (code 22), an unpublished quality candidate containing changes newer than the original rc20 APK. Build identity and validation evidence are described in [the quality guide](docs/quality/build-identity-and-evidence.md).
 
 ## Features
 

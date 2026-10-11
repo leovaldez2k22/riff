@@ -1,10 +1,9 @@
-param([switch]$SkipChecks, [switch]$SkipClean, [switch]$NewSigningKey, [switch]$AllowDirty)
+param([switch]$SkipChecks, [switch]$SkipClean, [switch]$NewSigningKey, [switch]$AllowDirty, [string]$Python = 'python')
 
 $ErrorActionPreference = 'Stop'
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $sdk = Join-Path $project '.toolchain\sdk'
-$gradle = Join-Path $project '.toolchain\gradle-8.13\bin\gradle.bat'
-if (-not (Test-Path -LiteralPath $gradle)) { $gradle = Join-Path $project 'gradlew.bat' }
+$gradle = Join-Path $project 'gradlew.bat'
 $keytool = if ($env:JAVA_HOME -and
     (Test-Path -LiteralPath (Join-Path $env:JAVA_HOME 'bin\keytool.exe'))) {
     Join-Path $env:JAVA_HOME 'bin\keytool.exe'
@@ -96,6 +95,7 @@ $commit = (& git -C $project rev-parse --short HEAD).Trim()
 
 Push-Location $project
 try {
+    $qualityStartUtc = [DateTime]::UtcNow.ToString('o')
     if (-not $SkipClean) {
         $ErrorActionPreference = 'Continue'
         & $gradle ':app:clean' '--console=plain' '--quiet'
@@ -105,7 +105,7 @@ try {
     }
     # @(...) keeps a one-task list an array; a bare string would be splatted character by character.
     $tasks = @(if ($SkipChecks) { ':app:assembleRelease' } else {
-        ':app:testDebugUnitTest', ':app:lintRelease', ':app:assembleRelease'
+        ':app:testDebugUnitTest', '--rerun', ':app:lintRelease', '--rerun', ':app:assembleRelease'
     })
     # Gradle prints warnings (R8 on Kotlin metadata, for example) to stderr. With 'Stop', Windows
     # PowerShell turns them into errors whenever output is captured; the exit code is what counts.
@@ -126,9 +126,7 @@ try {
     & $gradle ':app:dependencies' '--configuration' 'releaseRuntimeClasspath' `
         '--console=plain' '--quiet' | Set-Content -LiteralPath $dependencyGraph
     if ($LASTEXITCODE -ne 0) { throw 'Release dependency report failed.' }
-    $python = Get-Command python.exe -ErrorAction SilentlyContinue
-    if (-not $python) { throw 'Python is needed for the release license audit.' }
-    & $python.Source (Join-Path $project 'scripts\audit_dependency_licenses.py')
+    & $Python (Join-Path $project 'scripts\audit_dependency_licenses.py')
     if ($LASTEXITCODE -ne 0) { throw 'Release license audit failed.' }
     $apkBytes = (Get-Item -LiteralPath $apk).Length
     if ($apkBytes -gt $maxApkBytes) {
@@ -141,6 +139,15 @@ try {
     $hash = (Get-FileHash -LiteralPath $releaseApk -Algorithm SHA256).Hash.ToLowerInvariant()
     [System.IO.File]::WriteAllText((Join-Path $releaseDir 'SHA256SUMS.txt'),
         "$hash  $(Split-Path -Leaf $releaseApk)`n")
+
+    $qualityEndUtc = [DateTime]::UtcNow.ToString('o')
+    $qualityArgs = @('--collect-only','--variant','release','--apk',$releaseApk,
+        '--start-utc',$qualityStartUtc,'--end-utc',$qualityEndUtc,'--exit-code','0',
+        '--command',('Gradle ' + ($tasks -join ' ')))
+    if ($SkipChecks) { $qualityArgs += '--checks-skipped' }
+    & $Python (Join-Path $PSScriptRoot 'quality/collect_results.py') @qualityArgs
+    if ($LASTEXITCODE -eq 1) { throw 'Release evidence failed validation; do not distribute this candidate.' }
+    if ($LASTEXITCODE -eq 2) { Write-Warning 'Release evidence BLOCKED: checks were explicitly skipped.' }
     Write-Host "Signed APK: $releaseApk ($('{0:N1}' -f ($apkBytes / 1MB)) MiB)"
     Write-Host "R8 mapping: $releaseMapping (keep it with the APK to read crash reports)"
     Write-Host "SHA-256: $hash"
