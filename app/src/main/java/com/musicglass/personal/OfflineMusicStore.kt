@@ -141,6 +141,41 @@ internal class OfflineMusicStore private constructor(private val context:Context
         // Preserve listening metadata and exclude removed songs from automatic re-downloads.
         rows(scope).filter {it.state!="metadata" || it.pinned || it.bytes>0}.forEach {remove(scope,it.track.videoId)}
     }
+    /** Songs that [removeAll] would remove: downloaded, downloading or waiting. */
+    fun downloadCount(scope:String):Int=rows(scope).count {it.state!="metadata" || it.pinned || it.bytes>0}
+    /** As [removeAll], but one song that cannot be removed does not stop the rest. Returns removed to still present. */
+    @Synchronized fun removeAllCounted(scope:String):Pair<Int,Int> {
+        var removed=0;var failed=0
+        rows(scope).filter {it.state!="metadata" || it.pinned || it.bytes>0}.forEach {
+            if(runCatching {remove(scope,it.track.videoId)}.isSuccess) removed++ else failed++
+        }
+        return removed to failed
+    }
+    /** Forgets when and how often this owner's songs were played. Downloads stay. */
+    @Synchronized fun resetListening(scope:String):Boolean=runCatching {
+        db.writableDatabase.execSQL("UPDATE songs SET lastPlayed=0,plays=0,listened=0 WHERE scope=?",arrayOf(scope));changed()
+    }.isSuccess
+    /**
+     * Removes everything kept for [scope]: rows first, so a transfer in flight finds its row gone at its
+     * next check and stops, then the owner's folder. Returns rows removed to files still on disk; calling
+     * again retries the files.
+     */
+    @Synchronized fun deleteScope(scope:String):Pair<Int,Int> {
+        val dir=scopeDirectory(scope)
+        check(dir.canonicalFile.parentFile==root.canonicalFile) {"Unexpected download folder"}
+        val removed=db.writableDatabase.delete("songs","scope=?",arrayOf(scope))
+        artworkIndex.keys.removeAll {it.startsWith("$scope/")};indexedScopes.remove(scope);indexingScopes.remove(scope)
+        val left=if(!dir.exists() || dir.deleteRecursively()) 0 else dir.walkTopDown().count {it.isFile}.coerceAtLeast(1)
+        changed();return removed to left
+    }
+    /** A transfer found its song deleted: whatever it had written goes too. Does nothing while the song is still listed. */
+    @Synchronized fun discardUnlisted(scope:String,id:String) {
+        if(!id.matches(VIDEO_ID) || song(scope,id)!=null) return
+        val dir=directory(scope,id)
+        if(dir.canonicalPath.startsWith(root.canonicalPath+File.separator)) dir.deleteRecursively()
+        scopeDirectory(scope).let {if(it.isDirectory && it.list().isNullOrEmpty()) it.delete()}
+        artworkIndex.remove(artworkKey(scope,id))
+    }
     /**
      * Folds a verified alias of the same account into [to]. Rows and bundle folders move; nothing is
      * copied and no validated audio is deleted. Safe to run again after an interruption. Returns the

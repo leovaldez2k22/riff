@@ -21,8 +21,8 @@ internal sealed interface LegacyResult {
 internal data class LegacyReport(val history: LegacyResult, val queue: LegacyResult, val interimQueues: LegacyResult)
 
 /** What is still waiting for the user's decision. */
-internal data class UnassignedInventory(val providerPlays: Int = 0, val sources: Int = 0, val queueItems: Int = 0) {
-    val empty get() = providerPlays == 0 && sources == 0 && queueItems == 0
+internal data class UnassignedInventory(val providerPlays: Int = 0, val sources: Int = 0, val queueItems: Int = 0, val searches: Int = 0) {
+    val empty get() = providerPlays == 0 && sources == 0 && queueItems == 0 && searches == 0
 }
 
 /** [kept] is smaller than [available] only when the per-owner ceiling would be exceeded. */
@@ -229,7 +229,8 @@ internal class LegacyStateMigration(context: Context, private val db: LibrarySta
             plays += found ?: 0
             if (found != 0) waiting++
         }
-        return UnassignedInventory(plays, waiting, runCatching { quarantinedQueue()?.queue?.size }.getOrNull() ?: 0)
+        return UnassignedInventory(plays, waiting, runCatching { quarantinedQueue()?.queue?.size }.getOrNull() ?: 0,
+            runCatching { legacySearchCount(app) }.getOrDefault(0))
     }
 
     @Synchronized fun previewImport(target: String): ImportPreview {

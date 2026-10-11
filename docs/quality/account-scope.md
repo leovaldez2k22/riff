@@ -48,7 +48,7 @@ Refreshing the same account (same owner) does not quiesce anything.
 
 One paused queue per owner, stored in `library-state.db` since Q04. Emptying the queue clears only its own owner's row. On a cold start the service restores the newer of the active account's queue and the device queue, paused.
 
-The single shared queue written by builds before owners existed is not loaded automatically, because it cannot be attributed to an owner. It is set aside and can be restored, paused, or deleted from **Settings → Library → Earlier data**. Storage, limits and the upgrade steps are in [state-and-migration.md](state-and-migration.md).
+The single shared queue written by builds before owners existed is not loaded automatically, because it cannot be attributed to an owner. It is set aside and can be restored, paused, or deleted from **Settings → Privacy and data → Earlier data**. Storage, limits and the upgrade steps are in [state-and-migration.md](state-and-migration.md).
 
 ## Verification
 

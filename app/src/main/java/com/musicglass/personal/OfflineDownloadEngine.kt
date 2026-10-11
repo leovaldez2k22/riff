@@ -57,7 +57,7 @@ internal object OfflineDownloadEngine {
                 }
                 var phase="resolve"
                 try {
-                    if(!store.beginDownload(scope,id)) continue
+                    if(!store.beginDownload(scope,id)) {store.discardUnlisted(scope,id);continue}
                     checkState();progress("Downloading ${job.track.title}")
                     if(store.audio(scope,id)==null) {
                         var stream=resolver.resolve(StreamRequest(id,download=true,quality=com.metrolist.innertubex.extraction.AudioQuality.HIGH)).getOrThrow()
@@ -152,12 +152,12 @@ internal object OfflineDownloadEngine {
                     checkState();store.updateDownload(scope,id,"state" to "complete","error" to "")
                 } catch(e:CancellationException) {
                     store.updateDownload(scope,id,"state" to "queued")
-                    raw.delete();assembled.delete();throw e
+                    raw.delete();assembled.delete();store.discardUnlisted(scope,id);throw e
                 } catch(error:Exception) {
                     // An account switch can fail a request in flight. That is not a failed download: it waits for its owner.
                     if(!process.sessions.owns(owner) || scope!=store.currentScope) {store.updateDownload(scope,id,"state" to "queued");raw.delete();assembled.delete();break}
                     // A bulk removal may delete a file during IO. Never resurrect its row as failed.
-                    if(store.song(scope,id)?.state !in setOf("downloading","assets")) {raw.delete();assembled.delete();continue}
+                    if(store.song(scope,id)?.state !in setOf("downloading","assets")) {raw.delete();assembled.delete();store.discardUnlisted(scope,id);continue}
                     PlaybackEventLog(context).append("download_failed phase=$phase kind=${error::class.simpleName}")
                     raw.delete();assembled.delete();store.updateDownload(scope,id,"state" to if(store.audio(scope,id)!=null) "complete" else "failed","error" to "Download incomplete. Check storage and connection, then retry.")
                 }

@@ -138,7 +138,7 @@ class HistoryScreensTest {
         val owner = process.provider.storageScopeKey()
         repeat(HISTORY_PAGE_SIZE + 5) { process.play(owner, "Play %03d".format(it)) }
         history(process)
-        awaitText("${HISTORY_PAGE_SIZE + 5} plays · kept on this phone until you clear Riff's storage")
+        awaitText("${HISTORY_PAGE_SIZE + 5} plays · kept on this phone only")
         assertFalse("the oldest five are not loaded yet", shown("Play 104"))
         val list = compose.onNode(hasScrollToNodeAction())
         list.performScrollToNode(hasTestTag("history_more"))
@@ -173,7 +173,71 @@ class HistoryScreensTest {
         assertEquals("earlier_data", model.route)
     }
 
+    @Test fun clearOnTheHistoryScreenRemovesOnlyTheListShownAndCancelRemovesNothing() {
+        val process = start()
+        val owner = process.provider.storageScopeKey()
+        repeat(2) { process.play(owner, "Account play $it") }
+        process.play(DEVICE_LOCAL_SCOPE_KEY, "Voice memo"); process.play("fixture-other-owner", "Someone else's play")
+        var refreshed = 0
+        compose.setContent { ListeningHistoryScreen(ShellModel(), 0.dp, process.provider, gateway, { notices += it }, process) { refreshed++ } }
+        awaitText("2 plays · kept on this phone only")
+        tap("history_clear")
+        awaitText("Clear 2 plays?")
+        tap("history_clear_cancel")
+        compose.waitUntil(10_000) { !tagged("history_clear_cancel") }
+        assertEquals(2, process.history.count(owner)); assertTrue(notices.isEmpty()); assertEquals(0, refreshed)
+        tap("history_clear"); tap("history_clear_confirm")
+        compose.waitUntil(10_000) { notices.isNotEmpty() }
+        assertEquals(listOf("2 plays cleared"), notices); assertEquals(1, refreshed)
+        assertEquals(0, process.history.count(owner))
+        assertEquals(1, process.history.count(DEVICE_LOCAL_SCOPE_KEY)); assertEquals(1, process.history.count("fixture-other-owner"))
+        awaitText("Songs you play will appear here.")
+        assertFalse("nothing left to clear", tagged("history_clear"))
+        // The phone's list is cleared separately, and a play made afterwards is kept.
+        tap("history_scope_device")
+        awaitText("Voice memo")
+        tap("history_clear"); awaitText("Clear 1 play?"); tap("history_clear_confirm")
+        compose.waitUntil(10_000) { notices.size == 2 }
+        assertEquals(0, process.history.count(DEVICE_LOCAL_SCOPE_KEY))
+        process.play(DEVICE_LOCAL_SCOPE_KEY, "Played after the clear")
+        awaitText("Played after the clear")
+    }
+
+    @Test fun earlierSearchesAreImportedOrDeletedOnlyWhenTheUserSaysSo() {
+        context.getSharedPreferences("search_history", Context.MODE_PRIVATE).edit().putString("queries", "[\"mixed one\",\"mixed two\"]").commit()
+        SearchHistory::class.java.getDeclaredField("shared").apply { isAccessible = true }.set(null, null)
+        val process = start()
+        val owner = process.provider.storageScopeKey()
+        assertEquals(UnassignedInventory(searches = 2), process.legacyState.inventory())
+        earlier(process)
+        awaitTag("earlier_search_summary")
+        tap("earlier_import_searches")
+        awaitText("Import 2 searches?")
+        tap("earlier_cancel")
+        compose.waitUntil(10_000) { !tagged("earlier_cancel") }
+        assertEquals(0, runBlocking { SearchHistory.get(context).count(owner) }); assertEquals(2, legacySearchCount(context))
+        tap("earlier_import_searches"); tap("earlier_confirm")
+        compose.waitUntil(10_000) { notices.isNotEmpty() }
+        assertTrue(notices.single(), notices.single().startsWith("2 searches added for "))
+        assertEquals(2, runBlocking { SearchHistory.get(context).count(owner) }); assertEquals(0, legacySearchCount(context))
+        awaitTag("earlier_empty")
+    }
+
+    @Test fun earlierSearchesCanBeDeletedWithoutImporting() {
+        context.getSharedPreferences("search_history", Context.MODE_PRIVATE).edit().putString("queries", "[\"mixed one\"]").commit()
+        SearchHistory::class.java.getDeclaredField("shared").apply { isAccessible = true }.set(null, null)
+        val process = start(syncId = null)
+        earlier(process)
+        awaitTag("earlier_delete_searches")
+        assertFalse("an unverified account cannot take them", tagged("earlier_import_searches"))
+        tap("earlier_delete_searches"); awaitText("Delete 1 earlier search?"); tap("earlier_confirm")
+        compose.waitUntil(10_000) { notices.isNotEmpty() }
+        assertEquals(listOf("Earlier searches deleted"), notices); assertEquals(0, legacySearchCount(context))
+    }
+
     @Test fun earlierDataSummaryReadsNaturallyForEachCombination() {
+        assertEquals("1 search from before this update is not assigned to an account.", earlierDataSummary(UnassignedInventory(searches = 1)))
+        assertEquals("2 plays, a queue of 1 song and 3 searches from before this update are not assigned to an account.", earlierDataSummary(UnassignedInventory(2, 1, 1, 3)))
         assertEquals("1 play from before this update is not assigned to an account.", earlierDataSummary(UnassignedInventory(1, 1, 0)))
         assertEquals("2 plays from before this update are not assigned to an account.", earlierDataSummary(UnassignedInventory(2, 1, 0)))
         assertEquals("a queue of 1 song from before this update is not assigned to an account.", earlierDataSummary(UnassignedInventory(0, 0, 1)))

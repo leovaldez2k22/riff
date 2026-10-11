@@ -133,18 +133,8 @@ import kotlinx.coroutines.withContext
         item {SettingsSection("Downloads") {DownloadSettings(model,onNotice)}}
         item {SettingsSection("Widgets") {WidgetSettings(onNotice)}}
         item {SettingsSection("Library") {
-            SettingsToggleRow("Save listening history",collections.historyEnabled,
-                hapticToggle(collections::updateHistoryPreference),Icons.Rounded.History,"settings_history")
+            SettingsLinkRow("Privacy and data",null,Icons.Rounded.Lock,"settings_privacy_data") {model.push("privacy_data")}
             SettingsDivider()
-            // Shown only while something saved before owners existed is still waiting for a decision.
-            val process=remember(context) {AppContainer.get(context)}
-            val queues by process.snapshots.revision.collectAsState();val plays by process.history.revision.collectAsState()
-            var earlier by remember {mutableStateOf(UnassignedInventory())}
-            LaunchedEffect(queues,plays) {earlier=withContext(process.runtime.dispatchers.io) {runCatching {process.stateReady.await();process.legacyState.inventory()}.getOrDefault(UnassignedInventory())}}
-            if(!earlier.empty) {
-                SettingsLinkRow("Earlier data",null,Icons.Rounded.History,"settings_earlier_data") {model.push("earlier_data")}
-                SettingsDivider()
-            }
             val hidden=remember(context) {NotInterestedStore.get(context)}
             SettingsLinkRow("Not interested",hidden.entries.size.takeIf {it>0}?.toString(),Icons.Rounded.Block,"settings_not_interested") {
                 model.push("not_interested")

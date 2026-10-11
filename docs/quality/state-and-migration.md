@@ -27,7 +27,7 @@ Rows hold identifiers and display metadata only. No cookies, stream addresses or
 - Search matches title or artist, ignores case and accents, and treats `%` and `_` as the characters typed.
 - Writes report an outcome: stored, duplicate, stale, unavailable or failed. A retried write of the same event is stored once.
 - Clearing an owner's history raises that owner's counter in the same transaction, so a write prepared before the clear is refused. The counter is stored, so this holds across a restart.
-- Limits: 100,000 plays per owner; title and artist 180 characters. When a retention period is set, older plays are removed per owner. Plays dated in the future are not removed by retention. The retention setting has no screen yet (Q05).
+- Limits: 100,000 plays per owner; title and artist 180 characters. When a retention period is set, older plays are removed per owner. Plays dated in the future are not removed by retention. The period is chosen in Settings → Privacy and data; see [privacy controls](privacy-controls.md).
 
 ## Saved queues
 
@@ -61,12 +61,13 @@ Rules:
 
 ### What the user decides
 
-**Settings → Library → Earlier data**, also linked from a card on the History screen, appears while something is waiting.
+**Settings → Privacy and data → Earlier data**, also linked from a card on the History screen, appears while something is waiting.
 
 - **Import plays**: adds the unassigned YouTube Music plays to the history of the owner active now, after a confirmation that says plays from other accounts are included and cannot be separated later. Not offered to an unverified account. The unassigned copy stays until deleted, and importing twice adds nothing.
 - **Delete unassigned plays**: removes the unassigned copy. Imported plays stay.
 - **Restore the earlier queue**: after confirmation, stores it as the active owner's queue and loads it paused, replacing the current queue. A queue of only on-device audio goes to the device.
 - **Delete earlier queue**: removes it.
+- **Import searches** and **Delete earlier searches**: the search list earlier builds shared between accounts. It is shown to no owner until imported. Not offered for import to an unverified account.
 
 Nothing on this screen is sent to YouTube Music.
 

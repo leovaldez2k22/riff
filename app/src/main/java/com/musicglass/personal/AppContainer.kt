@@ -14,6 +14,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import okhttp3.Call
 import okhttp3.OkHttpClient
 import java.io.File
@@ -128,6 +129,10 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
     val legacyState: LegacyStateMigration by lazy {
         LegacyStateMigration(app, libraryState, history, snapshots, runtime.clocks::wallTimeMillis, eventLog::append)
     }
+    val localData: LocalDataController by lazy {
+        LocalDataController(app, history, snapshots, { OfflineMusicStore.get(app) }, { SearchHistory.get(app) },
+            runtime.dispatchers.io, runtime.clocks::wallTimeMillis, eventLog::append)
+    }
     private val stateScope = CoroutineScope(SupervisorJob() + runtime.dispatchers.io)
 
     /**
@@ -138,6 +143,8 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
         stateScope.async {
             runCatching { epochs.warm() }.onFailure { eventLog.append("state_open_failed kind=${it::class.simpleName}") }
             runCatching { legacyState.run() }.onFailure { eventLog.append("legacy_migration_failed kind=${it::class.simpleName}") }
+            // Retention is applied when the app runs, at most once a day. Nothing waits for it.
+            stateScope.launch { runCatching { localData.pruneIfDue() } }
             Unit
         }
     }

@@ -73,6 +73,8 @@ internal interface PlaybackGateway {
     fun playProvider(track: ProviderTrack, stream: ProviderStream, startPositionMs: Long = 0L)
     fun playLocal(track: LocalAudioTrack)
     fun clearProviderPlayback()
+    /** True while the player still holds a song from YouTube Music. */
+    fun hasProviderItems():Boolean=false
     /** Loads the active owner's saved queue, paused, replacing the current one. [done] reports whether a queue was loaded. */
     fun restoreSavedQueue(done:(Boolean)->Unit={}) {done(false)}
     fun close()
@@ -350,6 +352,7 @@ internal class MusicPlaybackGateway(context: Context,
             refresh();done(loaded)
         },appContext.mainExecutor)
     }
+    override fun hasProviderItems():Boolean=controller?.let {player->(0 until player.mediaItemCount).any {player.getMediaItemAt(it).mediaId.startsWith("yt:")}}==true
     override fun clearProviderPlayback() = withPlayer { player ->
         if ((0 until player.mediaItemCount).any {
                 player.getMediaItemAt(it).mediaId.startsWith("yt:")

@@ -10,8 +10,12 @@
 - Requests made for a previous account (queue, stream, radio continuation, downloads) are dropped instead of landing in the new account. A download interrupted by a switch waits, queued, for its own account.
 - History is kept separately for each account and for signed-out listening. Plays of audio stored on the phone are listed under **On this phone**, whichever account was signed in. History loads in pages and search ignores accents.
 - History and saved queues moved to a database. A queue too large to store or send is refused with a message instead of failing silently.
-- Known change: plays from YouTube Music recorded before this update are not shown in History, because the old list was shared by every account on the phone. **Settings → Library → Earlier data** lets you import them into the account you are using, or delete them. Plays of on-device audio were moved automatically.
+- Known change: plays from YouTube Music recorded before this update are not shown in History, because the old list was shared by every account on the phone. **Settings → Privacy and data → Earlier data** lets you import them into the account you are using, or delete them. Plays of on-device audio were moved automatically.
 - Known change: the queue saved by an earlier build is not restored automatically after updating. Earlier data offers to restore it, paused, or delete it.
+- New **Settings → Privacy and data** screen: turn history saving off, choose how long plays are kept (30, 90 or 365 days, or until cleared), clear an account's or the phone's listening history, clear search history, delete downloads, or delete everything Riff keeps on the phone for the account in use. Each action says whose data it removes and how much, asks first, and reports what could not be removed. None of them changes the YouTube Music account or signs out.
+- The History screen has **Clear** for the list shown.
+- Recent searches are kept separately for each account and for signed-out use, 30 each.
+- Known change: searches saved before this update are not shown, because the old list was shared by every account on the phone. Earlier data offers to import them or delete them.
 
 ### Historical October 6 update
 

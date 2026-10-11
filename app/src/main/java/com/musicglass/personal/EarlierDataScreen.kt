@@ -16,7 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class EarlierAction { ImportPlays, DeletePlays, RestoreQueue, DeleteQueue }
+private enum class EarlierAction { ImportPlays, DeletePlays, RestoreQueue, DeleteQueue, ImportSearches, DeleteSearches }
 
 /**
  * History and the queue saved before Riff kept data per account. Nothing here happens without a
@@ -26,6 +26,8 @@ private enum class EarlierAction { ImportPlays, DeletePlays, RestoreQueue, Delet
     playback: PlaybackGateway, onNotice: (String) -> Unit, process: AppContainer = AppContainer.get(LocalContext.current)) {
     val scope = rememberCoroutineScope()
     val legacy = process.legacyState
+    val context = LocalContext.current
+    val searches = remember(context) { SearchHistory.get(context) }
     val plays by process.history.revision.collectAsState()
     val queues by process.snapshots.revision.collectAsState()
     var refresh by remember { mutableIntStateOf(0) }
@@ -72,6 +74,12 @@ private enum class EarlierAction { ImportPlays, DeletePlays, RestoreQueue, Delet
                         val gone = withContext(process.runtime.dispatchers.io) { legacy.deleteQuarantinedQueue() }
                         onNotice(if (gone) "Earlier queue deleted" else "Could not delete the earlier queue. Try again.")
                     }
+                    EarlierAction.ImportSearches -> {
+                        val added = searches.importLegacy(ownerKey)
+                        onNotice(if (added == null) "Could not import. Nothing was changed." else "${plural(added, "search", "searches")} added for $ownerLabel")
+                    }
+                    EarlierAction.DeleteSearches ->
+                        onNotice(if (searches.deleteLegacy()) "Earlier searches deleted" else "Could not delete the earlier searches. Try again.")
                 }
             } finally { working = false; asking = null; refresh++ }
         }
@@ -89,6 +97,11 @@ private enum class EarlierAction { ImportPlays, DeletePlays, RestoreQueue, Delet
             EarlierAction.RestoreQueue -> Triple("Restore the earlier queue?",
                 "It replaces the queue you have now and loads paused, as the queue of $ownerLabel. It may have been made while another account was signed in.", "Restore")
             EarlierAction.DeleteQueue -> Triple("Delete the earlier queue?", "It is removed from this phone and cannot be recovered.", "Delete")
+            EarlierAction.ImportSearches -> Triple("Import ${plural(found.searches, "search", "searches")}?",
+                "They are added to the recent searches of $ownerLabel on this phone. If more than one account was used here, " +
+                    "searches made in the other accounts are included. Riff keeps the newest ${SEARCH_HISTORY_LIMIT} for each account.", "Import")
+            EarlierAction.DeleteSearches -> Triple("Delete ${plural(found.searches, "earlier search", "earlier searches")}?",
+                "They are removed from this phone and cannot be recovered. Nothing changes in YouTube Music.", "Delete")
         }
         FrostedAlertDialog(onDismissRequest = { if (!working) asking = null }, title = { Text(title) }, text = { Text(body) },
             confirmButton = { TextButton(enabled = !working, onClick = { uiHaptic(HapticCue.Confirm); run(action) },
@@ -121,6 +134,21 @@ private enum class EarlierAction { ImportPlays, DeletePlays, RestoreQueue, Delet
                     }
                     TextButton({ uiHaptic(); asking = EarlierAction.DeletePlays }, modifier = Modifier.testTag("earlier_delete_history")) {
                         Text("Delete unassigned plays", color = Muted)
+                    }
+                }
+            }
+        }
+        if (found != null && found.searches > 0) item {
+            SettingsSection("Searches") {
+                Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                    Text("${plural(found.searches, "recent search", "recent searches")} ${if (found.searches == 1) "was" else "were"} saved in one list for every account " +
+                        "used on this phone. They are not shown in Search unless you import them.",
+                        color = Muted, fontSize = 13.sp, modifier = Modifier.testTag("earlier_search_summary"))
+                    if (verified) TextButton({ uiHaptic(); asking = EarlierAction.ImportSearches }, modifier = Modifier.testTag("earlier_import_searches")) {
+                        Text("Import for $ownerLabel", color = Pink)
+                    } else Text(VERIFY_TO_SAVE_NOTICE, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+                    TextButton({ uiHaptic(); asking = EarlierAction.DeleteSearches }, modifier = Modifier.testTag("earlier_delete_searches")) {
+                        Text("Delete earlier searches", color = Muted)
                     }
                 }
             }

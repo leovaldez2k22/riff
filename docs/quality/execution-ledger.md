@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05-Q18 TODO
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06-Q18 TODO
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -239,6 +239,58 @@ Device state: emulator shut down with adb emu kill, adb server stopped. No physi
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
 Commit: 3028fdc on local branch codex/riff-quality-m0 (not pushed). The repository commit-msg hook rewrote the co-author trailer.
 Next exact action: Q05, when the user says to start it.
+
+## Q05
+### Q05 completion (11 October 2026)
+Status: PASS locally and on the disposable emulator. One item is BLOCKED on a physical phone (below).
+Source: 036bde585ff67ac54dc4f26affa1e45b2f207d6d dirty, digest e042a1713a704fcb38a8aa86f02d8612c043e820cf6e4269602e538d0fa7eb02. Evidence root: artifacts/quality/036bde585ff67ac54dc4f26affa1e45b2f207d6d-dirty-e042a1713a70/
+User instruction on 11 October 2026: start Q05 (standing rule: complete every aspect of the phase). Q05A and Q05R are not part of this and remain unauthorized.
+
+Implemented: Settings, Privacy and data screen (PrivacyDataScreen.kt) with Save listening history, History retention (30/90/365 days or Keep until cleared), Clear account listening history, Clear device listening history, Clear search history, Delete downloads, Delete local data for this account, and the Earlier data link; LocalDataController.kt (one action at a time, off the main thread, results Done / Partial / Failed, retention applied on change and at most once a day at start, injected wall time); Clear on the History screen; recent searches per owner, 30 each, unverified kept in memory only (SearchHistory.kt); the search list shared by earlier builds treated as unassigned data with import and delete in Earlier data; HistoryRepository clearCounted, scopes, countOlderThan, pruneAll; OfflineMusicStore removeAllCounted, resetListening, deleteScope (rows first, canonical parent check), discardUnlisted so a late transfer cannot list a removed song again; delete-account-data stops and empties the owner's online queue before deleting. Docs: docs/quality/privacy-controls.md, state-and-migration.md, account-scope.md, CHANGELOG.
+
+Verification:
+- Debug (artifacts/quality/036bde585ff67ac54dc4f26affa1e45b2f207d6d-dirty-e042a1713a70/q05-debug-02/manifest.json): PASS_LOCAL. 470 JVM tests / 70 suites, zero failures, errors or skips (Q04: 427 / 67). Lint 0 errors, 84 warnings, 5 hints; no issue added or removed against q04-debug-03. APK SHA-256 d30c0a7cc9dc42a3ec747b0acee47e070573405c138b9eb3d00818f3c35dabf1.
+- Emulator (artifacts/quality/036bde585ff67ac54dc4f26affa1e45b2f207d6d-dirty-e042a1713a70/q05-debug-fixture-01/manifest.json, log q05-instrumentation-01.log, install-01.log): PASS_LOCAL, instrumentation gate PASS. 8 tests, 47.672 s: FixturePlaybackTest, three AccountSwitchDeviceTest cases, two LegacyUpgradeDeviceTest cases, two LocalDataDeviceTest cases. Test APK SHA-256 251fc209d1c67d91c09b8d46bdf98597a02a57ce5c4c72677b0900630fea7bf4. riff_q02_fixture, API 31, network disabled and confirmed unreachable, synthetic identities, fixture audio only.
+- Release (artifacts/quality/036bde585ff67ac54dc4f26affa1e45b2f207d6d-dirty-e042a1713a70/q05-release-01/manifest.json): PASS_LOCAL. junit {"suites": 70, "tests": 470, "failures": 0, "errors": 0, "skipped": 0}; lint {"Warning": 84, "Hint": 5}; no issue added or removed against q04-release-01. APK SHA-256 efe4bb1cd5f3763f6640576b3cb1e99bd1f5670a34ab2434bc25f103c96bb33d. Shrunk unsigned release 26.42 MiB (Q04: 26.37). No device run of the release artifact.
+- Stress (artifacts/quality/036bde585ff67ac54dc4f26affa1e45b2f207d6d-dirty-e042a1713a70/stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only.
+- The evidence was taken before this ledger entry was written; the entry is the only change after it.
+
+Failed attempts, preserved:
+- q05-debug-01 (artifacts/quality/036bde585ff67ac54dc4f26affa1e45b2f207d6d-dirty-1552067ce322/): PASS_LOCAL but one new lint warning (UseKtx in LocalCollections.kt, where the result of commit() is reported). Suppressed with a comment, as in LegacyStateMigration.kt. q05-debug-02 has no new issue.
+- PrivacyDataScreenTest first failed to compile (a fake passed through an anonymous object; missing Rule import). Test-only fix.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| Cancel is inert | PASS | PrivacyDataScreenTest (every prompt cancelled: counts unchanged, no notice); HistoryScreensTest clear then cancel; earlier-search import cancelled |
+| A clear cannot be reversed by queued work | PASS | LocalDataControllerTest and LibraryStateTest (tickets taken before a clear are refused, also after reopening the database); the store discards the files of a song that is no longer listed and never those of a listed one (the download engine's three call sites are not exercised end to end by a test); LocalDataDeviceTest on the real service: a play in progress is not written back, and a deleted queue is not saved back by the periodic save or restorable afterwards |
+| Scope-specific tests | PASS | Account, signed-out, device and unverified cases in LocalDataControllerTest, SearchHistoryOwnerTest, PrivacyDataScreenTest; other owners' rows and files checked after every action |
+| No remote mutations | PASS by construction, not by live observation | LocalDataController has no provider or network dependency; emulator run with the network off. No live account was used, so nothing was observed against the real service |
+| History deletion never requires Android Clear storage | PASS (emulator) | LocalDataDeviceTest: clear, then the next play is recorded in the same process without restart |
+| History off stops new writes immediately | PASS (emulator) | LocalDataDeviceTest: 8 s of playback with saving off records nothing; turning it on records the next play |
+| Failure offers a truthful Retry; partial deletion reported | PASS (JVM) | PrivacyDataScreenTest with a failing controller; LocalDataControllerTest partial results name what remains |
+
+Decisions (mine, not the user's):
+- Recent searches stay in preferences, keyed per owner, rather than moving into library-state.db.
+- The search list shared by earlier builds is shown to no owner; it is imported or deleted from Earlier data.
+- Clearing an account's listening history also clears its recently played list and resets the play counts kept with its downloads.
+- A retention period that would remove plays asks first with a count; one that removes nothing applies directly.
+- Clear on the History screen acts only on the list shown (account or device).
+- The history toggle and the Earlier data row moved from Settings, Library to the Privacy and data screen.
+
+Known limits:
+- Data under an older, not yet merged key of the same account is not covered by Delete local data.
+- Not interested and podcast progress are device-wide and are not part of these actions.
+- Retention has no alarm; it runs when the app runs.
+- SettingsScreen keeps an unused collections parameter.
+
+BLOCKED:
+- These actions on a physical phone with real downloads and a real account. Needs an authorized device and explicit approval for installation and for deleting data. Rerun: install the debug APK, open Settings, Privacy and data, check each row's owner label and count, cancel each prompt and confirm nothing changed, then on data that may be lost clear history and delete downloads and confirm other accounts' data, device settings and the phone's own audio files remain.
+- Carried from Q04: upgrade over a real earlier install; phone-only checks compiled only; NativeIslandInstrumentation not ported.
+
+Device state: emulator shut down with adb emu kill, adb server stopped. Data cleared or deleted was synthetic fixture data on the emulator only. No physical device, real account, publication, push or user-data deletion. Deleted build outputs were regenerable files under app/build only.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q06, when the user says to start it.
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.

@@ -58,7 +58,7 @@ internal class LogicalPlays {
     }
 }
 
-/** Respects Settings -> Library -> Save listening history. Device-wide. */
+/** Respects Settings -> Privacy and data -> Save listening history. Device-wide. */
 internal fun historyEnabled(context: Context) = context.applicationContext
     .getSharedPreferences("music_collections", Context.MODE_PRIVATE).getBoolean("history_enabled", true)
 

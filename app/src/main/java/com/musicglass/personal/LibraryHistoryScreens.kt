@@ -34,7 +34,8 @@ import kotlinx.coroutines.withContext
  * device and are shown separately. Opened from Library's top-right icon.
  */
 @Composable internal fun ListeningHistoryScreen(model: ShellModel, bottom: Dp, provider: YouTubeMusicProvider,
-    playback: PlaybackGateway, onNotice: (String) -> Unit, process: AppContainer = AppContainer.get(LocalContext.current)) {
+    playback: PlaybackGateway, onNotice: (String) -> Unit, process: AppContainer = AppContainer.get(LocalContext.current),
+    onCleared: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val history = process.history
@@ -79,17 +80,44 @@ import kotlinx.coroutines.withContext
         }
     }
     val shown = entries
+    // Clears the list on screen and nothing else: the account's plays or the phone's, never both.
+    var clearing by remember { mutableStateOf<String?>(null) }
+    var clearWorking by remember { mutableStateOf(false) }
+    var clearFailure by remember { mutableStateOf<String?>(null) }
+    clearing?.let { target ->
+        val action = if (target == DEVICE_LOCAL_SCOPE_KEY) PrivacyAction.ClearDeviceHistory else PrivacyAction.ClearAccountHistory
+        val count = total ?: 0
+        val prompt = privacyPrompt(action, ownerLabel(provider, accountKey), LocalDataSummary(accountPlays = count, devicePlays = count))
+        FrostedAlertDialog(onDismissRequest = { if (!clearWorking) { clearing = null; clearFailure = null } }, title = { Text(prompt.title) },
+            text = { Text(clearFailure ?: prompt.body) },
+            confirmButton = { TextButton(enabled = !clearWorking, onClick = {
+                uiHaptic(HapticCue.Confirm); clearWorking = true
+                scope.launch {
+                    try {
+                        val result = process.localData.clearHistory(target)
+                        onCleared()
+                        if (result is DataActionResult.Done) { clearing = null; clearFailure = null; onNotice(privacyOutcome(action, result)) }
+                        else clearFailure = privacyOutcome(action, result)
+                    } finally { clearWorking = false }
+                }
+            }, modifier = Modifier.testTag("history_clear_confirm")) { Text(if (clearFailure == null) prompt.confirm else "Retry", color = Pink) } },
+            dismissButton = { TextButton(enabled = !clearWorking, onClick = { clearing = null; clearFailure = null },
+                modifier = Modifier.testTag("history_clear_cancel")) { Text(if (clearFailure == null) "Cancel" else "Close") } })
+    }
     ScreenList(model, bottom) {
         item { BackHeading("Library", model::back) }
-        item { ScreenTitle("History", total?.takeIf { query.isBlank() }?.let { "$it plays · kept on this phone until you clear Riff's storage" }) }
+        item { ScreenTitle("History", total?.takeIf { query.isBlank() }?.let { "${plural(it, "play")} · kept on this phone only" }) }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 FilterChip(!onDevice, { uiHaptic(); onDevice = false }, { Text("YouTube Music") }, modifier = Modifier.testTag("history_scope_account"))
                 FilterChip(onDevice, { uiHaptic(); onDevice = true }, { Text("On this phone") }, modifier = Modifier.testTag("history_scope_device"))
+                Spacer(Modifier.weight(1f))
+                if (owner != null && (total ?: 0) > 0 && query.isBlank()) TextButton({ uiHaptic(); clearFailure = null; clearing = owner },
+                    modifier = Modifier.testTag("history_clear")) { Text("Clear", color = Muted) }
             }
         }
         if (!historyEnabled(context)) item {
-            Text("Saving history is off. Turn it on in Settings → Library.", color = Muted, fontSize = 13.sp)
+            Text("Saving history is off. Turn it on in Settings → Privacy and data.", color = Muted, fontSize = 13.sp)
         }
         if (!onDevice && accountKey == UNVERIFIED_SCOPE_KEY) item {
             Text("Riff could not verify this account, so its history is not saved or shown. Open Account and reconnect.",
@@ -132,10 +160,15 @@ import kotlinx.coroutines.withContext
     }
 }
 
-internal fun earlierDataSummary(earlier: UnassignedInventory): String = listOfNotNull(
-    earlier.providerPlays.takeIf { it > 0 }?.let { "$it ${if (it == 1) "play" else "plays"}" },
-    earlier.queueItems.takeIf { it > 0 }?.let { "a queue of $it ${if (it == 1) "song" else "songs"}" },
-).joinToString(" and ").ifBlank { "Data" } + " from before this update ${if (earlier.providerPlays > 0 && earlier.queueItems > 0 || earlier.providerPlays > 1) "are" else "is"} not assigned to an account."
+internal fun earlierDataSummary(earlier: UnassignedInventory): String {
+    val parts = listOfNotNull(
+        earlier.providerPlays.takeIf { it > 0 }?.let { plural(it, "play") },
+        earlier.queueItems.takeIf { it > 0 }?.let { "a queue of ${plural(it, "song")}" },
+        earlier.searches.takeIf { it > 0 }?.let { plural(it, "search", "searches") })
+    val text = when (parts.size) { 0 -> "Data"; 1 -> parts[0]; 2 -> parts.joinToString(" and "); else -> parts.dropLast(1).joinToString(", ") + " and " + parts.last() }
+    val several = parts.size > 1 || earlier.providerPlays > 1 || earlier.searches > 1
+    return "$text from before this update ${if (several) "are" else "is"} not assigned to an account."
+}
 
 @Composable private fun HistoryRow(entry: HistoryEntry, time: String, onPlay: () -> Unit) {
     val card = entry.track()?.homeCard()

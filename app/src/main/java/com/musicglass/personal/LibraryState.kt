@@ -199,14 +199,29 @@ internal class HistoryRepository(private val db: LibraryStateDb, private val epo
         db.readableDatabase.rawQuery("SELECT COUNT(*) FROM history_events WHERE scope=?", arrayOf(scope)).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
 
     /** Removes this owner's plays only. Writes prepared before this call are rejected afterwards. */
-    fun clear(scope: String): StoreOutcome {
-        val epoch = try {
-            db.write { d -> d.delete("history_events", "scope=?", arrayOf(scope)); epochs.advance(d, EpochKind.History, scope) }
-        } catch (error: SQLiteException) { return StoreOutcome.Failed(error::class.simpleName ?: "sqlite") }
+    fun clear(scope: String): StoreOutcome = if (clearCounted(scope) == null) StoreOutcome.Failed("sqlite") else StoreOutcome.Done
+
+    /** As [clear]; returns how many plays were removed, or null when nothing was changed. */
+    fun clearCounted(scope: String): Int? {
+        val (removed, epoch) = try {
+            db.write { d -> d.delete("history_events", "scope=?", arrayOf(scope)) to epochs.advance(d, EpochKind.History, scope) }
+        } catch (error: SQLiteException) { return null }
         epochs.committed(EpochKind.History, scope, epoch)
         _revision.value++
-        return StoreOutcome.Done
+        return removed
     }
+
+    /** Every owner that has plays. */
+    fun scopes(): List<String> = db.readableDatabase.rawQuery("SELECT DISTINCT scope FROM history_events", null)
+        .use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }
+
+    /** Plays, across every owner, that a retention period of [days] would remove now. */
+    fun countOlderThan(days: Int, now: Long = wallTime()): Int =
+        db.readableDatabase.rawQuery("SELECT COUNT(*) FROM history_events WHERE played_at<?", arrayOf((now - days * 86_400_000L).toString()))
+            .use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
+
+    /** Applies retention and the ceiling to every owner. */
+    fun pruneAll(now: Long = wallTime()): Int = scopes().sumOf { prune(it, now) }
 
     /** Applies the retention setting and the row ceiling to one owner. Returns the plays removed. */
     fun prune(scope: String, now: Long = wallTime()): Int {

@@ -35,6 +35,35 @@ internal fun mergeCollectionScope(context: Context, from: String, to: String): B
     return true
 }
 
+private val SCOPED_COLLECTIONS = listOf("online_favorites", "online_playlist", "online_history")
+
+private fun storedCount(prefs: android.content.SharedPreferences, key: String): Int =
+    runCatching { JSONArray(prefs.getString(key, "[]")).length() }.getOrDefault(0)
+
+/** Tracks the app itself saved for [owner] (favorites and the app playlist), not counting recents. */
+internal fun savedCollectionCount(context: Context, owner: String): Int {
+    val prefs = context.applicationContext.getSharedPreferences("music_collections", Context.MODE_PRIVATE)
+    return storedCount(prefs, "account_${owner}_online_favorites") + storedCount(prefs, "account_${owner}_online_playlist")
+}
+
+/** Removes the recents list kept for [owner]. Null when the change could not be stored. */
+@android.annotation.SuppressLint("UseKtx") // The result of commit() is reported; the KTX form discards it.
+internal fun clearCollectionRecents(context: Context, owner: String): Int? {
+    val prefs = context.applicationContext.getSharedPreferences("music_collections", Context.MODE_PRIVATE)
+    val key = "account_${owner}_online_history"
+    val count = storedCount(prefs, key)
+    return if (prefs.edit().remove(key).commit()) count else null
+}
+
+/** Removes everything the app saved for [owner]: favorites, the app playlist and recents. Null when it could not be stored. */
+internal fun clearCollectionScope(context: Context, owner: String): Int? {
+    val prefs = context.applicationContext.getSharedPreferences("music_collections", Context.MODE_PRIVATE)
+    val keys = SCOPED_COLLECTIONS.map { "account_${owner}_$it" }
+    val count = keys.sumOf { storedCount(prefs, it) }
+    val editor = prefs.edit(); keys.forEach(editor::remove)
+    return if (editor.commit()) count else null
+}
+
 /** Account-scoped saves for real YouTube Music tracks. */
 internal class LocalCollections(context: Context, initialAccountScope: String? = null) {
     private val prefs = context.applicationContext.getSharedPreferences("music_collections", Context.MODE_PRIVATE)
