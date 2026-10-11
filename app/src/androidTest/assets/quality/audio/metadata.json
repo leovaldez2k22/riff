@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "provenance": "Original mathematically generated sine waves and silence; no sampled recordings.",
+  "generator": "scripts/quality/generate_audio_fixtures.py; PCM16 little endian; peak amplitude 8192",
+  "timing": "Frame counts are exact; decoder tests use real elapsedRealtime with bounded tolerance.",
+  "fixtures": [
+    {
+      "file": "tone-a.wav",
+      "durationMs": 30000,
+      "sampleRate": 16000,
+      "channels": 1,
+      "pcmBits": 16,
+      "frames": 480000,
+      "frequenciesHz": [
+        440
+      ],
+      "sha256": "d9be444337c08d65c221be891b25b3cd9b05d47f09abf0e3fcba18513beabca1"
+    },
+    {
+      "file": "tone-b.wav",
+      "durationMs": 30000,
+      "sampleRate": 16000,
+      "channels": 1,
+      "pcmBits": 16,
+      "frames": 480000,
+      "frequenciesHz": [
+        660
+      ],
+      "sha256": "69f500c9a656ff9caa5a9dadcfbb754fb8b8ed940236a56acc68958eebc67c4c"
+    },
+    {
+      "file": "long.wav",
+      "durationMs": 300000,
+      "sampleRate": 16000,
+      "channels": 1,
+      "pcmBits": 16,
+      "frames": 4800000,
+      "frequenciesHz": [
+        220
+      ],
+      "sha256": "43b3c799611ba8d62ed406dc14fa83ea674c732cc53deefc73884d6c30247496"
+    },
+    {
+      "file": "short.wav",
+      "durationMs": 5000,
+      "sampleRate": 16000,
+      "channels": 1,
+      "pcmBits": 16,
+      "frames": 80000,
+      "frequenciesHz": [
+        880
+      ],
+      "sha256": "3bad8741922e1c02b5b3af670377a9898fdd7e2c5182bd0a4bf69fc82820fef4"
+    },
+    {
+      "file": "stereo.wav",
+      "durationMs": 30000,
+      "sampleRate": 16000,
+      "channels": 2,
+      "pcmBits": 16,
+      "frames": 480000,
+      "frequenciesHz": [
+        440,
+        660
+      ],
+      "sha256": "7cb789d4e8fea035ef77bca78abe3f983a48d4d75fcd3d8024582b303defa7fb"
+    },
+    {
+      "file": "silence.wav",
+      "durationMs": 5000,
+      "sampleRate": 16000,
+      "channels": 1,
+      "pcmBits": 16,
+      "frames": 80000,
+      "frequenciesHz": [
+        0
+      ],
+      "sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec"
+    }
+  ]
+}

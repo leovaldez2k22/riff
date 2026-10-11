@@ -33,6 +33,11 @@ android {
         sourceSets.maybeCreate("stress").java.srcDir("src/verification/java")
     }
 
+    sourceSets.getByName("debug").java.srcDir("src/verification/java")
+    sourceSets.getByName("test").java.srcDir("src/testSupport/java")
+    sourceSets.getByName("androidTest").java.srcDir("src/testSupport/java")
+    sourceSets.getByName("test").resources.srcDir("src/androidTest/assets")
+
     signingConfigs {
         create("localRelease") {
             val keystore = System.getenv("MUSIC_GLASS_KEYSTORE")

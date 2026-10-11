@@ -50,11 +50,12 @@ class MusicPlaybackService : MediaSessionService() {
         tailAudioEffects?.setGain(currentBoostGain())
     }
     private val events by lazy { PlaybackEventLog(this) }
-    private val serviceScope = CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
+    private val runtime by lazy {AppContainer.get(this).runtime}
+    private val serviceScope by lazy {CoroutineScope(SupervisorJob()+runtime.dispatchers.main)}
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val queueDecoder = Dispatchers.IO.limitedParallelism(1)
+    private val queueDecoder by lazy {runtime.dispatchers.io.limitedParallelism(1)}
     private val provider by lazy { YouTubeMusicProvider.shared(this) }
-    private val sleepTimer by lazy {SleepTimerController(serviceScope,{android.os.SystemClock.elapsedRealtime()},pause={session?.player?.pause()},publish={deadline->session?.setSessionExtras(Bundle().apply {putLong("sleepDeadlineMs",deadline)})},readVolume={session?.player?.volume?:1f},writeVolume={session?.player?.volume=it},persist=::persistSleepDeadline)}
+    private val sleepTimer by lazy {SleepTimerController(serviceScope,runtime.clocks::monotonicMillis,wait=runtime.wait,pause={session?.player?.pause()},publish={deadline->session?.setSessionExtras(Bundle().apply {putLong("sleepDeadlineMs",deadline)})},readVolume={session?.player?.volume?:1f},writeVolume={session?.player?.volume=it},persist=::persistSleepDeadline)}
     private fun bootCount()=android.provider.Settings.Global.getInt(contentResolver,android.provider.Settings.Global.BOOT_COUNT,-1)
     private fun persistSleepDeadline(deadline:Long) {
         val edit=snapshotPrefs.edit()
@@ -170,7 +171,7 @@ class MusicPlaybackService : MediaSessionService() {
             tail to { if(tailAudioEffects===effects) tailAudioEffects=null; effects.release() }
         }, sleepActive = { (session?.sessionExtras?.getLong("sleepDeadlineMs") ?: 0L) > 0L },
             tailItem={item->resolvedStreams[item]?.let {providerItem(trackFromItem(item),it)}?:item},
-            onBlend={SongCrossfadeState.active=it}) { events.append(it) }
+            onBlend={SongCrossfadeState.active=it},clock=runtime.clocks::monotonicMillis,wait=runtime.wait) { events.append(it) }
         // Crossfade synchronization requires frequent decoder-position updates.
         val player = ExoPlayer.Builder(this, renderers).setMediaSourceFactory(mediaFactory)
             .experimentalSetDynamicSchedulingEnabled(false)
@@ -245,7 +246,7 @@ class MusicPlaybackService : MediaSessionService() {
             override fun onCustomCommand(session: MediaSession,
                 controller: MediaSession.ControllerInfo, customCommand: SessionCommand,
                 args: Bundle): ListenableFuture<SessionResult> {
-                if (controller.packageName != packageName) {
+                if (controller.packageName != packageName || controller.uid != android.os.Process.myUid()) {
                     return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
                 }
                 if(customCommand.customAction==SET_SLEEP_TIMER) {

@@ -1,0 +1,109 @@
+# Excellence execution ledger
+
+## Authorization
+User requires permission before every phase. Q00 authorized on 8 October 2026. Q01 authorized next; Q02 explicitly authorized after Q01. Q03-Q18 remain TODO and unauthorized. No phone/USB debugging available; continue independent work and retain device gates as BLOCKED.
+Update 9 October 2026: user authorized Q02 completion and all remaining phases Q03-Q18 in sequence without per-phase approval. This does not authorize device installation, account mutations, publication, pushing or data deletion; those still require explicit approval.
+
+## Q00
+Status: PASS
+Dependencies: none
+Starting revision: b99865fe84b1d83d7495bb98fbd07b6e3abb7b20 (dirty)
+Changed paths: docs/quality/baseline.md; docs/quality/execution-ledger.md
+Preserved pre-existing paths: scripts/download_favourites.py; docs/RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md
+Completed: repository/instruction inspection; successful elevated Git status; local toolchain discovery.
+Next action: ask user permission for Q01; after approval inspect app/build.gradle.kts, PlaybackEventLog.kt, About UI and evidence scripts. Do not begin Q01 without approval.
+Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
+
+## Q03-Q18
+Status: TODO
+Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
+
+
+### Q00 completion evidence
+Evidence: artifacts/quality/b99865fe-dirty/q00-20261008T042625Z/q00-summary.json and baseline-build.log.
+Commands: Gradle wrapper --version; :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease --offline --continue --rerun-tasks --console=plain.
+Result: exit 0; 304 tests / 55 suites; zero failures/errors/skips; debug lint 0 errors/83 warnings/5 hints; release lint 0 errors/90 warnings/5 hints; both APK assemblies successful.
+Release: unsigned arm64-v8a; 26.275 MiB; SHA-256 8AA714303656318441C39AB610C5430D63708E7E5332EE92675F30D23A092849.
+Acceptance: reproducible fresh baseline PASS; existing user work preserved PASS; historical evidence not attributed to new run PASS; device blockers disclosed PASS.
+Changed paths: docs/quality/baseline.md and docs/quality/execution-ledger.md only; ignored evidence under artifacts/quality/b99865fe-dirty/q00-20261008T042625Z/.
+Known unresolved baseline risks: shared detailed history/search/snapshot; selector-dependent account key; solver in-process fallback; R8 Kotlin metadata warnings; lint warnings await full triage. See baseline.md for owners.
+Q00 source fixes: none. No installation, account mutation, publication or device setting changes occurred.
+Next exact action: obtain Q01 approval; inspect build metadata integration and highest known distributed version code before editing.
+
+## Q01
+Status: PASS
+Authorization: user said start next phase on 8 October 2026; Q02 also authorized after this phase.
+Dependencies: Q00 PASS
+Starting revision: b99865fe84b1d83d7495bb98fbd07b6e3abb7b20 (dirty)
+Scope: deterministic build/source identity, 0.10.0-rc1/code 22, About/diagnostics, fail-closed evidence schema/collector and integrations.
+Preserve: scripts/download_favourites.py; implementation plan; Q00 records.
+Next action: implement build identity and result collection; run parser negative tests and real builds.
+Limitations: no device; Q00 R8 warnings remain unresolved and are not silently waived.
+Q01 attempt 1: generateDebugBuildConfig/generateDebugBuildIdentityAssets FAILED during Gradle script compilation: java extension shadowed package-qualified MessageDigest; nullable AGP buildConfigFields; map inference cascades. Fixed import, explicit map type and required enabled BuildConfig property; no test assertion weakened.
+
+### Q01 completion
+Status: PASS (traceability package; device/release compliance not claimed).
+Fresh checks: 307 JVM tests in 56 suites, zero failures/errors/skips; debug and release lint zero errors; both assemblies and embedded identity/hash checks PASS_LOCAL.
+Debug evidence: artifacts/quality/b99865fe84b1d83d7495bb98fbd07b6e3abb7b20-dirty-2fcc6006e11a/q01-debug-01/manifest.json
+Release evidence: artifacts/quality/b99865fe84b1d83d7495bb98fbd07b6e3abb7b20-dirty-2fcc6006e11a/q01-release-01/manifest.json
+Collector tests: 23 passed; artifacts/quality/b99865fe84b1d83d7495bb98fbd07b6e3abb7b20-dirty-2fcc6006e11a/q01-collector-tests-01/unittest.log
+No-Git Gradle smoke: PASS; artifacts/quality/local-unknown/q01-git-unavailable-01/build-identity.json
+PowerShell parse and inspect-only wrapper PASS; no installation/signing/device script executed.
+Debug APK SHA-256: 2a8b79d737c641833834d3541b35383ad65fe916a53c910227bb8f858a172a71
+Release unsigned APK SHA-256: ef5f0851c66c80558466d6a36b3696c6711a24b609e46739f1b5019bead6a8c3
+Acceptance: distinguishable binaries PASS; APK/source/reports linked PASS; incomplete/crashed/stale/mismatched evidence rejected PASS.
+Changed paths: app/build.gradle.kts; BuildIdentity.kt/test; PlaybackEventLog.kt; SettingsScreen.kt; strings.xml; ServiceStopDiagnosticsTest.kt; scripts/quality/*; release/device/UI scripts; CI; README/CHANGELOG and quality docs.
+Known blockers: no physical phone; no live/provider/upgrade tests; R8 metadata warnings retained.
+Next exact action: Q02, already authorized; constructor seams, deterministic fakes/HTTP/audio fixtures and gateway audit. Q03 remains unauthorized.
+
+## Q02
+Status: PASS (see Q02 completion, 11 October 2026)
+Authorization: user explicitly allowed the next phase after Q01 on 8 October 2026.
+Dependencies: Q00 PASS, Q01 PASS
+Starting revision: b99865fe84b1d83d7495bb98fbd07b6e3abb7b20 (dirty; includes preserved Q00/Q01 work).
+Next action: inject runtime boundaries into existing provider/download/playback code; add test-only fakes and original audio; prove cache account race and fixture playback on disposable emulator if available.
+Limitations: physical phone unavailable; no personal provider accounts or data are test fixtures.
+
+### Q02 execution notes (verification in progress)
+Implemented: AppContainer/runtime constructor seams; provider/cache/download dispatch/time/transport/resolver injection; strict PlaybackGateway commands; private debug preview activities; same-UID stress controls; fake policy clock/session/catalog/resolver; bounded loopback/range server; original test-only PCM fixtures and provenance; decoder instrumentation; artifact packaging audit.
+Attempt compile-test-01 FAILED: injected dependency parameter after progress broke existing trailing-lambda download callers. Corrected parameter order; preserved caller behavior.
+Attempt compile-test-02 FAILED: pre-existing instrumentation references to verification activities were not wired for debug. Added private activities/debug-only source wiring; no production activity added.
+Attempt compile-test-03 PASS: 316 tests / 58 suites; zero failures/errors/skips; debug and paired instrumentation APKs built.
+First fixture playback run FAILED: preparation exceeded unchanged 10-second deadline while release/stress compilation and R8 ran concurrently. Preserved fixture-playback-01.log and fixture-process-01.log. ART logs show repeated 100-460 ms class verification, no reported media error. Collector rejected failed structured output as intended.
+Second fixture playback run PASS on the identical installed APKs after build became idle: same assertions/deadlines, 7.824 s total. No personal account or public-provider request involved. This supports a host-contention harness cause; final-source decoder run still required.
+First final-build-01 PASS: debug/release lint and release assembly; stress instrumentation compilation. Known R8/Kotlin metadata warnings remain.
+First packaging-audit-01 PASS: audio metadata/hashes; paired debug/test identity; fixture asset/code exclusion from app APKs; release manifest cleartext denied and no fixture config/activities.
+Follow-up fixes under Q02: constructor runtime must govern container provider and automatic download planner; temporary providers and injected SABR engines close; engine initialization failure cannot retain download gate; fixture server rejects invalid config before binding and closes unfinished clients on shutdown. Added regression coverage.
+Evidence staging: artifacts/quality/q02-work/. Final manifests will supersede provisional source identities after all code is frozen. Historical failures remain preserved.
+Next action: finish fresh unit/lint/APK checks on final source; execute fixture playback only when build is idle; collect exact paired-APK evidence and packaging audit; shut down only the disposable emulator. Q03 remains unauthorized.
+
+### Q02 completion (11 October 2026)
+Status: PASS (deterministic harness package; device, live-provider and release compliance not claimed).
+Source: b99865fe84b1d83d7495bb98fbd07b6e3abb7b20 dirty, digest bac26f301045e2fcf18455620e238433d3f0c2fe3a52978b1ba35d2694e7d661. The APKs left by final-build-02 carried digest 523607595eb0 and did not match this source, so every check below was rerun; no source file was edited in this session and the digest was identical before and after the runs.
+Evidence root: artifacts/quality/b99865fe84b1d83d7495bb98fbd07b6e3abb7b20-dirty-bac26f301045/
+Debug build (final-build-03.log): :app:testDebugUnitTest --rerun :app:lintDebug --rerun :app:assembleDebug :app:assembleDebugAndroidTest --offline --continue; exit 0 in 21m 41s. 318 JVM tests / 58 suites, zero failures/errors/skips. Debug lint 0 errors, 84 warnings, 5 hints.
+Fixture playback (fixture-playback-03.log): PASS on first attempt against the final-source APKs with the build idle; 1 test, 2.523 s, unchanged assertions and deadlines. Disposable emulator riff_q02_fixture, API 31, sdk_gphone64_x86_64. No media error or fatal exception in fixture-logcat-03.log. No personal account or public-provider request.
+Paired evidence: q02-debug-fixture-03/manifest.json PASS_LOCAL; gates build, artifactIdentity, jvm, lint, instrumentation all PASS. Debug APK SHA-256 bcf4b5d19274c6ecb6ea86758439d4541da91826afabc8768e3a7829c6090be4; test APK SHA-256 ce618f22d72769a6c8196d210a858f35bb5352e59cb5e5ae1be5c6932045665f; identical embedded identity.
+Release (q02-release-01/manifest.json): PASS_LOCAL; 318 tests; release lint 0 errors, 91 warnings, 5 hints; shrunk unsigned release assembled, 26.291 MiB, SHA-256 838aa9029efd726ed3d954c7f63d93341dc7fab9e0c08c83b46647c9257ee476. Instrumentation gate BLOCKED for release (no device run of the release artifact).
+Packaging audit (packaging-audit-02.json): PASS on those exact three APKs: six audio fixtures with matching metadata/hashes only in the test APK; no fixture code or assets in debug/release app APKs; release cleartext denied with no fixture config or test activities; debug cleartext limited to 127.0.0.1 and localhost.
+Stress (stress-build-04.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress; exit 0. Compilation only; stress instrumentation was not run.
+Collector self-tests: 23 passed.
+Failed attempts in this session, all operator invocation errors with no source, assertion or deadline change: q02-debug-fixture-01 (start timestamp with seven fractional digits rejected by the collector; empty run directory preserved); q02-debug-fixture-02 (ANDROID_HOME unset, so the debug signature could not be verified; FAIL manifest preserved); stress-build-03.log (wrapper not found from the shell used). Each was rerun under a new ID.
+Lint delta versus Q01: one new warning in both variants, StaticFieldLeak at AppContainer.kt:99. Preliminary triage: false positive, the container retains only applicationContext, the same pattern as the existing OfflineMusicStore and MoodPhotos warnings. Not suppressed; final triage stays with Q15/G08.
+Acceptance: critical fixture state and playback tests need no personal account or public provider PASS. First-session proof of one account-race test (PageMemoryCache generation boundary, JVM) and one fixture playback test (Media3 on emulator) PASS. Migration tests do not exist yet; they belong to Q04 and will use this harness.
+Known limits: R8/Kotlin metadata warnings persist (172 lines in the release log) and remain an unresolved Q00 toolchain risk. Emulator success does not satisfy physical audio, performance, live-provider, accessibility or upgrade gates. The account-race test is a prerequisite for Q03, not proof of a session coordinator.
+Device state: emulator shut down with adb emu kill and adb server stopped; no emulator or adb process remains. The debug and test APKs remain installed only inside the disposable AVD image. No physical device, account, publication or data deletion was involved.
+Commit: not done. Contract rule 16 requires committing Q00-Q02 on a branch before Q03; awaiting the user's go-ahead. scripts/download_favourites.py carries a pre-existing user change and must be kept out of or separated from the package commits.
+Next exact action: on approval, create branch codex/riff-quality-m0 and commit Q00, Q01 and Q02 as separate coherent commits; then start Q03 by reading YouTubeMusicProvider.kt, SignInFlow.kt, AccountScreen.kt and the PageMemoryCache generation boundary.
+
+## Plan v1.1 additions (11 October 2026)
+Plan revised to v1.1; see plan section 22. No application code changed by the revision.
+New packages, all Status: TODO, implementation not yet authorized (the 9 October authorization covers Q03-Q18 only):
+- Q05A local export/import. Dependencies: Q03, Q04, Q05.
+- Q05R interim release R1. Dependencies: Q00-Q05 PASS.
+- Q08A loudness normalization. Dependencies: Q08.
+- Q10A provider canary and response runbook. Dependencies: Q10.
+- Q12A update notice. Dependencies: Q01, Q12.
+- Q15A exit-reason diagnostics. Dependencies: Q15.
+Changed inside existing packages: Q14 now includes a Baseline Profile (optimization rule 8).
+New contract rule 16: commit each package locally on its branch before starting the next. Q00-Q02 work is still uncommitted on main; committing it is the next step before Q03 and has not been done. Pushing remains unauthorized.

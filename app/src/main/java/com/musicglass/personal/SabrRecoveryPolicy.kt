@@ -28,7 +28,7 @@ internal fun sabrAttestationRetryId(error: Throwable?, mediaId: String?, live: B
 internal object SabrFaultInjection {
     private var pending = 0
 
-    @Synchronized fun failNextAttestations(count: Int) { pending = count.coerceIn(0, 10) }
+    @Synchronized fun failNextAttestations(count: Int) { check(BuildConfig.DEBUG) {"Fault injection is limited to test builds"}; pending = count.coerceIn(0, 10) }
 
     @Synchronized fun consume(): Boolean = (pending > 0).also { if (it) pending-- }
 }

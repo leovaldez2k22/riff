@@ -52,5 +52,30 @@ internal class FixturePlayback:PlaybackGateway {
     val moves=mutableListOf<Pair<Int,Int>>()
     override fun moveQueueItem(from:Int,to:Int) {if(from !in state.queue.indices || to !in state.queue.indices) return
         val active=state.queue[state.index];val queue=state.queue.toMutableList();queue.add(to,queue.removeAt(from));state=state.copy(queue=queue,index=queue.indexOf(active));moves+=from to to}
-    override fun toggle() {};override fun pause() {};override fun resume() {};override fun next() {};override fun previous() {};override fun seekTo(positionMs:Long) {};override fun toggleShuffle() {};override fun cycleRepeat() {};override fun removeQueueItem(index:Int) {};override fun playProvider(track:ProviderTrack,stream:ProviderStream,startPositionMs:Long) {};override fun playLocal(track:LocalAudioTrack) {};override fun clearProviderPlayback() {};override fun close() {}
+    private fun unsupported():Nothing=throw UnsupportedOperationException("Queue preview has no playback transport")
+    override fun toggle()=unsupported()
+    override fun pause()=unsupported()
+    override fun resume()=unsupported()
+    override fun next()=unsupported()
+    override fun previous()=unsupported()
+    override fun seekTo(positionMs:Long)=unsupported()
+    override fun toggleShuffle()=unsupported()
+    override fun cycleRepeat()=unsupported()
+    override fun removeQueueItem(index:Int)=unsupported()
+    override fun playProvider(track:ProviderTrack,stream:ProviderStream,startPositionMs:Long)=unsupported()
+    override fun playLocal(track:LocalAudioTrack)=unsupported()
+    override fun clearProviderPlayback()=unsupported()
+    override fun setSleepTimer(minutes:Int)=unsupported()
+    override fun seekQueueItem(index:Int)=unsupported()
+    override fun enqueueProvider(track:ProviderTrack,stream:ProviderStream,playNext:Boolean)=unsupported()
+    override fun playSong(track:ProviderTrack)=unsupported()
+    override fun restoreAudio(track:ProviderTrack,position:Long)=unsupported()
+    override fun playAlbum(tracks:List<ProviderTrack>,index:Int)=unsupported()
+    override fun playCollection(tracks:List<ProviderTrack>,index:Int,title:String,shuffle:Boolean)=unsupported()
+    override fun stageLive(track:ProviderTrack)=unsupported()
+    override fun replaceProvider(track:ProviderTrack,stream:ProviderStream,position:Long)=unsupported()
+    override fun attachVideo(surface:android.view.SurfaceView?)=unsupported()
+    override fun detachVideo(surface:android.view.SurfaceView)=unsupported()
+    override fun dropTrack(videoId:String)=unsupported()
+    override fun close() {} // Owns no player, connection or background work.
 }

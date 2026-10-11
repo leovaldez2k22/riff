@@ -5,35 +5,38 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.media.MediaCodec
-import android.os.StatFs
 import com.metrolist.innertubex.sabr.SabrAudioStream
 import com.metrolist.innertubex.sabr.ExperimentalSabrApi
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.Mutex
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.io.File
 import java.io.IOException
 import java.nio.ByteBuffer
-import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
 @OptIn(ExperimentalSabrApi::class)
 internal object OfflineDownloadEngine {
     private val gate=Mutex()
-    private val network=OkHttpClient.Builder().connectTimeout(10,TimeUnit.SECONDS).readTimeout(15,TimeUnit.SECONDS).build()
-    suspend fun run(context:Context,automatic:Boolean,progress:(String)->Unit):Boolean=withContext(Dispatchers.IO) {
+    suspend fun run(context:Context,automatic:Boolean,
+        dependencies:RuntimeDependencies=AppContainer.get(context).runtime,progress:(String)->Unit):Boolean=withContext(dependencies.dispatchers.io) {
         val store=OfflineMusicStore.get(context)
-        if(automatic && !automaticConditionsAllowed(context,store)) return@withContext false
+        if(automatic && !automaticConditionsAllowed(context,store,dependencies)) return@withContext false
         if(!gate.tryLock()) return@withContext false
-        val scope=store.currentScope;val provider=YouTubeMusicProvider.shared(context)
-        val http=HttpClient(OkHttp)
+        var ownedProvider:YouTubeMusicProvider?=null
+        var engineResource:io.ktor.client.engine.HttpClientEngine?=null
+        var clientResource:HttpClient?=null
         try {
-            if(automatic && store.smartEnabled && !store.playbackBusy) plan(context,store,scope)
+            val process=AppContainer.get(context)
+            val container=if(dependencies===process.runtime) process else AppContainer(context,dependencies)
+            val scope=store.currentScope;val provider by lazy {container.provider.also {if(container!==process) ownedProvider=it}}
+            val resolver:StreamResolver=dependencies.resolver?:provider
+            val engine=dependencies.providerTransport().also {engineResource=it}
+            val http=HttpClient(engine).also {clientResource=it}
+            if(automatic && store.smartEnabled && !store.playbackBusy) plan(context,store,scope,dependencies,provider)
             val jobs=store.rows(scope).filter {it.state in setOf("queued","failed") && (if(automatic) !it.pinned else it.pinned)}.sortedByDescending {it.priority}
             for(job in jobs) {
                 ensureActive()
@@ -46,10 +49,10 @@ internal object OfflineDownloadEngine {
                 fun checkState() {
                     if(scope!=store.currentScope || store.song(scope,id)?.state !in setOf("downloading","assets")) throw CancellationException("Download cancelled")
                     if(automatic && (!store.smartEnabled || store.playbackBusy)) throw CancellationException("Automatic download paused")
-                    val now=android.os.SystemClock.elapsedRealtime()
+                    val now=dependencies.clocks.monotonicMillis()
                     if(automatic && now>=nextConditionsCheck) {
                         nextConditionsCheck=now+1000
-                        if(!automaticConditionsAllowed(context,store)) throw CancellationException("Download conditions changed")
+                        if(!automaticConditionsAllowed(context,store,dependencies)) throw CancellationException("Download conditions changed")
                     }
                 }
                 var phase="resolve"
@@ -57,9 +60,9 @@ internal object OfflineDownloadEngine {
                     if(!store.beginDownload(scope,id)) continue
                     checkState();progress("Downloading ${job.track.title}")
                     if(store.audio(scope,id)==null) {
-                        var stream=provider.resolve(id,download=true).getOrThrow()
+                        var stream=resolver.resolve(StreamRequest(id,download=true,quality=com.metrolist.innertubex.extraction.AudioQuality.HIGH)).getOrThrow()
                         val expected=stream.contentLength?:((stream.durationMs.takeIf {it>0}?:job.durationMs)*maxOf(stream.bitrate,320_000)/8000)
-                        val stats=StatFs(store.root.absolutePath)
+                        val stats=dependencies.storageCapacity(store.root)
                         if(!downloadFits(store.usedBytes(),expected,store.budgetBytes,stats.availableBytes,stats.totalBytes)) throw IOException("Storage limit reached. Free space or increase the download budget.")
                         require(stream.mimeType?.contains("mpegurl",true)!=true) {"No complete downloadable audio is available"}
                         val quality="${if(stream.bitrate>0) "${stream.bitrate/1000} kbps \u00B7 " else ""}${stream.mimeType?.substringBefore(';')?:"audio"} \u00B7 Highest available"
@@ -88,7 +91,7 @@ internal object OfflineDownloadEngine {
                                             val end=if(stream.boundedRange) minOf(bytes+1_048_576-1,length-1) else length-1
                                             val url=if(stream.boundedRange) stream.url.toHttpUrl().newBuilder().setQueryParameter("range","$bytes-$end").build() else stream.url.toHttpUrl()
                                             val request=Request.Builder().url(url).apply {stream.headers.forEach {(k,v)->header(k,v)};if(bytes>0 && !stream.boundedRange) header("Range","bytes=$bytes-")}.build()
-                                            network.newCall(request).execute().use {response->
+                                            dependencies.httpCalls.newCall(request).execute().use {response->
                                                 if(!response.isSuccessful) throw IOException("Audio transfer rejected (${response.code})")
                                                 val wanted=end-bytes+1;var received=0L
                                                 response.body.byteStream().use {input->val buffer=ByteArray(64*1024);while(true) {
@@ -108,12 +111,12 @@ internal object OfflineDownloadEngine {
                                 remux(raw,assembled,stream.durationMs.takeIf {it>0}?:job.durationMs,::checkState)
                                 checkState();ensureActive()
                                 val audio=File(dir,"audio.media");check(assembled.renameTo(audio)) {"Could not commit audio"};raw.delete()
-                                File(dir,"ready").writeText(audio.length().toString());store.update(scope,id,"bytes" to audio.length(),"total" to audio.length(),"downloaded_at" to System.currentTimeMillis());downloaded=true;break
+                                File(dir,"ready").writeText(audio.length().toString());store.update(scope,id,"bytes" to audio.length(),"total" to audio.length(),"downloaded_at" to dependencies.clocks.wallTimeMillis());downloaded=true;break
                             } catch(e:CancellationException) {throw e} catch(e:Exception) {
-                                raw.delete();assembled.delete();provider.invalidateStream(id)
+                                raw.delete();assembled.delete();if(dependencies.resolver==null) provider.invalidateStream(id)
                                 if(attempt==2) throw e
                                 stream.profileId?.let {rejected.add(it)}
-                                delay((attempt+1)*1000L);stream=provider.resolve(id,excludedProfiles=rejected.toSet(),download=true).getOrThrow()
+                                dependencies.wait((attempt+1)*1000L);stream=resolver.resolve(StreamRequest(id,excludedProfiles=rejected.toSet(),download=true,quality=com.metrolist.innertubex.extraction.AudioQuality.HIGH)).getOrThrow()
                                 store.update(scope,id,"quality" to "${if(stream.bitrate>0) "${stream.bitrate/1000} kbps \u00B7 " else ""}${stream.mimeType?.substringBefore(';')?:"audio"} \u00B7 Highest available","duration" to (stream.durationMs.takeIf {it>0}?:job.durationMs))
                             }
                         }
@@ -127,7 +130,7 @@ internal object OfflineDownloadEngine {
                         try {
                             val url=validProviderArtworkUrl(job.track.artworkUrl)?.let(::highQualityArtworkUrl)?:throw IOException("No artwork")
                             val temp=File(dir,"artwork.part")
-                            network.newCall(Request.Builder().url(url).build()).execute().use {r->
+                            dependencies.httpCalls.newCall(Request.Builder().url(url).build()).execute().use {r->
                                 if(!r.isSuccessful) throw IOException("Artwork unavailable")
                                 val bytes=java.io.ByteArrayOutputStream();r.body.byteStream().use {input->val buffer=ByteArray(8192);while(true) {ensureActive();checkState();val count=input.read(buffer);if(count<0) break;if(bytes.size()+count>8_000_000) throw IOException("Artwork too large");bytes.write(buffer,0,count)}}
                                 val data=bytes.toByteArray();if(android.graphics.BitmapFactory.decodeByteArray(data,0,data.size)==null) throw IOException("Invalid artwork");temp.writeBytes(data)
@@ -158,25 +161,27 @@ internal object OfflineDownloadEngine {
                 }
             }
             true
-        } finally {http.close();gate.unlock()}
+        } finally {
+            try {clientResource?.close()} finally {
+                try {engineResource?.close()} finally {
+                    try {ownedProvider?.close()} finally {gate.unlock()}
+                }
+            }
+        }
     }
-    internal fun automaticConditionsAllowed(context:Context,store:OfflineMusicStore):Boolean {
-        val connectivity=context.getSystemService(android.net.ConnectivityManager::class.java)
-        val caps=connectivity.getNetworkCapabilities(connectivity.activeNetwork)
-        val battery=context.getSystemService(android.os.BatteryManager::class.java).getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
-        return battery !in 0..19 && smartDownloadNetworkAllowed(store.allowMobileData,
-            caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)==true,
-            caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED)==true,
-            caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)==true &&
-                caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED))
+    internal fun automaticConditionsAllowed(context:Context,store:OfflineMusicStore,
+        dependencies:RuntimeDependencies=AppContainer.get(context).runtime):Boolean {
+        val network=dependencies.networkConditions()
+        return dependencies.batteryPercent() !in 0..19 && smartDownloadNetworkAllowed(store.allowMobileData,
+            network.wifi,network.unmetered,network.validated)
     }
-    private fun plan(context:Context,store:OfflineMusicStore,scope:String) {
+    private fun plan(context:Context,store:OfflineMusicStore,scope:String,dependencies:RuntimeDependencies,provider:YouTubeMusicProvider) {
         if(!store.smartEnabled) return
-        val rows=store.rows(scope);val likes=YouTubeMusicProvider.shared(context).songLikes;val favorites=LocalCollections(context,YouTubeMusicProvider.shared(context).accountScopeKey()).onlineFavorites.map {it.videoId}.toSet()
-        val chosen=smartCandidates(rows.filterNot {it.excluded}.map {SmartCandidate(it.track.videoId,it.lastPlayed,it.plays,it.listenedMs,it.durationMs,likes[it.track.videoId]==true || it.track.videoId in favorites,it.track.isLive,it.track.isMusic)},System.currentTimeMillis())
+        val rows=store.rows(scope);val likes=provider.songLikes;val favorites=LocalCollections(context,provider.accountScopeKey()).onlineFavorites.map {it.videoId}.toSet()
+        val chosen=smartCandidates(rows.filterNot {it.excluded}.map {SmartCandidate(it.track.videoId,it.lastPlayed,it.plays,it.listenedMs,it.durationMs,likes[it.track.videoId]==true || it.track.videoId in favorites,it.track.isLive,it.track.isMusic)},dependencies.clocks.wallTimeMillis())
         val ids=chosen.map {it.id}.toSet()
         rows.filter {!it.pinned && it.state!="metadata" && it.track.videoId !in ids}.forEach {store.remove(scope,it.track.videoId,exclude=false)}
-        val stats=StatFs(store.root.absolutePath);var estimated=store.usedBytes();var available=stats.availableBytes
+        val stats=dependencies.storageCapacity(store.root);var estimated=store.usedBytes();var available=stats.availableBytes
         for((index,candidate) in chosen.withIndex()) {
             val row=rows.first {it.track.videoId==candidate.id};if(row.pinned || store.audio(scope,candidate.id)!=null) continue
             val estimate=candidate.durationMs*320_000/8000

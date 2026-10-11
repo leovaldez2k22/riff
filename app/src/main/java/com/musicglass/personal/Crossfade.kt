@@ -118,7 +118,9 @@ internal fun shouldPrepareCrossfade(fadeMs:Long,positionMs:Long,durationMs:Long,
 @androidx.annotation.OptIn(markerClass=[androidx.media3.common.util.UnstableApi::class])
 internal class Crossfader(private val context: Context, private val scope: CoroutineScope,
     private val createTail: () -> Pair<ExoPlayer, () -> Unit>, private val sleepActive: () -> Boolean,
-    private val tailItem:(MediaItem)->MediaItem={it},private val onBlend:(SongCrossfade?)->Unit={},private val log: (String) -> Unit) {
+    private val tailItem:(MediaItem)->MediaItem={it},private val onBlend:(SongCrossfade?)->Unit={},
+    private val clock:()->Long=AndroidAppClocks::monotonicMillis,
+    private val wait:suspend (Long)->Unit={delay(it)},private val log: (String) -> Unit) {
     private val prefs = context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE)
     private var monitor: Job? = null
     private var fade: Job? = null
@@ -163,7 +165,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
         monitor = scope.launch {
             var preloading:Boolean?=null
             while (isActive) {
-                delay(if (main.isPlaying) 200 else 1_000)
+                wait(if (main.isPlaying) 200 else 1_000)
                 val enabled=prefs.getBoolean("enabled",false)
                 if(preloading!=enabled) {
                     main.setPreloadConfiguration(if(enabled) ExoPlayer.PreloadConfiguration(12_000_000L) else ExoPlayer.PreloadConfiguration.DEFAULT)
@@ -205,7 +207,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
             if (withTimeoutOrNull(25_000) {
                     while (tail.playbackState != Player.STATE_READY) {
                         if(itemKey(main)!=key || !main.playWhenReady || sleepActive() || tail.playerError!=null) return@withTimeoutOrNull false
-                        delay(20)
+                        wait(20)
                     }
                     true
                 } != true) {
@@ -220,11 +222,11 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                 // A short network stall is not a user pause. Keep the prepared, muted copy;
                 // abandoning it here marks this song handled and loses its eventual crossfade.
                 if(!main.isPlaying) {
-                    val now=android.os.SystemClock.elapsedRealtime()
+                    val now=clock()
                     if(bufferedSince==null) {bufferedSince=now;log("crossfade_waiting reason=main_buffering")}
                     if(now-bufferedSince>=15_000) {log("crossfade_skipped reason=main_stalled_before_warmup");return}
                 } else bufferedSince=null
-                delay(50)
+                wait(50)
             }
             if (itemKey(main) != key || !main.isPlaying) return
             // Seek ahead while muted and paused, giving the decoder time to finish the seek.
@@ -234,7 +236,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
             if(withTimeoutOrNull(3_000) {
                     while(main.currentPosition<target || tail.playbackState!=Player.STATE_READY) {
                         if(itemKey(main)!=key || !main.playWhenReady || sleepActive() || tail.playerError!=null) return@withTimeoutOrNull false
-                        delay(10)
+                        wait(10)
                     }
                     true
                 } != true) {
@@ -243,7 +245,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
             tail.play()
             // READY/isPlaying may initially use the software clock before AudioTrack timestamps
             // settle. Warm up muted before checking alignment against the playing decoder.
-            val clockStarted=android.os.SystemClock.elapsedRealtime()
+            val clockStarted=clock()
             var lastSyncLog=0L
             if (withTimeoutOrNull(14_000) {
                     var synchronizer=CrossfadeTailSynchronizer()
@@ -253,7 +255,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                     var settleUntil=clockStarted+2_000
                     while(true) {
                         if(itemKey(main)!=key || !main.playWhenReady || sleepActive() || tail.playerError!=null) return@withTimeoutOrNull false
-                        val now=android.os.SystemClock.elapsedRealtime()
+                        val now=clock()
                         val difference=main.currentPosition-tail.currentPosition
                         val parameters=main.playbackParameters
                         // A compressed stream can start hundreds of milliseconds late. Small speed
@@ -287,7 +289,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                         if(tail.playbackParameters!=desired) tail.playbackParameters=desired
                         if(main.duration-main.currentPosition<=fadeMs && synchronizer.ready(now))
                             return@withTimeoutOrNull true
-                        delay(10)
+                        wait(10)
                     }
                     @Suppress("UNREACHABLE_CODE") false
                 } != true) {
@@ -313,21 +315,21 @@ internal class Crossfader(private val context: Context, private val scope: Corou
             try {main.seekToNextMediaItem()} finally {handoff=false}
             val next = itemKey(main)
             log("crossfade_start ms=$overlap")
-            val envelope=CrossfadeEnvelope(overlap,android.os.SystemClock.elapsedRealtime())
+            val envelope=CrossfadeEnvelope(overlap,clock())
             val continuity=CrossfadeTailContinuity()
             var stalledSince:Long?=null
             while (true) {
-                delay(16)
+                wait(16)
                 if (itemKey(main) != next || !main.playWhenReady || sleepActive() ||
                     main.playbackSuppressionReason!=Player.PLAYBACK_SUPPRESSION_REASON_NONE || main.playerError!=null) break
-                val now=android.os.SystemClock.elapsedRealtime()
+                val now=clock()
                 if(main.isPlaying) stalledSince=null
                 else {
                     if(stalledSince==null) stalledSince=now
                     if(now-stalledSince>=15_000) {log("crossfade_cancelled reason=incoming_stalled");break}
                 }
                 // Decoder startup/buffering pauses the ramp; it never compresses the selected fade.
-                val progress=envelope.advance(android.os.SystemClock.elapsedRealtime(),main.isPlaying)
+                val progress=envelope.advance(clock(),main.isPlaying)
                 val (out,incoming)=crossfadeGains(progress)
                 // A buffered/ended tail cannot become audible again over the next song.
                 tail.volume = if(continuity.audible(tail.isPlaying)) base * out else 0f

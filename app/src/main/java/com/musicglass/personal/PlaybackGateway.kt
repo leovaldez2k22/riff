@@ -47,7 +47,7 @@ internal interface PlaybackGateway {
     val positionMs: Long
     fun currentPositionMs(): Long = positionMs
     fun toggle()
-    fun setSleepTimer(minutes:Int) {}
+    fun setSleepTimer(minutes:Int)
     fun pause()
     fun resume()
     fun next()
@@ -56,26 +56,27 @@ internal interface PlaybackGateway {
     fun toggleShuffle()
     fun cycleRepeat()
     fun moveQueueItem(from: Int, to: Int)
-    fun seekQueueItem(index: Int) {}
-    fun enqueueProvider(track: ProviderTrack, stream: ProviderStream, playNext: Boolean = false) {}
-    fun playSong(track:ProviderTrack) {}
-    fun restoreAudio(track:ProviderTrack,position:Long) {}
-    fun playAlbum(tracks: List<ProviderTrack>, index: Int) {}
-    fun playCollection(tracks:List<ProviderTrack>,index:Int,title:String,shuffle:Boolean=false) {playAlbum(tracks,index)}
-    fun stageLive(track:ProviderTrack) {}
-    fun replaceProvider(track:ProviderTrack,stream:ProviderStream,position:Long) {}
-    fun attachVideo(surface:android.view.SurfaceView?) {}
-    fun detachVideo(surface:android.view.SurfaceView) {attachVideo(null)}
+    fun seekQueueItem(index: Int)
+    fun enqueueProvider(track: ProviderTrack, stream: ProviderStream, playNext: Boolean = false)
+    fun playSong(track:ProviderTrack)
+    fun restoreAudio(track:ProviderTrack,position:Long)
+    fun playAlbum(tracks: List<ProviderTrack>, index: Int)
+    fun playCollection(tracks:List<ProviderTrack>,index:Int,title:String,shuffle:Boolean=false)
+    fun stageLive(track:ProviderTrack)
+    fun replaceProvider(track:ProviderTrack,stream:ProviderStream,position:Long)
+    fun attachVideo(surface:android.view.SurfaceView?)
+    fun detachVideo(surface:android.view.SurfaceView)
     fun removeQueueItem(index: Int)
     /** Skips [videoId] if it is playing and takes every copy of it out of the queue. */
-    fun dropTrack(videoId: String) {}
+    fun dropTrack(videoId: String)
     fun playProvider(track: ProviderTrack, stream: ProviderStream, startPositionMs: Long = 0L)
     fun playLocal(track: LocalAudioTrack)
     fun clearProviderPlayback()
     fun close()
 }
 
-internal class MusicPlaybackGateway(context: Context) : PlaybackGateway {
+internal class MusicPlaybackGateway(context: Context,
+    private val dependencies:RuntimeDependencies=AppContainer.get(context).runtime) : PlaybackGateway {
     private val appContext = context.applicationContext
     private val handler = Handler(Looper.getMainLooper())
     var onLivePlay:((ProviderTrack)->Unit)?=null
@@ -239,14 +240,14 @@ internal class MusicPlaybackGateway(context: Context) : PlaybackGateway {
     fun enqueueSong(track:ProviderTrack,next:Boolean) {sendCatalogQueue(listOf(track),0,true,enqueueNext=next)}
     override fun restoreAudio(track:ProviderTrack,position:Long) {sendCatalogQueue(listOf(track),0,state.wantsPlayback,replacePosition=position)}
     private var catalogGeneration=0
-    private val catalogScope=kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()+kotlinx.coroutines.Dispatchers.Main.immediate)
+    private val catalogScope=kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()+dependencies.dispatchers.main)
     private fun sendCatalogQueue(tracks:List<ProviderTrack>,index:Int,autoplay:Boolean,title:String="",shuffle:Boolean=false,automatic:Boolean=false,replacePosition:Long?=null,enqueueNext:Boolean?=null) {
         if(tracks.isEmpty() || index !in tracks.indices || tracks.size>2000) {commandError="Could not open this collection";return}
         val generation=++catalogGeneration
         catalogScope.launch {
             val file=java.io.File(appContext.cacheDir,"queue-request-${java.util.UUID.randomUUID()}.json")
             try {
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                kotlinx.coroutines.withContext(dependencies.dispatchers.io) {
                     val items=tracks.map {t->SavedQueueItem("yt:${t.videoId}",t.title.take(180),t.artist.take(180),t.artworkUrl,t.album.take(180),t.artistId,t.albumId,t.isLive,music=t.isMusic)}
                     file.writeText(encodePlaybackSnapshot(PlaybackSnapshot(items,index,0,shuffle,collectionTitle=title.take(180))))
                 }

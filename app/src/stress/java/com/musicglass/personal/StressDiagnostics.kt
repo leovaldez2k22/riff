@@ -29,21 +29,19 @@ class StressDiagnostics : ContentProvider() {
                 .penaltyLog()
                 .build()
         )
-        // adb shell am broadcast -a com.musicglass.personal.stress.FAIL_SABR --ei count 1
-        // makes the next song stream fail with ATTESTATION_REQUIRED (scenarios.py sabr_attestation).
-        checkNotNull(context).registerReceiver(object : BroadcastReceiver() {
+        // Same-UID instrumentation only. Shell broadcasts cannot mutate fault/session state.
+        androidx.core.content.ContextCompat.registerReceiver(checkNotNull(context), object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 SabrFaultInjection.failNextAttestations(intent.getIntExtra("count", 1))
             }
-        }, IntentFilter("com.musicglass.personal.stress.FAIL_SABR"), Context.RECEIVER_EXPORTED)
-        // adb shell am broadcast -a com.musicglass.personal.stress.FAKE_EXPIRED
+        }, IntentFilter("com.musicglass.personal.stress.FAIL_SABR"), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
         // scrambles the in-memory session cookies so the expired-session UI shows (W5). Saved
         // cookies are untouched; Finish sign-in or a restart restores the real session.
-        checkNotNull(context).registerReceiver(object : BroadcastReceiver() {
+        androidx.core.content.ContextCompat.registerReceiver(checkNotNull(context), object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 YouTubeMusicProvider.shared(context).simulateExpiredSession()
             }
-        }, IntentFilter("com.musicglass.personal.stress.FAKE_EXPIRED"), Context.RECEIVER_EXPORTED)
+        }, IntentFilter("com.musicglass.personal.stress.FAKE_EXPIRED"), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
         return true
     }
 

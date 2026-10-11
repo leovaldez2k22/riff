@@ -1,7 +1,6 @@
 package com.musicglass.personal
 
 import okhttp3.HttpUrl.Companion.toHttpUrl
-import android.os.SystemClock
 import android.util.Log
 import android.webkit.CookieManager
 import android.content.Context
@@ -38,7 +37,6 @@ import io.ktor.client.request.header
 import androidx.compose.runtime.mutableStateMapOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -99,19 +97,17 @@ internal class AppPlayerConfigRepository(context: Context, prefsName: String = "
 }
 
 /** WebView owns cookies; app-private preferences retain the noncookie page session fields. */
-internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
+internal class YouTubeMusicProvider(context: Context,
+    private val dependencies: RuntimeDependencies = AppContainer.get(context).runtime) : StreamResolver, AutoCloseable {
     companion object {
-        @Volatile private var sharedInstance:YouTubeMusicProvider?=null
-        fun checkExistingFeedWindow() {sharedInstance?.checkFeedWindow()}
-        fun checkExistingSession() {sharedInstance?.checkSessionIfDue()}
-        fun shared(context:Context):YouTubeMusicProvider=sharedInstance ?: synchronized(this) {
-            sharedInstance ?: YouTubeMusicProvider(context.applicationContext).also {sharedInstance=it}
-        }
+        fun checkExistingFeedWindow() {AppContainer.existing()?.existingProvider()?.checkFeedWindow()}
+        fun checkExistingSession() {AppContainer.existing()?.existingProvider()?.checkSessionIfDue()}
+        fun shared(context:Context):YouTubeMusicProvider=AppContainer.get(context).provider
     }
     private val appContext=context.applicationContext
-    private val runtimeScope=CoroutineScope(SupervisorJob()+Dispatchers.IO)
-    internal val feedCache=PageMemoryCache(runtimeScope,retain={key->val page=key.substringAfter(':');page.startsWith("home:") || page.startsWith("podcasts:") || page=="radio" || page.startsWith("radio:")})
-    internal val collectionCache=PageMemoryCache(runtimeScope,scheduled=false)
+    private val runtimeScope=CoroutineScope(SupervisorJob()+dependencies.dispatchers.io)
+    internal val feedCache=PageMemoryCache(runtimeScope,scheduled=dependencies.startProviderBackgroundWork,clock={java.time.Instant.ofEpochMilli(dependencies.clocks.wallTimeMillis()).atZone(java.time.ZoneId.systemDefault())},retain={key->val page=key.substringAfter(':');page.startsWith("home:") || page.startsWith("podcasts:") || page=="radio" || page.startsWith("radio:")})
+    internal val collectionCache=PageMemoryCache(runtimeScope,scheduled=false,clock={java.time.Instant.ofEpochMilli(dependencies.clocks.wallTimeMillis()).atZone(java.time.ZoneId.systemDefault())})
     var libraryScanRevision by mutableIntStateOf(0)
         private set
     var libraryPlaylistSnapshot by mutableStateOf<List<ProviderHomeCard>>(emptyList())
@@ -122,7 +118,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     fun cachedFeed(key:String):List<ProviderHomeSection>?=feedCache.peek(feedKey(key))
     // Home always waits for a fresh feed (rc17 behaviour, kept by the owner on 2026-10-03), so no Home
     // snapshot is stored. Unreleased test builds of plan W3 wrote one here; remove it once.
-    private val retiredSnapshots=runtimeScope.launch {runCatching {java.io.File(appContext.noBackupFilesDir,"feed-snapshots").deleteRecursively()}}
+    private val retiredSnapshots=if (dependencies.startProviderBackgroundWork) runtimeScope.launch {runCatching {java.io.File(appContext.noBackupFilesDir,"feed-snapshots").deleteRecursively()}} else null
     fun cachedCollection(id:String):CatalogPage?=collectionCache.peek(feedKey("collection:$id"))
     fun cachedLibrary(kind:String):CatalogPage?=collectionCache.peek(feedKey("library:$libraryRevision:$kind"))
     fun checkFeedWindow()=feedCache.checkWindow()
@@ -139,7 +135,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     /** Whether Google still accepts the saved sign-in (W5); signedIn only means cookies exist. */
     var sessionState by mutableStateOf(SessionState.SignedOut)
         private set
-    private val sessionChecks=SessionCheckSchedule(android.os.SystemClock::elapsedRealtime)
+    private val sessionChecks=SessionCheckSchedule(dependencies.clocks::monotonicMillis)
     private val sessionProbeGate=Mutex()
     /** On resume at most every 6 hours; [forced] right after a 401 (at most every 30 s). */
     private var deferredSessionCheck:kotlinx.coroutines.Job?=null
@@ -148,7 +144,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         if(sessionChecks.due(forced)) {runtimeScope.launch {probeSession()};return}
         // A 401 right after a check must not be dropped: run it once the 30 s gap has passed.
         if(forced && deferredSessionCheck?.isActive!=true)
-            deferredSessionCheck=runtimeScope.launch {delay(sessionChecks.waitMs(forced=true));probeSession()}
+            deferredSessionCheck=runtimeScope.launch {dependencies.wait(sessionChecks.waitMs(forced=true));probeSession()}
     }
     private suspend fun probeSession() = sessionProbeGate.withLock {
         if(!signedIn) {sessionState=SessionState.SignedOut;return@withLock}
@@ -172,6 +168,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
      * The saved cookies are untouched; refreshAccount() (Finish sign-in, or a restart) restores them.
      */
     internal fun simulateExpiredSession() {
+        check(BuildConfig.DEBUG) {"Session fault injection is limited to test builds"}
         if(!signedIn) return
         val cookies=CookieManager.getInstance().getCookie("https://music.youtube.com") ?: return
         val scrambled=cookies.split(';').joinToString("; ") {part->
@@ -199,7 +196,8 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     private var lastSearchMs = 0L
     private val songsFilter = "EgWKAQIIAWoMEA4QChADEAQQCRAF"
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-    private val http: HttpClient = HttpClient(OriginalAudioEngine) {
+    private val providerEngine = dependencies.providerTransport()
+    private val http: HttpClient = HttpClient(providerEngine) {
         install(ContentNegotiation) { json(json) }
         install(HttpTimeout) {
             connectTimeoutMillis = 12_000
@@ -265,7 +263,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         }
         cipherIsolated=runCatching {CipherBridgeInstaller.install(extractor,remoteCipher)}
             .onFailure {playbackEvents.append("solver_bridge_unavailable ${it.javaClass.simpleName}")}.isSuccess
-        refreshAccount();runtimeScope.launch {delay(2000);runCatching {extractor.prewarm()}}
+        refreshAccount();if (dependencies.startProviderBackgroundWork) runtimeScope.launch {dependencies.wait(2000);runCatching {extractor.prewarm()}}
     }
 
     fun refreshAccount(): Boolean {
@@ -288,7 +286,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         authRevision++
         synchronized(cacheLock) {streamCache.clear();streamFlights.values.forEach {it.cancel()};streamFlights.clear()}
         sessionChecks.reset();sessionState=if(valid) SessionState.Checking else SessionState.SignedOut
-        if(valid) runtimeScope.launch {delay(1500);probeSession()}
+        if(valid && dependencies.startProviderBackgroundWork) runtimeScope.launch {dependencies.wait(1500);probeSession()}
         return valid
     }
 
@@ -314,7 +312,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
             sync, index, authRevision)
     }
 
-    suspend fun verifySignIn(candidate: WebSignInCandidate): Result<VerifiedSignIn> = withContext(Dispatchers.IO) {
+    suspend fun verifySignIn(candidate: WebSignInCandidate): Result<VerifiedSignIn> = withContext(dependencies.dispatchers.io) {
         try {
             val isolated = InnerTube(http)
             isolated.replaceSession(candidate.cookies, candidate.visitor, candidate.syncId,
@@ -407,13 +405,13 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
                     throw e
                 }
                 attempt++
-                delay(700L * attempt)
+                dependencies.wait(700L * attempt)
             }
         }
     }
     private suspend fun <T> providerResult(block: suspend () -> T): Result<T> {
         val caller=currentCoroutineContext()
-        return try {withContext(Dispatchers.IO) {Result.success(block())}}
+        return try {withContext(dependencies.dispatchers.io) {Result.success(block())}}
         catch(e:CancellationException) {
             caller.ensureActive()
             Result.failure(IllegalStateException("YouTube Music refreshed its session. Please retry."))
@@ -679,7 +677,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     }
     private val radioGate=kotlinx.coroutines.sync.Semaphore(3)
     private suspend fun liveStationsFresh(category:String):Result<List<ProviderHomeSection>> = providerResult {
-        val shelves=coroutineScope {channelsForRadio(category).map {channel->async(Dispatchers.IO) {
+        val shelves=coroutineScope {channelsForRadio(category).map {channel->async(dependencies.dispatchers.io) {
             feedCache.get(feedKey("radio-channel:${channel.handle}")) {RadioShelf(loadRadioChannel(channel))}.shelf
         }}.awaitAll().filterNotNull()}
         val unique=uniqueRadioShelves(shelves)
@@ -704,7 +702,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     suspend fun search(query: String): Result<List<ProviderTrack>> =
         searchPage(query).map(ProviderSearchPage::tracks)
 
-    suspend fun lyricsFor(videoId: String, durationMs: Long): LyricsDocument? = withContext(Dispatchers.IO) {
+    suspend fun lyricsFor(videoId: String, durationMs: Long): LyricsDocument? = withContext(dependencies.dispatchers.io) {
         if (!videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) return@withContext null
         val revision = authRevision
         val next = innerTube.next(YouTubeClient.WEB_REMIX, videoId = videoId)
@@ -750,7 +748,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
             }
         }
     }
-    private suspend fun homeSectionsFresh(): Result<List<ProviderHomeSection>> = withContext(Dispatchers.IO) {
+    private suspend fun homeSectionsFresh(): Result<List<ProviderHomeSection>> = withContext(dependencies.dispatchers.io) {
         try {
             val revision = authRevision
             val response = innerTube.browse(YouTubeClient.WEB_REMIX,
@@ -793,7 +791,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         }
     }
 
-    suspend fun recentSongs(): Result<List<ProviderTrack>> = withContext(Dispatchers.IO) {
+    suspend fun recentSongs(): Result<List<ProviderTrack>> = withContext(dependencies.dispatchers.io) {
         if (!signedIn) return@withContext Result.success(emptyList())
         try {
             val revision = authRevision
@@ -816,7 +814,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
     suspend fun profile():Result<ProviderProfile?> = providerResult {
         feedCache.get(feedKey("profile")) {Unit to profileFresh().getOrThrow()}.second.also {accountProfile=it}
     }
-    private suspend fun profileFresh(): Result<ProviderProfile?> = withContext(Dispatchers.IO) {
+    private suspend fun profileFresh(): Result<ProviderProfile?> = withContext(dependencies.dispatchers.io) {
         if (!signedIn) return@withContext Result.success(null)
         try {
             val revision = authRevision
@@ -849,7 +847,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
 
     /** Read-only account library browse. This does not mutate YouTube Music likes. */
     suspend fun likedSongsPage(nextToken: String? = null): Result<ProviderSearchPage> =
-        withContext(Dispatchers.IO) {
+        withContext(dependencies.dispatchers.io) {
             if (!signedIn) return@withContext Result.failure(
                 IllegalStateException("Sign in to view your YouTube Music liked songs"))
             val revision = authRevision
@@ -873,7 +871,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         }
 
     suspend fun collectionPage(browseId: String, nextToken: String? = null): Result<ProviderSearchPage> =
-        withContext(Dispatchers.IO) {
+        withContext(dependencies.dispatchers.io) {
             if (!browseId.matches(Regex("[A-Za-z0-9_-]{2,200}"))) return@withContext Result.failure(
                 IllegalStateException("Collection is unavailable"))
             val revision = authRevision
@@ -892,7 +890,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
                 "Could not load collection (${error::class.simpleName})")) }
         }
 
-    suspend fun searchPage(query: String, nextToken: String? = null): Result<ProviderSearchPage> = withContext(Dispatchers.IO) {
+    suspend fun searchPage(query: String, nextToken: String? = null): Result<ProviderSearchPage> = withContext(dependencies.dispatchers.io) {
         try {
             val revision = authRevision
             val useLogin = signedIn
@@ -900,7 +898,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
             val key = cleanQuery.lowercase() + "\u0000" + nextToken.orEmpty()
             val cached = synchronized(cacheLock) { searchCache[key] }
             if (cached != null && authRevision == revision &&
-                SystemClock.elapsedRealtime() - cached.first < 5 * 60_000L) {
+                dependencies.clocks.monotonicMillis() - cached.first < 5 * 60_000L) {
                 return@withContext Result.success(cached.second)
             }
             paceSearch()
@@ -960,7 +958,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
                     if (useMixedSongs) null else findContinuation(root))
                 synchronized(cacheLock) {
                     if (authRevision == revision)
-                        searchCache[key] = SystemClock.elapsedRealtime() to page
+                        searchCache[key] = dependencies.clocks.monotonicMillis() to page
                 }
                 Result.success(page)
             }
@@ -979,21 +977,25 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
             VideoPair(musicVideoPair(json.parseToJsonElement(response.bodyAsText()),track))
         }.id
     }
+    suspend fun resolve(videoId:String,live:Boolean=false,excludedProfiles:Set<String> = emptySet(),video:Boolean=false,download:Boolean=false):Result<ProviderStream> =
+        resolve(StreamRequest(videoId,live,excludedProfiles,video,download,
+            streamingAudioQuality(dataSaverPrefs.getBoolean("enabled",false),download)))
+
     /** Signed URLs stay in a bounded RAM cache and never enter the durable music database. */
-    suspend fun resolve(videoId:String,live:Boolean=false,excludedProfiles:Set<String> = emptySet(),video:Boolean=false,download:Boolean=false):Result<ProviderStream> {
-        val quality=streamingAudioQuality(dataSaverPrefs.getBoolean("enabled",false),download)
+    override suspend fun resolve(request:StreamRequest):Result<ProviderStream> {
+        val (videoId,live,excludedProfiles,video,download,quality)=request
         if(excludedProfiles.isNotEmpty()) return resolveFresh(videoId,live,excludedProfiles,video,download,quality)
         val flight=synchronized(cacheLock) {
             val revision=streamRevision
             val key="$authRevision:$videoId:$live:$video:$download:$quality:$revision"
-            streamCache[key]?.takeIf { reusableStream(it.expiresAtMs,System.currentTimeMillis(),live) }?.let {return Result.success(it)}
+            streamCache[key]?.takeIf { reusableStream(it.expiresAtMs,dependencies.clocks.wallTimeMillis(),live) }?.let {return Result.success(it)}
             streamFlights[key] ?: runtimeScope.async {
                 val result=withTimeout(60_000) {
                     try {resolveFresh(videoId,live,emptySet(),video,download,quality)}
                     catch(e:CancellationException) {
                         currentCoroutineContext().ensureActive()
                         playbackEvents.append("provider_session_refresh_retry")
-                        delay(150);resolveFresh(videoId,live,emptySet(),video,download,quality)
+                        dependencies.wait(150);resolveFresh(videoId,live,emptySet(),video,download,quality)
                     }
                 }
                 result.getOrNull()?.let {stream->synchronized(cacheLock) {if(revision==streamRevision) {streamCache[key]=stream;while(streamCache.size>32) streamCache.remove(streamCache.keys.first())}}}
@@ -1009,7 +1011,12 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         synchronized(cacheLock) {streamRevision++;streamCache.clear();streamFlights.clear()}
     }
     fun invalidateStream(videoId:String) {synchronized(cacheLock) {streamCache.keys.filter {it.contains(":$videoId:")}.forEach {streamCache.remove(it)}}}
-    private suspend fun resolveFresh(videoId: String, live: Boolean, excludedProfiles: Set<String>, video:Boolean,download:Boolean,quality:AudioQuality): Result<ProviderStream> = withContext(Dispatchers.IO) {
+    private suspend fun resolveFresh(videoId: String, live: Boolean, excludedProfiles: Set<String>, video:Boolean,download:Boolean,quality:AudioQuality): Result<ProviderStream> {
+        val request=StreamRequest(videoId,live,excludedProfiles,video,download,quality)
+        return dependencies.resolver?.resolve(request) ?: resolveUsingExtractor(request)
+    }
+    private suspend fun resolveUsingExtractor(request:StreamRequest):Result<ProviderStream> = withContext(dependencies.dispatchers.io) {
+        val (videoId,live,excludedProfiles,video,download,quality)=request
         try {
             val revision = authRevision
             require(videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) { "Invalid video ID" }
@@ -1047,7 +1054,7 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
             Result.success(ProviderStream(audioUrl, stream.headers, stream.mimeType,
                 stream.sabrBootstrap,stream.profileId,videoUrl,stream.videoMimeType,stream.sabrVideoBootstrap,videoId,
                 stream.itag,stream.bitrate?:0,stream.contentLengthBytes,maxOf((stream.mediaMetadata?.durationSeconds?:0)*1000,stream.sabrBootstrap?.durationMs?:0),
-                minOf(stream.expiresAt?.toEpochMilliseconds()?:Long.MAX_VALUE,System.currentTimeMillis()+20*60_000),
+                minOf(stream.expiresAt?.toEpochMilliseconds()?:Long.MAX_VALUE,dependencies.clocks.wallTimeMillis()+20*60_000),
                 stream.requireBoundedRange || stream.useRangeChunks,video || live,stream.mediaMetadata?.title.orEmpty(),stream.mediaMetadata?.author.orEmpty(),stream.mediaMetadata?.channelId))
         } catch (error: CancellationException) {
             throw error
@@ -1067,13 +1074,14 @@ internal class YouTubeMusicProvider(context: Context) : AutoCloseable {
         streamTokens.dispose()
         innerTube.close()
         http.close()
+        providerEngine.close()
     }
 
     private suspend fun paceSearch() {
         searchPacer.withLock {
-            val waitMs = (lastSearchMs + 800L - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
-            if (waitMs > 0L) delay(waitMs)
-            lastSearchMs = SystemClock.elapsedRealtime()
+            val waitMs = (lastSearchMs + 800L - dependencies.clocks.monotonicMillis()).coerceAtLeast(0L)
+            if (waitMs > 0L) dependencies.wait(waitMs)
+            lastSearchMs = dependencies.clocks.monotonicMillis()
         }
     }
 
