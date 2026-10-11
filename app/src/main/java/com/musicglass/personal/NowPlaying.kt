@@ -434,16 +434,17 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         AudioOutputControls(onLyrics = onLyrics, onQueue = onQueue)
         if(state.sleepDeadlineMs>0) SleepTimerCountdown(state.sleepDeadlineMs) {uiHaptic();sleepTimerVisible=true}
         if(state.source=="YouTube Music" && !state.live) TextButton(enabled=!videoBusy,onClick={ uiHaptic();videoBusy=true;scope.launch {
-            val requested=state.mediaId
+            // The entry, so that a second copy of the same song is not mistaken for this one.
+            val requested=state.playback.queueItemId to state.mediaId
             try {
                 if(state.video) {playback.restoreAudio(providerTrack(),playback.currentPositionMs());return@launch}
                 val lookup=kotlinx.coroutines.withTimeoutOrNull(25_000) {provider.videoFor(providerTrack())}
                 if(lookup==null || lookup.isFailure) {onNotice("Could not check official videos. Check your connection and retry.");return@launch}
                 val target=lookup.getOrNull()
-                if(playback.state.mediaId!=requested) return@launch
+                if(playback.state.let {it.playback.queueItemId to it.mediaId}!=requested) return@launch
                 if(target==null) {onNotice("No official music video is available");return@launch}
                 val result=kotlinx.coroutines.withTimeoutOrNull(35_000) {provider.resolve(target,video=true)}
-                if(playback.state.mediaId!=requested) return@launch
+                if(playback.state.let {it.playback.queueItemId to it.mediaId}!=requested) return@launch
                 if(result==null) onNotice("Official video unavailable. Try again later.") else result.fold(onSuccess={stream->
                     if(!pairedVideoTitleAllowed(providerTrack(),stream.resolvedTitle) || stream.videoUrl==null && stream.sabrVideoBootstrap==null && stream.mimeType?.contains("mpegurl",true)!=true) onNotice("No official music video is available")
                     else playback.replaceProvider(providerTrack(),stream,playback.currentPositionMs())

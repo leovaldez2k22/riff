@@ -55,7 +55,7 @@ class MusicPlaybackService : MediaSessionService() {
     @OptIn(ExperimentalCoroutinesApi::class)
     private val queueDecoder by lazy {runtime.dispatchers.io.limitedParallelism(1)}
     private val provider by lazy { YouTubeMusicProvider.shared(this) }
-    private val sleepTimer by lazy {SleepTimerController(serviceScope,runtime.clocks::monotonicMillis,wait=runtime.wait,pause={session?.player?.pause()},publish={deadline->session?.setSessionExtras(Bundle().apply {putLong("sleepDeadlineMs",deadline)})},readVolume={session?.player?.volume?:1f},writeVolume={session?.player?.volume=it},persist=::persistSleepDeadline)}
+    private val sleepTimer by lazy {SleepTimerController(serviceScope,runtime.clocks::monotonicMillis,wait=runtime.wait,pause={session?.player?.pause()},publish={deadline->sleepDeadlineMs=deadline;publishState()},readVolume={session?.player?.volume?:1f},writeVolume={session?.player?.volume=it},persist=::persistSleepDeadline)}
     private fun bootCount()=android.provider.Settings.Global.getInt(contentResolver,android.provider.Settings.Global.BOOT_COUNT,-1)
     private fun persistSleepDeadline(deadline:Long) {
         val edit=snapshotPrefs.edit()
@@ -112,6 +112,48 @@ class MusicPlaybackService : MediaSessionService() {
     private var cachedQueueTimeline:androidx.media3.common.Timeline?=null
     private var cachedSnapshotQueue:List<SavedQueueItem> = emptyList()
     private var cachedSnapshotIds:List<String> = emptyList()
+    // Q06: commands are ticketed on arrival and applied one at a time, in that order.
+    private val order=PlaybackCommandOrder()
+    private val commands by lazy {OrderedCommands(serviceScope,order,SessionResult(SessionError.INFO_CANCELLED),SessionResult(SessionError.ERROR_UNKNOWN))}
+    /** True while the service itself changes play/pause, so that is not read as the user pressing a button. */
+    private var internalChange=false
+    private inline fun <T> internally(block:()->T):T {val was=internalChange;internalChange=true;try {return block()} finally {internalChange=was}}
+    /** Entries whose stream is being looked up now. Written from the playback thread. */
+    private val resolving=ConcurrentHashMap.newKeySet<String>()
+    private var liveFallbackEntry:String?=null
+    private var sleepDeadlineMs=0L
+    private var publishedState=""
+    private fun newEntryId()=UUID.randomUUID().toString()
+    /** A replacement for an entry already queued keeps that entry's identifier. */
+    private fun keepEntry(item:MediaItem?)=item?.entryId()?.takeIf {it.isNotEmpty()}?:newEntryId()
+    /** Queue revision, owner and what is being done for the selected entry, for every controller. Main thread. */
+    private fun publishState() {
+        val media=session?:return;val player=media.player
+        val entry=player.currentMediaItem?.entryId().orEmpty().takeIf {it in resolving}.orEmpty()
+        val flags=player.playlistMetadata.extras
+        val recovery=when {
+            flags?.getBoolean("liveRetrying")==true -> RecoveryReason.LiveProfile
+            flags?.getBoolean("providerRetrying")==true -> RecoveryReason.ProviderStream
+            networkFailure -> RecoveryReason.Network
+            else -> null
+        }
+        val owner=snapshotTicket?.scope.orEmpty()
+        val key="$sleepDeadlineMs|${order.queueRevision}|$owner|$entry|$recovery"
+        if(key==publishedState) return
+        publishedState=key
+        media.setSessionExtras(Bundle().apply {putLong("sleepDeadlineMs",sleepDeadlineMs);putLong("queueRevision",order.queueRevision)
+            putString("queueOwner",owner);putString("resolving",entry);putString("recovery",recovery?.wire.orEmpty())})
+    }
+    /**
+     * A command that changes the queue. [prepare] may read files off the main thread; [apply] then
+     * runs on the main thread, after every command that arrived earlier. A request that a later one
+     * has replaced is answered as cancelled without touching the queue.
+     */
+    private fun <P> queueCommand(replaces:Boolean,onSuperseded:()->Unit={},prepare:suspend ()->P,apply:(PlaybackCommandOrder.Ticket,P)->SessionResult):ListenableFuture<SessionResult> {
+        val result=com.google.common.util.concurrent.SettableFuture.create<SessionResult>()
+        commands.submit(replaces,{onSuperseded();events.append("command_superseded")},prepare,{ticket,prepared->internally {apply(ticket,prepared)}}) {result.set(it)}
+        return result
+    }
     override fun onCreate() {
         super.onCreate()
         events.append("service_create")
@@ -129,6 +171,11 @@ class MusicPlaybackService : MediaSessionService() {
             override fun createMediaSource(item: MediaItem): MediaSource {
                 if(item.localConfiguration?.uri?.scheme=="catalog") {
                     return DeferredProviderSource(item) {
+                        // Only the selected entry and the one the player preloads reach this point; the rest of the queue is not looked up.
+                        val entry=item.entryId()
+                        resolving.add(entry);serviceScope.launch {publishState()}
+                        events.append("stream_resolve_start entry=${entry.take(8)}")
+                        try {
                         val track=trackFromItem(item)
                         val local=offline.audio(offline.currentScope,track.videoId)
                         if(local!=null && !track.isLive) {
@@ -140,7 +187,8 @@ class MusicPlaybackService : MediaSessionService() {
                         val stream=withTimeout(if(track.isLive) 60_000 else 30_000) {provider.resolve(track.videoId,track.isLive,video=track.isLive).getOrThrow()}
                         events.append("selected_stream_ready ms=${android.os.SystemClock.elapsedRealtime()-start}")
                         resolvedStreams[item]=stream
-                        createMediaSource(providerItem(track,stream))
+                        createMediaSource(providerItem(track,stream,keepEntry(item)))
+                        } finally {resolving.remove(entry);serviceScope.launch {publishState()}}
                     }
                 }
                 item.mediaMetadata.extras?.getString("videoUri")?.let {videoUri->
@@ -187,7 +235,7 @@ class MusicPlaybackService : MediaSessionService() {
             })
             tail to { if(tailAudioEffects===effects) tailAudioEffects=null; effects.release() }
         }, sleepActive = { (session?.sessionExtras?.getLong("sleepDeadlineMs") ?: 0L) > 0L },
-            tailItem={item->resolvedStreams[item]?.let {providerItem(trackFromItem(item),it)}?:item},
+            tailItem={item->resolvedStreams[item]?.let {providerItem(trackFromItem(item),it,keepEntry(item))}?:item},
             onBlend={SongCrossfadeState.active=it},clock=runtime.clocks::monotonicMillis,wait=runtime.wait) { events.append(it) }
         // Crossfade synchronization requires frequent decoder-position updates.
         val player = ExoPlayer.Builder(this, renderers).setMediaSourceFactory(mediaFactory)
@@ -206,9 +254,14 @@ class MusicPlaybackService : MediaSessionService() {
             repeatMode = Player.REPEAT_MODE_OFF
             addListener(object : Player.Listener {
                 override fun onAudioSessionIdChanged(audioSessionId: Int) = audioEffects.attach(audioSessionId)
-                override fun onEvents(player: Player,events: Player.Events) {saveSnapshot(player);RiffWidgets.publish(this@MusicPlaybackService,player)}
+                override fun onEvents(player: Player,events: Player.Events) {saveSnapshot(player);publishState();RiffWidgets.publish(this@MusicPlaybackService,player)}
+                override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
+                    if(reason==Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) order.edited()
+                }
                 override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                     events.append("play_when_ready=$playWhenReady reason=$reason")
+                    // The app, the notification, a headset or a widget: all arrive as a user request.
+                    if(reason==Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST && !internalChange) order.userIntent(playWhenReady)
                     if(playWhenReady) replenishQueue(this@apply)
                 }
                 override fun onPlaybackStateChanged(playbackState: Int) {
@@ -224,6 +277,8 @@ class MusicPlaybackService : MediaSessionService() {
                         streamRecoveryJob?.cancel();streamRecoveryJob=null;recoveryReplacement=null
                         streamRecovery=StreamRecoveryBudget()
                         providerRetrying(this@apply,false)
+                        // A live fallback for an entry the user has left is obsolete; its own replacement keeps the entry.
+                        if(mediaItem?.entryId()!=liveFallbackEntry) {liveFallbackJob?.cancel();liveFallbackJob=null;liveFallbackEntry=null}
                     }
                     if(mediaItem == null) cancelRadio() else replenishQueue(this@apply)
                 }
@@ -241,7 +296,7 @@ class MusicPlaybackService : MediaSessionService() {
                     recoverProviderStream(this@apply,error)
                     if(NetworkRecovery.isNetworkFailure(error.errorCodeName,generateSequence(error as Throwable?) {it.cause}.take(8).toList()))
                         startNetworkRecovery(this@apply)
-                    else networkFailure=false  // other errors are never retried by this path
+                    else {networkFailure=false;publishState()}  // other errors are never retried by this path
                 }
             })
         }
@@ -278,27 +333,24 @@ class MusicPlaybackService : MediaSessionService() {
                 if(customCommand.customAction!=PLAY_LOCAL_AUDIO && staleSession(args)) return Futures.immediateFuture(SessionResult(SessionError.INFO_CANCELLED))
                 if(customCommand.customAction==RESTORE_SAVED_QUEUE) {
                     // The user asked for the saved queue of the owner they are in. It replaces the player's queue, paused.
-                    val result=com.google.common.util.concurrent.SettableFuture.create<SessionResult>()
-                    serviceScope.launch {
-                        val stored=loadSavedQueue()
-                        result.set(SessionResult(when {
+                    return queueCommand(replaces=true,prepare={loadSavedQueue()}) {_,stored->
+                        SessionResult(when {
                             staleSession(args) -> SessionError.INFO_CANCELLED
                             stored==null -> SessionError.ERROR_BAD_VALUE
                             else -> {
                                 crossfader?.cancel();player.stop();cancelRadio();sabrSelections.clear();streamHeaders.clear();queuedIds.clear()
                                 restoreSnapshot(player,stored);SessionResult.RESULT_SUCCESS
                             }
-                        }))
-                    }.invokeOnCompletion {if(!result.isDone) result.set(SessionResult(SessionError.ERROR_UNKNOWN))}
-                    return result
+                        })
+                    }
                 }
                 if(customCommand.customAction==PLAY_CATALOG_QUEUE) {
                     val name=args.getString("queueFile").orEmpty()
                     if(!name.matches(Regex("queue-request-[a-f0-9-]{36}\\.json"))) return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
                     // Queue files reach ~6 MB for 2,000 tracks, so read and decode them off the main thread.
                     // A single decoding lane keeps rapid successive requests in the order they were sent.
-                    fun applyQueue(saved:PlaybackSnapshot?):SessionResult {
-                        if(staleSession(args)) return SessionResult(SessionError.INFO_CANCELLED)
+                    fun applyQueue(saved:PlaybackSnapshot?,ticket:PlaybackCommandOrder.Ticket):SessionResult {
+                        if(staleSession(args) || order.superseded(ticket)) return SessionResult(SessionError.INFO_CANCELLED)
                         if(saved==null || saved.queue.any {!it.mediaId.startsWith("yt:")}) return SessionResult(SessionError.ERROR_BAD_VALUE)
                         val tracks=saved.queue.map {q->ProviderTrack(q.mediaId.removePrefix("yt:"),q.title,q.artist,q.artworkUrl,q.artistId,q.albumId,q.album,q.live,q.music)}
                         if(tracks.any {!it.videoId.matches(Regex("[A-Za-z0-9_-]{11}"))}) return SessionResult(SessionError.ERROR_BAD_VALUE)
@@ -309,28 +361,29 @@ class MusicPlaybackService : MediaSessionService() {
                             return SessionResult(SessionResult.RESULT_SUCCESS)
                         }
                         if(args.containsKey("replacePosition") && tracks.size==1 && player.mediaItemCount>0) {
+                            // Meant for the entry that was selected when it was asked for; the user has since moved on.
+                            args.getString("expectedEntry")?.let {if(it!=player.currentMediaItem?.entryId()) return SessionResult(SessionError.INFO_CANCELLED)}
                             val index=player.currentMediaItemIndex;val wants=player.playWhenReady
-                            player.replaceMediaItem(index,catalogItem(tracks[0]));player.seekTo(index,args.getLong("replacePosition"));player.prepare();player.playWhenReady=wants
+                            player.replaceMediaItem(index,catalogItem(tracks[0],keepEntry(player.currentMediaItem)));player.seekTo(index,args.getLong("replacePosition"));player.prepare();player.playWhenReady=wants
                             return SessionResult(SessionResult.RESULT_SUCCESS)
                         }
                         player.stop();cancelRadio();sabrSelections.clear();streamHeaders.clear();queuedIds.clear()
                         player.shuffleModeEnabled=saved.shuffle;player.repeatMode=Player.REPEAT_MODE_OFF
                         queuedIds.addAll(tracks.map {it.videoId})
-                        player.setMediaItems(tracks.map(::catalogItem),saved.index,0)
+                        player.setMediaItems(tracks.map {catalogItem(it)},saved.index,0)
                         if(args.getBoolean("automatic") && !tracks[0].isLive) radioSeed=tracks[0].videoId
                         player.setPlaylistMetadata(MediaMetadata.Builder().setTitle(saved.collectionTitle).setSubtitle(if(saved.collectionTitle.isBlank()) "Album order" else "Collection order").build())
-                        if(args.getBoolean("autoplay",true)) {player.prepare();player.play()} else player.playWhenReady=false
+                        // A pause made after this was asked for wins: the queue loads, silent.
+                        if(order.autoplay(ticket,args.getBoolean("autoplay",true))) {player.prepare();player.play()} else player.playWhenReady=false
                         saveSnapshot(player);events.append("album_queue_selected count=${tracks.size}")
                         return SessionResult(SessionResult.RESULT_SUCCESS)
                     }
-                    val result=com.google.common.util.concurrent.SettableFuture.create<SessionResult>()
-                    serviceScope.launch {
-                        val saved=withContext(queueDecoder) {val file=java.io.File(cacheDir,name)
+                    return queueCommand(replaces=!args.containsKey("enqueueNext") && !args.containsKey("replacePosition"),
+                        onSuperseded={java.io.File(cacheDir,name).delete()},prepare={
+                        withContext(queueDecoder) {val file=java.io.File(cacheDir,name)
                             try {if(file.length() in 1..MAX_SNAPSHOT_BYTES) decodePlaybackSnapshot(file.readText()) else null}
                             catch(_:Exception) {null} finally {file.delete()}}
-                        result.set(applyQueue(saved))
-                    }.invokeOnCompletion {if(!result.isDone) result.set(SessionResult(SessionError.ERROR_UNKNOWN))}
-                    return result
+                    }) {ticket,saved->applyQueue(saved,ticket)}
                 }
                 if (customCommand.customAction == PLAY_LOCAL_AUDIO) {
                     if (checkSelfPermission(audioLibraryPermission()) !=
@@ -357,14 +410,17 @@ class MusicPlaybackService : MediaSessionService() {
                             .setTitle(args.getString("title").orEmpty().take(180))
                             .setArtist(args.getString("artist").orEmpty().take(180))
                             .setAlbumTitle(args.getString("album").orEmpty().take(180))
+                            .setExtras(Bundle().apply {putString(ENTRY_ID,newEntryId())})
                             .build()).build()
-                    cancelRadio();sabrSelections.clear();streamHeaders.clear()
-                    player.setMediaItem(item)
-                    player.repeatMode = Player.REPEAT_MODE_OFF
-                    player.prepare()
-                    player.play()
-                    events.append("local_audio_selected")
-                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                    return queueCommand(replaces=true,prepare={}) {ticket,_->
+                        cancelRadio();sabrSelections.clear();streamHeaders.clear()
+                        player.setMediaItem(item)
+                        player.repeatMode = Player.REPEAT_MODE_OFF
+                        player.prepare()
+                        if(order.autoplay(ticket,true)) player.play() else player.playWhenReady=false
+                        events.append("local_audio_selected")
+                        SessionResult(SessionResult.RESULT_SUCCESS)
+                    }
                 }
                 if (customCommand.customAction != PLAY_PROVIDER_STREAM) return Futures.immediateFuture(
                     SessionResult(SessionError.ERROR_PERMISSION_DENIED))
@@ -403,9 +459,12 @@ class MusicPlaybackService : MediaSessionService() {
                     if(v.scheme!="https" || !(v.host=="googlevideo.com" || v.host.orEmpty().endsWith(".googlevideo.com"))) return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))}
                 val stream = ProviderStream(url,headers,args.getString("mimeType"),bootstrap,args.getString("profileId"),videoUrl,args.getString("videoMimeType"),videoBootstrap,sourceVideoId=streamVideoId,
                     itag=args.getInt("itag"),bitrate=args.getInt("bitrate"),includesVideo=args.getBoolean("includesVideo"))
+                return queueCommand(replaces=!args.getBoolean("replaceCurrent") && !args.getBoolean("enqueue"),prepare={}) {ticket,_->
+                if(staleSession(args)) return@queueCommand SessionResult(SessionError.INFO_CANCELLED)
                 if(args.getBoolean("replaceCurrent") && player.mediaItemCount>0) {
+                    args.getString("expectedEntry")?.let {if(it!=player.currentMediaItem?.entryId()) return@queueCommand SessionResult(SessionError.INFO_CANCELLED)}
                     val index=player.currentMediaItemIndex;val wants=player.playWhenReady
-                    player.replaceMediaItem(index,providerItem(track,stream));player.seekTo(index,args.getLong("position").coerceAtLeast(0))
+                    player.replaceMediaItem(index,providerItem(track,stream,keepEntry(player.currentMediaItem)));player.seekTo(index,args.getLong("position").coerceAtLeast(0))
                     player.prepare();player.playWhenReady=wants
                 } else if(args.getBoolean("enqueue") && player.mediaItemCount > 0) {
                     val existing=(0 until player.mediaItemCount).firstOrNull {
@@ -417,7 +476,7 @@ class MusicPlaybackService : MediaSessionService() {
                             val to=(player.currentMediaItemIndex+1-if(existing<player.currentMediaItemIndex) 1 else 0).coerceAtMost(player.mediaItemCount-1)
                             player.moveMediaItem(existing,to)
                         }
-                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                        return@queueCommand SessionResult(SessionResult.RESULT_SUCCESS)
                     }
                     val item = providerItem(track,stream)
                     val index = if(args.getBoolean("playNext")) player.currentMediaItemIndex+1 else player.mediaItemCount
@@ -426,11 +485,13 @@ class MusicPlaybackService : MediaSessionService() {
                     cancelRadio();sabrSelections.clear();streamHeaders.clear();queuedIds.clear()
                     queuedIds.add(videoId)
                     player.setMediaItem(providerItem(track,stream),args.getLong("position",0L).coerceAtLeast(0))
-                    player.repeatMode=Player.REPEAT_MODE_OFF;player.prepare();player.play()
+                    player.repeatMode=Player.REPEAT_MODE_OFF;player.prepare()
+                    if(order.autoplay(ticket,true)) player.play() else player.playWhenReady=false
                     events.append("provider_stream_selected")
                     if(!track.isLive) {radioSeed=videoId;replenishQueue(player)}
                 }
-                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                SessionResult(SessionResult.RESULT_SUCCESS)
+                }
             }
         }).build()
         restoreSleepTimerAfterRestart()
@@ -441,9 +502,10 @@ class MusicPlaybackService : MediaSessionService() {
             if(discardingSession || player.mediaItemCount>0) return@launch
             // Play pressed while the queue was still loading, for example from a widget on a cold start.
             val wanted=player.playWhenReady
-            restoreSnapshot(player,stored)
+            internally {restoreSnapshot(player,stored)}
             if(wanted) {player.prepare();player.play()}
         }
+        publishState()
         sessionRegistration=sessions.register(object:SessionParticipant {
             override suspend fun quiesce(outgoing:SessionToken)=quiesceForAccountSwitch()
             override suspend fun bind(current:SessionToken)=restoreForCurrentOwner()
@@ -497,16 +559,16 @@ class MusicPlaybackService : MediaSessionService() {
         return ProviderTrack(item.mediaId.removePrefix("yt:"),m.title?.toString().orEmpty(),m.artist?.toString().orEmpty(),
             m.artworkUri?.toString(),e?.getString("artistId"),e?.getString("albumId"),m.albumTitle?.toString().orEmpty(),e?.getBoolean("live")==true,e?.getBoolean("music",true)!=false)
     }
-    private fun catalogItem(track: ProviderTrack):MediaItem = MediaItem.Builder().setMediaId("yt:${track.videoId}")
+    private fun catalogItem(track: ProviderTrack,entryId:String=newEntryId()):MediaItem = MediaItem.Builder().setMediaId("yt:${track.videoId}")
         .setUri("catalog://${track.videoId}").setMediaMetadata(MediaMetadata.Builder().setTitle(track.title).setArtist(track.artist)
             .setAlbumTitle(track.album).setArtworkUri(offline.indexedArtwork(offline.currentScope,track.videoId)?.let(Uri::fromFile)?:validProviderArtworkUrl(track.artworkUrl)?.let(Uri::parse))
-            .setExtras(Bundle().apply {putString("artistId",track.artistId);putString("albumId",track.albumId);putBoolean("live",track.isLive);putBoolean("video",track.isLive);putBoolean("music",track.isMusic)}).build()).build()
+            .setExtras(Bundle().apply {putString(ENTRY_ID,entryId);putString("artistId",track.artistId);putString("albumId",track.albumId);putBoolean("live",track.isLive);putBoolean("video",track.isLive);putBoolean("music",track.isMusic)}).build()).build()
     /** Loads an owner's saved queue paused. Never starts playback. */
     private fun restoreSnapshot(player:Player,stored:StoredSnapshot) {
         val saved=stored.snapshot
         val items=saved.queue.map {q->if(q.mediaId.startsWith("yt:")) catalogItem(ProviderTrack(q.mediaId.removePrefix("yt:"),
             q.title,q.artist,q.artworkUrl,q.artistId,q.albumId,q.album,q.live,q.music)) else MediaItem.Builder().setMediaId(q.mediaId).setUri(q.localUri)
-            .setMediaMetadata(MediaMetadata.Builder().setTitle(q.title).setArtist(q.artist).setAlbumTitle(q.album).build()).build()}
+            .setMediaMetadata(MediaMetadata.Builder().setTitle(q.title).setArtist(q.artist).setAlbumTitle(q.album).setExtras(Bundle().apply {putString(ENTRY_ID,newEntryId())}).build()).build()}
         player.setMediaItems(items,saved.index,saved.positionMs)
         player.shuffleModeEnabled=saved.shuffle;player.repeatMode=saved.repeat;player.playWhenReady=false
         radioSeed=saved.radioSeed;queuedIds.addAll(saved.queue.filter {it.mediaId.startsWith("yt:")}.map {it.mediaId.removePrefix("yt:")})
@@ -528,7 +590,7 @@ class MusicPlaybackService : MediaSessionService() {
             val player=session?.player?:return@withContext null
             // A pure on-device queue belongs to the device and keeps playing.
             if(!queueStopsWithAccount((0 until player.mediaItemCount).map {player.getMediaItemAt(it).mediaId})) return@withContext null
-            stops=true;crossfader?.cancel();player.pause()
+            stops=true;crossfader?.cancel();internally {player.pause()}
             captureSnapshot(player)
         }
         if(!stops) return
@@ -554,7 +616,7 @@ class MusicPlaybackService : MediaSessionService() {
         val stored=withContext(Dispatchers.IO) {runCatching {snapshots.load(key)}.getOrNull()}?:return
         withContext(Dispatchers.Main.immediate) {
             val player=session?.player?:return@withContext
-            if(player.mediaItemCount==0 && offline.currentScope==key) {restoreSnapshot(player,stored);events.append("account_switch_queue_restored")}
+            if(player.mediaItemCount==0 && offline.currentScope==key) {internally {restoreSnapshot(player,stored)};events.append("account_switch_queue_restored")}
         }
     }
     /** A request built for an earlier owner or generation must not change the current owner's queue. */
@@ -601,7 +663,7 @@ class MusicPlaybackService : MediaSessionService() {
         val save=captureSnapshot(player)?:return
         runBlocking {withTimeoutOrNull(1500) {withContext(Dispatchers.IO) {runCatching {persistSnapshot(save)}}}}
     }
-    private fun providerItem(listedTrack: ProviderTrack, stream: ProviderStream): MediaItem {
+    private fun providerItem(listedTrack: ProviderTrack, stream: ProviderStream, entryId: String = newEntryId()): MediaItem {
         val track = resolvedPlaybackTrack(listedTrack, stream)
         val uri = stream.sabrBootstrap?.let { bootstrap ->
             val key=UUID.randomUUID().toString();sabrSelections[key]=bootstrap;Uri.parse("sabr://$key")
@@ -610,7 +672,7 @@ class MusicPlaybackService : MediaSessionService() {
         val videoUri=stream.sabrVideoBootstrap?.let {val key=UUID.randomUUID().toString();sabrSelections[key]=it;Uri.parse("sabrvideo://$key")}
             ?:stream.videoUrl?.let(Uri::parse)
         videoUri?.let {streamHeaders[it.toString()]=stream.headers.filterKeys {k->k.lowercase() in setOf("user-agent","accept","accept-language","referer","origin")}}
-        val extra=Bundle().apply {putString("videoUri",videoUri?.toString());putBoolean("video",videoUri!=null || track.isLive || stream.includesVideo); putString("artistId",track.artistId);putString("albumId",track.albumId);putBoolean("live",track.isLive);putString("profileId",stream.profileId);putString("sourceVideoId",stream.sourceVideoId?:track.videoId);putBoolean("music",track.isMusic) }
+        val extra=Bundle().apply {putString(ENTRY_ID,entryId);putString("videoUri",videoUri?.toString());putBoolean("video",videoUri!=null || track.isLive || stream.includesVideo); putString("artistId",track.artistId);putString("albumId",track.albumId);putBoolean("live",track.isLive);putString("profileId",stream.profileId);putString("sourceVideoId",stream.sourceVideoId?:track.videoId);putBoolean("music",track.isMusic) }
         val hls=stream.mimeType?.contains("mpegurl",true)==true
         // HLS forbids MediaItem custom cache keys; live/video also bypass the audio cache.
         val cacheKey=if(!hls && !track.isLive && !stream.includesVideo && videoUri==null)
@@ -656,7 +718,7 @@ class MusicPlaybackService : MediaSessionService() {
                 provider.invalidateStream(sourceId)
                 val stream=withTimeout(60_000) {provider.resolve(sourceId,video=video,excludedProfiles=excluded).getOrThrow()}
                 if(generation!=queueGeneration || player.currentMediaItem!==item) return@launch
-                val replacement=providerItem(track,stream)
+                val replacement=providerItem(track,stream,keepEntry(item))
                 recoveryReplacement=replacement
                 if(replaceFailedStream(player,item,replacement)) events.append("provider_stream_replaced")
             } catch(e:CancellationException) {throw e}
@@ -671,7 +733,8 @@ class MusicPlaybackService : MediaSessionService() {
         if(!extras.getBoolean("live") || liveFallbackJob?.isActive==true || failedLiveProfiles.size>=3) return
         val profile=extras.getString("profileId")?:return
         if(!failedLiveProfiles.add(profile)) return
-        val index=player.currentMediaItemIndex;val generation=queueGeneration
+        val entry=item.entryId();val generation=queueGeneration
+        liveFallbackEntry=entry
         val track=ProviderTrack(item.mediaId.removePrefix("yt:"),meta.title.toString(),meta.artist.toString(),
             meta.artworkUri?.toString(),extras.getString("artistId"),extras.getString("albumId"),meta.albumTitle?.toString().orEmpty(),true)
         events.append("live_profile_rejected profile=$profile attempt=${failedLiveProfiles.size}")
@@ -680,10 +743,12 @@ class MusicPlaybackService : MediaSessionService() {
         liveFallbackJob=serviceScope.launch {
             try {
             val stream=provider.resolve(track.videoId,true,failedLiveProfiles.toSet(),video=true).getOrNull()
-            if(generation!=queueGeneration || player.currentMediaItem?.mediaId!=item.mediaId) return@launch
+            // The entry, not the video: the same broadcast queued twice is two entries, and the index may have moved.
+            val current=player.currentMediaItem
+            if(generation!=queueGeneration || current?.mediaId!=item.mediaId || current.entryId()!=entry) return@launch
             if(stream==null) {events.append("live_profile_fallback_unavailable");return@launch}
-            val wants=player.playWhenReady
-            player.replaceMediaItem(index,providerItem(track,stream));player.seekTo(index,0)
+            val wants=player.playWhenReady;val index=player.currentMediaItemIndex
+            player.replaceMediaItem(index,providerItem(track,stream,keepEntry(current)));player.seekTo(index,0)
             player.prepare();player.playWhenReady=wants
             events.append("live_profile_fallback profile=${stream.profileId.orEmpty()}")
             } finally {if(generation==queueGeneration) retrying(false)}
@@ -744,7 +809,7 @@ class MusicPlaybackService : MediaSessionService() {
     private var networkRetryJob:Job?=null
     private var networkCallback:android.net.ConnectivityManager.NetworkCallback?=null
     private fun startNetworkRecovery(player:Player) {
-        networkFailure=true
+        networkFailure=true;publishState()
         events.append("network_failure attempts=$networkRetryAttempts")
         networkRetryJob?.cancel()
         networkRetryJob=serviceScope.launch {for(wait in NetworkRecovery.retryDelaysMs) {delay(wait);tryNetworkRetry(player,"timer")}}
@@ -765,7 +830,7 @@ class MusicPlaybackService : MediaSessionService() {
     }
     private fun endNetworkRecovery() {
         if(networkFailure) events.append("network_recovered attempts=$networkRetryAttempts")
-        networkFailure=false;networkRetryAttempts=0;networkRetryJob?.cancel();networkRetryJob=null
+        networkFailure=false;networkRetryAttempts=0;networkRetryJob?.cancel();networkRetryJob=null;publishState()
         networkCallback?.let {callback-> runCatching {getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(callback)}}
         networkCallback=null
     }

@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06-Q18 TODO
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07-Q18 TODO
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -292,6 +292,73 @@ Device state: emulator shut down with adb emu kill, adb server stopped. Data cle
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
 Commit: e795e41 on local branch codex/riff-quality-m0 (not pushed).
 Next exact action: Q06, when the user says to start it.
+
+## Q06
+### Q06 completion (11 October 2026)
+Status: PASS locally and on the disposable emulator. Physical-phone and live-provider checks are BLOCKED (below).
+Source: 79aa078e245068058a5757738c3e124dbbc30382 dirty, digest 21d6ed8990ebfb31719f95e73c26701982a88cc0bcdf45e8381bd1dd0e49f658. Evidence root: artifacts/quality/79aa078e245068058a5757738c3e124dbbc30382-dirty-21d6ed8990eb/
+User instruction on 11 October 2026: start Q06 (standing rule: complete every aspect of the phase). Q05A and Q05R were not started and remain unauthorized; the plan says they do not block Q06.
+
+Implemented (PlaybackState.kt, MusicPlaybackService.kt, PlaybackGateway.kt, NowPlaying.kt):
+- PlaybackStatus (Idle, Resolving, Buffering, Playing, Paused, Recovering, Ended, Failed) and PlaybackState (status, desiredPlayWhenReady, queueRevision, queueItemId, owner, durationMs, typed failure, recovery reason), published as state.playback; position stays separate. Typed PlaybackFailure replaces the gateway's error strings; the wording shown is unchanged.
+- Every queue entry carries its own identifier; replacements (recovered stream, live fallback, audio/video swap) keep it. Live fallback and the video swap check the entry, not the video id or a stored index.
+- PlaybackCommandOrder and OrderedCommands: queue commands are ticketed on arrival and applied one at a time in that order; a later replacement cancels earlier commands before or after their file is read; additions keep their order; a pause made after a command arrived loads the queue silent; a command that throws is answered as failed. Open collection, play stream, play on-device audio, restore saved queue, add to queue and stream swap all go through it.
+- Queue revision raised on every playlist change; revision, owner, the entry being looked up and the recovery reason published in the session extras with the sleep-timer deadline.
+- App side: queue edits act on the entry by identifier and do nothing when it is gone; requests are written on one lane so they are sent in order; additions no longer cancel one another; pause while a request is being written clears its autoplay; a stream swap names the entry it was asked for.
+- Removal: current entry removed with nothing after it selects the one before, paused; the only entry removed leaves an empty paused queue; same rule for removing every copy of a song with shuffle off.
+- Moving to another entry now also cancels a pending live fallback.
+- Docs: docs/quality/playback-state.md, CHANGELOG.
+
+Verification:
+- Debug (artifacts/quality/79aa078e245068058a5757738c3e124dbbc30382-dirty-21d6ed8990eb/q06-debug-02/manifest.json): PASS_LOCAL. 488 JVM tests / 71 suites, zero failures, errors or skips (Q05: 470 / 70). Lint 0 errors, 84 warnings, 5 hints; no issue added or removed against q05-debug-02. APK SHA-256 8cbefba824948fec57aa4675e8262f544bc2aecfc2b259ac584d6a458009f37a.
+- Emulator (artifacts/quality/79aa078e245068058a5757738c3e124dbbc30382-dirty-21d6ed8990eb/q06-debug-fixture-01/manifest.json, log q06-instrumentation-01.log, install-01.log): PASS_LOCAL, instrumentation gate PASS. 14 tests, 51.483 s: FixturePlaybackTest, three AccountSwitchDeviceTest, two LegacyUpgradeDeviceTest, two LocalDataDeviceTest, six PlaybackOrderDeviceTest. Test APK SHA-256 23d2447a45d1c1bf78be2c92705b5ec6dafc54106d3e5e0e1bb008320a8f2656. riff_q02_fixture, API 31, network disabled and confirmed unreachable, synthetic entries, fixture audio only.
+- Process death on the same install (q06-process-death-step1-01.log, q06-process-death-step2-01.log, q06-process-death-measurements-01.txt; each log validates as 1 test, 0 failures): step 1 played on-device fixture audio for 17 s, the stored position trailed the player by at most 4,997 ms over 5 checkpoints, and the run ended with audio playing; the app process was gone afterwards (pidof exit 1; step 2 ran in a different pid). Step 2: position at exit 17,124 ms, stored 14,042 ms, restored 14,042 ms, paused, still paused after 2.5 s; 3,082 ms lost. Bound allowed by the test: 5,000 ms cadence plus 1,500 ms.
+- Release (artifacts/quality/79aa078e245068058a5757738c3e124dbbc30382-dirty-21d6ed8990eb/q06-release-01/manifest.json): PASS_LOCAL. junit {"suites": 71, "tests": 488, "failures": 0, "errors": 0, "skipped": 0}; lint {"Warning": 84, "Hint": 5}; no issue added or removed against q05-release-01. APK SHA-256 233a7c376b268a36c6d29c9231cb55c73649ccf27da453b63fa16bcee251d705. Shrunk unsigned release 26.42 MiB. No device run of the release artifact.
+- Stress (stress-build-03.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only.
+- The evidence was taken before this ledger entry was written; the entry is the only change after it.
+
+Failed attempts, preserved:
+- stress-build-01.log and stress-build-02.log: the Gradle and Kotlin daemons died, "insufficient memory for the Java Runtime Environment" (hs_err_pid6772.log, hs_err_pid7004.log, replay_pid6772.log moved from the repository root into the evidence root). The host was out of memory after the release build; no compile error. Third attempt after stopping the daemons passed.
+- artifacts/quality/79aa078e245068058a5757738c3e124dbbc30382-dirty-ce8d7d4f1577/ (q06-debug-01, q06-instrumentation-01.log 14 of 14): superseded. The kill test reported its measurements as an extra instrumentation status, which the strict log validator reads as an incomplete case. It now writes them to logcat. Test-only change; the run was repeated on the new digest.
+- First full JVM run: 487 of 488. A command whose preparation threw escaped as an uncaught coroutine exception and was reported against an unrelated later test. That was a real defect in the new lane (it would have stopped the service); OrderedCommands now answers such a command as failed, with a test.
+- PlaybackStateTest: one case sent two replacements without letting the first run and so saw "cancelled" where it expected "failed". Test corrected.
+- A shell here-document with apostrophes failed before running, so a rename it contained was not applied; the compiler caught it.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| Race tests prove latest intent wins | PASS | PlaybackStateTest: slow older request cannot overwrite the newest, rapid replacements, additions in order, addition for a replaced queue dropped, pause while reading. PlaybackOrderDeviceTest on the real service: three requests sent together (2,000, 3 and 2 entries) leave only the last and the others answer cancelled; a 2,000-entry request followed by a newer one; pause sent right after a play request leaves it silent |
+| Selected metadata matches entry | PASS | PlaybackOrderDeviceTest through the app's own gateway: two copies of one video have different identifiers, the selected identifier and title are the second copy's and follow it through move and remove; PlaybackStateTest on a real player |
+| Restored position within 1 second of last durable checkpoint | PASS (emulator) | Process death step 2: restored 14,042 ms, stored 14,042 ms |
+| Unexpected-kill loss bounded by cadence plus measured scheduling tolerance | PASS (emulator) | 3,082 ms lost; worst trail while playing 4,997 ms; bound 6,500 ms |
+| Unique entries; authored duplicates preserved (QUE01) | PASS | Move, remove and restore of duplicate entries, JVM and emulator |
+| Remove current: following, otherwise preceding; final leaves empty paused; repeat and shuffle kept | PASS | PlaybackStateTest on a real player (last current, middle current, repeat all, only entry) and the rule table; emulator through the gateway |
+| Pause during resolution or recovery clears autoplay; skip cancels obsolete work | PASS for the queue-opening path; existing behaviour for recovery | Tests above. Recovery already read the user's play/pause choice at the moment it applies (replaceFailedStream, live fallback, network retry); not changed and not retested here beyond the existing StreamRecoveryTest and NetworkRecoveryTest |
+| Stop on removal from recents; paused restoration after restart | PASS | Unchanged code; ServiceStopDiagnosticsTest; process death step 2 |
+| About 5 s cadence, last sequence wins, bounded lifecycle save | PASS | Unchanged from Q04; cadence measured in step 1 (5 checkpoints in 17 s) |
+| Not every queue stream resolved before first playback | PASS (emulator) | 30-entry queue opened paused: no lookup; after play: lookups for 1 or 2 distinct entries only |
+
+Decisions (mine, not the user's):
+- Removing the playing entry when nothing follows selects the one before it and pauses. The plan says which entry is selected, not whether it plays; starting an earlier song from its beginning seemed wrong.
+- Screens keep reading the older fields (playing, wantsPlayback, error). They are filled from the same refresh as the typed state. Moving screens to status is left to Q11 and Q12.
+- Entry identifiers are not stored in the saved queue; a restored queue gets new ones. The saved-queue format is unchanged.
+- An addition to the queue is dropped when a replacement of the queue was requested after it.
+- The owner in the typed state is the opaque storage key, published only inside the app's own process.
+- A diagnostics line was added per stream lookup (stream_resolve_start with the first 8 characters of the random entry identifier).
+
+Known limits:
+- Queue edits are checked by entry in the app, then sent as the standard index command; a change by the service in the milliseconds between is not excluded.
+- With shuffle on, removing every copy of a song leaves the next entry to the player.
+- While waiting for the network the failure text is still shown, as before; the status says Recovering. Q07 replaces that path.
+- With the network off, Playing was observed only for on-device audio; provider entries go from Resolving to Recovering or Failed.
+
+BLOCKED:
+- The same checks on a physical phone and with real provider streams (rapid taps on real albums, pause while opening, queue edits while radio adds songs, kill while a provider queue plays). Needs an authorized device, explicit approval for installation, and a test account. Rerun: install the debug APK; tap three albums quickly and confirm only the last plays; tap an album and pause at once and confirm it stays silent; queue the same song twice and move and remove one copy; play, force-stop from Settings, reopen and confirm the queue is back paused within about 6 s of where it was.
+- Carried from Q04 and Q05: upgrade over a real earlier install; privacy actions on a phone; phone-only checks compiled only; NativeIslandInstrumentation not ported.
+
+Device state: emulator shut down with adb emu kill, adb server stopped, Gradle daemons stopped once to free memory. Data created and removed was synthetic fixture data on the emulator only. No physical device, real account, publication, push or user-data deletion. Deleted build outputs were regenerable files under app/build only.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q07, when the user says to start it.
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.

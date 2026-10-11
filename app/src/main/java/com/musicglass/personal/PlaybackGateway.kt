@@ -39,6 +39,8 @@ internal data class PlaybackUiState(
     val mediaId: String = "",
     val artworkUrl: String? = null,
     val queue: List<QueueEntry> = emptyList(),
+    /** The typed state. [playing], [wantsPlayback] and [error] above are kept for the screens that read them. */
+    val playback: PlaybackState = PlaybackState(),
 )
 
 internal data class QueueEntry(val mediaId: String, val title: String, val artist: String, val artworkUrl: String? = null,val queueId:String="")
@@ -92,9 +94,17 @@ internal class MusicPlaybackGateway(context: Context,
     fun reportEmbedded(playing:Boolean) {embeddedPlaying=playing;refresh(false)}
     private var controller: MediaController? = null
     private var videoSurface:android.view.SurfaceView?=null
-    private var commandError: String? = null
+    private var commandError: PlaybackFailure? = null
+    // What the user last pressed, so a queue still being prepared does not start playing after a pause.
+    private var transportSequence = 0L
+    private var transportPlay = true
+    private fun transport(play: Boolean) { transportSequence++; transportPlay = play }
     private val future = MediaController.Builder(appContext,
         SessionToken(appContext, ComponentName(appContext, MusicPlaybackService::class.java)))
+        .setListener(object : MediaController.Listener {
+            // Queue revision, owner and recovery state arrive here, not as player events.
+            override fun onExtrasChanged(controller: MediaController, extras: Bundle) = refresh(readQueue = false)
+        })
         .buildAsync()
     private var pending: ((MediaController) -> Unit)? = null
     override var state by mutableStateOf(PlaybackUiState())
@@ -122,7 +132,7 @@ internal class MusicPlaybackGateway(context: Context,
                 pending = null
                 handler.post(ticker)
             } catch (error: Exception) {
-                state = state.copy(error = "Playback could not connect: ${error.message}")
+                fail(PlaybackFailure(PlaybackFailureKind.Connection, error.message.orEmpty()))
             }
         }, appContext.mainExecutor)
     }
@@ -131,9 +141,52 @@ internal class MusicPlaybackGateway(context: Context,
         val current = controller
         if (current == null) pending = command else command(current)
     }
+    private fun fail(failure: PlaybackFailure) {
+        commandError = failure
+        state = state.copy(error = failure.message(), playback = state.playback.copy(failure = failure,
+            status = if (state.playback.status == PlaybackStatus.Idle) PlaybackStatus.Idle else PlaybackStatus.Failed))
+    }
+    /** The entry's own identifier; an item without one falls back to the window identity. */
+    private fun entryKey(player: Player, index: Int): String = player.getMediaItemAt(index).entryId().ifBlank {
+        player.currentTimeline.getWindow(index, androidx.media3.common.Timeline.Window()).uid.toString() }
+    /**
+     * The position in the player of the entry the user acted on. [shown] is its position in the queue
+     * as displayed, which can be behind the player's; null when that entry is no longer queued.
+     */
+    private fun entryIndex(player: Player, shown: Int): Int? {
+        val id = state.queue.getOrNull(shown)?.queueId
+        if (id.isNullOrBlank()) return shown.takeIf { it in 0 until player.mediaItemCount }
+        if (shown in 0 until player.mediaItemCount && entryKey(player, shown) == id) return shown
+        return (0 until player.mediaItemCount).firstOrNull { entryKey(player, it) == id }
+    }
     private fun refresh(readQueue: Boolean = true) {
         val player = controller ?: return
+        val embedded = embeddedId != null && embeddedId == player.currentMediaItem?.mediaId
+        val extras = player.sessionExtras
+        val retrying = player.playlistMetadata.extras?.getBoolean("providerRetrying") == true || player.playlistMetadata.extras?.getBoolean("liveRetrying") == true
+        val failure = if (retrying || embedded) null else commandError ?: player.playerError?.let { error ->
+            if (player.currentMediaItem?.mediaMetadata?.extras?.getBoolean("live") == true) PlaybackFailure(PlaybackFailureKind.LiveStream)
+            else if (player.currentMediaItem?.mediaId?.startsWith("yt:") == true) PlaybackFailure(PlaybackFailureKind.ProviderTrack)
+            else PlaybackFailure(PlaybackFailureKind.Player, error.errorCodeName)
+        }
+        // Waiting for the network counts as recovering only while the user still wants playback.
+        val recovery = RecoveryReason.of(extras.getString("recovery")).takeIf { !embedded && (it != RecoveryReason.Network || player.playWhenReady) }
+        val entry = player.currentMediaItem?.entryId().orEmpty()
+        val typed = PlaybackState(
+            status = if (embedded) { if (embeddedPlaying) PlaybackStatus.Playing else PlaybackStatus.Paused }
+                else playbackStatus(player.mediaItemCount, player.playbackState, player.playWhenReady, player.isPlaying,
+                    failed = failure != null, recovering = retrying || recovery != null,
+                    resolving = entry.isNotEmpty() && extras.getString("resolving") == entry),
+            desiredPlayWhenReady = if (embedded) embeddedPlaying else player.playWhenReady,
+            queueRevision = extras.getLong("queueRevision"),
+            queueItemId = entry,
+            owner = extras.getString("queueOwner").orEmpty(),
+            durationMs = player.duration.coerceAtLeast(0),
+            failure = failure,
+            recovery = recovery ?: if (!retrying) null else if (player.playlistMetadata.extras?.getBoolean("liveRetrying") == true) RecoveryReason.LiveProfile else RecoveryReason.ProviderStream,
+        )
         val updated = PlaybackUiState(
+            playback = typed,
             sleepDeadlineMs=player.sessionExtras.getLong("sleepDeadlineMs"),
             ready = true,
             index = player.currentMediaItemIndex.coerceAtLeast(0),
@@ -143,12 +196,7 @@ internal class MusicPlaybackGateway(context: Context,
             durationMs = player.duration.coerceAtLeast(0),
             shuffle = player.shuffleModeEnabled,
             repeat = player.repeatMode,
-            error = if(player.playlistMetadata.extras?.getBoolean("providerRetrying")==true || player.playlistMetadata.extras?.getBoolean("liveRetrying")==true || (embeddedId!=null && embeddedId==player.currentMediaItem?.mediaId)) null else commandError ?: player.playerError?.let { error ->
-                if(player.currentMediaItem?.mediaMetadata?.extras?.getBoolean("live")==true) "YouTube could not start this live stream. Try refreshing Radio."
-                else if (player.currentMediaItem?.mediaId?.startsWith("yt:") == true)
-                    "YouTube Music could not start this track. Try another track."
-                else "Playback failed (${error.errorCodeName})"
-            },
+            error = failure?.message(),
             source = when {
                 player.currentMediaItem?.mediaId?.startsWith("yt:") == true -> "YouTube Music"
                 player.currentMediaItem?.mediaId?.startsWith("local:") == true -> "On device"
@@ -172,8 +220,7 @@ internal class MusicPlaybackGateway(context: Context,
             queue = if (!readQueue) state.queue else (0 until player.mediaItemCount).map { index ->
                 val item = player.getMediaItemAt(index)
                 QueueEntry(item.mediaId, item.mediaMetadata.title?.toString().orEmpty(),
-                    item.mediaMetadata.artist?.toString().orEmpty(),item.mediaMetadata.artworkUri?.toString(),
-                    player.currentTimeline.getWindow(index,androidx.media3.common.Timeline.Window()).uid.toString())
+                    item.mediaMetadata.artist?.toString().orEmpty(),item.mediaMetadata.artworkUri?.toString(),entryKey(player,index))
             },
         )
         positionMs = updated.positionMs
@@ -187,14 +234,14 @@ internal class MusicPlaybackGateway(context: Context,
             return@withPlayer
         }
         commandError = null
-        if (toggleShouldPause(it.isPlaying,it.playWhenReady,it.playbackState==Player.STATE_IDLE)) it.pause()
-        else { if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() }
+        if (toggleShouldPause(it.isPlaying,it.playWhenReady,it.playbackState==Player.STATE_IDLE)) { transport(false); it.pause() }
+        else { transport(true); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() }
     }
     override fun setSleepTimer(minutes:Int) = withPlayer {it.sendCustomCommand(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY),Bundle().apply {putInt("minutes",minutes)})}
-    override fun pause() = withPlayer { it.pause();if(state.embedded) embeddedControl?.invoke(false) }
-    override fun resume() = withPlayer { if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() }
-    override fun next() = withPlayer { commandError = null; it.seekToNextMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() }
-    override fun previous() = withPlayer { commandError = null; it.seekToPreviousMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() }
+    override fun pause() { transport(false); withPlayer { it.pause();if(state.embedded) embeddedControl?.invoke(false) } }
+    override fun resume() { transport(true); withPlayer { if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
+    override fun next() { transport(true); withPlayer { commandError = null; it.seekToNextMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
+    override fun previous() { transport(true); withPlayer { commandError = null; it.seekToPreviousMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
     override fun currentPositionMs(): Long = controller?.currentPosition?.coerceAtLeast(0) ?: positionMs
     override fun seekTo(positionMs: Long) = withPlayer {
         it.seekTo(positionMs.coerceAtLeast(0))
@@ -208,15 +255,17 @@ internal class MusicPlaybackGateway(context: Context,
             else -> Player.REPEAT_MODE_OFF
         }
     }
+    // Queue edits name a row of the queue as displayed. They act on that entry wherever it is now,
+    // and do nothing when it has left the queue.
     override fun moveQueueItem(from: Int, to: Int) = withPlayer { player ->
-        if (from in 0 until player.mediaItemCount && to in 0 until player.mediaItemCount && from != to)
-            player.moveMediaItem(from, to)
+        val at = entryIndex(player, from) ?: return@withPlayer
+        val target = (to + (at - from)).coerceIn(0, player.mediaItemCount - 1)
+        if (to in 0 until player.mediaItemCount && at != target) player.moveMediaItem(at, target)
     }
     override fun removeQueueItem(index: Int) = withPlayer { player ->
-        if (index in 0 until player.mediaItemCount) {
-            commandError = null
-            removePlaybackQueueItem(player,index)
-        }
+        val at = entryIndex(player, index) ?: return@withPlayer
+        commandError = null
+        removePlaybackQueueItem(player,at)
     }
     override fun dropTrack(videoId: String) = withPlayer { player ->
         val matches = (0 until player.mediaItemCount).filter { player.getMediaItemAt(it).mediaId == "yt:$videoId" }
@@ -224,12 +273,16 @@ internal class MusicPlaybackGateway(context: Context,
         val current = player.currentMediaItemIndex in matches
         val remaining = player.mediaItemCount - matches.size
         if (remaining == 0) { player.pause(); matches.drop(1).asReversed().forEach(player::removeMediaItem); return@withPlayer }
+        // In shuffled order the player picks the survivor itself.
+        val plan = if (player.shuffleModeEnabled) RemovalPlan.Proceed else removalPlan(player.mediaItemCount, player.currentMediaItemIndex, matches.toSet())
+        if (plan is RemovalPlan.SelectBefore) { player.pause(); player.seekTo(plan.index, 0) }
         matches.asReversed().forEach(player::removeMediaItem)
-        if (current) { if (player.playbackState == Player.STATE_IDLE) player.prepare(); player.play() }
+        if (current && plan !is RemovalPlan.SelectBefore) { if (player.playbackState == Player.STATE_IDLE) player.prepare(); player.play() }
     }
-    override fun seekQueueItem(index: Int) = withPlayer { player ->
-        if(index in 0 until player.mediaItemCount) { player.seekTo(index,0);if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play() }
-    }
+    override fun seekQueueItem(index: Int) { transport(true); withPlayer { player ->
+        val at = entryIndex(player, index) ?: return@withPlayer
+        player.seekTo(at,0);if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()
+    } }
     override fun attachVideo(surface:android.view.SurfaceView?)=withPlayer {
         videoSurface=surface
         if(surface==null) it.clearVideoSurface() else it.setVideoSurfaceView(surface)
@@ -244,42 +297,57 @@ internal class MusicPlaybackGateway(context: Context,
     override fun playSong(track:ProviderTrack) {embeddedControl?.invoke(false);embeddedId=null;embeddedPlaying=false;sendCatalogQueue(listOf(track),0,true,automatic=true)}
     fun enqueueSong(track:ProviderTrack,next:Boolean) {sendCatalogQueue(listOf(track),0,true,enqueueNext=next)}
     override fun restoreAudio(track:ProviderTrack,position:Long) {sendCatalogQueue(listOf(track),0,state.wantsPlayback,replacePosition=position)}
-    private var catalogGeneration=0
+    // Raised by every request that replaces the queue. A request still being prepared when a later
+    // replacement is made is dropped; requests that only add to the queue do not drop one another.
+    private var replaceSequence=0L
     private val catalogScope=kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()+dependencies.dispatchers.main)
+    // One lane, so requests reach the service in the order the user made them.
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val requestLane=dependencies.dispatchers.io.limitedParallelism(1)
     private fun sendCatalogQueue(tracks:List<ProviderTrack>,index:Int,autoplay:Boolean,title:String="",shuffle:Boolean=false,automatic:Boolean=false,replacePosition:Long?=null,enqueueNext:Boolean?=null) {
-        if(tracks.isEmpty() || index !in tracks.indices || tracks.size>2000) {commandError="Could not open this collection";return}
-        val generation=++catalogGeneration;val owner=YouTubeMusicProvider.shared(appContext).session.value
+        if(tracks.isEmpty() || index !in tracks.indices || tracks.size>2000) {commandError=PlaybackFailure(PlaybackFailureKind.CollectionInvalid);return}
+        val replaces=replacePosition==null && enqueueNext==null
+        val generation=if(replaces) ++replaceSequence else replaceSequence
+        val owner=YouTubeMusicProvider.shared(appContext).session.value
+        val pressed=transportSequence
+        // A stream swap is meant for the entry selected now, not for whichever is selected when it lands.
+        val entry=state.playback.queueItemId.takeIf {replacePosition!=null}
         catalogScope.launch {
             val file=java.io.File(appContext.cacheDir,"queue-request-${java.util.UUID.randomUUID()}.json")
             try {
-                kotlinx.coroutines.withContext(dependencies.dispatchers.io) {
+                kotlinx.coroutines.withContext(requestLane) {
                     val items=tracks.map {t->SavedQueueItem("yt:${t.videoId}",t.title.take(180),t.artist.take(180),t.artworkUrl,t.album.take(180),t.artistId,t.albumId,t.isLive,music=t.isMusic)}
                     // Checked before anything is sent: the service refuses a larger request.
                     val payload=encodePlaybackSnapshotBounded(PlaybackSnapshot(items,index,0,shuffle,collectionTitle=title.take(180)))?:return@withContext false
                     file.writeText(payload);true
-                }.let {fits->if(!fits) {commandError="This collection is too large to queue";refresh();return@launch}}
-                if(generation!=catalogGeneration) {file.delete();return@launch}
+                }.let {fits->if(!fits) {commandError=PlaybackFailure(PlaybackFailureKind.CollectionTooLarge);refresh();return@launch}}
+                if(generation!=replaceSequence) {file.delete();return@launch}
+                // Pause pressed while the queue was being prepared: load it, but do not start it.
+                val play=if(transportSequence!=pressed) autoplay && transportPlay else autoplay
                 withPlayer {player->
                     commandError=null
-                    val args=Bundle().apply {putString("queueFile",file.name);putBoolean("autoplay",autoplay);putBoolean("automatic",automatic);putLong("sessionGeneration",owner.generation);putString("sessionNonce",owner.nonce);replacePosition?.let {putLong("replacePosition",it)};enqueueNext?.let {putBoolean("enqueueNext",it)}}
+                    val args=Bundle().apply {putString("queueFile",file.name);putBoolean("autoplay",play);entry?.takeIf {it.isNotEmpty()}?.let {putString("expectedEntry",it)};putBoolean("automatic",automatic);putLong("sessionGeneration",owner.generation);putString("sessionNonce",owner.nonce);replacePosition?.let {putLong("replacePosition",it)};enqueueNext?.let {putBoolean("enqueueNext",it)}}
                     val command=player.sendCustomCommand(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY),args)
-                    command.addListener({try {if(command.get().resultCode !in setOf(SessionResult.RESULT_SUCCESS,SessionError.INFO_CANCELLED)) commandError="Could not open collection queue";refresh()}
-                        catch(_:Exception){commandError="Could not open collection queue";refresh()}
+                    command.addListener({try {if(command.get().resultCode !in setOf(SessionResult.RESULT_SUCCESS,SessionError.INFO_CANCELLED)) commandError=PlaybackFailure(PlaybackFailureKind.CollectionRejected);refresh()}
+                        catch(_:Exception){commandError=PlaybackFailure(PlaybackFailureKind.CollectionRejected);refresh()}
                         finally {file.delete()}},appContext.mainExecutor)
                 }
             } catch(e:kotlinx.coroutines.CancellationException) {file.delete();throw e}
-            catch(_:Exception) {file.delete();commandError="Could not prepare collection queue";refresh()}
+            catch(_:Exception) {file.delete();commandError=PlaybackFailure(PlaybackFailureKind.CollectionPrepare);refresh()}
         }
     }
     override fun enqueueProvider(track: ProviderTrack, stream: ProviderStream, playNext: Boolean) =
         sendProvider(track,stream,0,true,playNext)
     override fun playProvider(track: ProviderTrack, stream: ProviderStream, startPositionMs: Long) {
         embeddedControl?.invoke(false);embeddedId=null;embeddedPlaying=false
+        replaceSequence++
         sendProvider(track,stream,startPositionMs,false,false)
     }
     override fun replaceProvider(track:ProviderTrack,stream:ProviderStream,position:Long)=sendProvider(track,stream,position,false,false,true)
     private fun sendProvider(track: ProviderTrack, stream: ProviderStream, startPositionMs: Long,
-        enqueue: Boolean, playNext: Boolean, replace:Boolean=false) = withPlayer { player ->
+        enqueue: Boolean, playNext: Boolean, replace:Boolean=false) {
+        val entry=state.playback.queueItemId.takeIf {replace && it.isNotEmpty()}
+        withPlayer { player ->
         commandError = null
         val headers = Bundle().apply { stream.headers.forEach { (key, value) -> putString(key, value) } }
         val args = Bundle().apply {
@@ -289,7 +357,7 @@ internal class MusicPlaybackGateway(context: Context,
             putString("profileId",stream.profileId);putBoolean("includesVideo",stream.includesVideo)
             putString("streamVideoId",stream.sourceVideoId);putString("videoUrl",stream.videoUrl);putString("videoMimeType",stream.videoMimeType)
             stream.sabrVideoBootstrap?.let {putString("sabrVideoKey",SabrPlaybackRegistry.register(it))}
-            putBoolean("replaceCurrent",replace)
+            putBoolean("replaceCurrent",replace);entry?.let {putString("expectedEntry",it)}
             stream.sabrBootstrap?.let { putString("sabrKey", SabrPlaybackRegistry.register(it)) }
             putString("videoId", track.videoId)
             putString("title", track.title)
@@ -310,17 +378,14 @@ internal class MusicPlaybackGateway(context: Context,
                     val result = command.get()
                     // Skipped: the account changed after this stream was requested. Nothing to report.
                     if (result.resultCode == SessionResult.RESULT_SUCCESS || result.resultCode == SessionError.INFO_CANCELLED) refresh()
-                    else {
-                        commandError = "Provider playback is unavailable"
-                        state = state.copy(error = commandError)
-                    }
+                    else fail(PlaybackFailure(PlaybackFailureKind.StreamRejected))
                 } catch (error: Exception) {
-                    commandError = "Could not start provider playback"
-                    state = state.copy(error = commandError)
+                    fail(PlaybackFailure(PlaybackFailureKind.StreamCommand))
                 }
         }, appContext.mainExecutor)
+        }
     }
-    override fun playLocal(track: LocalAudioTrack) = withPlayer { player ->
+    override fun playLocal(track: LocalAudioTrack) { replaceSequence++; withPlayer { player ->
         commandError = null
         val args = Bundle().apply {
             putString("uri", track.uri.toString())
@@ -332,18 +397,15 @@ internal class MusicPlaybackGateway(context: Context,
         val command = player.sendCustomCommand(SessionCommand(PLAY_LOCAL_AUDIO, Bundle.EMPTY), args)
         command.addListener({
             try {
-                if (command.get().resultCode == SessionResult.RESULT_SUCCESS) refresh()
-                else {
-                    commandError = "This on-device audio file is unavailable"
-                    state = state.copy(error = commandError)
-                }
+                // Cancelled: a later request replaced this one. Nothing to report.
+                if (command.get().resultCode in setOf(SessionResult.RESULT_SUCCESS, SessionError.INFO_CANCELLED)) refresh()
+                else fail(PlaybackFailure(PlaybackFailureKind.LocalUnavailable))
             } catch (_: Exception) {
-                commandError = "Could not open this on-device audio file"
-                state = state.copy(error = commandError)
+                fail(PlaybackFailure(PlaybackFailureKind.LocalCommand))
             }
         }, appContext.mainExecutor)
-    }
-    override fun restoreSavedQueue(done:(Boolean)->Unit) = withPlayer { player ->
+    } }
+    override fun restoreSavedQueue(done:(Boolean)->Unit) { replaceSequence++; withPlayer { player ->
         val owner=YouTubeMusicProvider.shared(appContext).session.value
         val command=player.sendCustomCommand(SessionCommand(RESTORE_SAVED_QUEUE,Bundle.EMPTY),
             Bundle().apply {putLong("sessionGeneration",owner.generation);putString("sessionNonce",owner.nonce)})
@@ -351,7 +413,7 @@ internal class MusicPlaybackGateway(context: Context,
             val loaded=runCatching {command.get().resultCode==SessionResult.RESULT_SUCCESS}.getOrDefault(false)
             refresh();done(loaded)
         },appContext.mainExecutor)
-    }
+    } }
     override fun hasProviderItems():Boolean=controller?.let {player->(0 until player.mediaItemCount).any {player.getMediaItemAt(it).mediaId.startsWith("yt:")}}==true
     override fun clearProviderPlayback() = withPlayer { player ->
         if ((0 until player.mediaItemCount).any {
@@ -380,9 +442,17 @@ internal class MusicPlaybackGateway(context: Context,
 internal fun toggleShouldPause(isPlaying: Boolean, playWhenReady: Boolean, idle: Boolean): Boolean =
     !idle && (isPlaying || playWhenReady)
 
-/** Deleting the final item leaves an empty, paused queue. Media3 adjusts the index for other removals. */
+/**
+ * Deleting the only item leaves an empty, paused queue. Deleting the current item when nothing follows
+ * it selects the one before, paused at its start, where the player by itself would jump to the first.
+ */
 internal fun removePlaybackQueueItem(player: Player, index: Int) {
-    if (index !in 0 until player.mediaItemCount) return
-    if (player.mediaItemCount == 1) player.pause()
+    val count = player.mediaItemCount
+    if (index !in 0 until count) return
+    if (count == 1) player.pause()
+    else if (index == player.currentMediaItemIndex) {
+        val plan = removalPlan(count, index, index, player.nextMediaItemIndex, player.previousMediaItemIndex)
+        if (plan is RemovalPlan.SelectBefore) { player.pause(); player.seekTo(plan.index, 0) }
+    }
     player.removeMediaItem(index)
 }

@@ -15,6 +15,12 @@
 - New **Settings → Privacy and data** screen: turn history saving off, choose how long plays are kept (30, 90 or 365 days, or until cleared), clear an account's or the phone's listening history, clear search history, delete downloads, or delete everything Riff keeps on the phone for the account in use. Each action says whose data it removes and how much, asks first, and reports what could not be removed. None of them changes the YouTube Music account or signs out.
 - The History screen has **Clear** for the list shown.
 - Recent searches are kept separately for each account and for signed-out use, 30 each.
+- Tapping several albums, songs or playlists in quick succession opens only the last one; earlier ones no longer start briefly or land late.
+- Pressing pause while a queue is still opening leaves it loaded and silent.
+- Adding several songs to the queue quickly keeps all of them, in order. Before, a second add could drop the first.
+- Queue rows act on the entry you touched even if the queue changed underneath, and the same song queued twice is treated as two entries everywhere.
+- Changed: removing the playing song when it is last in the queue now selects the song before it, paused. Before, the player jumped to the first song.
+- A switch between a song's audio and video no longer lands on a different song if you skipped in the meantime.
 - Known change: searches saved before this update are not shown, because the old list was shared by every account on the phone. Earlier data offers to import them or delete them.
 
 ### Historical October 6 update
