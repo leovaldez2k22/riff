@@ -98,6 +98,8 @@ internal class OfflineMusicStore private constructor(private val context:Context
         val dir=directory(scope,id);return runCatching {File(dir,"audio.media").takeIf {it.isFile && it.length()>0 && File(dir,"ready").let {ready->ready.isFile && (ready.readText().trim()=="1" || ready.readText().trim().toLongOrNull()==it.length())}}}.getOrNull()
     }
     fun artwork(scope:String,id:String)=File(directory(scope,id),"artwork").takeIf {it.isFile && it.length()>0}
+    /** The provider's loudness value saved with the download, so it normalizes without asking the provider. Null for older bundles. */
+    fun loudness(scope:String,id:String):Double?=BundleLoudness.read(directory(scope,id))
 
     // Downloaded-artwork presence by account and video, so the playback service's main thread never
     // touches the disk: it builds up to 2,000 queue items at once and each used to stat a file here.

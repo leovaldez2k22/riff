@@ -65,6 +65,45 @@ Off is 100 percent (unchanged audio, bit for bit in Riff's own stage). The defau
 - In Riff's own stage, a gain change ramps over 30 ms. Samples above 80 percent of full scale are compressed by a soft knee so that nothing exceeds 16-bit range or wraps. Loud passages are therefore flattened, and at 200 percent a full-scale peak comes out slightly below full scale. This is limiting, not clean amplification.
 - In the middle of a blend two songs play at 0.71 each. If both are at full scale at the same instant their sum is 1.41 times full scale at the device's mixer. Riff does not limit that sum; what happens is up to the device's output stage. In practice it needs two songs peaking at the same moment.
 
+## Normalize volume (Q08A)
+
+**Settings -> Normalize volume**, off by default. The row says what it does: "Turns down louder songs from YouTube Music when it supplies loudness data".
+
+Before Q08A Riff had no normalization of any kind: every song played at the level it was mastered at.
+
+Where the value comes from:
+
+- YouTube Music's player response carries, per track, how many decibels the recording is above the provider's reference loudness (`playerConfig.audioConfig.loudnessDb`). innertubex 0.7.2 exposes it on the resolved stream as `ExtractedStream.loudnessDb`. Riff reads it there and nowhere else.
+- No audio is analysed on the phone, and no file tags are read. Audio from the phone's own library has no value and is never changed.
+- A download stores the value in its own folder, in a file named `loudness` next to the audio, before the download is marked complete. It holds one number and nothing else. A downloaded song therefore normalizes offline without asking the provider.
+- A download made before Q08A has no such file. It plays unchanged, and nothing is added to it afterwards. Downloading it again stores the value.
+
+The rule (`normalizationGain`):
+
+| Value | Gain |
+|---|---|
+| Setting off | Unchanged |
+| Missing, not a number, not finite, or outside -60..60 dB | Unchanged |
+| At or below the reference (0 or negative) | Unchanged. Riff never turns a song up |
+| Above the reference by x dB | Turned down by x dB |
+| Above the reference by more than 12 dB | Turned down by 12 dB, no further |
+
+Where it is applied:
+
+- In the same PCM stage as the volume booster (`PcmVolumeBoost`), as a second factor: booster gain (1 to 3) times the track's gain (0.25 to 1). It is the only place samples are scaled.
+- Below 1 the product is plain multiplication; nothing is limited, because turning down cannot leave the 16-bit range. Above 1 (booster on) the booster's soft knee limits the product exactly as it limits the booster alone.
+- The player's level is not touched. It still belongs to the blend's owner, and after a blend to the sleep timer. Normalization cannot fight either of them because it never writes that level.
+- Each player has its own stage. In a blend the outgoing copy keeps the outgoing song's gain to its end and the main player takes the incoming song's gain. The event log shows both (`normalize_outgoing gain_db=...`, `normalize gain_db=...`).
+- A track starts at its gain. Switching the setting, or the booster, in the middle of a song ramps over 30 ms.
+- With LoudnessEnhancer in use for the booster, the booster's part is done by the platform effect and the track's gain is still applied in Riff's stage.
+
+Known limits:
+
+- On a gapless change to the next song without crossfade, the new gain is set when the player reports the change. Audio already handed to the device's buffer by then was scaled with the previous song's gain, so the first fraction of a second of the new song can be at the old gain before the 30 ms ramp. With crossfade on, the main player is at the bottom of its fade at that moment.
+- The value is the provider's, measured its way. Riff does not check it against the audio. Whether two songs then sound equally loud has not been heard on a device.
+- The provider field has not been read from a live response in this work (the emulator has no network). `LoudnessNormalizationTest` decodes a hand-written response with the pinned library's own model; it proves the field name the library reads, not what the provider sends today.
+- Values are remembered per queue entry while the queue lives (at most 2048 entries). A song whose stream has not been opened yet has no value until it is.
+
 ## Focus, calls and routes
 
 Riff uses Media3's handling and adds nothing to it.
@@ -94,9 +133,11 @@ Stream challenges are solved in the separate `:solver` process, never in the pro
 | `CrossfadeOwnerTest` (JVM) | 1, 6 and 12 s; short overlap; late start; buffering; early end; late updates; exactly-once restore; one owner; sleep timer after a blend; repeat-one, sleep and short songs |
 | `CrossfadeAndSeekTest` (JVM) | Alignment, envelope and eligibility (from before Q08) |
 | `VolumeBoostTest` (JVM) | Generated full-scale and quiet tones at off, 200 and 300 percent: finite, in range, sign kept, limiter monotonic |
+| `LoudnessNormalizationTest` (JVM) | The rule and its clamp; missing and invalid values; the stored value, older and damaged bundles; generated tones at different levels with scripted loudness; toggle mid-track without a step; every combination with the booster finite and in range; two players in a blend; the setting defaults to off |
 | `SongPresentationTest` (JVM, Compose) | Screens follow the live blend; reduced motion swaps at once |
 | `SolverFailClosedTest`, `CipherBridgeTest`, `SolverProtocolTest` (JVM) | Fail closed; bounded restarts; library contract |
 | `CrossfadeFixtureDeviceTest` (emulator, real service) | 1, 6 and 12 s; boost at maximum; pause; seek; select; off; sleep timer; repeat-one; focus loss; short interruption; account switch |
+| `NormalizationDeviceTest` (emulator, real service) | Downloads built from tones with a scripted value: applied; toggled mid-track; clamped at 12 dB; own gain per song; with the booster at maximum; no value; damaged value; setting off; on-device audio; a blend between two differently normalized songs |
 | `CrossfadeDeviceTest` (emulator, two real players) | Fourteen scenarios including buffering before the blend and an outgoing copy that ends or restarts |
 
-Not covered without a phone: what a blend sounds like; ducking; a real call; unplugging headphones; Bluetooth; streamed songs; the solver against the provider.
+Not covered without a phone: what a blend sounds like; ducking; a real call; unplugging headphones; Bluetooth; streamed songs; the solver against the provider; the provider's loudness value on a live stream and how normalized songs sound.

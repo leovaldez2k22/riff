@@ -111,6 +111,8 @@ internal object OfflineDownloadEngine {
                                 remux(raw,assembled,stream.durationMs.takeIf {it>0}?:job.durationMs,::checkState)
                                 checkState();ensureActive()
                                 val audio=File(dir,"audio.media");check(assembled.renameTo(audio)) {"Could not commit audio"};raw.delete()
+                                // Before the bundle is marked complete, so a complete bundle never gains or loses its value later.
+                                BundleLoudness.write(dir,stream.loudnessDb)
                                 File(dir,"ready").writeText(audio.length().toString());store.update(scope,id,"bytes" to audio.length(),"total" to audio.length(),"downloaded_at" to dependencies.clocks.wallTimeMillis());downloaded=true;break
                             } catch(e:CancellationException) {throw e} catch(e:Exception) {
                                 raw.delete();assembled.delete();if(dependencies.resolver==null) provider.invalidateStream(id)

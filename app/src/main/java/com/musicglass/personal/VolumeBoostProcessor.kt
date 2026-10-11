@@ -9,24 +9,33 @@ import java.nio.ByteOrder
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/** Gain changes ramp over 30 ms. Both channels use the same gain for each PCM frame. */
+/**
+ * The one place a player's samples are scaled: the booster's gain (1 to 3) times the track's normalization
+ * gain ([trim], at most 1). A change of either ramps over 30 ms. Both channels use the same gain for each PCM frame.
+ */
 internal class PcmVolumeBoost {
     @Volatile var targetGain = 1f
         set(value) { field = if (value.isFinite()) value.coerceIn(1f, 3f) else 1f }
+    /** Normalize volume: a static gain for the track this player is playing. Only ever turns down. */
+    @Volatile var trim = 1f
+        set(value) { field = if (value.isFinite()) value.coerceIn(NORMALIZE_MIN_GAIN, 1f) else 1f }
     private var gain = 1f
-    fun reset() { gain = targetGain }
+    fun reset() { gain = targetGain * trim }
     fun process(input: ByteBuffer, output: ByteBuffer, sampleRate: Int, channels: Int) {
         require(sampleRate > 0 && channels > 0 && input.remaining() % (2 * channels) == 0)
         if (!input.hasRemaining()) return
         input.order(ByteOrder.LITTLE_ENDIAN); output.order(ByteOrder.LITTLE_ENDIAN)
-        val target = targetGain
+        val target = targetGain * trim
         if (gain == 1f && target == 1f) { output.put(input); return }
         val step = 2f / (sampleRate * .03f)
         while (input.hasRemaining()) {
             gain += (target - gain).coerceIn(-step, step)
             repeat(channels) {
                 val sample = input.short
-                val value = if (gain == 1f) sample.toInt() else {
+                val value = if (gain == 1f) sample.toInt()
+                // Turning down cannot leave the PCM range, so nothing is limited and quiet tracks keep their shape.
+                else if (gain < 1f) (sample * gain).roundToInt()
+                else {
                     val amplified = sample / 32768f * gain
                     val magnitude = abs(amplified)
                     // A continuous soft knee keeps boosted peaks inside the PCM range, without wrapping.

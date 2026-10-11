@@ -75,6 +75,8 @@ internal data class ProviderStream(
     val videoUrl:String?=null,val videoMimeType:String?=null,val sabrVideoBootstrap:SabrBootstrap?=null,val sourceVideoId:String?=null,
     val itag:Int=0,val bitrate:Int=0,val contentLength:Long?=null,val durationMs:Long=0,val expiresAtMs:Long=0,
     val boundedRange:Boolean=false,val includesVideo:Boolean=false,val resolvedTitle:String="",val resolvedAuthor:String="",val resolvedChannelId:String?=null,
+    /** How far the recording is above the provider's reference loudness, in decibels; null when the provider did not say. */
+    val loudnessDb:Double?=null,
 )
 
 internal class AppPlayerConfigRepository(context: Context, prefsName: String = "player_config") : PlayerConfigRepository {
@@ -1125,7 +1127,8 @@ internal class YouTubeMusicProvider(context: Context,
                 stream.sabrBootstrap,stream.profileId,videoUrl,stream.videoMimeType,stream.sabrVideoBootstrap,videoId,
                 stream.itag,stream.bitrate?:0,stream.contentLengthBytes,maxOf((stream.mediaMetadata?.durationSeconds?:0)*1000,stream.sabrBootstrap?.durationMs?:0),
                 minOf(stream.expiresAt?.toEpochMilliseconds()?:Long.MAX_VALUE,dependencies.clocks.wallTimeMillis()+20*60_000),
-                stream.requireBoundedRange || stream.useRangeChunks,video || live,stream.mediaMetadata?.title.orEmpty(),stream.mediaMetadata?.author.orEmpty(),stream.mediaMetadata?.channelId))
+                stream.requireBoundedRange || stream.useRangeChunks,video || live,stream.mediaMetadata?.title.orEmpty(),stream.mediaMetadata?.author.orEmpty(),stream.mediaMetadata?.channelId,
+                validLoudnessDb(stream.loudnessDb)))
         } catch (error: CancellationException) {
             throw error
         } catch (error: StreamResolveException) {

@@ -130,6 +130,7 @@ private val SETTINGS = listOf(
     SettingSpec("accessibility_display", "glass_intensity", acceptFloat(0f..1.5f)),
     SettingSpec("accessibility_display", "frosted_intensity", acceptFloat(0f..1.5f)),
     SettingSpec(AUDIO_BOOST_PREFS, "enabled", acceptBool), SettingSpec(AUDIO_BOOST_PREFS, "percent", acceptInt { it in 100..300 }),
+    SettingSpec(AUDIO_BOOST_PREFS, NORMALIZE_KEY, acceptBool),
     SettingSpec(CROSSFADE_PREFS, "enabled", acceptBool), SettingSpec(CROSSFADE_PREFS, "seconds", acceptInt { it in 1..12 }),
     SettingSpec(DATA_SAVER_PREFS, "enabled", acceptBool),
     SettingSpec("music_collections", "history_enabled", acceptBool),

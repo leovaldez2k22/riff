@@ -1,0 +1,10 @@
+{
+  "playabilityStatus": {"status": "OK"},
+  "playerConfig": {
+    "audioConfig": {
+      "loudnessDb": 5.21,
+      "perceptualLoudnessDb": -8.79,
+      "enablePerFormatLoudness": true
+    }
+  }
+}

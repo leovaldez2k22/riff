@@ -48,7 +48,33 @@ class MusicPlaybackService : MediaSessionService() {
     private fun updateBoost() {
         audioEffects.setGain(currentBoostGain())
         tailAudioEffects?.setGain(currentBoostGain())
+        updateNormalization()
     }
+    /** Provider loudness by queue entry, learned when an entry's stream or download is opened. Durable values only. */
+    private val entryLoudness = java.util.Collections.synchronizedMap(object:LinkedHashMap<String,Double>(64,.75f,true) {
+        // Most recently used last; the playing entry is read at every change, so it is never the one dropped.
+        override fun removeEldestEntry(eldest:MutableMap.MutableEntry<String,Double>?)=size>2048
+    })
+    private var tailNormalization:Pair<Player,PcmVolumeBoost>?=null
+    private fun learnLoudness(item:MediaItem,loudnessDb:Double?) {
+        val entry=item.entryId();val value=validLoudnessDb(loudnessDb)
+        if(entry.isEmpty() || value==null || entryLoudness.put(entry,value)==value) return
+        // Learned on a loader thread, usually before the entry's first audio is decoded.
+        serviceScope.launch {updateNormalization()}
+    }
+    private fun normalizationFor(item:MediaItem?)=normalizationGain(boostPrefs.getBoolean(NORMALIZE_KEY,false),item?.entryId()?.let(entryLoudness::get))
+    /**
+     * Normalize volume: each player's own static gain for the track it is playing, applied in its PCM stage. The
+     * player's level stays with crossfade and the sleep timer; the booster keeps its own gain.
+     */
+    private fun updateNormalization() {
+        session?.player?.let {
+            val gain=normalizationFor(it.currentMediaItem);volumeBoost.boost.trim=gain
+            if(gain!=loggedNormalization) {loggedNormalization=gain;events.append("normalize gain_db=${normalizationDecibels(gain)}")}
+        }
+        tailNormalization?.let {(player,stage)->stage.trim=normalizationFor(player.currentMediaItem)}
+    }
+    private var loggedNormalization=1f
     private val events by lazy { PlaybackEventLog(this) }
     private val runtime by lazy {AppContainer.get(this).runtime}
     private val serviceScope by lazy {CoroutineScope(SupervisorJob()+runtime.dispatchers.main)}
@@ -182,6 +208,7 @@ class MusicPlaybackService : MediaSessionService() {
                         val track=trackFromItem(item)
                         val local=offline.audio(offline.currentScope,track.videoId)
                         if(local!=null && !track.isLive) {
+                            learnLoudness(item,BundleLoudness.read(local.parentFile))
                             val art=offline.artwork(offline.currentScope,track.videoId)?.let(Uri::fromFile)
                             val resolved=item.buildUpon().setUri(Uri.fromFile(local)).setCustomCacheKey(null).setMediaMetadata(item.mediaMetadata.buildUpon().apply {if(art!=null) setArtworkUri(art)}.build()).build()
                             return@DeferredProviderSource createMediaSource(resolved)
@@ -190,6 +217,7 @@ class MusicPlaybackService : MediaSessionService() {
                         val stream=withTimeout(if(track.isLive) 60_000 else 30_000) {provider.resolve(track.videoId,track.isLive,video=track.isLive).getOrThrow()}
                         events.append("selected_stream_ready ms=${android.os.SystemClock.elapsedRealtime()-start}")
                         resolvedStreams[item]=stream
+                        learnLoudness(item,stream.loudnessDb)
                         createMediaSource(providerItem(track,stream,keepEntry(item)))
                         } finally {resolving.remove(entry);serviceScope.launch {publishState()}}
                     }
@@ -200,7 +228,11 @@ class MusicPlaybackService : MediaSessionService() {
                     val video=MediaItem.Builder().setMediaId("${item.mediaId}:video").setUri(videoUri).build()
                     return androidx.media3.exoplayer.source.MergingMediaSource(true,createMediaSource(audio),createMediaSource(video))
                 }
-                if(item.localConfiguration?.uri?.scheme=="file") return offlineMediaSource(this@MusicPlaybackService,item)
+                if(item.localConfiguration?.uri?.scheme=="file") {
+                    // A download: its value lies next to its audio. A file of any other kind has none.
+                    if(item.mediaId.startsWith("yt:")) learnLoudness(item,BundleLoudness.read(item.localConfiguration?.uri?.path?.let {java.io.File(it).parentFile}))
+                    return offlineMediaSource(this@MusicPlaybackService,item)
+                }
                 val headers = streamHeaders[item.localConfiguration?.uri.toString()].orEmpty()
                 val source = DataSource.Factory {
                     ProviderMediaDataSource(DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers).createDataSource(),
@@ -233,10 +265,16 @@ class MusicPlaybackService : MediaSessionService() {
             val effects = AudioSessionEffects(this, processor.boost)
             tailAudioEffects=effects
             effects.setGain(currentBoostGain()); effects.attach(tail.audioSessionId)
+            tailNormalization=tail to processor.boost
             tail.addListener(object:Player.Listener {
                 override fun onAudioSessionIdChanged(audioSessionId:Int)=effects.attach(audioSessionId)
+                // The outgoing song keeps its own gain to the end of the blend.
+                override fun onMediaItemTransition(mediaItem:MediaItem?,reason:Int) {
+                    val gain=normalizationFor(mediaItem);processor.boost.trim=gain
+                    if(gain!=1f) events.append("normalize_outgoing gain_db=${normalizationDecibels(gain)}")
+                }
             })
-            tail to { if(tailAudioEffects===effects) tailAudioEffects=null; effects.release() }
+            tail to { if(tailAudioEffects===effects) tailAudioEffects=null; if(tailNormalization?.first===tail) tailNormalization=null; effects.release() }
         }, sleepActive = { (session?.sessionExtras?.getLong("sleepDeadlineMs") ?: 0L) > 0L },
             tailItem={item->resolvedStreams[item]?.let {providerItem(trackFromItem(item),it,keepEntry(item))}?:item},
             onBlend={SongCrossfadeState.active=it},clock=runtime.clocks::monotonicMillis,wait=runtime.wait) { events.append(it) }
@@ -257,7 +295,7 @@ class MusicPlaybackService : MediaSessionService() {
             repeatMode = Player.REPEAT_MODE_OFF
             addListener(object : Player.Listener {
                 override fun onAudioSessionIdChanged(audioSessionId: Int) = audioEffects.attach(audioSessionId)
-                override fun onEvents(player: Player,events: Player.Events) {saveSnapshot(player);publishState();RiffWidgets.publish(this@MusicPlaybackService,player)}
+                override fun onEvents(player: Player,events: Player.Events) {updateNormalization();saveSnapshot(player);publishState();RiffWidgets.publish(this@MusicPlaybackService,player)}
                 override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
                     if(reason==Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) order.edited()
                 }
@@ -688,7 +726,7 @@ class MusicPlaybackService : MediaSessionService() {
             .apply { if(stream.mimeType?.contains("mpegurl",true)==true) setMimeType(MimeTypes.APPLICATION_M3U8) }
             .setMediaMetadata(MediaMetadata.Builder().setTitle(track.title).setArtist(track.artist).setAlbumTitle(track.album)
                 .setArtworkUri(validProviderArtworkUrl(track.artworkUrl)?.let(Uri::parse)).setExtras(extra).build()).build()
-            .also {resolvedStreams[it]=stream}
+            .also {resolvedStreams[it]=stream;learnLoudness(it,stream.loudnessDb)}
     }
     private fun cancelRadio() {
         recoveryReplacement=null;resolvedStreams.clear()

@@ -81,6 +81,9 @@ import kotlinx.coroutines.withContext
                 }
             }
             SettingsDivider()
+            SettingsToggleRow("Normalize volume",audio.normalize,hapticToggle(audio::updateNormalize),
+                Icons.Rounded.GraphicEq,"settings_normalize_volume","Turns down louder songs from YouTube Music when it supplies loudness data")
+            SettingsDivider()
             SettingsToggleRow("Crossfade",crossfade.enabled,hapticToggle(crossfade::updateEnabled),
                 Icons.Rounded.Shuffle,"settings_crossfade","Blend the end of each song into the next")
             if(crossfade.enabled) {

@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09-Q18 TODO. Lettered package Q05A PASS locally with open items (see the Q05A section)
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -620,12 +620,90 @@ Not part of this package and left untouched: scripts/download_favourites.py and 
 Commit: fde01db on local branch codex/riff-quality-m0 (not pushed).
 Next exact action: Q08A.
 
+## Q08A
+### Q08A completion (12 October 2026)
+Status: PASS locally and on the disposable emulator. The provider's loudness value on a live response, and listening on a phone, are BLOCKED (below).
+Source: d158dbe110730ee150cb74832b103978f8968fe9 dirty, digest prefix 061178bee5ae (full value in the manifests). Evidence root: artifacts/quality/d158dbe110730ee150cb74832b103978f8968fe9-dirty-061178bee5ae/
+User instruction on 11 October 2026: "start q08 followed by q08a" (standing rule: complete every aspect of the phase). On 12 October 2026 the user added "Run next phase", read as go on to Q08A after Q08. Q05R, Q10A, Q12A and Q15A were not started and remain unauthorized. Q09 has not been started.
+
+Established first (action 1): before this package Riff had no loudness normalization. Nothing in the source read a loudness value, a ReplayGain tag or measured audio. The only scaling of samples was the volume booster.
+
+Implemented (LoudnessNormalization.kt new; VolumeBoostProcessor.kt, AudioBoostSettings.kt, MusicPlaybackService.kt, YouTubeMusicProvider.kt, OfflineDownloadEngine.kt, OfflineMusicStore.kt, SettingsScreen.kt, LocalDataTransfer.kt):
+- Source of the value: innertubex 0.7.2 ExtractedStream.loudnessDb, which the library fills from the player response (playerConfig.audioConfig.loudnessDb). ProviderStream carries it as loudnessDb, null when absent or invalid. No audio is analysed on the device and no tags are read.
+- Rule (normalizationGain): off, missing, not finite or outside -60..60 dB means unchanged. Zero or negative means unchanged: nothing is ever turned up. Positive x means x dB down, at most 12 dB (gain never below 0.2512).
+- One point in the chain: PcmVolumeBoost, the stage that already held the booster, now multiplies booster gain (1 to 3) by the track's gain (0.25 to 1). Below 1 it is plain multiplication with no limiter; above 1 the booster's soft knee limits the product as before. With both at 1 the stage still passes samples through bit for bit.
+- The player's level is never written by normalization. It stays with the crossfade owner and, after a blend, the sleep timer.
+- Each player has its own stage. The outgoing copy in a blend is given the outgoing song's gain when it is loaded and keeps it; the main player takes the incoming song's gain.
+- A track starts at its gain (the stage resets to it on flush). A change of the setting or of the booster mid-track ramps over the stage's existing 30 ms.
+- The service learns a value per queue entry when the entry's stream or download is opened, and keeps at most 2048. It logs normalize gain_db=... when the main player's gain changes and normalize_outgoing gain_db=... for the copy.
+- Downloads: the value is written to a file named loudness in the bundle's folder before the bundle is marked ready. It holds one number. A bundle without the file, or with a damaged one, plays unchanged; nothing is written into existing bundles.
+- Setting: Normalize volume in Settings between the booster and Crossfade, off by default (key normalize in the audio_boost preferences). Label: "Turns down louder songs from YouTube Music when it supplies loudness data".
+- Export and import (Q05A) include the switch: 14 device settings travel, where the Q05A entry says 13.
+- Docs: docs/quality/crossfade-and-audio.md (new section and test rows), docs/quality/local-export-import.md, CHANGELOG.
+
+Verification:
+- Debug (q08a-debug-01/manifest.json): PASS_LOCAL. 583 JVM tests / 75 suites, zero failures, errors or skips (Q08: 563 / 74). Lint 0 errors, 84 warnings, 5 hints; no issue added or removed against q08-debug-02. APK SHA-256 4904e473a49f3b759f1d69f50091eccb76735c94bf9e698b483ff0c691cb5a6a.
+- New JVM tests: LoudnessNormalizationTest (20). LocalDataTransferTest now seeds the new switch and expects 7 changed settings where it expected 6.
+- Emulator, bound (q08a-debug-fixture-01/manifest.json, log q08a-instrumentation-01.log, install-01.log): PASS_LOCAL, all five gates PASS. 40 tests, 263.248 s: the 31 of Q08 plus 9 NormalizationDeviceTest (real service; downloads built in the test from generated tones with a scripted value file). Test APK SHA-256 7631402f232754546f15ff9fc965f4c9ba47b4893bb4422daf79f4376aaf2f1a. riff_q02_fixture, API 31, network disabled and confirmed unreachable, signed out. The crossfade classes ran first, soon after boot.
+- In the first run of NormalizationDeviceTest (before the evidence run, same sources apart from docs) the log showed the blend case as intended: copy created, normalize_outgoing gain_db=-6.0, crossfade_start, normalize gain_db=-3.0, copy released.
+- Emulator, not bound (q08a-two-player-instrumentation-02.log, install-02.log): CrossfadeDeviceTest and SongFadeDeviceTest, 15 tests, OK, on a freshly started emulator.
+- Release (q08a-release-01/manifest.json): PASS_LOCAL. junit {"suites": 75, "tests": 583, "failures": 0, "errors": 0, "skipped": 0}; lint {"Warning": 84, "Hint": 5}; no issue added or removed against q08-release-01. APK SHA-256 84120641a0eb4a53f01523623c3d1cb7ef2dda87e22c656504c0645cf6230796. Shrunk unsigned release 26.51 MiB (Q08: 26.51). No device run of the release artifact.
+- Shrunk release, solver seam (solver-seam-release-01.txt): PASS, unchanged from Q08.
+- Stress (stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only.
+- The evidence was taken before this ledger entry was written; the entry is the only change after it.
+
+Failed attempts, preserved or recorded:
+- attempts/q08a-two-player-instrumentation-01.log: 15 tests, 3 failures in CrossfadeDeviceTest (two fades shortened, one timed out at the handoff). It ran after the 263 s bound run on the same emulator session; the two players' positions were 100 to 230 ms apart throughout. Same class of failure as recorded in Q08 for an emulator that has been running a while. The rerun after a restart passed 15 of 15. CrossfadeDeviceTest uses two bare players and no normalization. The cause is inferred from the Q08 findings, not proven again.
+- First compile of LoudnessNormalizationTest failed on argument types in six assertions. Test change only.
+- First run: 4 failures. Three were LocalDataTransferTest's expected counts (6 settings, now 7). One was real: BundleLoudness.write did not replace an earlier value where a rename does not overwrite (seen on the build machine's file system; Android's does overwrite). The earlier value is now removed first when the rename fails.
+- An edit script failed once with OSError 22 while writing MusicPlaybackService.kt; the file was checked intact and the edit applied again.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| AUD01: normalization on, tracks of different loudness: bounded attenuation, no clipping | PASS (JVM; emulator for the gain the service applies) | Generated tones at three levels with scripted values: 6 dB and 3 dB down within 2 of the expected peak, quieter tone bit exact. Clamp at 12 dB. Every combination of four booster settings, ten values and three signals stays in 16-bit range, keeps its sign and is never louder than without normalization. Emulator: -6.0, -3.0, -12.0 and 0.0 as scripted, per song |
+| AUD01: crossfade ownership intact | PASS (JVM; emulator) | The player's level equals the user's level before and after a blend between a 6 dB and a 3 dB song; the copy had -6.0 and never -3.0; copy released. Normalization never writes the level |
+| AUD01: boost ownership intact | PASS (JVM; emulator with the booster at 300 percent) | Booster changes do not change the track's gain and the other way round |
+| AUD01: sleep ownership intact | PASS by construction and by the unchanged Q08 tests | The sleep fade writes the player's level, which normalization does not touch. CrossfadeFixtureDeviceTest's sleep-timer cases pass unchanged. No test runs the sleep fade with normalization on |
+| AUD02: off or value missing: unchanged gain, no failure | PASS (JVM; emulator) | Bit-exact output; no normalize event for a download without a value, with a damaged value, with the setting off, or for on-device audio; no player error |
+| XFD04 still passes | PASS | VolumeBoostTest and CrossfadeFixtureDeviceTest unchanged and passing |
+| Finite bounded samples in every combination | PASS (JVM) | As AUD01 |
+| No step at track start or on a toggle | PASS (JVM) for the stage; see the limit below for gapless changes | First sample already at the gain; a toggle changes each sample by no more than the 30 ms ramp allows |
+| Offline bundle with and without the value | PASS (JVM; emulator) | |
+| Default off; honest label | PASS (JVM for the default; label as quoted above) | The row was not looked at on a screen |
+| Provider field proven with a fixture | PARTLY | The fixture is written by hand to the pinned library's model and decoded with the library's own serializer. It proves which field the library reads. It is not a recorded response. A live value is BLOCKED |
+
+Decisions (mine, not the user's):
+- Reference and range: the provider's own zero, 12 dB of attenuation at most. The plan asks for a documented clamp and names no number.
+- loudnessDb, not perceptualLoudnessDb. The first is relative to the provider's reference, which is what "reduce toward the reference" needs.
+- The gain is set when the player reports the song change, not at the exact sample where the next song begins. Doing it at the sample needs the audio sink's stream boundaries; I judged that too fragile for this package.
+- A download's value file is written only when the provider gave a value, and is not removed when a later download of the same song has none.
+- The value file is not part of Export local data. Downloads travel as a list to fetch again, and fetching stores the value.
+
+Known limits:
+- Gapless change without crossfade: audio already buffered when the change is reported was scaled with the previous song's gain. The first fraction of a second of the new song can be at the old gain, then a 30 ms ramp. Not measured on a phone.
+- The value is not checked against the audio. Whether normalized songs sound equally loud has not been heard.
+- Songs quieter than the reference stay quieter. That is the attenuation-only rule.
+- Downloads made before this package play unchanged until downloaded again.
+- Audio from the phone's library is never normalized. No tag-based normalization exists or is claimed.
+- With the platform LoudnessEnhancer doing the booster's part, the order is Riff's track gain first, then the platform effect and its limiter. Not heard on a device.
+
+BLOCKED:
+- A live provider value. Needs the network and the provider. Rerun: on a build with a connection, play five streamed songs with Normalize volume on and read normalize gain_db in the copied diagnostics; a song with no line was at or below the reference or had no value. Download one, go offline, play it, expect the same line.
+- Listening on a phone: a loud and a quiet song back to back with the setting on and off; toggling mid-song; with crossfade at 6 s; with the booster at 300 percent; a gapless album without crossfade for the limit above. Needs explicit approval for installation.
+- The release APK on a device.
+- Carried from Q04 to Q08 and Q05A: as listed in the Q08 entry.
+
+Device state: emulator shut down with adb emu kill, adb server stopped, Gradle daemons stopped once before the stress build. On the emulator only: fixture downloads fixtureN001 to fixtureN012 were created in and removed from the signed-out download folder, fixture tones were added to and removed from the media library, and audio and crossfade settings were set and cleared. No physical device, real account, provider request, publication, push or user-data deletion. Deleted build outputs were regenerable files under app/build.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q09. It is inside the 9 October authorization (Q03-Q18) but the user's instruction covered Q08 and Q08A only; wait for "start Q09".
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
 - Q05A local export/import. Dependencies: Q03, Q04, Q05. Authorized by the user on 11 October 2026 ("start Q05A"). Status: PASS locally with open items (see the Q05A section).
 - Q05R interim release R1. Dependencies: Q00-Q05 PASS.
-- Q08A loudness normalization. Dependencies: Q08.
+- Q08A loudness normalization. Dependencies: Q08. Authorized by the user on 11 October 2026 ("start q08 followed by q08a"). Status: PASS locally with open items (see the Q08A section).
 - Q10A provider canary and response runbook. Dependencies: Q10.
 - Q12A update notice. Dependencies: Q01, Q12.
 - Q15A exit-reason diagnostics. Dependencies: Q15.
