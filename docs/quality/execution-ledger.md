@@ -440,6 +440,7 @@ BLOCKED:
 
 Device state: emulator shut down with adb emu kill, adb server stopped, Gradle daemons stopped once before the stress build. Data created and removed was synthetic fixture data on the emulator only. No physical device, real account, provider request, publication, push or user-data deletion. Deleted build outputs were regenerable files under app/build only.
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Commit: 5ed2429 on local branch codex/riff-quality-m0 (not pushed).
 Next exact action: Q08, when the user says to start it.
 
 ## Plan v1.1 additions (11 October 2026)
