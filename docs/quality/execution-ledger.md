@@ -696,6 +696,7 @@ BLOCKED:
 
 Device state: emulator shut down with adb emu kill, adb server stopped, Gradle daemons stopped once before the stress build. On the emulator only: fixture downloads fixtureN001 to fixtureN012 were created in and removed from the signed-out download folder, fixture tones were added to and removed from the media library, and audio and crossfade settings were set and cleared. No physical device, real account, provider request, publication, push or user-data deletion. Deleted build outputs were regenerable files under app/build.
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Commit: 18080c7 on local branch codex/riff-quality-m0 (not pushed).
 Next exact action: Q09. It is inside the 9 October authorization (Q03-Q18) but the user's instruction covered Q08 and Q08A only; wait for "start Q09".
 
 ## Plan v1.1 additions (11 October 2026)
