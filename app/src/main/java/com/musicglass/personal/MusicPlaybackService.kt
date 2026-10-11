@@ -94,18 +94,24 @@ class MusicPlaybackService : MediaSessionService() {
     private var discardingSession=false
     private var taskRemoved=false
     private var saveJob: Job?=null
-    private val snapshotWrites=kotlinx.coroutines.channels.Channel<Pair<Long,PlaybackSnapshot>>(kotlinx.coroutines.channels.Channel.CONFLATED)
+    private val snapshots by lazy {ScopedPlaybackSnapshots(PreferenceSnapshotValues(this),runtime.clocks::wallTimeMillis)}
+    private val sessions by lazy {AppContainer.get(this).sessions}
+    private var sessionRegistration:AutoCloseable?=null
+    /** Owner of the queue now in the player; null when it is empty or may not be saved. */
+    private var snapshotOwner:String?=null
+    private val snapshotWrites=kotlinx.coroutines.channels.Channel<Triple<Long,String,PlaybackSnapshot>>(kotlinx.coroutines.channels.Channel.CONFLATED)
     private val snapshotSequence=java.util.concurrent.atomic.AtomicLong()
     private val snapshotWriteLock=Any()
     private var cachedQueueTimeline:androidx.media3.common.Timeline?=null
     private var cachedSnapshotQueue:List<SavedQueueItem> = emptyList()
+    private var cachedSnapshotIds:List<String> = emptyList()
     override fun onCreate() {
         super.onCreate()
         events.append("service_create")
         serviceScope.launch(Dispatchers.IO) {logNewProcessExits(this@MusicPlaybackService,events)}
         serviceScope.launch(Dispatchers.IO) {runCatching {offline.indexArtwork(offline.currentScope)}}
         serviceScope.launch(Dispatchers.IO) {
-            for((sequence,snapshot) in snapshotWrites) persistSnapshot(sequence,snapshot)
+            for((sequence,owner,snapshot) in snapshotWrites) persistSnapshot(sequence,owner,snapshot)
         }
         val defaultFactory = DefaultMediaSourceFactory(this)
         val mediaFactory = object : MediaSource.Factory by defaultFactory {
@@ -256,12 +262,15 @@ class MusicPlaybackService : MediaSessionService() {
                     sleepTimer.set(minutes)
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
+                // Not an error for the new owner: the request simply no longer applies.
+                if(customCommand.customAction!=PLAY_LOCAL_AUDIO && staleSession(args)) return Futures.immediateFuture(SessionResult(SessionError.INFO_CANCELLED))
                 if(customCommand.customAction==PLAY_CATALOG_QUEUE) {
                     val name=args.getString("queueFile").orEmpty()
                     if(!name.matches(Regex("queue-request-[a-f0-9-]{36}\\.json"))) return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
                     // Queue files reach ~6 MB for 2,000 tracks, so read and decode them off the main thread.
                     // A single decoding lane keeps rapid successive requests in the order they were sent.
                     fun applyQueue(saved:PlaybackSnapshot?):SessionResult {
+                        if(staleSession(args)) return SessionResult(SessionError.INFO_CANCELLED)
                         if(saved==null || saved.queue.any {!it.mediaId.startsWith("yt:")}) return SessionResult(SessionError.ERROR_BAD_VALUE)
                         val tracks=saved.queue.map {q->ProviderTrack(q.mediaId.removePrefix("yt:"),q.title,q.artist,q.artworkUrl,q.artistId,q.albumId,q.album,q.live,q.music)}
                         if(tracks.any {!it.videoId.matches(Regex("[A-Za-z0-9_-]{11}"))}) return SessionResult(SessionError.ERROR_BAD_VALUE)
@@ -397,16 +406,13 @@ class MusicPlaybackService : MediaSessionService() {
             }
         }).build()
         restoreSleepTimerAfterRestart()
-        snapshotPrefs.getString("snapshot",null)?.let(::decodePlaybackSnapshot)?.let {saved->
-            val items=saved.queue.map {q->if(q.mediaId.startsWith("yt:")) catalogItem(ProviderTrack(q.mediaId.removePrefix("yt:"),
-                q.title,q.artist,q.artworkUrl,q.artistId,q.albumId,q.album,q.live,q.music)) else MediaItem.Builder().setMediaId(q.mediaId).setUri(q.localUri)
-                .setMediaMetadata(MediaMetadata.Builder().setTitle(q.title).setArtist(q.artist).setAlbumTitle(q.album).build()).build()}
-            player.setMediaItems(items,saved.index,saved.positionMs)
-            player.shuffleModeEnabled=saved.shuffle;player.repeatMode=saved.repeat;player.playWhenReady=false
-            radioSeed=saved.radioSeed;queuedIds.addAll(saved.queue.filter {it.mediaId.startsWith("yt:")}.map {it.mediaId.removePrefix("yt:")})
-            player.setPlaylistMetadata(MediaMetadata.Builder().setSubtitle(if(radioSeed==null) "Album order" else "Restored queue \u00B7 paused").build())
-            events.append("session_restored count=${items.size} index=${saved.index}")
-        }
+        // The newest of this account's queue and the on-device queue. The pre-scope shared snapshot is
+        // neither read nor removed here: it is ambiguous, and Q04 quarantines it for explicit recovery.
+        snapshots.newest(listOfNotNull(offline.currentScope.takeIf {it!=UNVERIFIED_SCOPE_KEY},DEVICE_LOCAL_SCOPE_KEY))?.let {restoreSnapshot(player,it)}
+        sessionRegistration=sessions.register(object:SessionParticipant {
+            override suspend fun quiesce(outgoing:SessionToken)=withContext(Dispatchers.Main.immediate) {quiesceForAccountSwitch()}
+            override suspend fun bind(current:SessionToken)=withContext(Dispatchers.Main.immediate) {restoreForCurrentOwner()}
+        })
         OfflineDownloadScheduler.schedule(this)
         saveJob=serviceScope.launch {while(isActive){delay(5000);saveSnapshot(player)
             val now=android.os.SystemClock.elapsedRealtime();val delta=(now-lastListenTick).coerceIn(0,5000);lastListenTick=now
@@ -455,12 +461,50 @@ class MusicPlaybackService : MediaSessionService() {
         .setUri("catalog://${track.videoId}").setMediaMetadata(MediaMetadata.Builder().setTitle(track.title).setArtist(track.artist)
             .setAlbumTitle(track.album).setArtworkUri(offline.indexedArtwork(offline.currentScope,track.videoId)?.let(Uri::fromFile)?:validProviderArtworkUrl(track.artworkUrl)?.let(Uri::parse))
             .setExtras(Bundle().apply {putString("artistId",track.artistId);putString("albumId",track.albumId);putBoolean("live",track.isLive);putBoolean("video",track.isLive);putBoolean("music",track.isMusic)}).build()).build()
-    private fun saveSnapshot(player:Player,flush:Boolean=false) {
-        if(discardingSession) return
+    /** Loads an owner's saved queue paused. Never starts playback. */
+    private fun restoreSnapshot(player:Player,stored:StoredSnapshot) {
+        val saved=stored.snapshot
+        val items=saved.queue.map {q->if(q.mediaId.startsWith("yt:")) catalogItem(ProviderTrack(q.mediaId.removePrefix("yt:"),
+            q.title,q.artist,q.artworkUrl,q.artistId,q.albumId,q.album,q.live,q.music)) else MediaItem.Builder().setMediaId(q.mediaId).setUri(q.localUri)
+            .setMediaMetadata(MediaMetadata.Builder().setTitle(q.title).setArtist(q.artist).setAlbumTitle(q.album).build()).build()}
+        player.setMediaItems(items,saved.index,saved.positionMs)
+        player.shuffleModeEnabled=saved.shuffle;player.repeatMode=saved.repeat;player.playWhenReady=false
+        radioSeed=saved.radioSeed;queuedIds.addAll(saved.queue.filter {it.mediaId.startsWith("yt:")}.map {it.mediaId.removePrefix("yt:")})
+        player.setPlaylistMetadata(MediaMetadata.Builder().setSubtitle(if(radioSeed==null) "Album order" else "Restored queue \u00B7 paused").build())
+        events.append("session_restored count=${items.size} index=${saved.index}")
+        snapshotOwner=stored.ownerKey
+    }
+    /** Account switch: save the outgoing owner's provider or mixed queue paused, then remove it. */
+    private fun quiesceForAccountSwitch() {
+        val player=session?.player?:return
+        // A pure on-device queue belongs to the device and keeps playing.
+        if(!queueStopsWithAccount((0 until player.mediaItemCount).map {player.getMediaItemAt(it).mediaId})) return
+        crossfader?.cancel();player.pause()
+        check(saveSnapshot(player,flush=true,durable=true)) {"Could not save the queue"}
+        snapshotOwner=null
+        cancelRadio();player.stop();player.clearMediaItems()
+        sabrSelections.clear();streamHeaders.clear();queuedIds.clear()
+        events.append("account_switch_queue_saved")
+    }
+    private fun restoreForCurrentOwner() {
+        val player=session?.player?:return
+        // On-device audio that kept playing is not replaced; the account's queue stays saved for later.
+        if(player.mediaItemCount>0) return
+        val key=offline.currentScope.takeIf {it!=UNVERIFIED_SCOPE_KEY}?:return
+        snapshots.load(key)?.let {restoreSnapshot(player,it);events.append("account_switch_queue_restored")}
+    }
+    /** A request built for an earlier owner or generation must not change the current owner's queue. */
+    private fun staleSession(args:Bundle):Boolean {
+        val nonce=args.getString("sessionNonce")?:return false
+        return !sessions.accepts(provider.session.value.copy(generation=args.getLong("sessionGeneration"),nonce=nonce))
+    }
+    private fun saveSnapshot(player:Player,flush:Boolean=false,durable:Boolean=false):Boolean {
+        if(discardingSession) return true
         if(player.mediaItemCount==0) {
+            // An emptied queue clears only its own owner; another owner's saved queue is untouched.
             snapshotSequence.incrementAndGet()
-            synchronized(snapshotWriteLock) {snapshotPrefs.edit().remove("snapshot").apply()}
-            return
+            snapshotOwner?.let {owner->synchronized(snapshotWriteLock) {snapshots.clear(owner)}};snapshotOwner=null
+            return true
         }
         if(cachedQueueTimeline !== player.currentTimeline) {
             cachedQueueTimeline=player.currentTimeline
@@ -468,21 +512,24 @@ class MusicPlaybackService : MediaSessionService() {
                 SavedQueueItem(item.mediaId,m.title?.toString().orEmpty(),m.artist?.toString().orEmpty(),m.artworkUri?.toString(),
                     m.albumTitle?.toString().orEmpty(),e?.getString("artistId"),e?.getString("albumId"),e?.getBoolean("live")==true,
                     item.localConfiguration?.uri?.toString()?.takeIf {item.mediaId.startsWith("local:")},e?.getBoolean("music",true)!=false)}
+            cachedSnapshotIds=cachedSnapshotQueue.map {it.mediaId}
         }
+        val owner=queueOwnerKey(cachedSnapshotIds,offline.currentScope)
+        if(owner!=snapshotOwner) {
+            // The user replaced one kind of queue with another; the earlier one is no longer resumable.
+            snapshotOwner?.let {previous->synchronized(snapshotWriteLock) {snapshots.clear(previous)}};snapshotOwner=owner
+        }
+        if(owner==null) return true
         val snapshot=PlaybackSnapshot(cachedSnapshotQueue,player.currentMediaItemIndex.coerceAtLeast(0),
             player.currentPosition.coerceAtLeast(0),player.shuffleModeEnabled,player.repeatMode,radioSeed,
             player.playlistMetadata.title?.toString().orEmpty())
         // The lifecycle handoff must commit before the service is released; routine ticks use IO.
         val sequence=snapshotSequence.incrementAndGet()
-        if(flush) persistSnapshot(sequence,snapshot)
-        else snapshotWrites.trySend(sequence to snapshot)
+        if(flush) return persistSnapshot(sequence,owner,snapshot,durable)
+        snapshotWrites.trySend(Triple(sequence,owner,snapshot));return true
     }
-    private fun persistSnapshot(sequence:Long,snapshot:PlaybackSnapshot) {
-        val encoded=encodePlaybackSnapshot(snapshot)
-        synchronized(snapshotWriteLock) {
-            if(sequence==snapshotSequence.get()) snapshotPrefs.edit().putString("snapshot",encoded).apply()
-        }
-    }
+    private fun persistSnapshot(sequence:Long,owner:String,snapshot:PlaybackSnapshot,durable:Boolean=false):Boolean =
+        synchronized(snapshotWriteLock) {if(sequence==snapshotSequence.get()) snapshots.save(owner,snapshot,durable) else true}
     private fun providerItem(listedTrack: ProviderTrack, stream: ProviderStream): MediaItem {
         val track = resolvedPlaybackTrack(listedTrack, stream)
         val uri = stream.sabrBootstrap?.let { bootstrap ->
@@ -579,13 +626,13 @@ class MusicPlaybackService : MediaSessionService() {
         val seed=radioSeed?:return
         if(player.playbackState!=Player.STATE_READY || !player.isPlaying) return
         if(queueJob?.isActive==true || player.mediaItemCount-player.currentMediaItemIndex>4 || player.mediaItemCount>=80) return
-        val generation=queueGeneration
+        val generation=queueGeneration;val owner=sessions.capture()
         queueJob=serviceScope.launch {
             queueStatus(player,true,"Finding more music on YouTube Music\u2026")
             try {
                 if(queueCandidates.isEmpty()) {
                     val (tracks,token)=provider.recommendations(seed,radioContinuation).getOrThrow()
-                    if(generation!=queueGeneration) return@launch
+                    if(generation!=queueGeneration || !sessions.accepts(owner)) return@launch
                     radioContinuation=token
                     val known=(0 until player.mediaItemCount).map {val m=player.getMediaItemAt(it).mediaMetadata;queueRecordingKey(m.title.toString(),m.artist.toString())}.toSet()
                     val hidden=NotInterestedStore.get(this@MusicPlaybackService).keys
@@ -595,7 +642,7 @@ class MusicPlaybackService : MediaSessionService() {
                 while(queueCandidates.isNotEmpty() && added<6 && attempted<12) {
                     val track=queueCandidates.removeFirst();attempted++
                     if(track.videoId in queuedIds) continue
-                    if(generation!=queueGeneration || !isActive) return@launch
+                    if(generation!=queueGeneration || !isActive || !sessions.accepts(owner)) return@launch
                     if(track.videoId in queuedIds || (0 until player.mediaItemCount).any {
                         val m=player.getMediaItemAt(it).mediaMetadata
                         queueRecordingKey(m.title.toString(),m.artist.toString())==queueRecordingKey(track.title,track.artist)
@@ -662,6 +709,7 @@ class MusicPlaybackService : MediaSessionService() {
         val playWhenReady=player?.playWhenReady==true
         events.append(runCatching {stopContext(this,playWhenReady,player?.playbackState?:0,taskRemoved)}.getOrDefault("service_destroy"))
         if(isUnexpectedStop(playWhenReady,taskRemoved)) events.append("unexpected_stop")
+        sessionRegistration?.close();sessionRegistration=null
         session?.player?.let {saveSnapshot(it,flush=true)};discardingSession=true;saveJob?.cancel()
         session?.let { media ->
             media.player.release()

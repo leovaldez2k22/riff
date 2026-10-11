@@ -295,6 +295,7 @@ internal class YouTubeMusicProvider(context: Context,
         synchronized(cacheLock) {streamCache.clear();streamFlights.values.forEach {it.cancel()};streamFlights.clear()}
         sessionChecks.reset();sessionState=if(valid) SessionState.Checking else SessionState.SignedOut
         if(valid && dependencies.startProviderBackgroundWork) runtimeScope.launch {dependencies.wait(1500);probeSession()}
+        if(valid && dependencies.startProviderBackgroundWork) runtimeScope.launch {runCatching {reconcileAccountStorage()}}
         return valid
     }
 
@@ -385,11 +386,36 @@ internal class YouTubeMusicProvider(context: Context,
         val sync = dataSyncId ?: return null
         val identity = verifiedAccountIdentity(sync) ?: return null
         resolvedStorage?.takeIf { it.first == sync }?.let { return it.second.primaryKey }
-        val storage = scopeRegistry.resolve(identity, sync, authUser, dependencies.storedScopeKeys(appContext))
-        if (storage.retainedAliases.isNotEmpty())
-            playbackEvents.append("account_scope retained_aliases=${storage.retainedAliases.size}")
+        // After the first launch this is a preference read; stored data is only inspected in the background.
+        val storage = scopeRegistry.remembered(identity)
+            ?: scopeRegistry.resolve(identity, sync, authUser, dependencies.storedScopeKeys(appContext))
         resolvedStorage = sync to storage
         return storage.primaryKey
+    }
+
+    /** Bumped when background reconciliation changed what this account's stores hold. */
+    var storageRevision by mutableIntStateOf(0)
+        private set
+
+    /**
+     * Finds this account's other verified keys and folds their data into the primary one. Call off
+     * the main thread. Returns the download rows that could not be merged and stay under their alias.
+     */
+    internal fun reconcileAccountStorage(): Int {
+        if (!signedIn) return 0
+        val sync = dataSyncId ?: return 0
+        val identity = verifiedAccountIdentity(sync) ?: return 0
+        val storage = scopeRegistry.resolve(identity, sync, authUser, dependencies.storedScopeKeys(appContext))
+        resolvedStorage = sync to storage
+        if (storage.retainedAliases.isEmpty()) return 0
+        var remaining = 0
+        storage.retainedAliases.forEach { alias ->
+            mergeCollectionScope(appContext, alias, storage.primaryKey)
+            remaining += OfflineMusicStore.get(appContext).mergeScope(alias, storage.primaryKey)
+        }
+        playbackEvents.append("account_scope aliases=${storage.retainedAliases.size} unmerged_rows=$remaining")
+        storageRevision++
+        return remaining
     }
 
     /** For stores that also keep signed-out data. An unverified session gets a key stores refuse to write. */

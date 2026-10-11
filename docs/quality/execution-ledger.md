@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: TODO
+Status: Q03 PASS (see the Q03 section); Q04-Q18 TODO
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -96,7 +96,7 @@ Device state: emulator shut down with adb emu kill and adb server stopped; no em
 Commit: done on 11 October 2026 after the user's go-ahead, on local branch codex/riff-quality-m0 (not pushed): 4392f78 plan v1.1; f477a6a Q00; 1c08a29 Q01; 2644fbc Q02. Q01 was separated from Q02 at file level (plus one hunk of app/build.gradle.kts) and was not built on its own. scripts/download_favourites.py keeps its pre-existing uncommitted user change. The repository commit-msg hook rewrote the co-author trailer on all four commits. Committing changed the revision but not the source digest (still bac26f301045), so the Q02 evidence above remains bound to the same source content under its earlier dirty identity.
 
 ## Q03
-Status: IN_PROGRESS
+Status: PASS for everything that can be verified without a phone or test accounts (see Q03 completion, 11 October 2026). Two-account physical check BLOCKED.
 Authorization: Q03-Q18 authorized 9 October 2026; user said to start Q03 on 11 October 2026.
 Dependencies: Q00 PASS, Q01 PASS, Q02 PASS
 Starting revision: 2644fbc3d606d827b44dd5fe182a281078d2ff75 (dirty only for scripts/download_favourites.py)
@@ -122,7 +122,7 @@ Full run q03-debug-01 (source digest 84d9225ff551): PASS_LOCAL, 340 tests / 60 s
 Full run q03-debug-02 on the committed slice (artifacts/quality/2644fbc3d606d827b44dd5fe182a281078d2ff75-dirty-1a823ba39d6f/q03-debug-02/manifest.json, source digest 1a823ba39d6f): PASS_LOCAL; 340 JVM tests / 60 suites, zero failures/errors/skips; debug lint 0 errors, 84 warnings, 5 hints, identical to Q02; debug APK SHA-256 a504db2e54eedebb5264b28036dc5179b58f24e632649bae9ea464fcad4eb254.
 Not run for this slice: release lint and shrunk release build, stress compilation, fixture playback on the emulator, and any device or live-provider check. They are due before Q03 can be marked PASS.
 
-### Q03 acceptance so far
+### Q03 acceptance after slice 1 (superseded by Q03 completion)
 | Case | State | Evidence or gap |
 |---|---|---|
 | ACC01 delayed A result after B | PASS at coordinator level (JVM) | AccountSessionTest; existing DeterministicHarnessTest covers the cache boundary |
@@ -133,7 +133,7 @@ Not run for this slice: release lint and shrunk release build, stress compilatio
 | ACC06 missing stable ID | PASS (JVM + Robolectric) for scope and keys | UI: Account screen notice only; download entry points still fail silently |
 | ACC07 pure local vs mixed on switch | NOT VERIFIED | Implemented in the RiffApp participant; needs a Compose or device test |
 
-### Q03 remaining work
+### Q03 remaining work after slice 1 (all items closed or blocked in Q03 completion)
 1. Capture and validate SessionToken in the download engine and in MusicPlaybackService queue application; today they rely on scope-string and queue-generation checks.
 2. Scoped paused-queue persistence and restoration on switch (ADR-Q04 steps 2 and 5). Depends on the Q04 snapshot repository; until then the queue is cleared.
 3. Merge or multi-key reads for retained aliases, following the Q03 conflict rules.
@@ -142,6 +142,54 @@ Not run for this slice: release lint and shrunk release build, stress compilatio
 6. Resolve the scope key off the main thread; the first lookup currently runs one small query where it is called.
 7. Two-account device check for identifier stability: BLOCKED until an authorized device and two test accounts exist. Old data is retained in place regardless.
 Next exact action: read the full-suite result in artifacts/quality/<source-id>/q03-debug-01/manifest.json, fix any regression, commit slice 1, then start item 1 in OfflineDownloadEngine.kt and MusicPlaybackService.kt.
+
+### Q03 completion (11 October 2026)
+Status: PASS locally and on the disposable emulator. One acceptance item is BLOCKED on hardware and accounts (below). Device, live-provider and release compliance are not claimed.
+Source: c25701df6d4d81c395a4c5d51c7b32881a0d3d19 dirty, digest be13252c1aea3fd69f774613a8cc556f02f88ed63658881fff356c529d747649. Evidence root: artifacts/quality/c25701df6d4d81c395a4c5d51c7b32881a0d3d19-dirty-be13252c1aea/
+User instruction on 11 October 2026: finish Q03, and treat "start a phase" as "complete every aspect of the phase" from now on.
+
+Implemented after slice 1:
+- Playback service is a session participant. On an owner change it cancels any crossfade, pauses, saves the provider or mixed queue under the outgoing owner with a confirmed write, then stops and clears it; a failed save abandons the switch. On bind it loads the incoming owner's queue paused when the player is empty. Pure on-device queues are left playing.
+- ScopedPlaybackSnapshots.kt: one paused queue per owner in the playback_snapshots preferences. The pre-scope shared snapshot (last_playback/snapshot) is no longer read or written and is not deleted; Q04 decides its recovery. This is the minimal store Q03 needed; Q04 replaces the storage and keeps the contract.
+- Stale work: queue and provider-stream commands carry the session generation and nonce; the service answers a stale one with SessionError.INFO_CANCELLED and the gateway reports nothing. Radio continuation checks the token before adding tracks. The download engine captures the owner and stops when it changes; a request that fails because of the switch re-queues the song instead of marking it failed.
+- Alias merge: a background pass folds other verified keys of the same account into the primary key (OfflineMusicStore.mergeScope, mergeCollectionScope). Folders move, nothing is copied, validated audio is never deleted, pin wins, totals add, the pass is restartable. Two complete copies, or a song the primary key is transferring, stay where they are and are counted in a sanitized event.
+- Scope lookup: after the first launch the storage key comes from preferences alone; stored data is inspected only by the background pass.
+- Unverified state: download and save entry points say the account could not be verified; the Account screen offers Verify account. The Account screen takes the coordinator as a parameter so it can be tested.
+- Docs: docs/quality/account-scope.md; CHANGELOG entries including the one visible regression (the queue saved by an earlier build is not restored on the first launch after updating).
+
+Verification:
+- Debug (artifacts/quality/c25701df6d4d81c395a4c5d51c7b32881a0d3d19-dirty-be13252c1aea/q03-debug-06/manifest.json): PASS_LOCAL. 367 JVM tests / 64 suites, zero failures, errors or skips. Debug lint 0 errors, 84 warnings, 5 hints; no issue added or removed against the slice-1 run. Debug APK SHA-256 03b6f670523b24b1d4cbde7d9978dae07fc8d0da7a19f4fdfdaf1348e0a2fc13.
+- Emulator (artifacts/quality/c25701df6d4d81c395a4c5d51c7b32881a0d3d19-dirty-be13252c1aea/q03-debug-fixture-01/manifest.json, log q03-instrumentation-02.log): PASS_LOCAL with the instrumentation gate PASS. 4 tests, 17.55 s, zero failures: FixturePlaybackTest plus the three AccountSwitchDeviceTest cases. Test APK SHA-256 f5c96f94b77fed9c0b5f2fffcda8ee1f197567666180d0bc6c001b46b93da76e. Disposable emulator riff_q02_fixture, API 31, sdk_gphone64_x86_64, Wi-Fi and mobile data disabled and confirmed unreachable before the run. Session fields were synthetic; no account, cookie or provider request was involved.
+- Release (artifacts/quality/c25701df6d4d81c395a4c5d51c7b32881a0d3d19-dirty-be13252c1aea/q03-release-01/manifest.json): PASS_LOCAL. 367 tests; release lint 0 errors, 91 warnings, 5 hints, identical to Q02; shrunk unsigned release assembled, 26.307 MiB, SHA-256 138afe8448b202f9aded76df58080cd473ca1996d7acdd7aad9aeecdef97956c. Instrumentation gate BLOCKED for release (no device run of the release artifact).
+- Stress (artifacts/quality/c25701df6d4d81c395a4c5d51c7b32881a0d3d19-dirty-be13252c1aea/stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only.
+
+Failed attempts, all preserved:
+- Account tests, first targeted run: ScopedPlaybackSnapshotsTest used an on-device fixture item without a media URI, which the decoder correctly rejects. Test data fixed; no production change.
+- DownloadOwnerSwitchTest first run FAILED and found a real defect: a download request that failed because of the switch was marked failed with a storage/connection message. Fixed in OfflineDownloadEngine.kt (re-queue under its owner).
+- q03-debug-03 (digest a424d726ee24) FAIL: lint WrongConstant, SessionResult.RESULT_INFO_SKIPPED is not an allowed result code; plus two new warnings (ApplySharedPref, UseKtx). Fixed: SessionError.INFO_CANCELLED; KTX editor; the deliberate confirmed write carries a documented suppression. The emulator had passed the same tests on that source (artifacts/quality/q03-work/account-switch-01.log).
+- q03-debug-04 and q03-debug-05 FAIL: collector freshness rule. A lint report and then a debug APK left by intermediate Gradle runs in this session were up to date and so not rewritten inside the run. Those build outputs were cleared and the run repeated as q03-debug-06. No source change between 04 and 06.
+
+Acceptance:
+| Case | State | Evidence |
+|---|---|---|
+| ACC01 delayed A result after B | PASS | AccountSessionTest (token rejected); AccountSwitchDeviceTest.queueRequestBuiltForThePreviousAccountIsSkipped on the real service; DownloadOwnerSwitchTest |
+| ACC02 A->B->A | PASS (emulator, synthetic identities) | AccountSwitchDeviceTest.eachAccountGetsItsOwnQueueBackPaused: A's queue and index return paused, B's likewise, sign-out leaves an empty Guest player |
+| ACC03 cookie rotation, same identity | PASS (JVM) | Same owner, no quiesce; owns() stays true across the refresh so transfers continue |
+| ACC04 selector reorder | PASS (JVM + Robolectric) | Physical two-account check BLOCKED, see below |
+| ACC05 canceled or failed chooser | PASS (JVM + Compose) | Declined commit keeps the owner; AccountScreenSessionTest shows a failed sign-out keeps the account and tells the user. Chooser cancel never reaches the coordinator by construction; the WebView chooser itself is not automated |
+| ACC06 missing stable ID | PASS (JVM + Robolectric + Compose) | Unverified scope, no storage key, truthful notices, Verify account action |
+| ACC07 pure local vs mixed on switch | PASS | Owner rules in ScopedPlaybackSnapshotsTest; AccountSwitchDeviceTest.onDeviceQueueKeepsItsPlaceAcrossAnAccountSwitch on the real service with a MediaStore fixture file |
+
+BLOCKED: two real accounts on a physical phone. Needed to confirm that the provider's stable identifier is the same for one account at different chooser positions, and to exercise the real sign-in screens. Requires an authorized device, two test accounts and explicit approval for installation. Rerun: install the debug APK built from this source on the test device; sign in to account 1, save a track and download a song; add account 2 and switch; reorder or re-add so account 1 changes chooser position; switch back and confirm account 1's saved track, download and paused queue are present and account 2's are not; copy diagnostics and check for account_transition and account_scope events with no identifiers. Until then old data is retained in place and never reassigned on unproven identity.
+
+Known limits:
+- A same-account cookie refresh that lands between a tap and the service handling it drops that one queue request silently (the token generation changes). The window is milliseconds and the tap can be repeated. Kept because the provider already rejects in-flight work on the same generation.
+- Emulator runs used synthetic session fields set directly, not the sign-in WebView.
+- The engine-level switch test covers the resolve phase; an interruption during asset completion relies on the same checkState path and the store's state guards and has no dedicated test.
+- R8/Kotlin metadata warnings persist from Q00.
+Device state: emulator shut down with adb emu kill and adb server stopped. The debug and test APKs remain only inside the disposable AVD image. No physical device, real account, publication, push or user-data deletion was involved. Deleted build outputs were regenerable files under app/build only.
+Not part of this package and left untouched: scripts/download_favourites.py (pre-existing user change) and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md (untracked file that appeared during this session; not created by this work).
+Next exact action: Q04 (durable state and migrations), when the user says to start it. It replaces the preference-backed snapshot storage, quarantines the legacy shared snapshot, and moves detailed history and search state into owner-scoped tables.
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.

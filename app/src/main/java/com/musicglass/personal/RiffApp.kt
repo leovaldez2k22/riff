@@ -293,17 +293,15 @@ internal fun RiffApp() {
     val ambient = rememberAmbientPalette(motion)
     DisposableEffect(playback) { onDispose { playback.close() } }
     
-    LaunchedEffect(provider.authRevision) {
-        collections.bindAccountScope(provider.accountScopeKey())
+    LaunchedEffect(provider.authRevision, provider.storageRevision) {
+        collections.bindAccountScope(provider.accountScopeKey()); collections.refresh()
     }
     val sessions = remember(context) { AppContainer.get(context).sessions }
-    DisposableEffect(sessions, playback, collections) {
+    DisposableEffect(sessions, collections) {
         val registration = sessions.register(object : SessionParticipant {
-            // Provider and mixed queues stop with their owner; pure on-device audio keeps playing.
+            // The playback service saves and stops the outgoing queue; only the player chrome closes here.
             override suspend fun quiesce(outgoing: SessionToken) {
-                if (playback.state.queue.any { it.mediaId.startsWith("yt:") }) {
-                    playback.clearProviderPlayback(); model.miniVisible = false; model.sheet = ""
-                }
+                if (queueStopsWithAccount(playback.state.queue.map { it.mediaId })) { model.miniVisible = false; model.sheet = "" }
             }
             override suspend fun bind(current: SessionToken) {
                 collections.bindAccountScope(provider.accountScopeKey())

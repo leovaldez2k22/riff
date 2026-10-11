@@ -32,7 +32,7 @@ internal object OfflineDownloadEngine {
         try {
             val process=AppContainer.get(context)
             val container=if(dependencies===process.runtime) process else AppContainer(context,dependencies)
-            val scope=store.currentScope;val provider by lazy {container.provider.also {if(container!==process) ownedProvider=it}}
+            val scope=store.currentScope;val owner=process.sessions.capture();val provider by lazy {container.provider.also {if(container!==process) ownedProvider=it}}
             val resolver:StreamResolver=dependencies.resolver?:provider
             val engine=dependencies.providerTransport().also {engineResource=it}
             val http=HttpClient(engine).also {clientResource=it}
@@ -40,14 +40,14 @@ internal object OfflineDownloadEngine {
             val jobs=store.rows(scope).filter {it.state in setOf("queued","failed") && (if(automatic) !it.pinned else it.pinned)}.sortedByDescending {it.priority}
             for(job in jobs) {
                 ensureActive()
-                if(scope!=store.currentScope) break
+                if(!process.sessions.owns(owner) || scope!=store.currentScope) break
                 if(automatic && (!store.smartEnabled || store.playbackBusy)) return@withContext false
                 val id=job.track.videoId
                 if(store.song(scope,id)?.state !in setOf("queued","failed")) continue
                 val dir=store.directory(scope,id).apply {mkdirs()};val raw=File(dir,"audio.part");val assembled=File(dir,"assembled.part")
                 var nextConditionsCheck=0L
                 fun checkState() {
-                    if(scope!=store.currentScope || store.song(scope,id)?.state !in setOf("downloading","assets")) throw CancellationException("Download cancelled")
+                    if(!process.sessions.owns(owner) || scope!=store.currentScope || store.song(scope,id)?.state !in setOf("downloading","assets")) throw CancellationException("Download cancelled")
                     if(automatic && (!store.smartEnabled || store.playbackBusy)) throw CancellationException("Automatic download paused")
                     val now=dependencies.clocks.monotonicMillis()
                     if(automatic && now>=nextConditionsCheck) {
@@ -154,6 +154,8 @@ internal object OfflineDownloadEngine {
                     store.updateDownload(scope,id,"state" to "queued")
                     raw.delete();assembled.delete();throw e
                 } catch(error:Exception) {
+                    // An account switch can fail a request in flight. That is not a failed download: it waits for its owner.
+                    if(!process.sessions.owns(owner) || scope!=store.currentScope) {store.updateDownload(scope,id,"state" to "queued");raw.delete();assembled.delete();break}
                     // A bulk removal may delete a file during IO. Never resurrect its row as failed.
                     if(store.song(scope,id)?.state !in setOf("downloading","assets")) {raw.delete();assembled.delete();continue}
                     PlaybackEventLog(context).append("download_failed phase=$phase kind=${error::class.simpleName}")

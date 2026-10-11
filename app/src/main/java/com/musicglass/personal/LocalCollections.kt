@@ -1,11 +1,39 @@
 package com.musicglass.personal
 
 import android.content.Context
+import androidx.core.content.edit
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import org.json.JSONArray
 import org.json.JSONObject
+
+/**
+ * Folds a verified alias of the same account into [to]: the target entries first, then the new ones
+ * from the alias. The alias copy is removed only after the merged lists are stored.
+ */
+internal fun mergeCollectionScope(context: Context, from: String, to: String): Boolean {
+    if (from == to) return false
+    val prefs = context.applicationContext.getSharedPreferences("music_collections", Context.MODE_PRIVATE)
+    val names = listOf("online_favorites" to 200, "online_playlist" to 200, "online_history" to 50)
+    val merged = prefs.edit(); var found = false
+    for ((name, limit) in names) {
+        val source = prefs.getString("account_${from}_$name", null) ?: continue
+        found = true
+        val combined = JSONArray(); val seen = mutableSetOf<String>()
+        for (text in listOf(prefs.getString("account_${to}_$name", "[]"), source)) {
+            val array = runCatching { JSONArray(text) }.getOrNull() ?: continue
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index) ?: continue
+                if (combined.length() < limit && seen.add(item.optString("id"))) combined.put(item)
+            }
+        }
+        merged.putString("account_${to}_$name", combined.toString())
+    }
+    if (!found || !merged.commit()) return false
+    prefs.edit { names.forEach { (name, _) -> remove("account_${from}_$name") } }
+    return true
+}
 
 /** Account-scoped saves for real YouTube Music tracks. */
 internal class LocalCollections(context: Context, initialAccountScope: String? = null) {

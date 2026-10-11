@@ -390,7 +390,8 @@ private fun LibraryScreen(model: ShellModel, bottom: androidx.compose.ui.unit.Dp
             }
         }
         if (tracks.isEmpty()) item {
-            Text(if (!collections.canSave) "Sign in to save your favorite songs and playlists."
+            Text(if (provider.accountScope() == AccountScope.Unverified) VERIFY_TO_SAVE_NOTICE
+                else if (!collections.canSave) "Sign in to save your favorite songs and playlists."
                 else "No saved songs yet.", color = Muted, modifier = Modifier.testTag("library_empty"))
         }
         items(tracks, key = { it.videoId }) { track ->

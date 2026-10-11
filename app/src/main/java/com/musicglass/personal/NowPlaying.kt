@@ -390,7 +390,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                                     provider.resolve(videoId,state.live).fold(onSuccess={playback.enqueueProvider(providerTrack(),it,option=="Play next");onNotice("Added to queue")},onFailure={onNotice(it.message?:"Could not add to queue")})
                                 }
                                 "Save on this phone" -> if (collectionsCanSave(collections)) addToLibrary()
-                                    else onNotice("Sign in to save songs")
+                                    else onNotice(saveUnavailableNotice(provider.accountScope()))
                                 "Add to playlist" -> playlistTrack=providerTrack()
                                 "Sleep timer" -> sleepTimerVisible=true
                                 "Library shortcuts" -> onLibrary()

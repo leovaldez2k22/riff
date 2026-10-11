@@ -36,6 +36,10 @@ internal fun legacyScopeKey(syncId: String, authUser: String): String =
 
 /** Stores receive this instead of a real key while the account is unverified; they refuse writes for it. */
 internal const val UNVERIFIED_SCOPE_KEY = "unverified"
+internal const val VERIFY_TO_SAVE_NOTICE = "Riff could not verify this account. Open Account and reconnect to save or download."
+/** Why nothing can be saved for this owner. Signed in without a stable identity is not the same as signed out. */
+internal fun saveUnavailableNotice(scope: AccountScope): String =
+    if (scope == AccountScope.Unverified) VERIFY_TO_SAVE_NOTICE else "Sign in to save songs"
 internal const val GUEST_SCOPE_KEY = "guest"
 
 /**
@@ -101,7 +105,17 @@ internal class AccountScopeRegistry(private val store: ScopeAliasStore) {
             else -> legacy(authUser).firstOrNull { it in found } ?: found.firstOrNull() ?: canonical
         }
         if (saved != primary || aliases != known) store.record(canonical, primary, aliases)
-        return ScopeStorage(scope, primary, aliases - primary)
+        return ScopeStorage(scope, primary, (aliases - primary).filterTo(linkedSetOf()) { it in keysWithData })
+    }
+
+    /**
+     * The key chosen earlier for this identity, without looking at stored data. Lets every launch
+     * after the first answer from preferences alone; aliases are reconciled in the background.
+     */
+    @Synchronized fun remembered(identity: VerifiedAccountIdentity): ScopeStorage? {
+        val scope = providerScope(identity)
+        val primary = store.primary(scope.opaqueId) ?: return null
+        return ScopeStorage(scope, primary, store.aliases(scope.opaqueId) - primary)
     }
 
     private companion object { const val LEGACY_SELECTORS = 32 }
@@ -130,8 +144,15 @@ internal class SessionCoordinator(private val session: () -> SessionToken, priva
     private val gate = Mutex()
     private val participants = CopyOnWriteArrayList<SessionParticipant>()
     @Volatile private var transitioning = false
+    @Volatile private var ownerChanging = false
 
     fun capture(): SessionToken = session()
+
+    /**
+     * For work that belongs to an owner rather than to one request, such as a transfer: true while
+     * the same owner is active, including after its cookies were refreshed.
+     */
+    fun owns(token: SessionToken): Boolean = !ownerChanging && session().let { it.scope == token.scope && it.nonce == token.nonce }
 
     /** False for any token captured before or during a transition, even if the owner ends up the same. */
     fun accepts(token: SessionToken): Boolean = !transitioning && token == session()
@@ -145,15 +166,16 @@ internal class SessionCoordinator(private val session: () -> SessionToken, priva
         val outgoing = session()
         val ownerChanges = incoming != outgoing.scope
         transitioning = true
+        ownerChanging = ownerChanges
         try {
             if (ownerChanges && !attempt { participants.forEach { it.quiesce(outgoing) } }) {
-                transitioning = false
+                transitioning = false; ownerChanging = false
                 attempt { participants.forEach { it.bind(outgoing) } }
                 return@withLock finish(reason, SessionTransition.Failed(outgoing, "quiesce"))
             }
             var committed = false
             val commitRan = attempt { committed = commit() }
-            transitioning = false
+            transitioning = false; ownerChanging = false
             val current = session()
             if (!commitRan || !committed) {
                 if (ownerChanges) attempt { participants.forEach { it.bind(current) } }
@@ -165,7 +187,7 @@ internal class SessionCoordinator(private val session: () -> SessionToken, priva
                 return@withLock finish(reason, SessionTransition.Failed(current, "bind"))
             finish(reason, SessionTransition.Committed(outgoing, current, changed))
         } finally {
-            transitioning = false
+            transitioning = false; ownerChanging = false
         }
     }
 

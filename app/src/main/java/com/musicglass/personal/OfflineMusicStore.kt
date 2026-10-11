@@ -141,6 +141,49 @@ internal class OfflineMusicStore private constructor(private val context:Context
         // Preserve listening metadata and exclude removed songs from automatic re-downloads.
         rows(scope).filter {it.state!="metadata" || it.pinned || it.bytes>0}.forEach {remove(scope,it.track.videoId)}
     }
+    /**
+     * Folds a verified alias of the same account into [to]. Rows and bundle folders move; nothing is
+     * copied and no validated audio is deleted. Safe to run again after an interruption. Returns the
+     * rows left behind: a song both keys downloaded in full, or one the target is transferring now.
+     */
+    /** False while the signed-in account has no stable identity: nothing is queued or adopted. */
+    val canSave:Boolean get()=currentScope!=UNVERIFIED_SCOPE_KEY
+    @Synchronized fun mergeScope(from:String,to:String):Int {
+        if(from==to || from==UNVERIFIED_SCOPE_KEY || to==UNVERIFIED_SCOPE_KEY) return 0
+        var remaining=0
+        for(row in rows(from)) {
+            val id=row.track.videoId;val source=directory(from,id);val target=directory(to,id);val existing=song(to,id)
+            val sourceReady=audio(from,id)!=null;val targetReady=audio(to,id)!=null
+            if(existing?.state in setOf("downloading","assets") || (sourceReady && targetReady)) {remaining++;continue}
+            // Files move before the row: an interruption leaves an unlisted folder that the next pass adopts.
+            if(sourceReady || (!targetReady && existing==null)) {
+                if(source.exists()) {
+                    // The target folder holds no validated audio here: only partial transfer files.
+                    if(target.exists() && !target.deleteRecursively()) {remaining++;continue}
+                    target.parentFile?.mkdirs();if(!source.renameTo(target)) {remaining++;continue}
+                }
+            } else source.deleteRecursively() // No validated audio on the alias side: only partial transfer files.
+            val kept=if(sourceReady || existing==null) row else existing
+            val database=db.writableDatabase;database.beginTransaction()
+            try {
+                if(existing==null) database.update("songs",ContentValues().apply {put("scope",to)},"scope=? AND id=?",arrayOf(from,id))
+                else {
+                    // A validated bundle beats queued metadata, a manual pin wins, listening totals add up.
+                    database.update("songs",ContentValues().apply {
+                        put("state",kept.state);put("bytes",kept.bytes);put("total",kept.total);put("error",kept.error);put("duration",kept.durationMs)
+                        put("quality",kept.quality);put("artwork",kept.artworkState);put("lyrics",kept.lyricsState);put("downloaded_at",kept.downloadedAt)
+                        put("pinned",if(row.pinned || existing.pinned) 1 else 0);put("excluded",if(row.excluded && existing.excluded) 1 else 0)
+                        put("plays",row.plays+existing.plays);put("listened",row.listenedMs+existing.listenedMs)
+                        put("lastPlayed",maxOf(row.lastPlayed,existing.lastPlayed));put("priority",maxOf(row.priority,existing.priority))
+                    },"scope=? AND id=?",arrayOf(to,id))
+                    database.delete("songs","scope=? AND id=?",arrayOf(from,id))
+                }
+                database.setTransactionSuccessful()
+            } finally {database.endTransaction()}
+            artworkIndex.remove(artworkKey(from,id));if(to in indexedScopes) markArtwork(to,id,artwork(to,id)!=null)
+        }
+        changed();return remaining
+    }
     @Synchronized fun cancelAutomatic(scope:String) {rows(scope).filter {!it.pinned && it.state in setOf("queued","downloading","assets")}.forEach {update(scope,it.track.videoId,"state" to "paused")}}
     @Synchronized fun recover() {
         db.writableDatabase.execSQL("UPDATE songs SET state='queued' WHERE state IN ('downloading','assets')")

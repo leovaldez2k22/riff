@@ -15,6 +15,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
 
 internal data class PlaybackUiState(
@@ -243,7 +244,7 @@ internal class MusicPlaybackGateway(context: Context,
     private val catalogScope=kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()+dependencies.dispatchers.main)
     private fun sendCatalogQueue(tracks:List<ProviderTrack>,index:Int,autoplay:Boolean,title:String="",shuffle:Boolean=false,automatic:Boolean=false,replacePosition:Long?=null,enqueueNext:Boolean?=null) {
         if(tracks.isEmpty() || index !in tracks.indices || tracks.size>2000) {commandError="Could not open this collection";return}
-        val generation=++catalogGeneration
+        val generation=++catalogGeneration;val owner=YouTubeMusicProvider.shared(appContext).session.value
         catalogScope.launch {
             val file=java.io.File(appContext.cacheDir,"queue-request-${java.util.UUID.randomUUID()}.json")
             try {
@@ -254,9 +255,9 @@ internal class MusicPlaybackGateway(context: Context,
                 if(generation!=catalogGeneration) {file.delete();return@launch}
                 withPlayer {player->
                     commandError=null
-                    val args=Bundle().apply {putString("queueFile",file.name);putBoolean("autoplay",autoplay);putBoolean("automatic",automatic);replacePosition?.let {putLong("replacePosition",it)};enqueueNext?.let {putBoolean("enqueueNext",it)}}
+                    val args=Bundle().apply {putString("queueFile",file.name);putBoolean("autoplay",autoplay);putBoolean("automatic",automatic);putLong("sessionGeneration",owner.generation);putString("sessionNonce",owner.nonce);replacePosition?.let {putLong("replacePosition",it)};enqueueNext?.let {putBoolean("enqueueNext",it)}}
                     val command=player.sendCustomCommand(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY),args)
-                    command.addListener({try {if(command.get().resultCode!=SessionResult.RESULT_SUCCESS) commandError="Could not open collection queue";refresh()}
+                    command.addListener({try {if(command.get().resultCode !in setOf(SessionResult.RESULT_SUCCESS,SessionError.INFO_CANCELLED)) commandError="Could not open collection queue";refresh()}
                         catch(_:Exception){commandError="Could not open collection queue";refresh()}
                         finally {file.delete()}},appContext.mainExecutor)
                 }
@@ -292,13 +293,17 @@ internal class MusicPlaybackGateway(context: Context,
             putBoolean("live",track.isLive);putBoolean("enqueue",enqueue);putBoolean("playNext",playNext)
             putLong("position", startPositionMs.coerceAtLeast(0L))
             putBundle("headers", headers)
+            YouTubeMusicProvider.shared(appContext).session.value.let {
+                putLong("sessionGeneration", it.generation); putString("sessionNonce", it.nonce)
+            }
         }
         val command = player.sendCustomCommand(SessionCommand(PLAY_PROVIDER_STREAM, Bundle.EMPTY), args)
         command.addListener({
                 // The service never logs signed URLs or request headers.
                 try {
                     val result = command.get()
-                    if (result.resultCode == SessionResult.RESULT_SUCCESS) refresh()
+                    // Skipped: the account changed after this stream was requested. Nothing to report.
+                    if (result.resultCode == SessionResult.RESULT_SUCCESS || result.resultCode == SessionError.INFO_CANCELLED) refresh()
                     else {
                         commandError = "Provider playback is unavailable"
                         state = state.copy(error = commandError)

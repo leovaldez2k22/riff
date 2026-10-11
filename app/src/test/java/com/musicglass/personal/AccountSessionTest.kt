@@ -208,4 +208,44 @@ class AccountSessionTest {
             "account_transition reason=sign_out result=rejected owner=provider"), events)
         assertTrue(events.none { scopeA.opaqueId in it || scopeB.opaqueId in it || a.stableId in it })
     }
+
+    @Test fun rememberedKeyNeedsNoLookAtStoredData() {
+        val store = MemoryAliases(); val registry = AccountScopeRegistry(store)
+        assertNull(registry.remembered(a))
+        val legacy = legacyScopeKey(a.stableId, "1")
+        registry.resolve(a, a.stableId, "1", setOf(legacy))
+        val writes = store.writes
+        assertEquals(legacy, registry.remembered(a)?.primaryKey)
+        assertNull(registry.remembered(b))
+        assertEquals(writes, store.writes)
+    }
+
+    @Test fun aliasEmptiedByAMergeIsNoLongerRetained() {
+        val registry = AccountScopeRegistry(MemoryAliases())
+        val first = legacyScopeKey(a.stableId, "0"); val second = legacyScopeKey(a.stableId, "2")
+        assertEquals(setOf(first), registry.resolve(a, a.stableId, "2", setOf(first, second)).retainedAliases)
+        val merged = registry.resolve(a, a.stableId, "2", setOf(second))
+        assertEquals(second, merged.primaryKey)
+        assertTrue(merged.retainedAliases.isEmpty())
+    }
+
+    @Test fun ownerKeepsItsTransfersAcrossARefreshButNotAcrossASwitch() = runBlocking {
+        val source = Source(scopeA); val coordinator = SessionCoordinator({ source.token })
+        val transfer = coordinator.capture()
+        var ownedDuringRefresh = false; var ownedDuringSwitch = true
+        coordinator.transition("refresh", scopeA) { ownedDuringRefresh = coordinator.owns(transfer); source.become(scopeA) }
+        assertTrue(ownedDuringRefresh)
+        assertTrue(coordinator.owns(transfer))
+        assertFalse(coordinator.accepts(transfer))
+        coordinator.transition("switch", scopeB) { ownedDuringSwitch = coordinator.owns(transfer); source.become(scopeB) }
+        assertFalse(ownedDuringSwitch)
+        assertFalse(coordinator.owns(transfer))
+        coordinator.transition("switch", scopeA) { source.become(scopeA) }
+        assertTrue(coordinator.owns(transfer))
+    }
+
+    @Test fun unverifiedAndSignedOutGiveDifferentSaveNotices() {
+        assertEquals(VERIFY_TO_SAVE_NOTICE, saveUnavailableNotice(AccountScope.Unverified))
+        assertNotEquals(VERIFY_TO_SAVE_NOTICE, saveUnavailableNotice(AccountScope.Guest))
+    }
 }

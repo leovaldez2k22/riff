@@ -42,12 +42,12 @@ import kotlin.coroutines.resume
 
 @Composable
 internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
-    collections: LocalCollections, playback: PlaybackGateway, onNotice: (String) -> Unit) {
+    collections: LocalCollections, playback: PlaybackGateway, onNotice: (String) -> Unit,
+    sessions: SessionCoordinator = AppContainer.get(LocalContext.current).sessions) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val scope = rememberCoroutineScope()
     val attempt = remember { SignInAttempt() }
-    val sessions = remember(context) { AppContainer.get(context).sessions }
     var generation by remember { mutableIntStateOf(0) }
     var browserOpen by rememberSaveable { mutableStateOf(false) }
     var changingAccount by rememberSaveable { mutableStateOf(false) }
@@ -223,6 +223,8 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                 if (provider.accountScope() == AccountScope.Unverified) {
                     Text("Could not verify this account for local saves. Reconnect to keep downloads and saved tracks with your account. Existing data is kept.",
                         color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp).testTag("account_unverified"))
+                    TextButton(onClick = { restart(changeAccount = false) },
+                        modifier = Modifier.testTag("account_verify")) { Text("Verify account") }
                 }
                 Text("App-saved online tracks stay on this phone and are hidden after sign-out.",
                     color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))

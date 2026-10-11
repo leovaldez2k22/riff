@@ -36,6 +36,7 @@ import kotlinx.coroutines.*
 
 internal suspend fun requestSongDownload(context:Context,track:ProviderTrack,onNotice:(String)->Unit) {
     try {
+        if(!OfflineMusicStore.get(context).canSave) {uiHaptic(HapticCue.Reject);onNotice(VERIFY_TO_SAVE_NOTICE);return}
         withContext(Dispatchers.IO) {OfflineMusicStore.get(context).enqueue(track)}
         context.startForegroundService(Intent(context,OfflineDownloadService::class.java))
         OfflineDownloadScheduler.resumeManualLater(context);uiHaptic(HapticCue.Confirm);onNotice("Downloading highest available audio, artwork and lyrics")
@@ -53,6 +54,7 @@ internal fun downloadBudgetLabel(bytes:Long)=if(bytes==Long.MAX_VALUE) "Unlimite
 
 internal suspend fun requestCollectionDownload(context:Context,tracks:List<ProviderTrack>,onNotice:(String)->Unit) {
     try {
+        if(!OfflineMusicStore.get(context).canSave) {uiHaptic(HapticCue.Reject);onNotice(VERIFY_TO_SAVE_NOTICE);return}
         val count=withContext(Dispatchers.IO) {OfflineMusicStore.get(context).enqueueSongs(tracks)}
         if(count==0) {onNotice("No downloadable songs in this collection");return}
         context.startForegroundService(Intent(context,OfflineDownloadService::class.java))

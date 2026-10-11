@@ -4,6 +4,11 @@
 
 - Adds source revision, content digest, dirty/local state and variant to build metadata, About and copied diagnostics.
 - Adds local evidence manifests with APK/source/report hashes and strict rejection of incomplete test runs. No new release has been published.
+- Account data no longer depends on the account's position in the Google account chooser. Existing downloads and saved tracks stay with their account; data split across older keys is merged in the background without deleting validated audio.
+- Switching account or signing in now saves the current online queue for the account that made it, stops it, and restores the other account's queue paused. Sign-out does the same. On-device audio keeps playing through a switch.
+- A signed-in session that cannot be verified is shown as such: saving and downloading say why they are unavailable and the Account screen offers Verify account. It is no longer treated as signed out.
+- Requests made for a previous account (queue, stream, radio continuation, downloads) are dropped instead of landing in the new account. A download interrupted by a switch waits, queued, for its own account.
+- Known change: the queue saved by an earlier build is not restored on the first launch after updating. It is left in place for a later recovery step.
 
 ### Historical October 6 update
 
