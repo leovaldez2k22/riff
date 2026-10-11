@@ -189,6 +189,7 @@ Known limits:
 - R8/Kotlin metadata warnings persist from Q00.
 Device state: emulator shut down with adb emu kill and adb server stopped. The debug and test APKs remain only inside the disposable AVD image. No physical device, real account, publication, push or user-data deletion was involved. Deleted build outputs were regenerable files under app/build only.
 Not part of this package and left untouched: scripts/download_favourites.py (pre-existing user change) and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md (untracked file that appeared during this session; not created by this work).
+Commit: e5eeb35 on local branch codex/riff-quality-m0 (not pushed), following c25701d for slice 1. The commit changed the revision, not the source digest, so the evidence above stays bound to the same source content under its dirty identity. The repository commit-msg hook rewrote the co-author trailer.
 Next exact action: Q04 (durable state and migrations), when the user says to start it. It replaces the preference-backed snapshot storage, quarantines the legacy shared snapshot, and moves detailed history and search state into owner-scoped tables.
 
 ## Plan v1.1 additions (11 October 2026)
