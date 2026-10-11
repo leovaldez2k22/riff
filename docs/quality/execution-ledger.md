@@ -194,7 +194,7 @@ Next exact action: Q04 (durable state and migrations), when the user says to sta
 
 ## Q04
 ### Q04 completion (11 October 2026)
-Status: PASS locally and on the disposable emulator. Two items are BLOCKED on a physical phone and one build check was NOT RUN (below).
+Status: PASS locally and on the disposable emulator. Two items are BLOCKED on a physical phone (below).
 Source: a7c009a8f010c3e2b23ddfd724af8eb6b281d83e dirty, digest ebdb804727bc118eb9f59a28d8ff82391513bb0adf2ab006477a3431ef423266. Evidence root: artifacts/quality/a7c009a8f010c3e2b23ddfd724af8eb6b281d83e-dirty-ebdb804727bc/
 User instruction on 11 October 2026: start Q04 (standing rule: complete every aspect of the phase).
 
@@ -204,8 +204,8 @@ Verification:
 - Debug (artifacts/quality/a7c009a8f010c3e2b23ddfd724af8eb6b281d83e-dirty-ebdb804727bc/q04-debug-03/manifest.json): PASS_LOCAL. 427 JVM tests / 67 suites, zero failures, errors or skips. Lint 0 errors, 84 warnings, 5 hints; no issue added or removed against q03-debug-06. APK SHA-256 96ac9a1fcb9a34003f4ed1eb96dfcd49416d3cd10eaa43f78d0528b1d19090d7.
 - Emulator (artifacts/quality/a7c009a8f010c3e2b23ddfd724af8eb6b281d83e-dirty-ebdb804727bc/q04-debug-fixture-01/manifest.json, log q04-instrumentation-03.log): PASS_LOCAL, instrumentation gate PASS. 6 tests, 15.647 s: FixturePlaybackTest, three AccountSwitchDeviceTest cases, two LegacyUpgradeDeviceTest cases. Test APK SHA-256 d3ebb58be7f79b41aed523b25cd9de751e2882dc543ff05766bbbab3ad1574b1. riff_q02_fixture, API 31, network disabled and confirmed unreachable, synthetic identities.
 - In-place upgrade over the Q03 build on the same emulator (artifacts/quality/a7c009a8f010c3e2b23ddfd724af8eb6b281d83e-dirty-ebdb804727bc/upgrade-over-q03-01.log, install-01.log): the history file the Q03 build had written (one on-device fixture play) was moved to unassigned storage and imported into device history; marker archived; WAL; schema 1. Taken on digest 65c21719cceb, before the final test-only edit.
-- Release (artifacts/quality/a7c009a8f010c3e2b23ddfd724af8eb6b281d83e-dirty-ebdb804727bc/q04-release-01/manifest.json): PASS_LOCAL. junit {"suites": 67, "tests": 427, "failures": 0, "errors": 0, "skipped": 0}; lint {"Warning": 84, "Hint": 5}; APK SHA-256 5f2161632579bd8f14d43641355499d9c8dde3c011b34bd6a1992489e0fe9eb9. Lint was not diffed against q03-release-01 (91 warnings there). No device run of the release artifact.
-- Stress build: NOT RUN in this session (usage limit). Rerun: gradlew --offline :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress.
+- Release (artifacts/quality/a7c009a8f010c3e2b23ddfd724af8eb6b281d83e-dirty-ebdb804727bc/q04-release-01/manifest.json): PASS_LOCAL. junit {"suites": 67, "tests": 427, "failures": 0, "errors": 0, "skipped": 0}; lint {"Warning": 84, "Hint": 5}; APK SHA-256 5f2161632579bd8f14d43641355499d9c8dde3c011b34bd6a1992489e0fe9eb9. Against q03-release-01 (91 warnings): no source issue added or removed; the difference is in dependency-version notices only (seven NewerVersionAvailable and one AndroidGradlePluginVersion gone, one GradleDependency added), which depend on lint's cached version data, not on this change. Shrunk unsigned release 26.37 MiB. No device run of the release artifact.
+- Stress (artifacts/quality/a7c009a8f010c3e2b23ddfd724af8eb6b281d83e-dirty-ebdb804727bc/stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0, run after the commit on the same source content. Compilation only.
 
 Failed attempts, all preserved:
 - q04-debug-01 (digest dbb66d7b557b): PASS_LOCAL but 13 new lint warnings (Recycle on query().use, UseKtx). Fixed: KTX transaction; documented suppressions where commit() results are needed and for the Recycle false positive.
@@ -237,7 +237,8 @@ BLOCKED:
 
 Device state: emulator shut down with adb emu kill, adb server stopped. No physical device, real account, publication, push or user-data deletion. Deleted build outputs were regenerable files under app/build only.
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
-Next exact action: run the stress build and the release lint diff, then Q05 when the user says to start it.
+Commit: 3028fdc on local branch codex/riff-quality-m0 (not pushed). The repository commit-msg hook rewrote the co-author trailer.
+Next exact action: Q05, when the user says to start it.
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
