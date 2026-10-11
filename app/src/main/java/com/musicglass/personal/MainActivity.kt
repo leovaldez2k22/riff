@@ -9,6 +9,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         removeRetiredContent(this)
+        AppContainer.get(this).stateReady // Starts on IO; nothing here waits for it.
         configureArtworkLoader(this)
         requestSmoothRefreshRate()
         window.setDecorFitsSystemWindows(false)

@@ -16,9 +16,8 @@ class PlaybackAcceptanceInstrumentation {
     @Test fun twelveSongsPlayInOneSessionWithoutRestartingTheApp() = runBlocking {
         val instrumentation=InstrumentationRegistry.getInstrumentation()
         val context=instrumentation.targetContext
-        val prefs=context.getSharedPreferences("last_playback",android.content.Context.MODE_PRIVATE)
         val backup=File(context.filesDir,"rc20-acceptance-original-queue.json")
-        if(!backup.exists()) backup.writeText(prefs.getString("snapshot",null) ?: error("A real saved queue is required"))
+        if(!backup.exists()) backup.writeText(phoneSavedQueue(context)?.let(::encodePlaybackSnapshot) ?: error("A real saved queue is required"))
         val saved=decodePlaybackSnapshot(backup.readText())
             ?: error("Invalid saved queue")
         val tracks=saved.queue.filter {it.mediaId.startsWith("yt:") && !it.live && it.music}
@@ -71,8 +70,7 @@ class PlaybackAcceptanceInstrumentation {
                     assertEquals(SessionResult.RESULT_SUCCESS,command.get(10,java.util.concurrent.TimeUnit.SECONDS).resultCode)
                     withContext(Dispatchers.Main) {controller.seekTo(saved.index,saved.positionMs);controller.shuffleModeEnabled=saved.shuffle;controller.repeatMode=saved.repeat;controller.volume=volume;controller.pause()}
                     delay(700)
-                    prefs.edit().putString("snapshot",encodePlaybackSnapshot(saved)).commit()
-                    backup.delete()
+                    if(storePhoneSavedQueue(context,saved)) backup.delete()
                 } finally {file.delete()}
             }
             withContext(Dispatchers.Main) {gateway.close()}

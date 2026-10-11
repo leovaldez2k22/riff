@@ -29,8 +29,7 @@ class OfflineSmokeInstrumentation:Instrumentation() {
             if(mode=="stress_queue") {
                 // Device check for the off-main-thread queue decode: ordinary, 2,000-track, racing and play-next
                 // requests through the real gateway -> PLAY_CATALOG_QUEUE path. Needs no activity (works locked).
-                val saved=targetContext.getSharedPreferences("last_playback",android.content.Context.MODE_PRIVATE)
-                    .getString("snapshot",null)?.let(::decodePlaybackSnapshot)?:error("No saved listening session")
+                val saved=phoneSavedQueue(targetContext)?:error("No saved listening session")
                 val base=saved.queue.filter {it.mediaId.startsWith("yt:") && !it.live}.map {ProviderTrack(it.mediaId.removePrefix("yt:"),it.title,it.artist,it.artworkUrl,it.artistId,it.albumId,it.album,it.live,it.music)}
                 check(base.size>=12) {"Need at least 12 saved tracks, have ${base.size}"}
                 runBlocking {
@@ -231,8 +230,7 @@ class OfflineSmokeInstrumentation:Instrumentation() {
             }
             if(mode=="rc15_native") {
                 val backup=java.io.File(targetContext.filesDir,"rc15-verification-queue.json")
-                val prefs=targetContext.getSharedPreferences("last_playback",android.content.Context.MODE_PRIVATE)
-                if(!backup.exists()) backup.writeText(prefs.getString("snapshot",null)?:error("No saved listening session"))
+                if(!backup.exists()) backup.writeText(phoneSavedQueue(targetContext)?.let(::encodePlaybackSnapshot)?:error("No saved listening session"))
                 val saved=decodePlaybackSnapshot(backup.readText())?:error("Invalid session backup")
                 check(saved.queue.all {it.mediaId.startsWith("yt:")})
                 runBlocking {
@@ -299,7 +297,7 @@ class OfflineSmokeInstrumentation:Instrumentation() {
                             withContext(Dispatchers.Main) {player.seekTo(saved.index,saved.positionMs);player.repeatMode=saved.repeat;gateway.setSleepTimer(0);player.pause()}
                             delay(700)
                             check(withContext(Dispatchers.Main) {player.mediaItemCount==saved.queue.size && player.currentMediaItemIndex==saved.index && !player.playWhenReady})
-                            prefs.edit().putString("snapshot",encodePlaybackSnapshot(saved)).commit();file.delete();backup.delete()
+                            file.delete();if(storePhoneSavedQueue(targetContext,saved)) backup.delete()
                             result.putString("restored","Original queue and position restored, paused")
                         }
                         withContext(Dispatchers.Main) {gateway.close()}

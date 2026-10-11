@@ -1,6 +1,6 @@
 # Account scope and ownership (Q03)
 
-How Riff decides whose data, queue and downloads are active, and what happens when the account changes. Code: `AccountSession.kt`, `ScopedPlaybackSnapshots.kt`.
+How Riff decides whose data, queue and downloads are active, and what happens when the account changes. Code: `AccountSession.kt`, `ScopedPlaybackSnapshots.kt` (owner rules), `LibraryState.kt` (storage).
 
 ## Owners
 
@@ -9,7 +9,7 @@ How Riff decides whose data, queue and downloads are active, and what happens wh
 | Guest | Signed out | `guest` |
 | Provider account | Signed in with a stable account identifier | Chosen once per account, see below |
 | Unverified | Signed in, but the provider returned no stable identifier | None. Nothing is saved or downloaded |
-| Device | On-device audio files | `device-local` (queue only) |
+| Device | On-device audio files | `device-local` (queue and history) |
 
 Unverified is never treated as Guest. Save and download actions say that the account could not be verified, and the Account screen offers **Verify account**, which reopens sign-in. Existing data is kept.
 
@@ -46,13 +46,13 @@ Refreshing the same account (same owner) does not quiesce anything.
 
 ## Saved queues
 
-`playback_snapshots` preferences hold one paused queue per owner (`snapshot_<owner>`, `updated_<owner>`). Emptying the queue clears only its own owner's entry. On a cold start the service restores the newer of the active account's queue and the device queue, paused.
+One paused queue per owner, stored in `library-state.db` since Q04. Emptying the queue clears only its own owner's row. On a cold start the service restores the newer of the active account's queue and the device queue, paused.
 
-The single shared queue written by builds before this change (`last_playback` / `snapshot`) is neither read nor deleted, because it cannot be attributed to an owner. One consequence: the queue from before the update is not restored on the first launch after updating. Q04 moves saved queues into the database and decides how that old entry can be recovered.
+The single shared queue written by builds before owners existed is not loaded automatically, because it cannot be attributed to an owner. It is set aside and can be restored, paused, or deleted from **Settings → Library → Earlier data**. Storage, limits and the upgrade steps are in [state-and-migration.md](state-and-migration.md).
 
 ## Verification
 
-JVM and Robolectric: `AccountSessionTest`, `AccountScopeProviderTest`, `ScopedPlaybackSnapshotsTest`, `AccountScopeMergeTest`, `AccountScreenSessionTest`, `DownloadOwnerSwitchTest`.
+JVM and Robolectric: `AccountSessionTest`, `AccountScopeProviderTest`, `ScopedPlaybackSnapshotsTest` (owner rules; storage is in `LibraryStateTest`), `AccountScopeMergeTest`, `AccountScreenSessionTest`, `DownloadOwnerSwitchTest`.
 
 Emulator, real playback service, network off, synthetic session fields: `AccountSwitchDeviceTest`. It skips itself on an install that holds a real account.
 

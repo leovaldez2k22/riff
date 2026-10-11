@@ -88,18 +88,25 @@ class MusicPlaybackService : MediaSessionService() {
     private val sabrSelections = ConcurrentHashMap<String,SabrBootstrap>()
     private val offline by lazy {OfflineMusicStore.get(this)}
     private var listeningId=""
-    private var historyItem:String?=null
     private var lastListenTick=android.os.SystemClock.elapsedRealtime()
     private val snapshotPrefs by lazy {getSharedPreferences("last_playback",MODE_PRIVATE)}
     private var discardingSession=false
     private var taskRemoved=false
     private var saveJob: Job?=null
-    private val snapshots by lazy {ScopedPlaybackSnapshots(PreferenceSnapshotValues(this),runtime.clocks::wallTimeMillis)}
+    private val snapshots by lazy {AppContainer.get(this).snapshots}
+    private val history by lazy {AppContainer.get(this).history}
+    private val plays=LogicalPlays()
     private val sessions by lazy {AppContainer.get(this).sessions}
     private var sessionRegistration:AutoCloseable?=null
-    /** Owner of the queue now in the player; null when it is empty or may not be saved. */
-    private var snapshotOwner:String?=null
-    private val snapshotWrites=kotlinx.coroutines.channels.Channel<Triple<Long,String,PlaybackSnapshot>>(kotlinx.coroutines.channels.Channel.CONFLATED)
+    /** Owner of the queue now in the player, with its epoch; null when it is empty or may not be saved. */
+    private var snapshotTicket:ScopeTicket?=null
+    private sealed interface SnapshotWrite {
+        data class Save(val sequence:Long,val ticket:ScopeTicket,val snapshot:PlaybackSnapshot):SnapshotWrite
+        data class Clear(val sequence:Long,val scope:String):SnapshotWrite
+    }
+    // Writes are applied in order on IO. A routine save is skipped when a newer one exists.
+    private val snapshotWrites=kotlinx.coroutines.channels.Channel<SnapshotWrite>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+    private val lastSnapshotSave=java.util.concurrent.ConcurrentHashMap<String,Long>()
     private val snapshotSequence=java.util.concurrent.atomic.AtomicLong()
     private val snapshotWriteLock=Any()
     private var cachedQueueTimeline:androidx.media3.common.Timeline?=null
@@ -111,7 +118,11 @@ class MusicPlaybackService : MediaSessionService() {
         serviceScope.launch(Dispatchers.IO) {logNewProcessExits(this@MusicPlaybackService,events)}
         serviceScope.launch(Dispatchers.IO) {runCatching {offline.indexArtwork(offline.currentScope)}}
         serviceScope.launch(Dispatchers.IO) {
-            for((sequence,owner,snapshot) in snapshotWrites) persistSnapshot(sequence,owner,snapshot)
+            for(write in snapshotWrites) runCatching {when(write) {
+                is SnapshotWrite.Save -> persistSnapshot(write)
+                // An owner that saved again after emptying its queue keeps the newer queue.
+                is SnapshotWrite.Clear -> synchronized(snapshotWriteLock) {if((lastSnapshotSave[write.scope]?:-1)<write.sequence) snapshots.clear(write.scope)}
+            }}
         }
         val defaultFactory = DefaultMediaSourceFactory(this)
         val mediaFactory = object : MediaSource.Factory by defaultFactory {
@@ -204,11 +215,12 @@ class MusicPlaybackService : MediaSessionService() {
                     events.append("playback_state=$playbackState")
                     offline.playbackBusy=playbackState==Player.STATE_BUFFERING || this@apply.isPlaying
                     if(playbackState==Player.STATE_READY) {replenishQueue(this@apply);endNetworkRecovery()}
+                    if(playbackState==Player.STATE_ENDED) plays.completed()
                 }
                 override fun onIsPlayingChanged(isPlaying:Boolean) {offline.playbackBusy=isPlaying || this@apply.playbackState==Player.STATE_BUFFERING;lastListenTick=android.os.SystemClock.elapsedRealtime()}
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     if(reason!=Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED || mediaItem!==recoveryReplacement) {
-                        listeningId="";historyItem=null;lastListenTick=android.os.SystemClock.elapsedRealtime()
+                        listeningId="";plays.started();lastListenTick=android.os.SystemClock.elapsedRealtime()
                         streamRecoveryJob?.cancel();streamRecoveryJob=null;recoveryReplacement=null
                         streamRecovery=StreamRecoveryBudget()
                         providerRetrying(this@apply,false)
@@ -245,7 +257,7 @@ class MusicPlaybackService : MediaSessionService() {
                     .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
                         .buildUpon().add(SessionCommand(PLAY_PROVIDER_STREAM, Bundle.EMPTY))
                         .add(SessionCommand(PLAY_LOCAL_AUDIO, Bundle.EMPTY))
-                        .add(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY)).add(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY)).build())
+                        .add(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY)).add(SessionCommand(RESTORE_SAVED_QUEUE,Bundle.EMPTY)).add(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY)).build())
                     .build()
             }
 
@@ -264,6 +276,22 @@ class MusicPlaybackService : MediaSessionService() {
                 }
                 // Not an error for the new owner: the request simply no longer applies.
                 if(customCommand.customAction!=PLAY_LOCAL_AUDIO && staleSession(args)) return Futures.immediateFuture(SessionResult(SessionError.INFO_CANCELLED))
+                if(customCommand.customAction==RESTORE_SAVED_QUEUE) {
+                    // The user asked for the saved queue of the owner they are in. It replaces the player's queue, paused.
+                    val result=com.google.common.util.concurrent.SettableFuture.create<SessionResult>()
+                    serviceScope.launch {
+                        val stored=loadSavedQueue()
+                        result.set(SessionResult(when {
+                            staleSession(args) -> SessionError.INFO_CANCELLED
+                            stored==null -> SessionError.ERROR_BAD_VALUE
+                            else -> {
+                                crossfader?.cancel();player.stop();cancelRadio();sabrSelections.clear();streamHeaders.clear();queuedIds.clear()
+                                restoreSnapshot(player,stored);SessionResult.RESULT_SUCCESS
+                            }
+                        }))
+                    }.invokeOnCompletion {if(!result.isDone) result.set(SessionResult(SessionError.ERROR_UNKNOWN))}
+                    return result
+                }
                 if(customCommand.customAction==PLAY_CATALOG_QUEUE) {
                     val name=args.getString("queueFile").orEmpty()
                     if(!name.matches(Regex("queue-request-[a-f0-9-]{36}\\.json"))) return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
@@ -298,7 +326,7 @@ class MusicPlaybackService : MediaSessionService() {
                     val result=com.google.common.util.concurrent.SettableFuture.create<SessionResult>()
                     serviceScope.launch {
                         val saved=withContext(queueDecoder) {val file=java.io.File(cacheDir,name)
-                            try {if(file.length() in 1..6_000_000) decodePlaybackSnapshot(file.readText()) else null}
+                            try {if(file.length() in 1..MAX_SNAPSHOT_BYTES) decodePlaybackSnapshot(file.readText()) else null}
                             catch(_:Exception) {null} finally {file.delete()}}
                         result.set(applyQueue(saved))
                     }.invokeOnCompletion {if(!result.isDone) result.set(SessionResult(SessionError.ERROR_UNKNOWN))}
@@ -406,12 +434,19 @@ class MusicPlaybackService : MediaSessionService() {
             }
         }).build()
         restoreSleepTimerAfterRestart()
-        // The newest of this account's queue and the on-device queue. The pre-scope shared snapshot is
-        // neither read nor removed here: it is ambiguous, and Q04 quarantines it for explicit recovery.
-        snapshots.newest(listOfNotNull(offline.currentScope.takeIf {it!=UNVERIFIED_SCOPE_KEY},DEVICE_LOCAL_SCOPE_KEY))?.let {restoreSnapshot(player,it)}
+        // The newest of this owner's queue and the on-device queue, read off the main thread once older
+        // state has been moved. A queue from before owners existed is never loaded here.
+        serviceScope.launch {
+            val stored=loadSavedQueue()?:return@launch
+            if(discardingSession || player.mediaItemCount>0) return@launch
+            // Play pressed while the queue was still loading, for example from a widget on a cold start.
+            val wanted=player.playWhenReady
+            restoreSnapshot(player,stored)
+            if(wanted) {player.prepare();player.play()}
+        }
         sessionRegistration=sessions.register(object:SessionParticipant {
-            override suspend fun quiesce(outgoing:SessionToken)=withContext(Dispatchers.Main.immediate) {quiesceForAccountSwitch()}
-            override suspend fun bind(current:SessionToken)=withContext(Dispatchers.Main.immediate) {restoreForCurrentOwner()}
+            override suspend fun quiesce(outgoing:SessionToken)=quiesceForAccountSwitch()
+            override suspend fun bind(current:SessionToken)=restoreForCurrentOwner()
         })
         OfflineDownloadScheduler.schedule(this)
         saveJob=serviceScope.launch {while(isActive){delay(5000);saveSnapshot(player)
@@ -442,15 +477,20 @@ class MusicPlaybackService : MediaSessionService() {
     /** A play counts once it has been heard for one tick (about 5 s); repeats of the same item count again. */
     private fun recordHistory(player: Player) {
         val item=player.currentMediaItem?:return
-        if(!player.isPlaying || item.mediaId==historyItem) return
         val m=item.mediaMetadata
-        if(m.extras?.getBoolean("live")==true || !(item.mediaId.startsWith("yt:") || item.mediaId.startsWith("local:"))) return
-        historyItem=item.mediaId
-        val history=ListeningHistory.get(this)
-        if(!ListeningHistory.enabled(this)) return
+        if(!plays.qualifies(item.mediaId,player.isPlaying,m.extras?.getBoolean("live")==true)) return
+        if(!historyEnabled(this)) return
+        // On-device audio belongs to the device; everything else to the owner active now. An unverified account records nothing.
+        val scope=historyScopeKey(item.mediaId,offline.currentScope)?:return
         val art=m.artworkUri?.toString()?.takeUnless {item.mediaId.startsWith("yt:") && !it.startsWith("https://")}
-        val entry=HistoryEntry(item.mediaId,m.title?.toString().orEmpty(),m.artist?.toString().orEmpty(),art,System.currentTimeMillis(),m.extras?.getBoolean("music",true)!=false)
-        serviceScope.launch(Dispatchers.IO) {history.record(entry)}
+        val entry=HistoryEntry(item.mediaId,m.title?.toString().orEmpty(),m.artist?.toString().orEmpty(),art,runtime.clocks.wallTimeMillis(),m.extras?.getBoolean("music",true)!=false,
+            java.util.UUID.randomUUID().toString(),player.duration.takeIf {it>0})
+        // The ticket is taken now, so clearing history before the write lands rejects it.
+        val ticket=history.ticket(scope)
+        serviceScope.launch(Dispatchers.IO) {
+            val outcome=history.record(entry,ticket)
+            if(outcome is StoreOutcome.Failed) events.append("history_write_failed kind=${outcome.kind}")
+        }
     }
     private fun trackFromItem(item: MediaItem):ProviderTrack {
         val m=item.mediaMetadata;val e=m.extras
@@ -472,39 +512,64 @@ class MusicPlaybackService : MediaSessionService() {
         radioSeed=saved.radioSeed;queuedIds.addAll(saved.queue.filter {it.mediaId.startsWith("yt:")}.map {it.mediaId.removePrefix("yt:")})
         player.setPlaylistMetadata(MediaMetadata.Builder().setSubtitle(if(radioSeed==null) "Album order" else "Restored queue \u00B7 paused").build())
         events.append("session_restored count=${items.size} index=${saved.index}")
-        snapshotOwner=stored.ownerKey
+        snapshotTicket=snapshots.ticket(stored.ownerKey)
+    }
+    /** The saved queue for the active owner or for the device, whichever is newer. Waits for older state to be moved first. */
+    private suspend fun loadSavedQueue():StoredSnapshot? = withContext(Dispatchers.IO) {
+        runCatching {
+            AppContainer.get(this@MusicPlaybackService).stateReady.await()
+            snapshots.newest(listOfNotNull(offline.currentScope.takeIf {it!=UNVERIFIED_SCOPE_KEY},DEVICE_LOCAL_SCOPE_KEY))
+        }.getOrNull()
     }
     /** Account switch: save the outgoing owner's provider or mixed queue paused, then remove it. */
-    private fun quiesceForAccountSwitch() {
-        val player=session?.player?:return
-        // A pure on-device queue belongs to the device and keeps playing.
-        if(!queueStopsWithAccount((0 until player.mediaItemCount).map {player.getMediaItemAt(it).mediaId})) return
-        crossfader?.cancel();player.pause()
-        check(saveSnapshot(player,flush=true,durable=true)) {"Could not save the queue"}
-        snapshotOwner=null
-        cancelRadio();player.stop();player.clearMediaItems()
-        sabrSelections.clear();streamHeaders.clear();queuedIds.clear()
-        events.append("account_switch_queue_saved")
+    private suspend fun quiesceForAccountSwitch() {
+        var stops=false
+        val save=withContext(Dispatchers.Main.immediate) {
+            val player=session?.player?:return@withContext null
+            // A pure on-device queue belongs to the device and keeps playing.
+            if(!queueStopsWithAccount((0 until player.mediaItemCount).map {player.getMediaItemAt(it).mediaId})) return@withContext null
+            stops=true;crossfader?.cancel();player.pause()
+            captureSnapshot(player)
+        }
+        if(!stops) return
+        if(save!=null) {
+            // Committed before the queue is cleared. Stale means the owner's data was deleted meanwhile: nothing to keep.
+            val outcome=withContext(Dispatchers.IO) {synchronized(snapshotWriteLock) {snapshots.save(save.ticket,save.snapshot)}}
+            check(outcome==StoreOutcome.Done || outcome==StoreOutcome.Stale) {"Could not save the queue"}
+        }
+        withContext(Dispatchers.Main.immediate) {
+            val player=session?.player?:return@withContext
+            snapshotTicket=null
+            cancelRadio();player.stop();player.clearMediaItems()
+            sabrSelections.clear();streamHeaders.clear();queuedIds.clear()
+            events.append("account_switch_queue_saved")
+        }
     }
-    private fun restoreForCurrentOwner() {
-        val player=session?.player?:return
-        // On-device audio that kept playing is not replaced; the account's queue stays saved for later.
-        if(player.mediaItemCount>0) return
-        val key=offline.currentScope.takeIf {it!=UNVERIFIED_SCOPE_KEY}?:return
-        snapshots.load(key)?.let {restoreSnapshot(player,it);events.append("account_switch_queue_restored")}
+    private suspend fun restoreForCurrentOwner() {
+        val key=withContext(Dispatchers.Main.immediate) {
+            // On-device audio that kept playing is not replaced; the account's queue stays saved for later.
+            val player=session?.player
+            if(player==null || player.mediaItemCount>0) null else offline.currentScope.takeIf {it!=UNVERIFIED_SCOPE_KEY}
+        }?:return
+        val stored=withContext(Dispatchers.IO) {runCatching {snapshots.load(key)}.getOrNull()}?:return
+        withContext(Dispatchers.Main.immediate) {
+            val player=session?.player?:return@withContext
+            if(player.mediaItemCount==0 && offline.currentScope==key) {restoreSnapshot(player,stored);events.append("account_switch_queue_restored")}
+        }
     }
     /** A request built for an earlier owner or generation must not change the current owner's queue. */
     private fun staleSession(args:Bundle):Boolean {
         val nonce=args.getString("sessionNonce")?:return false
         return !sessions.accepts(provider.session.value.copy(generation=args.getLong("sessionGeneration"),nonce=nonce))
     }
-    private fun saveSnapshot(player:Player,flush:Boolean=false,durable:Boolean=false):Boolean {
-        if(discardingSession) return true
+    /** The queue as it is now, ready to store. Runs on the main thread and never touches the database. */
+    private fun captureSnapshot(player:Player):SnapshotWrite.Save? {
+        if(discardingSession) return null
         if(player.mediaItemCount==0) {
             // An emptied queue clears only its own owner; another owner's saved queue is untouched.
-            snapshotSequence.incrementAndGet()
-            snapshotOwner?.let {owner->synchronized(snapshotWriteLock) {snapshots.clear(owner)}};snapshotOwner=null
-            return true
+            val sequence=snapshotSequence.incrementAndGet()
+            snapshotTicket?.let {snapshotWrites.trySend(SnapshotWrite.Clear(sequence,it.scope))};snapshotTicket=null
+            return null
         }
         if(cachedQueueTimeline !== player.currentTimeline) {
             cachedQueueTimeline=player.currentTimeline
@@ -515,21 +580,27 @@ class MusicPlaybackService : MediaSessionService() {
             cachedSnapshotIds=cachedSnapshotQueue.map {it.mediaId}
         }
         val owner=queueOwnerKey(cachedSnapshotIds,offline.currentScope)
-        if(owner!=snapshotOwner) {
+        if(owner!=snapshotTicket?.scope) {
             // The user replaced one kind of queue with another; the earlier one is no longer resumable.
-            snapshotOwner?.let {previous->synchronized(snapshotWriteLock) {snapshots.clear(previous)}};snapshotOwner=owner
+            val sequence=snapshotSequence.incrementAndGet()
+            snapshotTicket?.let {snapshotWrites.trySend(SnapshotWrite.Clear(sequence,it.scope))}
+            snapshotTicket=owner?.let(snapshots::ticket)
         }
-        if(owner==null) return true
+        val ticket=snapshotTicket?:return null
         val snapshot=PlaybackSnapshot(cachedSnapshotQueue,player.currentMediaItemIndex.coerceAtLeast(0),
             player.currentPosition.coerceAtLeast(0),player.shuffleModeEnabled,player.repeatMode,radioSeed,
             player.playlistMetadata.title?.toString().orEmpty())
-        // The lifecycle handoff must commit before the service is released; routine ticks use IO.
-        val sequence=snapshotSequence.incrementAndGet()
-        if(flush) return persistSnapshot(sequence,owner,snapshot,durable)
-        snapshotWrites.trySend(Triple(sequence,owner,snapshot));return true
+        val sequence=snapshotSequence.incrementAndGet();lastSnapshotSave[ticket.scope]=sequence
+        return SnapshotWrite.Save(sequence,ticket,snapshot)
     }
-    private fun persistSnapshot(sequence:Long,owner:String,snapshot:PlaybackSnapshot,durable:Boolean=false):Boolean =
-        synchronized(snapshotWriteLock) {if(sequence==snapshotSequence.get()) snapshots.save(owner,snapshot,durable) else true}
+    private fun saveSnapshot(player:Player) {captureSnapshot(player)?.let(snapshotWrites::trySend)}
+    private fun persistSnapshot(save:SnapshotWrite.Save):StoreOutcome =
+        synchronized(snapshotWriteLock) {if(save.sequence==snapshotSequence.get()) snapshots.save(save.ticket,save.snapshot) else StoreOutcome.Done}
+    /** Lifecycle handoff: waits a bounded time for the write. If Android ends the process first, the last routine save stands. */
+    private fun flushSnapshot(player:Player) {
+        val save=captureSnapshot(player)?:return
+        runBlocking {withTimeoutOrNull(1500) {withContext(Dispatchers.IO) {runCatching {persistSnapshot(save)}}}}
+    }
     private fun providerItem(listedTrack: ProviderTrack, stream: ProviderStream): MediaItem {
         val track = resolvedPlaybackTrack(listedTrack, stream)
         val uri = stream.sabrBootstrap?.let { bootstrap ->
@@ -660,7 +731,7 @@ class MusicPlaybackService : MediaSessionService() {
         provider.discardPageMemory()
         taskRemoved=true
         events.append("task_removed_stop")
-        session?.player?.let {saveSnapshot(it,flush=true)};discardingSession=true
+        session?.player?.let(::flushSnapshot);discardingSession=true
         cancelRadio();session?.player?.stop();session?.player?.clearMediaItems()
         pauseAllPlayersAndStopSelf()
     }
@@ -710,7 +781,7 @@ class MusicPlaybackService : MediaSessionService() {
         events.append(runCatching {stopContext(this,playWhenReady,player?.playbackState?:0,taskRemoved)}.getOrDefault("service_destroy"))
         if(isUnexpectedStop(playWhenReady,taskRemoved)) events.append("unexpected_stop")
         sessionRegistration?.close();sessionRegistration=null
-        session?.player?.let {saveSnapshot(it,flush=true)};discardingSession=true;saveJob?.cancel()
+        session?.player?.let(::flushSnapshot);discardingSession=true;saveJob?.cancel()
         session?.let { media ->
             media.player.release()
             media.release()

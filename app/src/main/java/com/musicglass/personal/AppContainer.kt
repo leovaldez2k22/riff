@@ -8,6 +8,10 @@ import android.os.StatFs
 import android.os.SystemClock
 import io.ktor.client.engine.HttpClientEngine
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import okhttp3.Call
@@ -107,6 +111,34 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
                     OfflineDownloadScheduler.resumeManualLater(app)
                 }
             })
+        }
+    }
+
+    private val eventLog by lazy { PlaybackEventLog(app) }
+    val libraryState: LibraryStateDb by lazy { LibraryStateDb(app) }
+    private val epochs by lazy { ScopeEpochs(libraryState) }
+    val history: HistoryRepository by lazy {
+        HistoryRepository(libraryState, epochs, runtime.clocks::wallTimeMillis) { historyRetentionDays(app) }
+    }
+    val snapshots: PlaybackSnapshotRepository by lazy {
+        PlaybackSnapshotRepository(libraryState, epochs, runtime.clocks::wallTimeMillis,
+            File(app.filesDir, "unassigned/playback-snapshot-rejected.json"), eventLog::append)
+    }
+    val aliasJournal: ScopeAliasJournal by lazy { ScopeAliasJournal(libraryState) }
+    val legacyState: LegacyStateMigration by lazy {
+        LegacyStateMigration(app, libraryState, history, snapshots, runtime.clocks::wallTimeMillis, eventLog::append)
+    }
+    private val stateScope = CoroutineScope(SupervisorJob() + runtime.dispatchers.io)
+
+    /**
+     * Opens the state database and moves pre-owner data, once per process and never on the caller's
+     * thread. Readers of saved queues await it; recording new plays does not need to.
+     */
+    val stateReady: Deferred<Unit> by lazy {
+        stateScope.async {
+            runCatching { epochs.warm() }.onFailure { eventLog.append("state_open_failed kind=${it::class.simpleName}") }
+            runCatching { legacyState.run() }.onFailure { eventLog.append("legacy_migration_failed kind=${it::class.simpleName}") }
+            Unit
         }
     }
 

@@ -26,8 +26,7 @@ class AudioContinuityInstrumentation : Instrumentation() {
             runOnMainSync {activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)}
             runOnMainSync {YouTubeMusicProvider.shared(targetContext)}
             val provider=YouTubeMusicProvider.shared(targetContext)
-            val saved=targetContext.getSharedPreferences("last_playback",android.content.Context.MODE_PRIVATE)
-                .getString("snapshot",null)?.let(::decodePlaybackSnapshot)
+            val saved=phoneSavedQueue(targetContext)
             runBlocking {
                 val gateway=withContext(Dispatchers.Main) {MusicPlaybackGateway(targetContext)}
                 var player:MediaController?=null

@@ -48,7 +48,7 @@ class AccountSwitchDeviceTest {
     @Before fun connect() {
         val sync=sessionPrefs.getString("sync",null)
         assumeTrue("Install holds a non-fixture account",!provider.signedIn || sync?.startsWith("fixture-sync-")==true)
-        target.getSharedPreferences("playback_snapshots",Context.MODE_PRIVATE).edit().clear().commit()
+        clearSavedQueues()
         val future=MediaController.Builder(target,MediaSessionToken(target,ComponentName(target,MusicPlaybackService::class.java)))
             .setApplicationLooper(Looper.getMainLooper()).buildAsync()
         controller=future.get(15,TimeUnit.SECONDS)
@@ -63,9 +63,15 @@ class AccountSwitchDeviceTest {
             instrumentation.runOnMainSync {controller.stop();controller.clearMediaItems();controller.release()}
         }
         localRow?.let {target.contentResolver.delete(it,null,null)}
-        target.getSharedPreferences("playback_snapshots",Context.MODE_PRIVATE).edit().clear().commit()
+        clearSavedQueues()
     }
 
+    private fun clearSavedQueues() {
+        val process=AppContainer.get(target)
+        runBlocking {process.stateReady.await()}
+        (listOf(GUEST_SCOPE_KEY,DEVICE_LOCAL_SCOPE_KEY)+listOf("fixture-sync-A","fixture-sync-B").map {providerScope(verifiedAccountIdentity(it)!!).opaqueId})
+            .forEach(process.snapshots::clear)
+    }
     /** Switches to a synthetic account, or to Guest for null, through the coordinator. */
     private fun become(sync:String?):SessionTransition = runBlocking {
         withContext(Dispatchers.Main) {

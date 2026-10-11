@@ -1,14 +1,14 @@
 package com.musicglass.personal
 
 import android.content.Context
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import androidx.core.content.edit
 import kotlinx.serialization.json.*
-import java.io.File
 
 /** One play. [mediaId] is "yt:<videoId>" for YouTube Music or "local:<id>" for audio on this phone. */
 internal data class HistoryEntry(val mediaId: String, val title: String, val artist: String,
-    val artworkUrl: String?, val playedAt: Long, val music: Boolean = true) {
+    val artworkUrl: String?, val playedAt: Long, val music: Boolean = true,
+    /** Made once per logical play, so a retried write cannot count the play twice. */
+    val eventId: String = "", val durationMs: Long? = null) {
     val videoId: String? get() = mediaId.removePrefix("yt:").takeIf { mediaId.startsWith("yt:") }
     fun track(): ProviderTrack? = videoId?.let { ProviderTrack(it, title, artist, artworkUrl ?: providerArtworkUrl(it), isMusic = music) }
 }
@@ -39,45 +39,35 @@ internal fun historyDayLabel(playedAt: Long, now: Long, zone: java.time.ZoneId =
 }
 
 /**
- * Every song played, kept in the app's files (not its cache), so Android's "Clear cache" keeps it
- * and only "Clear storage"/"Clear data" removes it. One JSON line per play, oldest first.
+ * One history event per logical play. A play counts once it has been heard for one tick (about
+ * five seconds). Pausing, resuming or seeking within it does not start another; moving to another
+ * queue entry, repeating the entry, or playing it again after it finished does.
  */
-internal class ListeningHistory(private val file: File) {
-    private val lock = Any()
-    private val _revision = MutableStateFlow(0)
-    val revision: StateFlow<Int> = _revision
-
-    fun record(entry: HistoryEntry) = synchronized(lock) {
-        runCatching {
-            file.parentFile?.mkdirs()
-            file.appendText(encodeHistoryEntry(entry) + "\n")
-            if (file.length() > MAX_BYTES) trim()
-        }
-        _revision.value++
+internal class LogicalPlays {
+    private var counted: String? = null
+    /** The player moved to a queue entry, including a repeat of the same one. */
+    fun started() { counted = null }
+    /** The entry played to its end. */
+    fun completed() { counted = null }
+    /** True once per play. Live broadcasts are not song history. */
+    fun qualifies(mediaId: String, playing: Boolean, live: Boolean): Boolean {
+        if (!playing || mediaId == counted) return false
+        if (live || !(mediaId.startsWith("yt:") || mediaId.startsWith("local:"))) return false
+        counted = mediaId
+        return true
     }
+}
 
-    /** Newest first. Call off the main thread. */
-    fun entries(): List<HistoryEntry> = synchronized(lock) {
-        if (!file.exists()) return emptyList()
-        runCatching { file.readLines().mapNotNull(::decodeHistoryEntry).asReversed() }.getOrDefault(emptyList())
-    }
+/** Respects Settings -> Library -> Save listening history. Device-wide. */
+internal fun historyEnabled(context: Context) = context.applicationContext
+    .getSharedPreferences("music_collections", Context.MODE_PRIVATE).getBoolean("history_enabled", true)
 
-    private fun trim() {
-        val keep = file.readLines().takeLast(KEEP_AFTER_TRIM)
-        val temp = File(file.parentFile, file.name + ".tmp")
-        temp.writeText(keep.joinToString("\n", postfix = "\n"))
-        if (!temp.renameTo(file)) { file.writeText(temp.readText()); temp.delete() }
-    }
+/** 30, 90 or 365 days, or null to keep plays until they are cleared. Device-wide; applied to each owner separately. */
+internal fun historyRetentionDays(context: Context): Int? = context.applicationContext
+    .getSharedPreferences("music_collections", Context.MODE_PRIVATE).getInt("history_retention_days", 0).takeIf { it in setOf(30, 90, 365) }
 
-    companion object {
-        private const val MAX_BYTES = 16L * 1024 * 1024
-        private const val KEEP_AFTER_TRIM = 40_000
-        @Volatile private var instance: ListeningHistory? = null
-        fun get(context: Context) = instance ?: synchronized(this) {
-            instance ?: ListeningHistory(File(context.applicationContext.filesDir, "listening-history/history-v1.jsonl")).also { instance = it }
-        }
-        /** Respects Settings → Library → Save listening history. */
-        fun enabled(context: Context) = context.applicationContext
-            .getSharedPreferences("music_collections", Context.MODE_PRIVATE).getBoolean("history_enabled", true)
+internal fun setHistoryRetentionDays(context: Context, days: Int?) {
+    context.applicationContext.getSharedPreferences("music_collections", Context.MODE_PRIVATE).edit {
+        if (days in setOf(30, 90, 365)) putInt("history_retention_days", days!!) else remove("history_retention_days")
     }
 }

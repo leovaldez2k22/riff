@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04-Q18 TODO
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05-Q18 TODO
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -191,6 +191,53 @@ Device state: emulator shut down with adb emu kill and adb server stopped. The d
 Not part of this package and left untouched: scripts/download_favourites.py (pre-existing user change) and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md (untracked file that appeared during this session; not created by this work).
 Commit: e5eeb35 on local branch codex/riff-quality-m0 (not pushed), following c25701d for slice 1. The commit changed the revision, not the source digest, so the evidence above stays bound to the same source content under its dirty identity. The repository commit-msg hook rewrote the co-author trailer.
 Next exact action: Q04 (durable state and migrations), when the user says to start it. It replaces the preference-backed snapshot storage, quarantines the legacy shared snapshot, and moves detailed history and search state into owner-scoped tables.
+
+## Q04
+### Q04 completion (11 October 2026)
+Status: PASS locally and on the disposable emulator. Two items are BLOCKED on a physical phone and one build check was NOT RUN (below).
+Source: a7c009a8f010c3e2b23ddfd724af8eb6b281d83e dirty, digest ebdb804727bc118eb9f59a28d8ff82391513bb0adf2ab006477a3431ef423266. Evidence root: artifacts/quality/a7c009a8f010c3e2b23ddfd724af8eb6b281d83e-dirty-ebdb804727bc/
+User instruction on 11 October 2026: start Q04 (standing rule: complete every aspect of the phase).
+
+Implemented: library-state.db v1 (history_events, playback_snapshots, scope_generations, migration_runs, scope_aliases); HistoryRepository, PlaybackSnapshotRepository, ScopeAliasJournal (LibraryState.kt); LegacyStateMigration.kt; snapshot payload v2 with v1 read and one 6 MiB UTF-8 ceiling (PlaybackSnapshot.kt); one history event per logical play; History screen per owner with paging and search; Earlier data screen (EarlierDataScreen.kt) for explicit import, restore and delete; RESTORE_SAVED_QUEUE service command. Docs: docs/quality/state-and-migration.md, account-scope.md, CHANGELOG.
+
+Verification:
+- Debug (artifacts/quality/a7c009a8f010c3e2b23ddfd724af8eb6b281d83e-dirty-ebdb804727bc/q04-debug-03/manifest.json): PASS_LOCAL. 427 JVM tests / 67 suites, zero failures, errors or skips. Lint 0 errors, 84 warnings, 5 hints; no issue added or removed against q03-debug-06. APK SHA-256 96ac9a1fcb9a34003f4ed1eb96dfcd49416d3cd10eaa43f78d0528b1d19090d7.
+- Emulator (artifacts/quality/a7c009a8f010c3e2b23ddfd724af8eb6b281d83e-dirty-ebdb804727bc/q04-debug-fixture-01/manifest.json, log q04-instrumentation-03.log): PASS_LOCAL, instrumentation gate PASS. 6 tests, 15.647 s: FixturePlaybackTest, three AccountSwitchDeviceTest cases, two LegacyUpgradeDeviceTest cases. Test APK SHA-256 d3ebb58be7f79b41aed523b25cd9de751e2882dc543ff05766bbbab3ad1574b1. riff_q02_fixture, API 31, network disabled and confirmed unreachable, synthetic identities.
+- In-place upgrade over the Q03 build on the same emulator (artifacts/quality/a7c009a8f010c3e2b23ddfd724af8eb6b281d83e-dirty-ebdb804727bc/upgrade-over-q03-01.log, install-01.log): the history file the Q03 build had written (one on-device fixture play) was moved to unassigned storage and imported into device history; marker archived; WAL; schema 1. Taken on digest 65c21719cceb, before the final test-only edit.
+- Release (artifacts/quality/a7c009a8f010c3e2b23ddfd724af8eb6b281d83e-dirty-ebdb804727bc/q04-release-01/manifest.json): PASS_LOCAL. junit {"suites": 67, "tests": 427, "failures": 0, "errors": 0, "skipped": 0}; lint {"Warning": 84, "Hint": 5}; APK SHA-256 5f2161632579bd8f14d43641355499d9c8dde3c011b34bd6a1992489e0fe9eb9. Lint was not diffed against q03-release-01 (91 warnings there). No device run of the release artifact.
+- Stress build: NOT RUN in this session (usage limit). Rerun: gradlew --offline :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress.
+
+Failed attempts, all preserved:
+- q04-debug-01 (digest dbb66d7b557b): PASS_LOCAL but 13 new lint warnings (Recycle on query().use, UseKtx). Fixed: KTX transaction; documented suppressions where commit() results are needed and for the Recycle false positive.
+- q04-debug-02 (digest 65c21719cceb): PASS_LOCAL, superseded by a test-only edit.
+- q04-instrumentation-01.log: 1 of 6 failed. Test isolation: the second case reused a legacy file with identical bytes, which the migration correctly recognises as already imported. The test file now differs per run. q04-instrumentation-02 and -03: 6 of 6.
+- HistoryScreensTest was flaky: work resumed from Dispatchers.IO onto the Compose test dispatcher off the main thread. The History, Earlier data and Settings lookups now use the injectable IO dispatcher. No failures since.
+- First test runs had wrong test data in four cases (history encoder truncates titles; record prunes immediately; text bounds keep a queue under the byte ceiling; a bad album id is dropped, not rejected). Tests corrected; no production change.
+- A failed edit script truncated PlaybackSnapshotTest.kt to zero bytes; restored from git and the additions reapplied.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| No ambiguous adoption or silent loss | PASS | LegacyStateMigrationTest (mixed accounts, quarantine, explicit import and restore only); HistoryScreensTest; LegacyUpgradeDeviceTest |
+| Restart-safe idempotency | PASS | Death at every checkpoint then restart; rollback inside the transaction; full disk then retry; identical and longer source copies |
+| Paused restoration | PASS (emulator) | LegacyUpgradeDeviceTest: restored queue is paused at its saved index; nothing loads without the user's choice |
+| No main-thread migration | PASS (JVM) | theContainerMigratesOnItsBackgroundDispatcherNotOnTheCaller |
+| Listed tests: empty, corrupt, truncated, multibyte, repeated plays, mixed accounts, alias conflict, 2,000 tracks, authored repeats, unknown payload version | PASS | LegacyStateMigrationTest, LibraryStateTest, PlaybackSnapshotTest |
+
+Decisions (mine, not the user's):
+- Explicit import is offered to the active owner including signed-out use, not only a verified account as plan rule 3 words it. Unverified is refused.
+- Search history stays where it is; it is listed under Q05 targets.
+- Retention and clear-history exist in the repository and are tested; they have no screen yet (Q05).
+- account_scopes preferences remain the lookup for an account's primary key; scope_aliases is the merge journal.
+- A queue longer than 2,000 items still keeps its first 2,000 (behaviour before Q04). Only the byte ceiling refuses.
+
+BLOCKED:
+- Upgrade over a real earlier install with real history on a physical phone. Needs an authorized device and explicit approval for installation. Rerun: install this debug APK over the existing install, open History and Settings, Library, Earlier data, and confirm on-device plays moved, provider plays wait unassigned, the old queue is offered and loads paused.
+- Phone-only checks (AudioContinuity, CrossfadeService, OfflineSmoke, PlaybackAcceptance) now read the saved queue through PhoneSavedQueue.kt and are compiled only. NativeIslandInstrumentation is not ported and refuses to run.
+
+Device state: emulator shut down with adb emu kill, adb server stopped. No physical device, real account, publication, push or user-data deletion. Deleted build outputs were regenerable files under app/build only.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: run the stress build and the release lint diff, then Q05 when the user says to start it.
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.

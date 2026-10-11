@@ -79,10 +79,18 @@ class NativeIslandInstrumentation : Instrumentation() {
         error("Timed out: $label")
     }
 
+    private val portedToOwnerQueues = false
+
     override fun onStart() {
         val finishResult = Bundle()
         output = File(targetContext.getExternalFilesDir(null), "native-island-prototype/$mode").apply { mkdirs() }
         manager = targetContext.getSystemService(NotificationManager::class.java)
+        // Q04 moved saved queues out of the shared preference this prototype backs up and rewrites. Until it is
+        // ported, refuse to run rather than leave a queue there for the upgrade step to set aside.
+        if (!portedToOwnerQueues) {
+            finish(Activity.RESULT_CANCELED, finishResult.apply { putString("error", "Not ported to per-owner saved queues (Q04)") })
+            return
+        }
         val prefs = targetContext.getSharedPreferences("last_playback", Context.MODE_PRIVATE)
         val backup = File(targetContext.filesDir, "native-island-original-playback.json")
         if (mode == "verify") {

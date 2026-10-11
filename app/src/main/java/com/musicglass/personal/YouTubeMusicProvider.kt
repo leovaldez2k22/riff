@@ -408,12 +408,18 @@ internal class YouTubeMusicProvider(context: Context,
         val storage = scopeRegistry.resolve(identity, sync, authUser, dependencies.storedScopeKeys(appContext))
         resolvedStorage = sync to storage
         if (storage.retainedAliases.isEmpty()) return 0
-        var remaining = 0
+        var remaining = 0; var conflicts = 0
+        val journal = AppContainer.get(appContext).aliasJournal
         storage.retainedAliases.forEach { alias ->
+            // Recorded before any store is touched, so an interrupted merge is visible and can be repeated.
+            // A key already recorded for another account is left exactly where it is.
+            if (!journal.begin(alias, storage.primaryKey)) { conflicts++; return@forEach }
             mergeCollectionScope(appContext, alias, storage.primaryKey)
-            remaining += OfflineMusicStore.get(appContext).mergeScope(alias, storage.primaryKey)
+            val left = OfflineMusicStore.get(appContext).mergeScope(alias, storage.primaryKey)
+            journal.finish(alias, storage.primaryKey, merged = left == 0)
+            remaining += left
         }
-        playbackEvents.append("account_scope aliases=${storage.retainedAliases.size} unmerged_rows=$remaining")
+        playbackEvents.append("account_scope aliases=${storage.retainedAliases.size} unmerged_rows=$remaining conflicts=$conflicts")
         storageRevision++
         return remaining
     }

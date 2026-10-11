@@ -38,8 +38,7 @@ class CrossfadeServiceDeviceTest {
     private fun exercise(mode:String,boosted:Boolean,seconds:Int=6,seekLead:Long=12_000)=runBlocking {
         val instrumentation=InstrumentationRegistry.getInstrumentation()
         val context=instrumentation.targetContext
-        val saved=context.getSharedPreferences("last_playback",Context.MODE_PRIVATE)
-            .getString("snapshot",null)?.let(::decodePlaybackSnapshot)
+        val saved=phoneSavedQueue(context)
         val fadePrefs=context.getSharedPreferences(CROSSFADE_PREFS,Context.MODE_PRIVATE)
         val boostPrefs=context.getSharedPreferences(AUDIO_BOOST_PREFS,Context.MODE_PRIVATE)
         val originalFade=fadePrefs.getBoolean("enabled",false)

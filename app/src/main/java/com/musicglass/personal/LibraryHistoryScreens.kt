@@ -10,6 +10,7 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,24 +24,49 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-internal fun historyMatches(entry: HistoryEntry, query: String) = query.isBlank() ||
-    entry.title.contains(query.trim(), true) || entry.artist.contains(query.trim(), true)
-
-/** Every song played on this phone, newest first and grouped by day. Opened from Library's top-right icon. */
+/**
+ * Every qualified play, newest first and grouped by day. Plays from YouTube Music belong to the
+ * owner that is active (an account, or signed-out use); plays of audio on this phone belong to the
+ * device and are shown separately. Opened from Library's top-right icon.
+ */
 @Composable internal fun ListeningHistoryScreen(model: ShellModel, bottom: Dp, provider: YouTubeMusicProvider,
-    playback: PlaybackGateway, onNotice: (String) -> Unit) {
+    playback: PlaybackGateway, onNotice: (String) -> Unit, process: AppContainer = AppContainer.get(LocalContext.current)) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val history = remember(context) { ListeningHistory.get(context) }
+    val history = process.history
     val revision by history.revision.collectAsState()
+    val queues by process.snapshots.revision.collectAsState()
+    var onDevice by rememberSaveable { mutableStateOf(false) }
+    val accountKey = remember(provider.authRevision, provider.storageRevision) { provider.storageScopeKey() }
+    val owner = if (onDevice) DEVICE_LOCAL_SCOPE_KEY else accountKey.takeIf { it != UNVERIFIED_SCOPE_KEY }
     var entries by remember { mutableStateOf<List<HistoryEntry>?>(null) }
+    var next by remember { mutableStateOf<HistoryCursor?>(null) }
+    var total by remember { mutableStateOf<Int?>(null) }
+    var earlier by remember { mutableStateOf(UnassignedInventory()) }
     var query by remember { mutableStateOf("") }
-    var limit by remember(query) { mutableIntStateOf(300) }
-    LaunchedEffect(revision) { entries = withContext(Dispatchers.IO) { history.entries() } }
-    val shown = remember(entries, query) { entries.orEmpty().filter { historyMatches(it, query) } }
+    LaunchedEffect(owner, query, revision) {
+        if (query.isNotBlank()) delay(250) // one lookup per pause in typing
+        if (owner == null) { entries = emptyList(); next = null; total = 0; return@LaunchedEffect }
+        val (page, count) = withContext(process.runtime.dispatchers.io) {
+            runCatching { process.stateReady.await(); history.page(owner, null, query) to history.count(owner) }
+                .getOrDefault(HistoryPage(emptyList(), null) to 0)
+        }
+        entries = page.entries; next = page.next; total = count
+    }
+    LaunchedEffect(revision, queues) {
+        earlier = withContext(process.runtime.dispatchers.io) { runCatching { process.stateReady.await(); process.legacyState.inventory() }.getOrDefault(UnassignedInventory()) }
+    }
+    fun older() {
+        val cursor = next ?: return; val from = owner ?: return; val wanted = query
+        scope.launch {
+            val page = withContext(process.runtime.dispatchers.io) { runCatching { history.page(from, cursor, wanted) }.getOrNull() } ?: return@launch
+            if (from == owner && wanted == query && cursor == next) { entries = entries.orEmpty() + page.entries; next = page.next }
+        }
+    }
     val now = remember(revision) { System.currentTimeMillis() }
     val timeFormat = remember { java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT) }
     fun play(entry: HistoryEntry) {
@@ -52,24 +78,42 @@ internal fun historyMatches(entry: HistoryEntry, query: String) = query.isBlank(
             if (local != null) playback.playLocal(local) else onNotice("This file is no longer on your phone")
         }
     }
+    val shown = entries
     ScreenList(model, bottom) {
         item { BackHeading("Library", model::back) }
-        item { ScreenTitle("History", entries?.let { "${it.size} plays · kept until you clear Riff's storage" }) }
-        if (!ListeningHistory.enabled(context)) item {
+        item { ScreenTitle("History", total?.takeIf { query.isBlank() }?.let { "$it plays · kept on this phone until you clear Riff's storage" }) }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(!onDevice, { uiHaptic(); onDevice = false }, { Text("YouTube Music") }, modifier = Modifier.testTag("history_scope_account"))
+                FilterChip(onDevice, { uiHaptic(); onDevice = true }, { Text("On this phone") }, modifier = Modifier.testTag("history_scope_device"))
+            }
+        }
+        if (!historyEnabled(context)) item {
             Text("Saving history is off. Turn it on in Settings → Library.", color = Muted, fontSize = 13.sp)
         }
-        if (!entries.isNullOrEmpty()) item {
+        if (!onDevice && accountKey == UNVERIFIED_SCOPE_KEY) item {
+            Text("Riff could not verify this account, so its history is not saved or shown. Open Account and reconnect.",
+                color = Muted, fontSize = 13.sp, modifier = Modifier.testTag("history_unverified"))
+        }
+        if (!earlier.empty) item {
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Raised).padding(12.dp).testTag("history_earlier"),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(earlierDataSummary(earlier), color = White, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                TextButton({ uiHaptic(); model.push("earlier_data") }, modifier = Modifier.testTag("history_earlier_review")) { Text("Review", color = Pink) }
+            }
+        }
+        if (!shown.isNullOrEmpty() || query.isNotBlank()) item {
             OutlinedTextField(query, { query = it.take(80) }, singleLine = true, shape = RoundedCornerShape(28.dp),
                 placeholder = { Text("Search your history") }, leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 modifier = Modifier.fillMaxWidth().testTag("history_search"))
         }
         when {
-            entries == null -> item { Text("Loading your history…", color = Muted) }
-            entries!!.isEmpty() -> item { Text("Songs you play will appear here.", color = Muted) }
-            shown.isEmpty() -> item { Text("No plays match “$query”.", color = Muted) }
+            shown == null -> item { Text("Loading your history…", color = Muted) }
+            shown.isEmpty() && query.isNotBlank() -> item { Text("No plays match “$query”.", color = Muted) }
+            shown.isEmpty() -> item { Text(if (onDevice) "Audio you play from this phone will appear here." else "Songs you play will appear here.", color = Muted) }
         }
         var lastDay = ""
-        shown.take(limit).forEachIndexed { index, entry ->
+        shown.orEmpty().forEachIndexed { index, entry ->
             val day = historyDayLabel(entry.playedAt, now)
             if (day != lastDay) {
                 lastDay = day
@@ -78,15 +122,20 @@ internal fun historyMatches(entry: HistoryEntry, query: String) = query.isBlank(
                         modifier = Modifier.padding(top = 10.dp))
                 }
             }
-            item(key = "play:$index:${entry.playedAt}") {
+            item(key = "play:${entry.eventId}") {
                 HistoryRow(entry, timeFormat.format(java.util.Date(entry.playedAt))) { play(entry) }
             }
         }
-        if (shown.size > limit) item {
-            TextButton({ uiHaptic(); limit += 300 }, modifier = Modifier.testTag("history_more")) { Text("Show older plays") }
+        if (next != null) item {
+            TextButton({ uiHaptic(); older() }, modifier = Modifier.testTag("history_more")) { Text("Show older plays") }
         }
     }
 }
+
+internal fun earlierDataSummary(earlier: UnassignedInventory): String = listOfNotNull(
+    earlier.providerPlays.takeIf { it > 0 }?.let { "$it ${if (it == 1) "play" else "plays"}" },
+    earlier.queueItems.takeIf { it > 0 }?.let { "a queue of $it ${if (it == 1) "song" else "songs"}" },
+).joinToString(" and ").ifBlank { "Data" } + " from before this update ${if (earlier.providerPlays > 0 && earlier.queueItems > 0 || earlier.providerPlays > 1) "are" else "is"} not assigned to an account."
 
 @Composable private fun HistoryRow(entry: HistoryEntry, time: String, onPlay: () -> Unit) {
     val card = entry.track()?.homeCard()

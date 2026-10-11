@@ -50,7 +50,9 @@ internal object RiffWidgets {
         scope.launch {try {
             val manager=AppWidgetManager.getInstance(app)
             if(riffWidgetPresets.none {manager.getAppWidgetIds(ComponentName(app,it.receiver)).isNotEmpty()}) return@launch
-            val saved=app.getSharedPreferences("last_playback",Context.MODE_PRIVATE).getString("snapshot",null)?.let(::decodePlaybackSnapshot)
+            // The active owner's saved queue or the device's, never one from before owners existed.
+            val saved=runCatching {AppContainer.get(app).let {process->process.stateReady.await()
+                process.snapshots.newest(listOfNotNull(OfflineMusicStore.get(app).currentScope.takeIf {it!=UNVERIFIED_SCOPE_KEY},DEVICE_LOCAL_SCOPE_KEY))?.snapshot}}.getOrNull()
             val state=current?:saved?.let {s->val q=s.queue[s.index];WidgetState(q.title,q.artist,q.artworkUrl,false,s.queue.getOrNull(s.index+1)?.title.orEmpty(),true)}?:WidgetState()
             configureArtworkLoader(app)
             val bitmap=state.art?.let {url->withTimeoutOrNull(3500) {runCatching {

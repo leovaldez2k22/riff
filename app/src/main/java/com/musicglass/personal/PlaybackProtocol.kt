@@ -4,3 +4,5 @@ internal const val PLAY_PROVIDER_STREAM = "com.musicglass.personal.PLAY_PROVIDER
 internal const val PLAY_LOCAL_AUDIO = "com.musicglass.personal.PLAY_LOCAL_AUDIO"
 
 internal const val PLAY_CATALOG_QUEUE = "com.musicglass.personal.PLAY_CATALOG_QUEUE"
+/** Loads the saved queue of the active owner, paused, in place of the current queue. */
+internal const val RESTORE_SAVED_QUEUE = "com.musicglass.personal.RESTORE_SAVED_QUEUE"

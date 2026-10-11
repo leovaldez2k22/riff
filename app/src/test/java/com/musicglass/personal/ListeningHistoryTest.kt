@@ -1,14 +1,11 @@
 package com.musicglass.personal
 
 import org.junit.Assert.*
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
 class ListeningHistoryTest {
-    @get:Rule val folder = TemporaryFolder()
     private val zone = ZoneId.of("Asia/Kolkata")
     private fun at(day: Int, hour: Int) = ZonedDateTime.of(2026, 10, day, hour, 0, 0, 0, zone).toInstant().toEpochMilli()
 
@@ -20,17 +17,6 @@ class ListeningHistoryTest {
         assertNull(decodeHistoryEntry("{\"title\":\"no id\",\"at\":1}"))
         assertNull(decodeHistoryEntry("garbage"))
         assertNull(decodeHistoryEntry(encodeHistoryEntry(yt.copy(artworkUrl = "javascript:x")))!!.artworkUrl)
-    }
-
-    @Test fun recordsEveryPlayNewestFirstAndSurvivesReopen() {
-        val file = java.io.File(folder.root, "history/history-v1.jsonl")
-        val history = ListeningHistory(file)
-        assertTrue(history.entries().isEmpty())
-        history.record(HistoryEntry("yt:aaaaaaaaaaa", "One", "A", null, 1L))
-        history.record(HistoryEntry("yt:bbbbbbbbbbb", "Two", "B", null, 2L))
-        history.record(HistoryEntry("yt:aaaaaaaaaaa", "One", "A", null, 3L))
-        assertEquals(3, history.revision.value)
-        assertEquals(listOf(3L, 2L, 1L), ListeningHistory(file).entries().map { it.playedAt })
     }
 
     @Test fun onlyYouTubeEntriesBecomePlayableTracks() {
@@ -45,10 +31,44 @@ class ListeningHistoryTest {
         assertTrue(historyDayLabel(at(1, 9), now, zone).contains("1"))
     }
 
-    @Test fun searchMatchesTitleOrArtist() {
-        val entry = HistoryEntry("yt:abcdefghijk", "Blinding Lights", "The Weeknd", null, 1L)
-        assertTrue(historyMatches(entry, " weeknd "))
-        assertTrue(historyMatches(entry, "lights"))
-        assertFalse(historyMatches(entry, "adele"))
+    @Test fun pauseResumeAndSeekToStartStayOnePlay() {
+        val plays = LogicalPlays()
+        assertFalse("not heard yet", plays.qualifies("yt:abcdefghijk", playing = false, live = false))
+        assertTrue(plays.qualifies("yt:abcdefghijk", playing = true, live = false))
+        // Later ticks of the same play, a pause and resume, and a seek back to the start: no transition, no new play.
+        assertFalse(plays.qualifies("yt:abcdefghijk", playing = true, live = false))
+        assertFalse(plays.qualifies("yt:abcdefghijk", playing = false, live = false))
+        assertFalse(plays.qualifies("yt:abcdefghijk", playing = true, live = false))
+    }
+
+    @Test fun repeatOneCountsEachRepeat() {
+        val plays = LogicalPlays()
+        assertTrue(plays.qualifies("yt:abcdefghijk", true, false))
+        plays.started() // the player reports a transition to the same entry
+        assertTrue(plays.qualifies("yt:abcdefghijk", true, false))
+        assertFalse(plays.qualifies("yt:abcdefghijk", true, false))
+    }
+
+    @Test fun replayAfterTheSongFinishedIsANewPlay() {
+        val plays = LogicalPlays()
+        assertTrue(plays.qualifies("local:42", true, false))
+        plays.completed()
+        assertTrue(plays.qualifies("local:42", true, false))
+    }
+
+    @Test fun liveBroadcastsAndUnknownItemsAreNotSongHistory() {
+        val plays = LogicalPlays()
+        assertFalse(plays.qualifies("yt:abcdefghijk", true, live = true))
+        assertFalse(plays.qualifies("other:1", true, false))
+        // Still a first play once it is no longer live-only.
+        assertTrue(plays.qualifies("yt:abcdefghijk", true, false))
+    }
+
+    @Test fun onDevicePlaysBelongToTheDeviceAndUnverifiedAccountsRecordNothing() {
+        assertEquals(DEVICE_LOCAL_SCOPE_KEY, historyScopeKey("local:42", "owner-a"))
+        assertEquals(DEVICE_LOCAL_SCOPE_KEY, historyScopeKey("local:42", UNVERIFIED_SCOPE_KEY))
+        assertEquals("owner-a", historyScopeKey("yt:abcdefghijk", "owner-a"))
+        assertEquals(GUEST_SCOPE_KEY, historyScopeKey("yt:abcdefghijk", GUEST_SCOPE_KEY))
+        assertNull(historyScopeKey("yt:abcdefghijk", UNVERIFIED_SCOPE_KEY))
     }
 }

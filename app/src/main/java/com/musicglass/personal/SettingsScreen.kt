@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -135,6 +136,15 @@ import kotlinx.coroutines.withContext
             SettingsToggleRow("Save listening history",collections.historyEnabled,
                 hapticToggle(collections::updateHistoryPreference),Icons.Rounded.History,"settings_history")
             SettingsDivider()
+            // Shown only while something saved before owners existed is still waiting for a decision.
+            val process=remember(context) {AppContainer.get(context)}
+            val queues by process.snapshots.revision.collectAsState();val plays by process.history.revision.collectAsState()
+            var earlier by remember {mutableStateOf(UnassignedInventory())}
+            LaunchedEffect(queues,plays) {earlier=withContext(process.runtime.dispatchers.io) {runCatching {process.stateReady.await();process.legacyState.inventory()}.getOrDefault(UnassignedInventory())}}
+            if(!earlier.empty) {
+                SettingsLinkRow("Earlier data",null,Icons.Rounded.History,"settings_earlier_data") {model.push("earlier_data")}
+                SettingsDivider()
+            }
             val hidden=remember(context) {NotInterestedStore.get(context)}
             SettingsLinkRow("Not interested",hidden.entries.size.takeIf {it>0}?.toString(),Icons.Rounded.Block,"settings_not_interested") {
                 model.push("not_interested")

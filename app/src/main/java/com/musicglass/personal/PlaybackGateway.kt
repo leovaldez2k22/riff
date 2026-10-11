@@ -73,6 +73,8 @@ internal interface PlaybackGateway {
     fun playProvider(track: ProviderTrack, stream: ProviderStream, startPositionMs: Long = 0L)
     fun playLocal(track: LocalAudioTrack)
     fun clearProviderPlayback()
+    /** Loads the active owner's saved queue, paused, replacing the current one. [done] reports whether a queue was loaded. */
+    fun restoreSavedQueue(done:(Boolean)->Unit={}) {done(false)}
     fun close()
 }
 
@@ -250,8 +252,10 @@ internal class MusicPlaybackGateway(context: Context,
             try {
                 kotlinx.coroutines.withContext(dependencies.dispatchers.io) {
                     val items=tracks.map {t->SavedQueueItem("yt:${t.videoId}",t.title.take(180),t.artist.take(180),t.artworkUrl,t.album.take(180),t.artistId,t.albumId,t.isLive,music=t.isMusic)}
-                    file.writeText(encodePlaybackSnapshot(PlaybackSnapshot(items,index,0,shuffle,collectionTitle=title.take(180))))
-                }
+                    // Checked before anything is sent: the service refuses a larger request.
+                    val payload=encodePlaybackSnapshotBounded(PlaybackSnapshot(items,index,0,shuffle,collectionTitle=title.take(180)))?:return@withContext false
+                    file.writeText(payload);true
+                }.let {fits->if(!fits) {commandError="This collection is too large to queue";refresh();return@launch}}
                 if(generation!=catalogGeneration) {file.delete();return@launch}
                 withPlayer {player->
                     commandError=null
@@ -336,6 +340,15 @@ internal class MusicPlaybackGateway(context: Context,
                 state = state.copy(error = commandError)
             }
         }, appContext.mainExecutor)
+    }
+    override fun restoreSavedQueue(done:(Boolean)->Unit) = withPlayer { player ->
+        val owner=YouTubeMusicProvider.shared(appContext).session.value
+        val command=player.sendCustomCommand(SessionCommand(RESTORE_SAVED_QUEUE,Bundle.EMPTY),
+            Bundle().apply {putLong("sessionGeneration",owner.generation);putString("sessionNonce",owner.nonce)})
+        command.addListener({
+            val loaded=runCatching {command.get().resultCode==SessionResult.RESULT_SUCCESS}.getOrDefault(false)
+            refresh();done(loaded)
+        },appContext.mainExecutor)
     }
     override fun clearProviderPlayback() = withPlayer { player ->
         if ((0 until player.mediaItemCount).any {
