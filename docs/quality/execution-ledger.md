@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08-Q18 TODO. Lettered package Q05A PASS locally with open items (see the Q05A section)
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09-Q18 TODO. Lettered package Q05A PASS locally with open items (see the Q05A section)
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -529,6 +529,95 @@ Device state: emulator shut down with adb emu kill, adb server stopped, Gradle d
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
 Commit: 559a808 on local branch codex/riff-quality-m0 (not pushed).
 Next exact action: Q08, when the user says to start it.
+
+## Q08
+### Q08 completion (12 October 2026)
+Status: PASS locally and on the disposable emulator. Listening, ducking, calls, headphone and Bluetooth routes, streamed songs and the solver against the provider are BLOCKED on a phone (below).
+Source: e882a56b29d6e388d454a91367289941b3cbf34f dirty, digest prefix b16332428914 (full value in the manifests). Evidence root: artifacts/quality/e882a56b29d6e388d454a91367289941b3cbf34f-dirty-b16332428914/
+User instruction on 11 October 2026: "start q08 followed by q08a" (standing rule: complete every aspect of the phase). On 12 October 2026 the user added "Run next phase" while Q08 was being verified; I read it as go on to Q08A after Q08, which was already the instruction. Q05R, Q10A, Q12A and Q15A were not started and remain unauthorized.
+
+Implemented (Crossfade.kt, YouTubeMusicProvider.kt, AppContainer.kt, CipherBridgeInstaller.java comment, proguard-rules.pro comment):
+- CrossfadeOwner: the one holder of the player's level during a blend. It holds the outgoing and incoming media IDs, progress, length and the level to put back. One blend at a time. The level is handed back exactly once; a later release, or the cleanup of a blend that was already ended from outside, gets nothing and writes nothing. A blend that never reached the handoff holds nothing. The equal-power curve, the envelope and the alignment code are unchanged and now run through the owner.
+- The level is read when the blend takes it, not when preparation began (up to about 40 s earlier).
+- Before Q08 the blend's cleanup wrote the level a second time after cancel() had restored it, and wrote it even when the blend had never taken it. Both are gone.
+- Repeat-one is now asked again at every step up to the handoff. Before, turning it on after preparation had begun (within the fade length plus 12 s of the end) still blended into the next song. Found by the new device test.
+- Both gains are clamped to 0..1. Before, the outgoing gain at the very end was about -4e-8 from rounding.
+- A copy of the outgoing song that cannot be built is a skipped blend with a log line. Before, the exception left the blend's coroutine unhandled.
+- Every skipped or cancelled blend logs a reason; the copy logs crossfade_tail_created and crossfade_tail_released.
+- Solver, ADR-Q05: if the bridge to the solver process cannot be installed, online stream resolution is refused with SolverUnavailable. Before, the in-process cipher was used silently, for stream extraction and for the HLS n-parameter. The extractor still has to be built with one of the library's own ciphers; that object is never called when the bridge is missing. The prewarm is skipped as well.
+- The reflection seam is still in use. innertubex 0.7.2 has no public way to supply a cipher. Nothing here claims otherwise.
+- scripts/quality/check_solver_seam.py checks a shrunk release's mapping: the field kept its name and type, the bridge code is present, the service kept its name. Five tests of its own.
+- Docs: docs/quality/crossfade-and-audio.md (new), CHANGELOG.
+
+Not changed, verified as they are: the envelope (never compresses, 50 ms per update), alignment, the sleep timer, the booster and its limiter, Media3's focus and noisy-route handling, the visuals (full player, mini player and queue all draw from the same blend; reduced motion swaps at once), RemoteCipherClient's retry and crash-loop guard.
+
+Verification:
+- Debug (q08-debug-02/manifest.json): PASS_LOCAL. 563 JVM tests / 74 suites, zero failures, errors or skips (Q05A: 547 / 72). Lint 0 errors, 84 warnings, 5 hints; no issue added or removed against q05a-debug-01. APK SHA-256 a4a0f155cc820196e656cac99eee9bd55b7517a26667149c65454ba65c838621.
+- New JVM tests: CrossfadeOwnerTest (11), SolverFailClosedTest (4), one in VolumeBoostTest, test_check_solver_seam.py (5, Python, not part of the Gradle count).
+- Emulator, bound (q08-debug-fixture-01/manifest.json, log q08-instrumentation-01.log, install-01.log): PASS_LOCAL, all five gates PASS. 31 tests, 248.046 s: the 18 of Q05A plus 13 CrossfadeFixtureDeviceTest (real service, second player and effects). Test APK SHA-256 9920bc2bdad20273650d2edae23b33217895488dfb58d89bc17c44c3878ed3e9. riff_q02_fixture, API 31, network disabled and confirmed unreachable, signed out or synthetic identities. In this run no blend was given up (q08-device-notes-01.txt): 1 s blend 985 ms declared, 6 s 5992 ms, 12 s 11977 ms, 3 s with boost at 300 percent 2967 ms; each took its length within 12 ms as far as it was followed.
+- Emulator, not bound (q08-two-player-instrumentation-01.log): CrossfadeDeviceTest and SongFadeDeviceTest, 15 tests, OK. Same install, same APKs. These were phone-only until now.
+- Release (q08-release-01/manifest.json): PASS_LOCAL. junit {"suites": 74, "tests": 563, "failures": 0, "errors": 0, "skipped": 0}; lint {"Warning": 84, "Hint": 5}; no issue added or removed against q05a-release-01. APK SHA-256 8945c7a34a84bd7bd7fe912033d3de7f413fe94bd3d313a1d576eece92d3ce43. Shrunk unsigned release 26.51 MiB (Q05A: 26.51). No device run of the release artifact.
+- Shrunk release, solver seam (solver-seam-release-01.txt): PASS. R8 renames the extractor class and merges the bridge into another class; the field cipherService keeps its name and type.
+- Stress (stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only.
+- The evidence was taken before this ledger entry was written; the entry is the only change after it.
+
+The emulator is not a timing reference for two decoders:
+- The service starts a blend only when the two players agree on their position within 80 ms for 200 ms, and gives the blend up safely if they do not before the song ends. On this emulator (no audio output) the two audio clocks drift against each other by up to about 6 percent, so a blend is sometimes given up. It got worse the longer the emulator had been running.
+- CrossfadeFixtureDeviceTest therefore plays the queue again, up to four times, when a blend was given up, after checking what a given-up blend must leave: the level unchanged, no copy left, the next song playing alone, a logged reason. A run in which every attempt is given up fails.
+- CrossfadeDeviceTest (two bare players) has no such retry and stays outside the bound run.
+- Blend lengths are measured against the progress read with the first sample, because the first read comes a moment after the blend began.
+
+Failed attempts, preserved or recorded (attempts/ in the evidence root unless another place is named):
+- q08-xfd-01.log: 13 tests, 2 failures. Repeat-one blended into the next song: the defect fixed above. A 12 s blend ran 16.1 s; it was the first test after the app started, no stall was logged, and it did not recur (11.9 s in every later run). Cause inferred: updates more than 50 ms apart extend a blend by design. Not proven.
+- q08-xfd-03.log and q08-xfd-04.log: CrossfadeDeviceTest's 1 s scenario, first test of the run, failed its fixed step bound (0.08 per read). The copy had played to its end before the envelope finished. The test now scales the bound with the time between reads and exempts a copy that has ended. Test change only.
+- q08-xfd-04.log: my test measured a 3 s blend as 2802 ms because it started timing late. Measurement corrected as described above.
+- q08-xfd-05.log (9 of 28 failed) and q08-xfd-06.log (8 of 28): blends given up on an emulator that had run for more than 40 minutes. q08-xfd-07.log after a restart: 1 of 28.
+- Evidence root e882a56b29d6e388d454a91367289941b3cbf34f-dirty-699e30b98e22 holds the first evidence attempt: q08-debug-01 (PASS_LOCAL, superseded because a test changed afterwards), q08-crossfade-instrumentation-01.log (28 tests, 3 failures, all CrossfadeDeviceTest scenarios whose blend was given up or timed out) and q08-instrumentation-01.log (31 tests, 1 failure: a 6 s blend declared 5648 ms, which my test refused; the overlap may be shorter than the setting when alignment finishes late, and the test now accepts that). Nothing from that root is bound.
+- q08-bound-try-01.log: 31 tests, 1 failure, a blend given up; this led to the retry. q08-bound-try-02.log: 13 of 13 with four blends given up and checked.
+- First run of CrossfadeOwnerTest: 4 of 11 failed on the negative gain described above. Fixed in the code.
+- SolverFailClosedTest.aSolverThatKeepsDying failed once in a run with other classes (4 solver requests instead of 3) and did not fail in 40 repeats or four further runs. Robolectric hands the test's fake binder to every client in the process, so a provider left by an earlier test can reach it. The fake now scripts and counts only the request under test. The cause is inferred, not proven; the one failure's output was not kept.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| XFD01: 1, 6 and 12 s blends are gradual, valid, equal power | PASS (JVM; emulator for level and progress) | CrossfadeOwnerTest: gains finite and in range, squared sum within 0.03 of one, progress never decreasing, length within max(150 ms, 5 percent). CrossfadeFixtureDeviceTest: level follows the curve, never ahead of the clock |
+| XFD02: buffering, late start, early end | PASS (JVM; emulator two-player test for buffering before the blend and an ended or restarted copy) | Held levels, no jump on resume, never shortened; an ended copy stays silent and the incoming song does not jump. The early-end exception to equal power is stated in the doc and the code |
+| XFD03: pause, seek, skip or select, off, account switch cancel and release the copy | PASS (emulator, real service) | Level back exactly, blend gone from the screen state, created and released counts equal, nothing written afterwards |
+| XFD04: boost and sleep: no conflicting owners, finite output | PASS (JVM; emulator for boost at maximum and sleep timer during a blend) | Generated tones at off, 200 and 300 percent stay in 16-bit range, sign kept, limiter monotonic. Sleep timer fades from the level the blend handed back and restores it |
+| Repeat-one, short tracks, sleep timer never start a blend | PASS (JVM; emulator for repeat-one) | |
+| Cancellation restores the level exactly once | PASS (JVM, emulator) | |
+| Visuals follow the live blend; reduced motion swaps at once | PASS (JVM, Compose) | SongPresentationTest, unchanged. Progress shown is the owner's value. Not looked at on a screen |
+| Focus loss and a short interruption | PASS (emulator, another focus request from the test) | Media3 pauses or holds; the blend ends; the level is back; playback returns after the short one |
+| Ducking, a real call, unplugging headphones, Bluetooth | BLOCKED | Needs a phone |
+| Pinned cipher dependency contract | PASS (JVM) | CipherBridgeTest, SolverFailClosedTest.thePinnedLibraryAcceptsTheBridge |
+| Shrunk release keeps the seam | PASS (mapping of the release that was built) | Not run on a device |
+| Bridge failure becomes SolverUnavailable | PASS (JVM) | Typed cause, classified SolverUnavailable, zero HTTP requests, event logged |
+| Solver death leaves audio intact, bounded reconnect | PASS (JVM, with a fake solver) for the bound and the typed failure; BLOCKED for a real solver crash during playback | One retry per request; three deaths pause the solver. SolverIsolationInstrumentation needs the network and the provider |
+| No leaked copies | PASS (emulator) | Created and released counts equal in every test |
+
+Decisions (mine, not the user's):
+- When a blend still holds the level at its own cleanup, the level is put back even if the sleep timer is set. The service always ends the blend before it sets the timer, so this path is not reached there; if it were, the timer adopts the restored level on its next step. The old code left the level where the blend had it.
+- Fail closed for every online resolution when the bridge is missing, including streams that would not have needed a challenge.
+- The emulator test retries a blend that was given up, four times at most. Without that, a bound run depends on the emulator's audio clocks.
+- CrossfadeDeviceTest's status messages became log lines, because the collector reads a status with code 0 as a finished test.
+- No limiter was added for the sum of two songs in a blend, and the booster's wording in Settings was left alone. Both are described in the doc.
+
+Known limits:
+- During a blend, Media3 ducks the main player only. Whether the copy is lowered depends on Android. Not heard on a device.
+- Two full-scale songs can add up to 1.41 times full scale in the middle of a blend. Riff does not limit that.
+- Updates more than 50 ms apart extend a blend. If the copy reaches the end of its audio first, it ends there.
+- The equal-power fade does not even out songs mastered at different levels. That is Q08A.
+
+BLOCKED:
+- Listening on a phone, with crossfade at 1, 6 and 12 s, boost off, 200 and 300 percent, on speaker, wired and Bluetooth. Needs explicit approval for installation. Rerun: install the debug APK; play an album of local or downloaded songs; let three changes blend at each length; pause, seek, skip and turn crossfade off during a blend; set a sleep timer during a blend; turn repeat-one on five seconds before a song ends. Expected: a smooth change, no click, no doubled passage, no jump in level, the full level afterwards, and no blend with repeat-one.
+- Focus on a phone: receive a call, trigger a navigation prompt or notification sound, unplug headphones and switch Bluetooth off, each during a blend. Expected: Android's usual pause, hold or duck; the next song alone afterwards at the level from before.
+- Streamed songs and the solver: CrossfadeServiceDeviceTest's streamed cases and SolverIsolationInstrumentation need the network, the provider and, for the phone tests, the user's saved queue.
+- The release APK on a device.
+- Carried from Q04 to Q07 and Q05A: upgrade over a real earlier install; privacy actions on a phone; the Q06 and Q07 phone and provider checks; the system document picker; phone-only checks compiled only (AudioContinuity, CrossfadeService, OfflineSmoke, PlaybackAcceptance); NativeIslandInstrumentation not ported.
+
+Device state: emulator shut down with adb emu kill, adb server stopped, Gradle daemons stopped once before the stress build. Fixture tones were added to and removed from the emulator's media library; crossfade and boost settings were set and cleared on the emulator only. No physical device, real account, provider request, publication, push or user-data deletion. Deleted build outputs were regenerable files under app/build only.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q08A.
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.

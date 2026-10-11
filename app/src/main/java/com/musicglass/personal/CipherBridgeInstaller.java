@@ -20,7 +20,7 @@ import kotlin.coroutines.Continuation;
 final class CipherBridgeInstaller {
     private CipherBridgeInstaller() {}
 
-    /** Replaces the extractor's cipher. Throws if innertubex's internals changed; the caller keeps the in-process cipher. */
+    /** Replaces the extractor's cipher. Throws if innertubex's internals changed; the caller then refuses online resolution. */
     static void install(InnerTubeExtractor extractor, CipherBackend backend) throws ReflectiveOperationException {
         Field field = InnerTubeExtractor.class.getDeclaredField("cipherService");
         if (!field.getType().equals(ExtractionCipherService.class)) {

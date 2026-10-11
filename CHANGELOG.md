@@ -29,6 +29,9 @@
 - Play in the notification, on a headset or on a widget now retries a song that failed. Before, it did nothing until the app was opened.
 - A recommendation queue passes over at most three unavailable songs in a row. Albums, playlists and songs you queued stop at the song that failed.
 - New **Settings → Privacy and data → Export local data** and **Import local data**: settings, tracks saved in Riff, searches, listening history and the names of downloaded songs, as one file you choose the place of. The file is not encrypted and holds no sign-in data or audio. Import adds to what is on the phone and removes nothing; another account's data is added only if you confirm it. Downloads are restored as names only and must be downloaded again.
+- Crossfade: turning repeat-one on in the last seconds of a song now prevents the blend. Before, a blend that was already being prepared went ahead and moved to the next song.
+- Crossfade: a blend that was cancelled can no longer write the player's level a second time after something else has set it.
+- Changed: if Riff cannot hand stream solving to its separate solver process, online songs now fail with "Online playback resolver unavailable" and Retry. Before, solving silently ran inside the playing process, where a crash would stop the music. Downloads and files on the phone are unaffected.
 - Changed: History replays an entry for audio stored on the phone only when the file's title still matches. Before, the entry could start a different file that had taken the same number.
 - Fixed: Privacy and data could briefly show empty counts when two of its readings overlapped.
 

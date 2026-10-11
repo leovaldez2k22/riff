@@ -77,7 +77,8 @@ internal class CrossfadeSettings(context: Context) {
 /** Equal-power curves keep the blend about as loud as either song: (outgoing, incoming). */
 internal fun crossfadeGains(progress: Float): Pair<Float, Float> {
     val t = progress.coerceIn(0f, 1f) * (PI / 2).toFloat()
-    return cos(t) to sin(t)
+    // Rounding puts the cosine of a quarter turn just below zero; a level is never negative.
+    return cos(t).coerceIn(0f, 1f) to sin(t).coerceIn(0f, 1f)
 }
 
 /** A single smooth clock for both gains and the visuals, independent of decoder timestamps. */
@@ -92,6 +93,54 @@ internal class CrossfadeEnvelope(durationMs:Long,startedMs:Long) {
         lastTick=maxOf(lastTick,nowMs)
         if(playing) elapsed=(elapsed+delta).coerceAtMost(duration)
         return progress
+    }
+}
+
+/** Player levels for one moment of a blend. Both already include the level the player had before it. */
+internal data class CrossfadeLevels(val outgoing: Float, val incoming: Float, val progress: Float)
+
+/**
+ * The one holder of the player's level during a blend (I07): which entries are blending, how far, for how
+ * long, and the level to put back afterwards. [release] hands that level out once; any later release
+ * returns nothing, so the cleanup of a cancelled blend cannot write over a level set since by someone else.
+ *
+ * Early end: once the outgoing copy stops playing it is silent for the rest of the blend, and the
+ * incoming song keeps its own curve. From then on the two no longer add up to constant power.
+ */
+internal class CrossfadeOwner {
+    class Grant internal constructor(val outgoingId: String, val incomingId: String, val durationMs: Long,
+        val base: Float, startedMs: Long) {
+        private val envelope = CrossfadeEnvelope(durationMs, startedMs)
+        private val continuity = CrossfadeTailContinuity()
+        val progress: Float get() = envelope.progress
+        val outgoingEnded: Boolean get() = continuity.ended
+        internal fun levels(nowMs: Long, incomingPlaying: Boolean, outgoingPlaying: Boolean): CrossfadeLevels {
+            // Decoder startup or buffering pauses the ramp; it never compresses the selected fade.
+            val progress = envelope.advance(nowMs, incomingPlaying)
+            val (out, incoming) = crossfadeGains(progress)
+            // A buffered or ended copy cannot become audible again over the next song.
+            return CrossfadeLevels(if (continuity.audible(outgoingPlaying)) base * out else 0f, base * incoming, progress)
+        }
+    }
+
+    var active: Grant? = null; private set
+
+    /** Starts a blend from [base], the player's level now. Refused while another blend holds the level. */
+    fun take(outgoingId: String, incomingId: String, durationMs: Long, base: Float, nowMs: Long): Grant? {
+        if (active != null || !base.isFinite() || durationMs <= 0) return null
+        return Grant(outgoingId, incomingId, durationMs, base.coerceIn(0f, 1f), nowMs).also { active = it }
+    }
+
+    /** The levels to apply now, or null when [grant] no longer holds the level. */
+    fun levels(grant: Grant, nowMs: Long, incomingPlaying: Boolean, outgoingPlaying: Boolean): CrossfadeLevels? =
+        if (active === grant) grant.levels(nowMs, incomingPlaying, outgoingPlaying) else null
+
+    /** Ends the blend held by [grant] (default: whichever is active) and returns the level to put back, once. */
+    fun release(grant: Grant? = active): Float? {
+        val held = active ?: return null
+        if (grant !== held) return null
+        active = null
+        return held.base
     }
 }
 
@@ -129,7 +178,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
     private var handledKey: String? = null
     private var mainPlayer:ExoPlayer?=null
     private var handoff=false
-    private var originalVolume:Float?=null
+    internal val owner=CrossfadeOwner()
     private var visualBlend:SongCrossfade?=null
     private var activeTail:ExoPlayer?=null
     private var expectedTransition:String?=null
@@ -196,9 +245,14 @@ internal class Crossfader(private val context: Context, private val scope: Corou
     }
 
     private suspend fun blend(main: ExoPlayer, item: MediaItem, key: String, fadeMs: Long) {
-        val base = main.volume
-        val (tail, releaseTail) = createTail()
+        // A copy that cannot be built is a skipped blend, not a failure of the service that plays.
+        val (tail, releaseTail) = try { createTail() } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { log("crossfade_skipped reason=tail_unavailable type=${e::class.simpleName}"); return }
         activeTail=tail
+        log("crossfade_tail_created")
+        // Asked again at every step up to the handoff: the user may turn repeat-one or the sleep timer on at any time.
+        fun abandoned()=itemKey(main)!=key || !main.playWhenReady || sleepActive() || main.repeatMode==Player.REPEAT_MODE_ONE
+        var grant:CrossfadeOwner.Grant?=null
         try {
             tail.volume = 0f
             tail.setSeekParameters(SeekParameters.EXACT)
@@ -208,7 +262,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
             tail.prepare()
             if (withTimeoutOrNull(25_000) {
                     while (tail.playbackState != Player.STATE_READY) {
-                        if(itemKey(main)!=key || !main.playWhenReady || sleepActive() || tail.playerError!=null) return@withTimeoutOrNull false
+                        if(abandoned() || tail.playerError!=null) return@withTimeoutOrNull false
                         wait(20)
                     }
                     true
@@ -218,9 +272,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
             log("crossfade_prepared")
             var bufferedSince:Long?=null
             while(main.duration-main.currentPosition>fadeMs+12_000 || !main.isPlaying) {
-                if(itemKey(main)!=key || !main.playWhenReady || sleepActive() ||
-                    main.repeatMode==Player.REPEAT_MODE_ONE || main.playerError!=null ||
-                    main.playbackState==Player.STATE_ENDED) return
+                if(abandoned() || main.playerError!=null || main.playbackState==Player.STATE_ENDED) {log("crossfade_skipped reason=left_before_warmup");return}
                 // A short network stall is not a user pause. Keep the prepared, muted copy;
                 // abandoning it here marks this song handled and loses its eventual crossfade.
                 if(!main.isPlaying) {
@@ -230,14 +282,14 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                 } else bufferedSince=null
                 wait(50)
             }
-            if (itemKey(main) != key || !main.isPlaying) return
+            if (abandoned() || !main.isPlaying) {log("crossfade_skipped reason=not_playing_before_alignment");return}
             // Seek ahead while muted and paused, giving the decoder time to finish the seek.
             // A seek followed immediately by play can report old READY state before it buffers.
             val target=main.currentPosition+750
             tail.seekTo(target)
             if(withTimeoutOrNull(3_000) {
                     while(main.currentPosition<target || tail.playbackState!=Player.STATE_READY) {
-                        if(itemKey(main)!=key || !main.playWhenReady || sleepActive() || tail.playerError!=null) return@withTimeoutOrNull false
+                        if(abandoned() || tail.playerError!=null) return@withTimeoutOrNull false
                         wait(10)
                     }
                     true
@@ -256,7 +308,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                     var lagSince=0L
                     var settleUntil=clockStarted+2_000
                     while(true) {
-                        if(itemKey(main)!=key || !main.playWhenReady || sleepActive() || tail.playerError!=null) return@withTimeoutOrNull false
+                        if(abandoned() || tail.playerError!=null) return@withTimeoutOrNull false
                         val now=clock()
                         val difference=main.currentPosition-tail.currentPosition
                         val parameters=main.playbackParameters
@@ -298,18 +350,23 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                 log("crossfade_skipped reason=tail_not_aligned delta=${main.currentPosition-tail.currentPosition} state=${tail.playbackState} playing=${tail.isPlaying} speed=${tail.playbackParameters.speed} mainState=${main.playbackState} mainPlaying=${main.isPlaying} wants=${main.playWhenReady} suppression=${main.playbackSuppressionReason}"); return
             }
             tail.playbackParameters=main.playbackParameters
-            if (itemKey(main) != key || !main.isPlaying || sleepActive()) return
+            if (abandoned() || !main.isPlaying) {log("crossfade_skipped reason=not_playing_at_handoff");return}
             if(!tail.isPlaying || !crossfadeTailAligned(main.currentPosition,tail.currentPosition)) {
                 log("crossfade_skipped reason=handoff_drift delta=${main.currentPosition-tail.currentPosition}");return
             }
             // Muted preparation prevents two copies of the outgoing song doubling its volume.
             val tailDuration=tail.duration.takeIf {it>0}?:main.duration
             val overlap = minOf(main.duration-main.currentPosition,tailDuration-tail.currentPosition,fadeMs)
-            if(overlap<500) return
-            originalVolume=base
+            if(overlap<500) {log("crossfade_skipped reason=too_little_left ms=$overlap");return}
+            val incomingId=main.getMediaItemAt(main.nextMediaItemIndex).mediaId
+            // The level is read at the moment it is taken, not when preparation began.
+            val held=owner.take(item.mediaId,incomingId,overlap,main.volume,clock())
+            if(held==null) {log("crossfade_skipped reason=level_owned");return}
+            grant=held
+            val base=held.base
             main.volume = 0f
             tail.volume = base
-            val visual=SongCrossfade(songPresentation(item),main.getMediaItemAt(main.nextMediaItemIndex).mediaId,overlap)
+            val visual=SongCrossfade(songPresentation(item),incomingId,overlap)
             visualBlend=visual;onBlend(visual)
             expectedTransition="${main.nextMediaItemIndex}:${main.getMediaItemAt(main.nextMediaItemIndex).mediaId}"
             expectedSeek=expectedTransition
@@ -317,8 +374,6 @@ internal class Crossfader(private val context: Context, private val scope: Corou
             try {main.seekToNextMediaItem()} finally {handoff=false}
             val next = itemKey(main)
             log("crossfade_start ms=$overlap")
-            val envelope=CrossfadeEnvelope(overlap,clock())
-            val continuity=CrossfadeTailContinuity()
             var stalledSince:Long?=null
             while (true) {
                 wait(16)
@@ -330,29 +385,27 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                     if(stalledSince==null) stalledSince=now
                     if(now-stalledSince>=15_000) {log("crossfade_cancelled reason=incoming_stalled");break}
                 }
-                // Decoder startup/buffering pauses the ramp; it never compresses the selected fade.
-                val progress=envelope.advance(clock(),main.isPlaying)
-                val (out,incoming)=crossfadeGains(progress)
-                // A buffered/ended tail cannot become audible again over the next song.
-                tail.volume = if(continuity.audible(tail.isPlaying)) base * out else 0f
-                main.volume = base * incoming
-                visual.progress=progress
-                if (progress>=1f) break
-                // An early tail end/error must not jump the incoming song straight to full volume.
+                // Someone else ended the blend and has the level back: write nothing more.
+                val levels=owner.levels(held,clock(),main.isPlaying,tail.isPlaying)?:break
+                tail.volume = levels.outgoing
+                main.volume = levels.incoming
+                // Full player, mini player and queue all draw from this one value.
+                visual.progress=levels.progress
+                if (levels.progress>=1f) break
             }
         } catch (e: CancellationException) { throw e }
         catch (e: Exception) { log("crossfade_failed type=${e::class.simpleName}") }
         finally {
-            tail.volume=0f
-            clearVisualBlend()
-            if(!sleepActive()) main.volume = base
-            originalVolume=null
+            runCatching { tail.volume=0f }
+            // Only a blend that still holds the level puts it back; cancel() may already have, once.
+            owner.release(grant)?.let {clearVisualBlend();main.volume=it}
             if(activeTail===tail) activeTail=null
             expectedTransition=null
             expectedSeek=null
             runCatching { tail.stop() }
             runCatching { releaseTail() }
             runCatching { tail.release() }
+            log("crossfade_tail_released")
         }
     }
 
@@ -363,8 +416,9 @@ internal class Crossfader(private val context: Context, private val scope: Corou
         expectedTransition=null
         expectedSeek=null
         // Restore synchronously before a sleep timer or another volume owner captures the level.
-        originalVolume?.let {mainPlayer?.volume=it};originalVolume=null
+        owner.release()?.let {mainPlayer?.volume=it}
         clearVisualBlend()
+        if(fade?.isActive==true) log("crossfade_cancelled reason=ended_from_outside")
         fade?.cancel()
     }
 

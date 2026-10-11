@@ -2,7 +2,7 @@
 # ML Kit, OkHttp, Ktor, Coil, quickjs-kt). Add a rule here only for something that broke, and say why.
 
 # CipherBridgeInstaller replaces this field by name to run QuickJS in the :solver process (W1.2).
-# Without it the bridge falls back to the in-process cipher and a QuickJS crash kills playback again.
+# Without it the bridge cannot be installed and online playback is refused (scripts/quality/check_solver_seam.py).
 -keepclassmembers class com.metrolist.innertubex.extraction.InnerTubeExtractor {
     com.metrolist.innertubex.extraction.ExtractionCipherService cipherService;
 }

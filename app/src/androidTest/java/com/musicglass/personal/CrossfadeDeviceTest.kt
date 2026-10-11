@@ -69,6 +69,7 @@ class CrossfadeDeviceTest {
         var handoffStarted=0L
         val samples=mutableListOf<Triple<Float,Float,Float>>()
         val retiredSamples=mutableListOf<Boolean>()
+        val sampleTimes=mutableListOf<Long>()
         var tailStoppedDuringBlend=false
         val blockMainReadsUntil=AtomicLong(0)
         suspend fun await(label:String="condition",timeout:Long=15_000,predicate:()->Boolean) {
@@ -121,6 +122,7 @@ class CrossfadeDeviceTest {
                             while(visual===blend) {
                                 samples+=Triple(blend.progress,player.volume,tail!!.volume)
                                 retiredSamples+=tailStoppedDuringBlend
+                                sampleTimes+=android.os.SystemClock.elapsedRealtime()
                                 delay(8)
                             }
                         }
@@ -219,13 +221,15 @@ class CrossfadeDeviceTest {
                     if(scenario=="complete" || scenario=="enable-later" || scenario=="tail-end" || scenario=="buffer-before" || scenario in setOf("short-one","short-two","short-fade","short-late")) {
                         assertTrue("Incoming position=${main!!.currentPosition}, declared overlap=$handoffDuration, events=$events",
                             android.os.SystemClock.elapsedRealtime()-handoffStarted>=handoffDuration-50 && main!!.currentPosition>0)
-                        instrumentation.sendStatus(0,Bundle().apply {putString("crossfade_fixture","scenario=$scenario overlap=${handoffDuration}ms incoming=${main!!.currentPosition}ms")})
+                        // Logged, not sent as a status: a status with code 0 reads as a finished test to the evidence collector.
+                        android.util.Log.i("RiffDeviceTest","crossfade_fixture scenario=$scenario overlap=${handoffDuration}ms incoming=${main!!.currentPosition}ms")
                         if(scenario in setOf("short-one","short-two","short-fade")) {
                             val expected=when(scenario) {"short-one"->1000;"short-two"->2000;else->3000}
                             assertTrue("Selected fade became too short: ${handoffDuration}ms for $expected ms; $events; clocks=$clocks",handoffDuration>=expected-250)
                         }
                         samples+=Triple(1f,.8f,0f)
                         retiredSamples+=true
+                        sampleTimes+=android.os.SystemClock.elapsedRealtime()
                         assertTrue("Sample the entire audio ramp",samples.size>50)
                         for((index,sample) in samples.withIndex()) {
                             val (progress,incoming,outgoing)=sample
@@ -234,9 +238,14 @@ class CrossfadeDeviceTest {
                             else assertTrue("An ended tail must stay silent or retain its ramp gain",outgoing==0f || kotlin.math.abs(.8f*expected.first-outgoing)<.001f)
                             assertEquals(.8f*expected.second,incoming,.001f)
                         }
-                        samples.zipWithNext().forEach {(before,after)->
-                            assertTrue("Incoming gain must rise smoothly",after.second-before.second in -.001f.. .08f)
-                            if(scenario!="tail-end") assertTrue("Outgoing gain must fall smoothly",before.third-after.third in -.001f.. .08f)
+                        samples.zipWithNext().forEachIndexed {index,(before,after)->
+                            // A slow device reads less often. Between two reads a gain may move by what the curve allows
+                            // for the time that passed (plus one 50 ms tick), never by more.
+                            val elapsed=sampleTimes[index+1]-sampleTimes[index]
+                            val allowed=maxOf(.08f,.8f*(kotlin.math.PI/2).toFloat()*(elapsed+50)/handoffDuration+.01f)
+                            assertTrue("Incoming gain must rise smoothly: ${after.second-before.second} in $elapsed ms",after.second-before.second in -.001f..allowed)
+                            // A copy that has played to its end has no more audio; its level going to zero is not a step in sound.
+                            if(scenario!="tail-end" && !retiredSamples[index+1]) assertTrue("Outgoing gain must fall smoothly: ${before.third-after.third} in $elapsed ms",before.third-after.third in -.001f..allowed)
                             else assertTrue("An ended outgoing decoder must never regain volume",after.third<=before.third+.001f)
                         }
                     }
@@ -255,9 +264,7 @@ class CrossfadeDeviceTest {
                     assertNull(main!!.playerError)
                 }
             }
-            InstrumentationRegistry.getInstrumentation().sendStatus(0,Bundle().apply {
-                putString("crossfade_device","$scenario passed; visualStarts=$visualStarts gainSamples=${samples.size}")
-            })
+            android.util.Log.i("RiffDeviceTest","crossfade_device $scenario passed; visualStarts=$visualStarts gainSamples=${samples.size}")
         } finally {
             withContext(Dispatchers.Main) {crossfader?.release()}
             // Let the canceled blend release its second renderer before releasing the main one.

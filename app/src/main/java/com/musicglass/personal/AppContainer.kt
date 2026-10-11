@@ -65,6 +65,9 @@ internal data class RuntimeDependencies(
     val resolver: StreamResolver? = null,
     val storedScopeKeys: (Context) -> Set<String> = ::storedAccountScopeKeys,
     val startProviderBackgroundWork: Boolean = true,
+    /** Points the extractor at the solver process. A failure here leaves online resolution refused, never in-process. */
+    val installSolverBridge: (com.metrolist.innertubex.extraction.InnerTubeExtractor, CipherBackend) -> Unit =
+        { extractor, backend -> CipherBridgeInstaller.install(extractor, backend) },
 ) {
     companion object {
         fun android(context: Context): RuntimeDependencies {

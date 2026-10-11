@@ -233,10 +233,15 @@ internal class YouTubeMusicProvider(context: Context,
     private val configStore = RemotePlayerConfigStore(http, AppPlayerConfigRepository(context))
     private val configParser = YtConfigParserImpl(http, innerTube, configStore)
     private val streamTokens = AndroidStreamTokenProvider(context.applicationContext, http, onEvent = { playbackEvents.append(it) })
-    // In-process cipher: used only if the :solver bridge can't be installed (see CipherBridgeInstaller).
-    private val streamCipher=YouTubeCipherService(http,configStore)
+    // The library needs one of its own ciphers to build the extractor. It is replaced by the :solver bridge
+    // before any use; if that fails, online resolution is refused (requireSolver) and this one never runs.
+    private val unusedInProcessCipher=YouTubeCipherService(http,configStore)
     private val remoteCipher=RemoteCipherClient(context.applicationContext,onEvent={playbackEvents.append(it)})
-    private var cipherIsolated=false
+    internal var cipherIsolated=false
+        private set
+    /** Fail closed: challenges are never solved in the process that plays audio. */
+    private fun requireSolver():RemoteCipherClient =
+        if(cipherIsolated) remoteCipher else throw SolverUnavailableException("Solver bridge is not installed")
     private val extractor = InnerTubeExtractor(
         configParser = object : YtConfigParser by configParser {
             override suspend fun fetchConfig(videoId: String, useLoginCookies: Boolean) =
@@ -245,7 +250,7 @@ internal class YouTubeMusicProvider(context: Context,
                     configParser.fetchEmbeddedConfig(videoId, useLoginCookies = false)
                 }
         },
-        cipherService = streamCipher,
+        cipherService = unusedInProcessCipher,
         innerTube = innerTube,
         tokenProvider = streamTokens,
     )
@@ -269,9 +274,9 @@ internal class YouTubeMusicProvider(context: Context,
             }
             execute(request)
         }
-        cipherIsolated=runCatching {CipherBridgeInstaller.install(extractor,remoteCipher)}
+        cipherIsolated=runCatching {dependencies.installSolverBridge(extractor,remoteCipher)}
             .onFailure {playbackEvents.append("solver_bridge_unavailable ${it.javaClass.simpleName}")}.isSuccess
-        refreshAccount();if (dependencies.startProviderBackgroundWork) runtimeScope.launch {dependencies.wait(2000);runCatching {extractor.prewarm()}}
+        refreshAccount();if (cipherIsolated && dependencies.startProviderBackgroundWork) runtimeScope.launch {dependencies.wait(2000);runCatching {extractor.prewarm()}}
     }
 
     fun refreshAccount(): Boolean {
@@ -1085,6 +1090,7 @@ internal class YouTubeMusicProvider(context: Context,
         try {
             val revision = authRevision
             require(videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) { "Invalid video ID" }
+            requireSolver()
             val stream = extractor.extract(
                 videoId = videoId,
                 hints = ContentHints(wantVideo = video,isLive = live,maxVideoHeight=if(quality==AudioQuality.LOW) 360 else 720).withStreamCapabilities(
@@ -1110,8 +1116,7 @@ internal class YouTubeMusicProvider(context: Context,
                 val config=try {configParser.fetchConfig(videoId,useLoginCookies=false)} catch(_:IllegalStateException) {configParser.fetchEmbeddedConfig(videoId,useLoginCookies=false)}
                 playbackEvents.append("manifest_challenge_found")
                 val challengeUrl="https://manifest.googlevideo.com/videoplayback?n=$challenge"
-                val processed=if(cipherIsolated) remoteCipher.processNParameter(config.playerUrl,challengeUrl)
-                    else streamCipher.processNParameter(config.playerUrl,challengeUrl)
+                val processed=requireSolver().processNParameter(config.playerUrl,challengeUrl)
                 processed?.toHttpUrl()?.queryParameter("n")
             } else stream.audioUrl
             playbackEvents.append("manifest_ready hls=$hls")

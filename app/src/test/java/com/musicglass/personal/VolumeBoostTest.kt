@@ -38,6 +38,37 @@ class VolumeBoostTest {
         val restored=apply(boost,pcm(*IntArray(3000) {-1000}),channels=2)
         assertEquals(-1000,restored.last())
     }
+    /** Q08: a generated full-scale tone at off, the default and the maximum, alone and under a blend's levels. */
+    @Test fun generatedToneStaysFiniteAndBoundedAtOffDefaultAndMaximum() {
+        val tone=IntArray(48_000) {(kotlin.math.sin(2*Math.PI*440*it/48_000)*32767).toInt()}
+        val quiet=IntArray(48_000) {tone[it]/8}
+        for((enabled,percent) in listOf(false to 200,true to 200,true to 300)) {
+            val gain=boostGain(enabled,percent)
+            assertTrue(gain.isFinite() && gain in 1f..3f)
+            assertTrue(boostMillibels(gain) in 0..955)
+            for(source in listOf(tone,quiet)) {
+                val boost=PcmVolumeBoost().apply {targetGain=gain;reset()}
+                val result=apply(boost,pcm(*source))
+                assertEquals(source.size,result.size)
+                assertTrue("Samples stay inside 16-bit PCM",result.all {it in -32768..32767})
+                // The knee limits, it does not wrap: every sample keeps the sign of its source.
+                assertTrue(result.indices.all {source[it]==0 || result[it]==0 || (source[it]>0)==(result[it]>0)})
+                // A louder sample in never comes out quieter than a softer one: the limiter is monotonic.
+                val ramp=apply(PcmVolumeBoost().apply {targetGain=gain;reset()},pcm(*IntArray(32_768) {it}))
+                assertTrue(ramp.zipWithNext().all {(a,b)->b>=a})
+                if(gain==1f) assertEquals(source.toList(),result)
+                // What the player's level then does to it, at every point of an equal-power blend.
+                for(step in 0..100) {
+                    val (out,incoming)=crossfadeGains(step/100f)
+                    val peak=result.maxOf {kotlin.math.abs(it)}
+                    assertTrue((peak*out).isFinite() && peak*out<=32768f && peak*incoming<=32768f)
+                }
+            }
+        }
+        // Two full-scale songs in a blend can add up to more than full scale at the output mixer: 1.41 at the midpoint.
+        val (out,incoming)=crossfadeGains(.5f)
+        assertEquals(1.414f,out+incoming,.001f)
+    }
     @Test fun invalidAndOutOfRangePreferencesStaySafe() {
         assertEquals(1f,boostGain(false,300),0f);assertEquals(3f,boostGain(true,900),0f)
         assertEquals(1f,boostGain(true,-1),0f)
