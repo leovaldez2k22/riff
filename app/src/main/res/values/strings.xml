@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Riff</string>
 <string name="widget_compact_name">Riff · Compact</string><string name="widget_compact_description">Compact music controls with current song artwork</string>
 <string name="widget_wide_name">Riff · Wide</string><string name="widget_wide_description">Wide music controls with current song artwork</string>
@@ -59,8 +59,9 @@
     <string name="x_x_and_x">%1$s, %2$s and %3$s</string>
     <string name="x_from_before_this_update_are_not_assigned">%1$s from before this update are not assigned to an account.</string>
     <string name="x_from_before_this_update_is_not_assigned">%1$s from before this update is not assigned to an account.</string>
-    <string name="x_saved_x_could_not_be_updated">%1$d saved; %2$d could not be updated.</string>
-    <string name="x_not_confirmed_by_youtube_music">%1$d not confirmed by YouTube Music.</string>
+    <!-- Two counts in one sentence: neither can choose the form on its own. -->
+    <string name="x_saved_x_could_not_be_updated" tools:ignore="PluralsCandidate">%1$d saved; %2$d could not be updated.</string>
+    <plurals name="n_not_confirmed_by_youtube_music"><item quantity="one">%1$d not confirmed by YouTube Music.</item><item quantity="other">%1$d not confirmed by YouTube Music.</item></plurals>
     <string name="x_retry_the_remaining_selections">%1$s. Retry the remaining selections.</string>
     <plurals name="n_recently_played"><item quantity="one">%1$d recently played</item><item quantity="other">%1$d recently played</item></plurals>
     <string name="x_tab">%1$s tab</string>

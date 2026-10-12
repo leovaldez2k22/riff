@@ -1,5 +1,6 @@
 package com.musicglass.personal
 
+import android.annotation.SuppressLint
 import android.os.Build
 import android.os.SystemClock
 import android.view.HapticFeedbackConstants
@@ -14,6 +15,7 @@ internal enum class HapticCue { Selection, Click, Confirm, Reject, ToggleOn, Tog
  * The platform constant for a cue. Four of them arrived in API 34; before that the view ignores them, so an
  * older phone gets the nearest constant it does know instead of nothing.
  */
+@SuppressLint("InlinedApi") // each newer constant is only chosen where sdk says the phone knows it
 internal fun hapticConstant(cue: HapticCue, sdk: Int = Build.VERSION.SDK_INT): Int = when(cue) {
     HapticCue.Confirm -> HapticFeedbackConstants.CONFIRM
     HapticCue.Reject -> HapticFeedbackConstants.REJECT

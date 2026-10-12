@@ -33,7 +33,7 @@ internal suspend fun <T> sessionSafeMutation(block:suspend ()->T):Result<T> = su
  */
 internal data class PlaylistBatchResult(val completed:Set<String>,val failures:Map<String,String>,val unconfirmed:Set<String> = emptySet()) {
     fun summary():String = listOfNotNull(string(R.string.x_saved_x_could_not_be_updated, completed.size, failures.size),
-        if(unconfirmed.isNotEmpty()) string(R.string.x_not_confirmed_by_youtube_music, unconfirmed.size) else null,
+        if(unconfirmed.isNotEmpty()) quantity(R.plurals.n_not_confirmed_by_youtube_music, unconfirmed.size) else null,
         string(R.string.x_retry_the_remaining_selections, failures.values.first().trimEnd('.'))).joinToString(" ")
 }
 internal suspend fun addToSelectedPlaylists(ids:Set<String>,add:suspend (String)->Result<Unit>):PlaylistBatchResult {

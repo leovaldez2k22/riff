@@ -61,8 +61,8 @@ surfaces, and that is what is tested. The glass itself is on the device checklis
 
 ## Text
 
-Every sentence and label the app shows or speaks is in `app/src/main/res/values/strings.xml`: 734 strings
-and 43 plurals, English only. No translation has been written, and none is claimed. The code reads them
+Every sentence and label the app shows or speaks is in `app/src/main/res/values/strings.xml`: 733 strings
+and 44 plurals, English only. No translation has been written, and none is claimed. The code reads them
 through `string()` and `quantity()` in `Strings.kt`, which use the application's resources, so text made
 outside a screen (a notification, an error from a repository) follows the language too.
 
