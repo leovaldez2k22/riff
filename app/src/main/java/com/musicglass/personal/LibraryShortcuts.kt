@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 internal fun songCountLabel(count: Int, noun: String = "song") = when (count) {
     0 -> "None yet"
@@ -44,7 +45,7 @@ internal data class DownloadSummary(val ready: Int, val active: Int, val covers:
 @Composable internal fun LibraryShortcutTiles(model: ShellModel) {
     val context = LocalContext.current
     val store = remember(context) { OfflineMusicStore.get(context) }
-    val revision by store.revision.collectAsState()
+    val revision by store.revision.collectAsStateWithLifecycle()
     var downloads by remember { mutableStateOf<DownloadSummary?>(null) }
     LaunchedEffect(revision) {
         downloads = withContext(Dispatchers.IO) {

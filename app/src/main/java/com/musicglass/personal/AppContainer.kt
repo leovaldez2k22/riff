@@ -156,7 +156,7 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
             runCatching { epochs.warm() }.onFailure { eventLog.append("state_open_failed kind=${it::class.simpleName}") }
             runCatching { legacyState.run() }.onFailure { eventLog.append("legacy_migration_failed kind=${it::class.simpleName}") }
             // Retention is applied when the app runs, at most once a day. Nothing waits for it.
-            stateScope.launch { runCatching { localData.pruneIfDue() } }
+            stateScope.launch { suspendCatching { localData.pruneIfDue() } }
             Unit
         }
     }

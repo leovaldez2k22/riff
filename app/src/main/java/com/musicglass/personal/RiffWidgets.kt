@@ -51,11 +51,11 @@ internal object RiffWidgets {
             val manager=AppWidgetManager.getInstance(app)
             if(riffWidgetPresets.none {manager.getAppWidgetIds(ComponentName(app,it.receiver)).isNotEmpty()}) return@launch
             // The active owner's saved queue or the device's, never one from before owners existed.
-            val saved=runCatching {AppContainer.get(app).let {process->process.stateReady.await()
+            val saved=suspendCatching {AppContainer.get(app).let {process->process.stateReady.await()
                 process.snapshots.newest(listOfNotNull(OfflineMusicStore.get(app).currentScope.takeIf {it!=UNVERIFIED_SCOPE_KEY},DEVICE_LOCAL_SCOPE_KEY))?.snapshot}}.getOrNull()
             val state=current?:saved?.let {s->val q=s.queue[s.index];WidgetState(q.title,q.artist,q.artworkUrl,false,s.queue.getOrNull(s.index+1)?.title.orEmpty(),true)}?:WidgetState()
             configureArtworkLoader(app)
-            val bitmap=state.art?.let {url->withTimeoutOrNull(3500) {runCatching {
+            val bitmap=state.art?.let {url->withTimeoutOrNull(3500) {suspendCatching {
                 SingletonImageLoader.get(app).execute(ImageRequest.Builder(app).data(url).size(256).allowHardware(false).build()).image?.toBitmap()
             }.getOrNull()}}
             if(ticket!=generation.get()) return@launch

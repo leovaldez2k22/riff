@@ -27,6 +27,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 internal enum class PrivacyAction { ClearAccountHistory, ClearDeviceHistory, ClearSearches, DeleteDownloads, DeleteAccountData, ShortenRetention }
 
@@ -87,9 +88,9 @@ internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult): St
     documents: DocumentPicker = rememberSystemDocuments(), onSettingsImported: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val plays by process.history.revision.collectAsState()
-    val queues by process.snapshots.revision.collectAsState()
-    val downloadsRevision by remember { OfflineMusicStore.get(context).revision }.collectAsState()
+    val plays by process.history.revision.collectAsStateWithLifecycle()
+    val queues by process.snapshots.revision.collectAsStateWithLifecycle()
+    val downloadsRevision by remember { OfflineMusicStore.get(context).revision }.collectAsStateWithLifecycle()
     var refresh by remember { mutableIntStateOf(0) }
     val ownerKey = remember(provider.authRevision, provider.storageRevision) { provider.storageScopeKey() }
     val verified = ownerKey != UNVERIFIED_SCOPE_KEY

@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import java.util.Locale
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /** Keep the provider's ordering, moving just Forgotten favourites behind Quick picks. */
 internal fun orderedHomeShelves(shelves:List<ProviderHomeSection>):List<ProviderHomeSection> {
@@ -23,7 +24,7 @@ internal fun orderedHomeShelves(shelves:List<ProviderHomeSection>):List<Provider
 @Composable internal fun MoodBackdrop(mood:String) {
     val context=androidx.compose.ui.platform.LocalContext.current
     val repository=remember(context) {MoodPhotos.get(context)}
-    val photos by repository.photos.collectAsState()
+    val photos by repository.photos.collectAsStateWithLifecycle()
     val photo=photos[mood]
     LaunchedEffect(mood) {repository.ensure(mood)}
     Box(Modifier.fillMaxSize().background(Color.Black)) {

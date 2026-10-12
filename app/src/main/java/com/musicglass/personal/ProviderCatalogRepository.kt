@@ -356,7 +356,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                 continuation=catalogContinuation(moreRoot)?.takeUnless {it==token}
             }
             if (revision == authRevision) {cachedHome = sections;podcastEndpoint=catalogBrowseFilter(root,"Podcasts");homeMoods=parseHomeMoods(root)
-                runtimeScope.launch {runCatching {
+                runtimeScope.launch {suspendCatching {
                     val extra=innerTube.browse(YouTubeClient.WEB_REMIX,browseId="FEmusic_moods_and_genres",setLogin=signedIn)
                     if(extra.status.value<400 && revision==authRevision) homeMoods=(homeMoods+parseHomeMoods(json.parseToJsonElement(extra.bodyAsText()))).distinctBy {it.title}
                 }}}

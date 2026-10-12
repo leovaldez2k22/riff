@@ -38,6 +38,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (ProviderTrack)->Unit) {
     if(card.browseId != null && card.kind !in setOf(CatalogKind.Song,CatalogKind.Live,CatalogKind.Episode)) {
@@ -78,7 +79,6 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     LaunchedEffect(history,searchOwner) {history.bind(searchOwner)}
     val focus=remember {FocusRequester()}
     LaunchedEffect(model.searchFocusRequest) {if(model.searchFocusRequest>0) {delay(150);focus.requestFocus();keyboard?.show()}}
-    val glassBounds=LocalGlassBounds.current
     val voice=remember(context) { VoiceSearchController(context) }
     DisposableEffect(voice) {onDispose {voice.close()}}
     val micPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {granted->
@@ -183,7 +183,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
 @Composable internal fun MediaExploreScreen(model:ShellModel,bottom:Dp,title:String,provider:YouTubeMusicProvider,
     playback:PlaybackGateway,onNotice:(String)->Unit) {
     val scope=rememberCoroutineScope();val genre=if(title=="Radio") model.radioCategory else model.podcastGenre
-    val epoch by provider.feedCache.revision.collectAsState()
+    val epoch by provider.feedCache.revision.collectAsStateWithLifecycle()
     val cacheKey=if(title=="Radio") radioFeedKey(genre) else "podcasts:$genre"
     var shelves by remember(title,genre,provider.authRevision) {mutableStateOf(provider.cachedFeed(cacheKey).orEmpty())}
     var loading by remember {mutableStateOf(true)};var error by remember {mutableStateOf<String?>(null)};var retry by remember {mutableIntStateOf(0)}

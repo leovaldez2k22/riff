@@ -46,6 +46,13 @@
 - Changed: if Riff cannot hand stream solving to its separate solver process, online songs now fail with "Online playback resolver unavailable" and Retry. Before, solving silently ran inside the playing process, where a crash would stop the music. Downloads and files on the phone are unaffected.
 - Changed: History replays an entry for audio stored on the phone only when the file's title still matches. Before, the entry could start a different file that had taken the same number.
 - Fixed: Privacy and data could briefly show empty counts when two of its readings overlapped.
+- Internal restructuring with no intended change to what screens show: navigation uses typed, validated routes; the playback service and the provider are split by responsibility. See [docs/quality/architecture.md](docs/quality/architecture.md).
+- Fixed: each tab keeps its own open album, artist or playlist. Before, one was shared by every tab and switching tabs could show the wrong one.
+- The saved place in each tab now carries a version. Saved places from earlier builds are still read; a screen this build does not have is skipped.
+- Screens stop reading background updates while Riff is not on screen and catch up when it returns.
+- Fixed: work that was cancelled (leaving a screen, switching account) could carry on briefly and report a failure instead of stopping.
+- Changed: asking Riff to play an audio file that cannot be read now reports the failure after the request is queued, instead of checking the file on the main thread first.
+- Removed code that no screen could reach: an older queue panel, unused saved-track toggles and unused motion constants.
 
 ### Historical October 6 update
 

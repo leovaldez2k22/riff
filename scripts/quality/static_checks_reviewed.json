@@ -1,0 +1,29 @@
+{
+  "_note": "Each entry covers the lines of one file that contain the fragment. See static_checks.py. An entry that matches nothing fails the check.",
+  "cancellation": [
+    {"file": "PlaybackGateway.kt", "contains": "} catch (error: Exception) {", "reason": "A listener on a controller future, run on the main executor. There is no coroutine here to cancel."},
+    {"file": "PlaybackGateway.kt", "contains": "catch(_:Exception){commandError=PlaybackFailure(PlaybackFailureKind.CollectionRejected)", "reason": "A listener on a command future, run on the main executor. There is no coroutine here to cancel."},
+    {"file": "PlaybackGateway.kt", "contains": "} catch (_: Exception) {", "reason": "A listener on a command future, run on the main executor. There is no coroutine here to cancel."},
+    {"file": "LegacyStateMigration.kt", "contains": "} catch (error: Exception) {", "reason": "The migration steps are ordinary blocking functions; nothing in them suspends. The names they share with suspending functions are the stores' blocking calls."},
+    {"file": "LocalDataTransfer.kt", "contains": "catch (error: Exception) { return ImportOutcome.Failed(", "reason": "An import runs under NonCancellable so that it never stops between two stores. It is stopped through the caller's flag, which is checked between records."},
+    {"file": "SolverService.kt", "contains": "val result: Result<String?> = runCatching {", "reason": "A Binder transaction in the solver process. The reply must always be written; the caller's own timeout ends the wait."}
+  ],
+  "blocking": [
+    {"file": "PlaybackPersistence.kt", "contains": "runBlocking { withTimeoutOrNull(FLUSH_WAIT_MS)", "reason": "Lifecycle handoff in onTaskRemoved and onDestroy: Android gives no later moment to finish the write. Bounded to 1.5 s; the write itself runs on the IO dispatcher."},
+    {"file": "SabrPlaybackTransport.kt", "contains": "runBlocking { checkNotNull(chunks).receiveCatching() }", "reason": "DataSource.read is a blocking call made on the player's loader thread, never the main thread."},
+    {"file": "SolverService.kt", "contains": "runBlocking {", "reason": "Binder threads and onDestroy of the separate solver process, which has no screen and plays no audio."}
+  ],
+  "direction": [
+    {"file": "AccountScreen.kt", "contains": "CookieManager.getInstance().setAccept", "reason": "Turns cookies on for the sign-in WebView this screen hosts. It reads no cookie; the session is read by ProviderSessionManager."}
+  ],
+  "position": [
+    {"file": "NowPlaying.kt", "contains": "val position = if(live) 0f else if (dragging) preview else playback.positionMs", "reason": "The seek bar and its time labels: the one composable that shows the position."},
+    {"file": "LyricsPanel.kt", "contains": "snapshotFlow { playback.positionMs }", "reason": "Read inside a snapshotFlow in an effect, not in composition; only the active line's index reaches the screen."},
+    {"file": "PlayerPresentation.kt", "contains": "miniDrag.target = morph.position.value", "reason": "Read once in a drag callback when the drag starts, not in composition."},
+    {"file": "PlayerPresentation.kt", "contains": "fullDrag.target = morph.position.value", "reason": "Read once in a drag callback when the drag starts, not in composition."},
+    {"file": "RiffApp.kt", "contains": "derivedStateOf { sceneHasChrome && (playerMorph.position.value < .999f", "reason": "Inside derivedStateOf: the shell recomposes only when the result flips, not on every frame of the drag."},
+    {"file": "RiffApp.kt", "contains": "derivedStateOf { model.sheet.isNotEmpty() || playerMorph.position.value > .001f }", "reason": "Inside derivedStateOf: the shell recomposes only when the result flips, not on every frame of the drag."},
+    {"file": "RiffApp.kt", "contains": "miniMorph = { playerMorph.position.value },", "reason": "Passed as a lambda and read in the mini player's draw and layout phases, so the shell is not recomposed."},
+    {"file": "RiffApp.kt", "contains": "PlayerMorphHost({ playerMorph.position.value },", "reason": "Passed as a lambda and read where the player is drawn, so the shell and the screens under it are not recomposed."}
+  ]
+}

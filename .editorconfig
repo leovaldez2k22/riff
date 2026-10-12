@@ -1,0 +1,26 @@
+# Riff source formatting (Q11). Editors and formatters that read .editorconfig follow this.
+# Existing files keep the line endings and density they have; nothing here asks for a mass reformat.
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+max_line_length = 200
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+ij_kotlin_packages_to_use_import_on_demand = unset
+
+[*.{py,ps1,json,xml,toml,properties,gradle}]
+indent_style = space
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{bat,cmd}]
+end_of_line = crlf

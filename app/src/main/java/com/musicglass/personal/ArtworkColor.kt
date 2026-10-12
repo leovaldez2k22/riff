@@ -21,8 +21,8 @@ private val artworkColors=java.util.Collections.synchronizedMap(object:LinkedHas
     LaunchedEffect(url) {
         if(url==null) return@LaunchedEffect
         artworkColors[url]?.let {target=it;return@LaunchedEffect}
-        val color=withContext(Dispatchers.IO) {runCatching {
-            val image=SingletonImageLoader.get(context).execute(ImageRequest.Builder(context).data(url).size(72).allowHardware(false).build()).image?:return@runCatching null
+        val color=withContext(Dispatchers.IO) {suspendCatching {
+            val image=SingletonImageLoader.get(context).execute(ImageRequest.Builder(context).data(url).size(72).allowHardware(false).build()).image?:return@suspendCatching null
             val bitmap=image.toBitmap();val pixels=IntArray(bitmap.width*bitmap.height)
             bitmap.getPixels(pixels,0,bitmap.width,0,0,bitmap.width,bitmap.height)
             val rgb=dominantArtworkRgb(pixels)

@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.*
 import kotlinx.coroutines.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 internal suspend fun requestSongDownload(context:Context,track:ProviderTrack,onNotice:(String)->Unit) {
     try {
@@ -63,7 +64,7 @@ internal suspend fun requestCollectionDownload(context:Context,tracks:List<Provi
 @androidx.annotation.OptIn(markerClass=[androidx.media3.common.util.UnstableApi::class])
 @Composable internal fun DownloadSettings(model:ShellModel,onNotice:(String)->Unit) {
     val context=LocalContext.current;val store=remember {OfflineMusicStore.get(context)}
-    val revision by store.revision.collectAsState();val scope=rememberCoroutineScope()
+    val revision by store.revision.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
     var enabled by remember {mutableStateOf(store.smartEnabled)}
     var mobile by remember {mutableStateOf(store.allowMobileData)}
     var budgetIndex by remember {mutableFloatStateOf(downloadBudgetIndex(store.budgetBytes).toFloat())}
@@ -117,7 +118,7 @@ internal suspend fun requestCollectionDownload(context:Context,tracks:List<Provi
 private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val artwork:String?)
 @Composable internal fun DownloadsScreen(model:ShellModel,bottom:Dp,playback:PlaybackGateway,onNotice:(String)->Unit) {
     val context=LocalContext.current;val store=remember {OfflineMusicStore.get(context)}
-    val provider=remember {YouTubeMusicProvider.shared(context)};val revision by store.revision.collectAsState()
+    val provider=remember {YouTubeMusicProvider.shared(context)};val revision by store.revision.collectAsStateWithLifecycle()
     val scope=rememberCoroutineScope();val listState=rememberLazyListState()
     var entries by remember {mutableStateOf<List<DownloadDisplay>>(emptyList())}
     var loaded by remember {mutableStateOf(false)};var used by remember {mutableLongStateOf(0)}

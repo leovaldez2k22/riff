@@ -179,14 +179,6 @@ internal class LocalCollections(context: Context, initialAccountScope: String? =
         return true
     }
 
-    fun clearCurrentAccountOnlineData() {
-        listOf("online_favorites", "online_playlist", "online_history").forEach { key ->
-            accountKey(key)?.let { prefs.edit().remove(it).apply() }
-        }
-        onlineFavorites = emptyList()
-        onlinePlaylist = emptyList()
-        onlineHistory = emptyList()
-    }
     fun refresh() {
         historyEnabled = prefs.getBoolean("history_enabled", true)
         onlineFavorites = readScopedProvider("online_favorites")
@@ -201,20 +193,6 @@ internal class LocalCollections(context: Context, initialAccountScope: String? =
         if(accountScope==null) return
         onlineFavorites=if(saved) (onlineFavorites+track).distinctBy(ProviderTrack::videoId) else onlineFavorites.filterNot {it.videoId==track.videoId}
         saveProvider("online_favorites",onlineFavorites)
-    }
-    fun toggleOnlineFavorite(track: ProviderTrack) {
-        if (accountScope == null) return
-        onlineFavorites = if (onlineFavorites.any { it.videoId == track.videoId })
-            onlineFavorites.filterNot { it.videoId == track.videoId }
-        else onlineFavorites + track
-        saveProvider("online_favorites", onlineFavorites)
-    }
-    fun toggleOnlinePlaylist(track: ProviderTrack) {
-        if (accountScope == null) return
-        onlinePlaylist = if (onlinePlaylist.any { it.videoId == track.videoId })
-            onlinePlaylist.filterNot { it.videoId == track.videoId }
-        else onlinePlaylist + track
-        saveProvider("online_playlist", onlinePlaylist)
     }
     fun recordOnlinePlayed(track: ProviderTrack) {
         if (accountScope == null || !historyEnabled) return

@@ -356,8 +356,6 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                     ((p - .05f) / .15f).coerceIn(0f, 1f)
                 val fullTextWidth = { name: String -> fullElementBounds[name]?.let { with(measure) { it.width.toDp() } }
                     ?: (fullWidth - 120.dp) }
-                val titleWidth = (miniWidth - 168.dp).coerceAtLeast(48.dp) * (1f - p) +
-                    (fullWidth - 120.dp).coerceAtLeast(48.dp) * p
                 Text(state.title, color = White,
                     fontSize = 22.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,

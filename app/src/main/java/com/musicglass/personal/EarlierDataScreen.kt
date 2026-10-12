@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private enum class EarlierAction { ImportPlays, DeletePlays, RestoreQueue, DeleteQueue, ImportSearches, DeleteSearches }
 
@@ -28,8 +29,8 @@ private enum class EarlierAction { ImportPlays, DeletePlays, RestoreQueue, Delet
     val legacy = process.legacyState
     val context = LocalContext.current
     val searches = remember(context) { SearchHistory.get(context) }
-    val plays by process.history.revision.collectAsState()
-    val queues by process.snapshots.revision.collectAsState()
+    val plays by process.history.revision.collectAsStateWithLifecycle()
+    val queues by process.snapshots.revision.collectAsStateWithLifecycle()
     var refresh by remember { mutableIntStateOf(0) }
     var earlier by remember { mutableStateOf<UnassignedInventory?>(null) }
     var preview by remember { mutableStateOf(ImportPreview(0, 0, false)) }
@@ -44,7 +45,7 @@ private enum class EarlierAction { ImportPlays, DeletePlays, RestoreQueue, Delet
     }
     LaunchedEffect(plays, queues, refresh, ownerKey) {
         val (found, importing) = withContext(process.runtime.dispatchers.io) {
-            runCatching { process.stateReady.await(); legacy.inventory() to legacy.previewImport(ownerKey) }
+            suspendCatching { process.stateReady.await(); legacy.inventory() to legacy.previewImport(ownerKey) }
                 .getOrDefault(UnassignedInventory() to ImportPreview(0, 0, false))
         }
         earlier = found; preview = importing

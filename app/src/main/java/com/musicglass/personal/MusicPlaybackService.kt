@@ -247,17 +247,6 @@ class MusicPlaybackService : MediaSessionService() {
                     if (id < 0 || uri.toString() !=
                         "content://media/external/audio/media/$id") return Futures.immediateFuture(
                         SessionResult(SessionError.ERROR_BAD_VALUE))
-                    try {
-                        if (contentResolver.openFileDescriptor(uri, "r")?.use { true } != true)
-                            return Futures.immediateFuture(
-                                SessionResult(SessionError.ERROR_BAD_VALUE))
-                    } catch (_: SecurityException) {
-                        return Futures.immediateFuture(
-                            SessionResult(SessionError.ERROR_PERMISSION_DENIED))
-                    } catch (_: java.io.IOException) {
-                        return Futures.immediateFuture(
-                            SessionResult(SessionError.ERROR_BAD_VALUE))
-                    }
                     val item = MediaItem.Builder().setMediaId("local:$id").setUri(uri)
                         .setMediaMetadata(MediaMetadata.Builder()
                             .setTitle(args.getString("title").orEmpty().take(180))
@@ -265,7 +254,11 @@ class MusicPlaybackService : MediaSessionService() {
                             .setAlbumTitle(args.getString("album").orEmpty().take(180))
                             .setExtras(Bundle().apply {putString(ENTRY_ID,queue.newEntryId())})
                             .build()).build()
-                    return queueCommand(replaces=true,prepare={}) {ticket,_->queue.playLocal(player,item,ticket)}
+                    // Opening the file asks the media provider, which is another process: never on the main thread.
+                    return queueCommand(replaces=true,prepare={withContext(Dispatchers.IO) {
+                        try {if(contentResolver.openFileDescriptor(uri,"r")?.use {true}==true) SessionResult.RESULT_SUCCESS else SessionError.ERROR_BAD_VALUE}
+                        catch(_:SecurityException) {SessionError.ERROR_PERMISSION_DENIED} catch(_:java.io.IOException) {SessionError.ERROR_BAD_VALUE}
+                    }}) {ticket,readable->if(readable!=SessionResult.RESULT_SUCCESS) SessionResult(readable) else queue.playLocal(player,item,ticket)}
                 }
                 if (customCommand.customAction != PLAY_PROVIDER_STREAM) return Futures.immediateFuture(
                     SessionResult(SessionError.ERROR_PERMISSION_DENIED))

@@ -85,7 +85,7 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
     init {
         cipherIsolated=runCatching {dependencies.installSolverBridge(extractor,remoteCipher)}
             .onFailure {playbackEvents.append("solver_bridge_unavailable ${it.javaClass.simpleName}")}.isSuccess
-        if (cipherIsolated && dependencies.startProviderBackgroundWork) runtimeScope.launch {dependencies.wait(2000);runCatching {extractor.prewarm()}}
+        if (cipherIsolated && dependencies.startProviderBackgroundWork) runtimeScope.launch {dependencies.wait(2000);suspendCatching {extractor.prewarm()}}
         session.onReset { synchronized(cacheLock) {streamCache.clear();streamFlights.values.forEach {it.cancel()};streamFlights.clear()} }
     }
 

@@ -30,7 +30,6 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.runtime.Composable
@@ -59,6 +58,7 @@ import androidx.compose.foundation.layout.statusBars
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.testTag
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGateway,
@@ -67,7 +67,7 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
     val scope = rememberCoroutineScope()
     val categories = listOf("All")+provider.homeMoods.map {it.title}
     val mood=model.homeMood
-    val epoch by provider.feedCache.revision.collectAsState()
+    val epoch by provider.feedCache.revision.collectAsStateWithLifecycle()
     val solidControls = LocalAccessibilitySettings.current.solidControls
     DisposableEffect(Unit) {
         onDispose { categories.forEach { onCategoryBounds(it, null) } }
@@ -96,7 +96,7 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
     val musicShelves = shelves.filterNot(::podcastShelf).withoutNotInterestedCards(hidden)
     val speed = if(feedReady) homeSpeedDialCandidates(recent,musicShelves).withoutNotInterested(hidden) else emptyList()
     val photoRepository=remember(photoContext) {MoodPhotos.get(photoContext)}
-    val photos by photoRepository.photos.collectAsState()
+    val photos by photoRepository.photos.collectAsStateWithLifecycle()
     var photoCredits by remember {mutableStateOf(false)}
     val currentPhoto=photos[mood]
     if(photoCredits && currentPhoto!=null) {

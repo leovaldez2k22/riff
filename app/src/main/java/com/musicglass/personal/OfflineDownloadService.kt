@@ -40,10 +40,6 @@ internal object OfflineDownloadScheduler {
         ensure(context.getSystemService(JobScheduler::class.java),JobInfo.Builder(MANUAL,ComponentName(context,OfflineDownloadJob::class.java))
             .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setRequiresStorageNotLow(true).setMinimumLatency(30_000).setBackoffCriteria(60_000,JobInfo.BACKOFF_POLICY_EXPONENTIAL).setPersisted(true).build())
     }
-    fun startManual(context:Context,track:ProviderTrack) {
-        OfflineMusicStore.get(context).enqueue(track)
-        DownloadCoordinator.start(context)
-    }
 }
 
 /** Starts the work for songs that were just queued by hand. */

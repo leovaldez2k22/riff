@@ -106,7 +106,7 @@ internal class LocalDataController(context: Context, private val history: Histor
             val remaining = mutableListOf<String>()
             fun part(name: String, count: Int?) { if (count == null) remaining += name else removed += count }
             part("listening history", runCatching { history.clearCounted(owner) }.getOrNull())
-            part("search history", runCatching { searches().clearOwner(owner) }.getOrNull())
+            part("search history", suspendCatching { searches().clearOwner(owner) }.getOrNull())
             // Raises the owner's counter: a save prepared before this cannot bring the queue back.
             part("saved queue", if (runCatching { snapshots.delete(owner) }.getOrNull() == StoreOutcome.Done) 0 else null)
             part("saved tracks", runCatching { clearCollectionScope(app, owner) }.getOrNull())

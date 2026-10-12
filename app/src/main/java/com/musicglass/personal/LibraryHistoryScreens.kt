@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
  * Every qualified play, newest first and grouped by day. Plays from YouTube Music belong to the
@@ -39,8 +40,8 @@ import kotlinx.coroutines.withContext
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val history = process.history
-    val revision by history.revision.collectAsState()
-    val queues by process.snapshots.revision.collectAsState()
+    val revision by history.revision.collectAsStateWithLifecycle()
+    val queues by process.snapshots.revision.collectAsStateWithLifecycle()
     var onDevice by rememberSaveable { mutableStateOf(false) }
     val accountKey = remember(provider.authRevision, provider.storageRevision) { provider.storageScopeKey() }
     val owner = if (onDevice) DEVICE_LOCAL_SCOPE_KEY else accountKey.takeIf { it != UNVERIFIED_SCOPE_KEY }
@@ -53,13 +54,13 @@ import kotlinx.coroutines.withContext
         if (query.isNotBlank()) delay(250) // one lookup per pause in typing
         if (owner == null) { entries = emptyList(); next = null; total = 0; return@LaunchedEffect }
         val (page, count) = withContext(process.runtime.dispatchers.io) {
-            runCatching { process.stateReady.await(); history.page(owner, null, query) to history.count(owner) }
+            suspendCatching { process.stateReady.await(); history.page(owner, null, query) to history.count(owner) }
                 .getOrDefault(HistoryPage(emptyList(), null) to 0)
         }
         entries = page.entries; next = page.next; total = count
     }
     LaunchedEffect(revision, queues) {
-        earlier = withContext(process.runtime.dispatchers.io) { runCatching { process.stateReady.await(); process.legacyState.inventory() }.getOrDefault(UnassignedInventory()) }
+        earlier = withContext(process.runtime.dispatchers.io) { suspendCatching { process.stateReady.await(); process.legacyState.inventory() }.getOrDefault(UnassignedInventory()) }
     }
     fun older() {
         val cursor = next ?: return; val from = owner ?: return; val wanted = query

@@ -56,12 +56,9 @@ internal fun preferredUiRefreshRate(rates: List<Float>): Float {
 }
 
 internal object GlassMotion {
-    const val targetFrameRate = 120f
     const val pressMs = 100
     const val selectionMs = 180
-    const val contentMs = 220
     const val screenMs = 280
-    const val modalMs = 300
     const val playerMs = 380
     const val artworkMs = 360
     const val ambientMs = 900

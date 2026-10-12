@@ -143,7 +143,6 @@ internal fun RiffApp() {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val cardPeek = remember(scope) { CardPeekController(scope) }
-    val queueSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     // Where the player is between the mini bar and the full screen. Its frames are read through lambdas and
     // derived state below, so a drag or a settle redraws the player and not the screens under it.
     val player = remember { PlayerPresentationState() }

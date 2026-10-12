@@ -471,63 +471,6 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         containerColor = Raised)
 }
 
-@Composable
-internal fun QueuePanel(playback: PlaybackGateway, onBack: () -> Unit) {
-    val motion = LocalMotionPolicy.current
-    val state = playback.state
-    Column(Modifier.fillMaxWidth().fillMaxHeight(.88f)
-        .preferredFrameRate(LocalUiRefreshRate.current).padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = hapticClick(onBack), modifier = Modifier.testTag("queue_back")) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to player", tint = White)
-            }
-            Text("Up next", color = White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        }
-        Text(state.queueMessage.ifBlank { if(state.queue.size>1) "Tap to play. Reorder with the arrows." else "${state.queue.size} song in queue." }, color = Muted, fontSize = 13.sp)
-        LazyColumn(Modifier.fillMaxWidth().weight(1f)
-            .testTag("queue_list"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            itemsIndexed(state.queue, key = { index,item -> "${item.mediaId}:$index" }) { index, item ->
-                Row(Modifier.fillMaxWidth().height(72.dp).clickable { uiHaptic();  playback.seekQueueItem(index) }.then(if (motion.reduced) Modifier
-                    else Modifier.animateItem())
-                    .clip(RoundedCornerShape(15.dp))
-                    .background(if (index == state.index) White.copy(alpha = .1f)
-                        else Color.Transparent), verticalAlignment = Alignment.CenterVertically) {
-                    Text("${index + 1}", color = Muted, fontSize = 13.sp,
-                        modifier = Modifier.width(28.dp))
-                    AsyncImage(item.artworkUrl,null,contentScale=ContentScale.Crop,modifier=Modifier.size(42.dp).clip(RoundedCornerShape(9.dp)).padding(end=6.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(item.title, color = White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(playerArtistLabel(item.artist), color = Muted, fontSize = 12.sp, maxLines = 1)
-                    }
-                    if (state.queue.size > 1) {
-                        IconButton(onClick = { uiHaptic();  playback.moveQueueItem(index, index - 1) },
-                            enabled = index > 0, modifier = Modifier.size(42.dp)
-                                .testTag("queue_up_$index")) {
-                            Icon(Icons.Rounded.ArrowUpward, contentDescription = "Move ${item.title} up",
-                                tint = White)
-                        }
-                        IconButton(onClick = { uiHaptic();  playback.moveQueueItem(index, index + 1) },
-                            enabled = index < state.queue.lastIndex, modifier = Modifier.size(42.dp)
-                                .testTag("queue_down_$index")) {
-                            Icon(Icons.Rounded.ArrowDownward, contentDescription = "Move ${item.title} down",
-                                tint = White)
-                        }
-                        IconButton(onClick = { uiHaptic();  playback.removeQueueItem(index) },
-                            enabled = state.queue.size > 1, modifier = Modifier.size(42.dp)
-                                .testTag("queue_remove_$index")) {
-                            Icon(Icons.Rounded.DeleteOutline, contentDescription = "Remove ${item.title}",
-                                tint = Muted)
-                        }
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 12.dp))
-    }
-}
-
-
 private fun collectionsCanSave(collections: LocalCollections) = collections.canSave
 
 /**
