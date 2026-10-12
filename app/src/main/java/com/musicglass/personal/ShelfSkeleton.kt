@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
 internal fun HomeFeedSkeleton(modifier: Modifier = Modifier) {
     val pulse = rememberSkeletonPulse()
     Column(modifier.fillMaxWidth().testTag("home_skeleton").clearAndSetSemantics {
-        contentDescription = "Loading Home"; liveRegion = LiveRegionMode.Polite
+        contentDescription = string(R.string.loading_home); liveRegion = LiveRegionMode.Polite
     }, verticalArrangement = Arrangement.spacedBy(28.dp)) {
         // Quick picks: HomeRowShelf geometry (300 dp columns of 58 dp rows, 10 dp apart).
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

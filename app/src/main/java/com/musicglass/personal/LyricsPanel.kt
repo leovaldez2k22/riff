@@ -73,7 +73,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
         translated=emptyList();translationStatus=""
         if(translate && document?.lines?.isNotEmpty()==true) try {
             translated=englishLyrics(context,document!!.lines,sourceLanguage) {translationStatus=it};translationStatus=""
-        } catch(e:CancellationException) {throw e} catch(e:Exception) {translationStatus=e.message?:"Translation unavailable. Try again."}
+        } catch(e:CancellationException) {throw e} catch(e:Exception) {translationStatus=e.message?:string(R.string.translation_unavailable_try_again)}
     }
     val motion = LocalMotionPolicy.current
     val list = rememberLazyListState()
@@ -122,34 +122,34 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
             Row(Modifier.fillMaxWidth().padding(start = 12.dp,end = 20.dp,top = 8.dp,bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = hapticClick(onBack),modifier = Modifier.testTag("lyrics_back")) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack,"Back to player",tint = White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack,string(R.string.back_to_player),tint = White)
                 }
                 Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                    Text("LYRICS",color = Pink,fontSize = 11.sp,letterSpacing = 2.sp,fontWeight = FontWeight.SemiBold)
-                    Text(state.title.ifBlank { "Nothing playing" },color = White,fontSize = 20.sp,
+                    Text(string(R.string.lyrics),color = Pink,fontSize = 11.sp,letterSpacing = 2.sp,fontWeight = FontWeight.SemiBold)
+                    Text(state.title.ifBlank { string(R.string.nothing_playing) },color = White,fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,maxLines = 1,overflow = TextOverflow.Ellipsis,
                         modifier=Modifier.lyricsSharedBounds("song-title:${state.mediaId}"))
                     Text(playerArtistLabel(state.artist),color = Muted,fontSize = 13.sp,maxLines = 1,
                         overflow = TextOverflow.Ellipsis,modifier=Modifier.lyricsSharedBounds("song-artist:${state.mediaId}"))
                 }
                 IconButton(onClick = { uiHaptic();  timingDialog = true },enabled = timed,modifier = Modifier.testTag("lyrics_timing")) {
-                    Icon(Icons.Rounded.Tune,"Adjust lyrics timing",tint = if (timed) White else Muted)
+                    Icon(Icons.Rounded.Tune,string(R.string.adjust_lyrics_timing),tint = if (timed) White else Muted)
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal=24.dp),verticalAlignment=Alignment.CenterVertically) {
-                FilterChip(translate,{ uiHaptic(HapticCue.Selection); translate=!translate},enabled=songLyrics?.lines?.isNotEmpty()==true,label={Text("English translation")},
+                FilterChip(translate,{ uiHaptic(HapticCue.Selection); translate=!translate},enabled=songLyrics?.lines?.isNotEmpty()==true,label={Text(string(R.string.english_translation))},
                     leadingIcon={Icon(Icons.Rounded.Translate,null,modifier=Modifier.size(18.dp))},modifier=Modifier.testTag("lyrics_translate"))
                 Spacer(Modifier.width(8.dp))
-                Box {TextButton({ uiHaptic(); languageMenu=true}) {Text(sourceLanguage?.let {java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.ENGLISH)}?:"Auto language",maxLines=1)}
+                Box {TextButton({ uiHaptic(); languageMenu=true}) {Text(sourceLanguage?.let {java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.ENGLISH)}?:string(R.string.auto_language),maxLines=1)}
                     SongActionMenu(languageMenu,{languageMenu=false},modifier=Modifier.heightIn(max=340.dp)) {
-                        DropdownMenuItem(text={Text("Auto detect")},onClick={ uiHaptic(); sourceLanguage=null;languageMenu=false})
+                        DropdownMenuItem(text={Text(string(R.string.auto_detect))},onClick={ uiHaptic(); sourceLanguage=null;languageMenu=false})
                         languages.forEach {language->DropdownMenuItem(text={Text(java.util.Locale.forLanguageTag(language).getDisplayLanguage(java.util.Locale.ENGLISH))},onClick={ uiHaptic(); sourceLanguage=language;languageMenu=false})}
                     }
                 }
             }
             if(translate && translationStatus.isNotBlank()) Text(translationStatus,color=Muted,fontSize=12.sp,modifier=Modifier.padding(horizontal=28.dp,vertical=4.dp))
             when {
-                songLyrics?.instrumental == true -> LyricsMessage("Instrumental","This recording has no sung lyrics.",Modifier.weight(1f))
+                songLyrics?.instrumental == true -> LyricsMessage(string(R.string.instrumental),string(R.string.this_recording_has_no_sung_lyrics),Modifier.weight(1f))
                 songLyrics != null && songLyrics.lines.isNotEmpty() -> {
                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                         val space = maxHeight / 3
@@ -174,24 +174,24 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                     verticalArrangement = Arrangement.Center) {
                     if (!motion.reduced) CircularProgressIndicator(color = Pink,modifier = Modifier.size(26.dp))
                     Spacer(Modifier.height(20.dp))
-                    Text("Finding the best lyrics\u2026",color = White,fontSize = 20.sp)
-                    Text("Looking for word and line timing",color = Muted,fontSize = 14.sp)
+                    Text(string(R.string.finding_the_best_lyrics),color = White,fontSize = 20.sp)
+                    Text(string(R.string.looking_for_word_and_line_timing),color = Muted,fontSize = 14.sp)
                 }
                 else -> Column(Modifier.weight(1f).fillMaxWidth().padding(28.dp),verticalArrangement = Arrangement.Center) {
-                    Text(if (failed) "Couldn't load lyrics" else "No lyrics found",color = White,fontSize = 26.sp,fontWeight = FontWeight.Bold)
-                    Text(if (failed) "Check your connection and try again." else "Lyrics aren't available for this recording yet.",
+                    Text(if (failed) string(R.string.couldn_t_load_lyrics) else string(R.string.no_lyrics_found),color = White,fontSize = 26.sp,fontWeight = FontWeight.Bold)
+                    Text(if (failed) string(R.string.check_your_connection_and_try_again) else string(R.string.lyrics_aren_t_available_for_this_recording),
                         color = Muted,fontSize = 15.sp,modifier = Modifier.padding(top = 10.dp,bottom = 16.dp))
-                    TextButton(onClick = { uiHaptic();  refresh++ },modifier = Modifier.testTag("lyrics_retry")) { Text("Try again",color = Pink) }
+                    TextButton(onClick = { uiHaptic();  refresh++ },modifier = Modifier.testTag("lyrics_retry")) { Text(string(R.string.try_again),color = Pink) }
                 }
             }
             if (!follow && timed) TextButton(onClick = { uiHaptic();  follow = true },
-                modifier = Modifier.align(Alignment.CenterHorizontally).testTag("lyrics_follow")) { Text("Follow lyrics",color = Pink) }
+                modifier = Modifier.align(Alignment.CenterHorizontally).testTag("lyrics_follow")) { Text(string(R.string.follow_lyrics),color = Pink) }
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp,vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(when { songLyrics?.wordTimed == true -> "Word synced"; timed -> "Line synced"
-                    songLyrics?.instrumental == true -> "Instrumental"; songLyrics != null -> "Text lyrics"; else -> "" },
+                Text(when { songLyrics?.wordTimed == true -> string(R.string.word_synced); timed -> string(R.string.line_synced)
+                    songLyrics?.instrumental == true -> string(R.string.instrumental); songLyrics != null -> string(R.string.text_lyrics); else -> "" },
                     color = Pink,fontSize = 12.sp,modifier = Modifier.testTag("lyrics_sync_level"))
-                if (loading && songLyrics != null) Text("\u00B7 Finding finer timing\u2026",color = Muted,fontSize = 11.sp,
+                if (loading && songLyrics != null) Text(string(R.string.finding_finer_timing),color = Muted,fontSize = 11.sp,
                     modifier = Modifier.weight(1f)) else Spacer(Modifier.weight(1f))
                 if (songLyrics != null) Text(songLyrics.source,color = Muted,fontSize = 11.sp,maxLines = 1,
                     modifier = Modifier.clickable { uiHaptic();  runCatching { uri.openUri(songLyrics.sourceUrl) } }
@@ -199,12 +199,12 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 8.dp),
                 horizontalArrangement = Arrangement.Center,verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = hapticClick(playback::previous),enabled = state.queue.size > 1) { Icon(Icons.Rounded.FastRewind,"Previous track",tint = Muted) }
+                IconButton(onClick = hapticClick(playback::previous),enabled = state.queue.size > 1) { Icon(Icons.Rounded.FastRewind,string(R.string.previous_track),tint = Muted) }
                 IconButton(onClick = hapticClick(playback::toggle),modifier = Modifier.size(56.dp).testTag("lyrics_toggle")) {
                     Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        if (state.playing) "Pause" else "Play",tint = White,modifier = Modifier.size(34.dp))
+                        if (state.playing) string(R.string.pause) else string(R.string.play),tint = White,modifier = Modifier.size(34.dp))
                 }
-                IconButton(onClick = hapticClick(playback::next),enabled = state.queue.size > 1) { Icon(Icons.Rounded.FastForward,"Next track",tint = Muted) }
+                IconButton(onClick = hapticClick(playback::next),enabled = state.queue.size > 1) { Icon(Icons.Rounded.FastForward,string(R.string.next_track),tint = Muted) }
             }
         }
     }
@@ -214,7 +214,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
 internal const val LYRICS_OFFSET_STEP_MS = 100L
 internal const val LYRICS_OFFSET_LIMIT_MS = 5000L
 /** The offset as it is shown: signed, in seconds. */
-internal fun lyricsOffsetLabel(offsetMs: Long) = "${if (offsetMs >= 0) "+" else ""}${offsetMs / 1000f}s"
+internal fun lyricsOffsetLabel(offsetMs: Long) = string(R.string.x_seconds_short, "${if (offsetMs >= 0) "+" else ""}${offsetMs / 1000f}")
 /** One step later or earlier, kept inside the limit. */
 internal fun lyricsOffsetStep(offsetMs: Long, later: Boolean) =
     (offsetMs + if (later) LYRICS_OFFSET_STEP_MS else -LYRICS_OFFSET_STEP_MS).coerceIn(-LYRICS_OFFSET_LIMIT_MS, LYRICS_OFFSET_LIMIT_MS)
@@ -223,18 +223,18 @@ internal fun lyricsOffsetStep(offsetMs: Long, later: Boolean) =
 @Composable
 internal fun LyricsTimingDialog(offsetMs: Long, onOffset: (Long) -> Unit, onDismiss: () -> Unit) {
     FrostedAlertDialog(onDismissRequest = onDismiss,
-        title = { Text("Lyrics timing") },text = {
+        title = { Text(string(R.string.lyrics_timing)) },text = {
             Column {
-                Text("Adjust the highlight if this recording is slightly out of sync.")
+                Text(string(R.string.adjust_the_highlight_if_this_recording_is))
                 Row(Modifier.fillMaxWidth(),verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = { uiHaptic(); onOffset(lyricsOffsetStep(offsetMs, later = false)) },modifier = Modifier.testTag("lyrics_offset_minus")) { Text("\u2212 0.1s") }
+                    TextButton(onClick = { uiHaptic(); onOffset(lyricsOffsetStep(offsetMs, later = false)) },modifier = Modifier.testTag("lyrics_offset_minus")) { Text(string(R.string.x_seconds_short, "\u2212 0.1")) }
                     Text(lyricsOffsetLabel(offsetMs),modifier = Modifier.testTag("lyrics_offset_value"))
-                    TextButton(onClick = { uiHaptic(); onOffset(lyricsOffsetStep(offsetMs, later = true)) },modifier = Modifier.testTag("lyrics_offset_plus")) { Text("+ 0.1s") }
+                    TextButton(onClick = { uiHaptic(); onOffset(lyricsOffsetStep(offsetMs, later = true)) },modifier = Modifier.testTag("lyrics_offset_plus")) { Text(string(R.string.x_seconds_short, "+ 0.1")) }
                 }
-                TextButton(onClick = { uiHaptic(); onOffset(DEFAULT_LYRICS_OFFSET_MS) },modifier = Modifier.testTag("lyrics_offset_reset")) { Text("Reset") }
+                TextButton(onClick = { uiHaptic(); onOffset(DEFAULT_LYRICS_OFFSET_MS) },modifier = Modifier.testTag("lyrics_offset_reset")) { Text(string(R.string.reset)) }
             }
-        },confirmButton = { TextButton(onClick = { uiHaptic(); onDismiss() }) { Text("Done") } })
+        },confirmButton = { TextButton(onClick = { uiHaptic(); onDismiss() }) { Text(string(R.string.done)) } })
 }
 
 @Composable
@@ -264,7 +264,7 @@ private fun KaraokeLine(line: LyricLine,active: Boolean,position: () -> Long,mot
         GlassMotion.timed(GlassMotion.selectionMs,motion),label = "lyric emphasis")
     Text(line.text.ifBlank { "♪" },color = baseColor,fontSize = 29.sp,lineHeight = 38.sp,fontWeight = FontWeight.Bold,
         onTextLayout = { layout = it },modifier = modifier.fillMaxWidth().padding(vertical = 5.dp)
-            .semantics { if (active) stateDescription = "Current lyric" }
+            .semantics { if (active) stateDescription = string(R.string.current_lyric) }
             .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
             .drawWithContent {
                 drawContent()

@@ -89,7 +89,15 @@ sleep timer and history recording. The rest is in classes that take the player a
     python -m unittest discover -s scripts/quality -p "test_*.py"
 
 The script needs only Python and reads `app/src/main/java`. Rules: `cancellation`, `blocking`, `direction`,
-`lifecycle`, `position`, `size` (700 lines), `measures`. They are described at the top of the script.
+`lifecycle`, `position`, `size` (700 lines), `measures`, `strings`. They are described at the top of the script.
+
+`strings` (Q13): words the app shows or speaks come from `res/values/strings.xml` through `string()` and
+`quantity()` (`Strings.kt`), which read the application's resources so that text made outside a screen
+follows the language too. A quoted literal with a word in it, handed straight to `Text`, a content or state
+description, a notification title or a notice, is a finding. Words the code looks things up by (a tab, a
+filter, a menu action) stay literals and are shown through `keyLabel()` (`KeyLabels.kt`). An enum that
+carries a label holds the resource id and reads the text when asked, never when the class loads. See
+`docs/quality/accessibility.md`.
 
 `measures` (Q12) counts the raw `dp` and `sp` values each screen file writes instead of taking them from
 `DesignTokens.kt`. `static_checks_measures.json` holds the count per file; a file may not exceed it, a new

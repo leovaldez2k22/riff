@@ -69,7 +69,7 @@ internal fun Modifier.doubleTapSeek(enabled: Boolean, nudge: SeekNudge, playback
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Icon(if (nudge.forward) Icons.Rounded.FastForward else Icons.Rounded.FastRewind, null, tint = White,
                     modifier = Modifier.size(30.dp))
-                Text("${if (nudge.forward) "+" else "−"}${nudge.seconds}s", color = White, fontSize = 14.sp,
+                Text(string(R.string.x_seconds_short, "${if (nudge.forward) "+" else "−"}${nudge.seconds}"), color = White, fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold)
             }
         }

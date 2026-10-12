@@ -84,8 +84,8 @@ internal suspend fun playRealTrack(provider: YouTubeMusicProvider, playback: Pla
     kotlinx.coroutines.withTimeoutOrNull(if(track.isLive) 60_000 else 30_000) {provider.resolve(track.videoId,track.isLive,video=video || track.isLive)}.let {result->
         if(revision!=provider.authRevision) return
         result?.fold(onSuccess={playback.playProvider(track,it);if(track.isLive) (playback as? MusicPlaybackGateway)?.onLivePlay?.invoke(track)},
-            onFailure={onNotice(if(track.isLive) "Live stream unavailable. Try refreshing Radio." else it.message?:"This song is unavailable")})
-            ?: onNotice("Preparing playback timed out. Try again.")
+            onFailure={onNotice(if(track.isLive) string(R.string.live_stream_unavailable_try_refreshing_radio) else it.message?:string(R.string.this_song_is_unavailable))})
+            ?: onNotice(string(R.string.preparing_playback_timed_out_try_again))
     }
 }
 
@@ -104,7 +104,7 @@ internal fun ProviderSongRow(track: ProviderTrack, onPlay: () -> Unit,
         }
         if (saved != null) IconButton(onClick = hapticClick(onSave)) {
             Icon(if (saved) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                contentDescription = if (saved) "Remove favorite" else "Add favorite", tint = Pink)
+                contentDescription = if (saved) string(R.string.remove_favorite) else string(R.string.add_favorite), tint = Pink)
         }
     }
 }
@@ -126,7 +126,7 @@ internal fun BackHeading(title: String, onBack: () -> Unit, overPicture: Boolean
             verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = hapticClick(onBack), modifier = Modifier.size(RiffSpace.touch).testTag("back")) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back to $title", tint = White)
+                    contentDescription = string(R.string.back_to_x, title), tint = White)
             }
             Spacer(Modifier.width(RiffSpace.item))
             Text(title, color = White, fontSize = RiffType.message, maxLines = 1, overflow = TextOverflow.Ellipsis)

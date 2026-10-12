@@ -56,9 +56,9 @@ private fun Modifier.chipFace(selected:Boolean,solid:Boolean)=clip(chipShape).ba
     // With glass on, the face is drawn above the shader by GlassCategoryLabels. Drawing it here too would put it
     // under the refraction, which pulls the border and fill inward and leaves a second, smaller outline.
     val glass=!solid && bounds!=null && chips!=null
-    SideEffect {chips?.let {it[key]=GlassChipStyle(label,selected,it[key]?.natural?:IntSize.Zero)}}
+    SideEffect {chips?.let {it[key]=GlassChipStyle(keyLabel(label),selected,it[key]?.natural?:IntSize.Zero)}}
     DisposableEffect(key,bounds,chips) {onDispose {bounds?.remove(key);chips?.remove(key)}}
-    Box(Modifier.heightIn(min=48.dp).clickable(role=Role.Button,onClick = hapticClick(onClick)).semantics {this.selected=selected;contentDescription=label}
+    Box(Modifier.heightIn(min=48.dp).clickable(role=Role.Button,onClick = hapticClick(onClick)).semantics {this.selected=selected;contentDescription=keyLabel(label)}
         .testTag(tag?:if(key.startsWith("search:")) "search_filter_${label.lowercase()}" else if(key.startsWith("radio:")) "radio_category_${label.lowercase()}" else "home_category_${label.lowercase()}"),contentAlignment=Alignment.Center) {
         Box(Modifier.height(36.dp).onGloballyPositioned {
                 bounds?.set(key,it.transformedBoundsInRoot())
@@ -66,7 +66,7 @@ private fun Modifier.chipFace(selected:Boolean,solid:Boolean)=clip(chipShape).ba
             }
             .then(if(glass) Modifier else Modifier.chipFace(selected,solid)).padding(horizontal=16.dp),contentAlignment=Alignment.Center) {
             // Kept for measurement either way; only visible when this chip draws its own face.
-            Text(label,color=if(glass) Color.Transparent else White,fontSize=13.sp,maxLines=1)
+            Text(keyLabel(label),color=if(glass) Color.Transparent else White,fontSize=13.sp,maxLines=1)
         }
     }
 }

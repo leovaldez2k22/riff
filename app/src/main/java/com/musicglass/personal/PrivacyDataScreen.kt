@@ -31,51 +31,45 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 internal enum class PrivacyAction { ClearAccountHistory, ClearDeviceHistory, ClearSearches, DeleteDownloads, DeleteAccountData, ShortenRetention }
 
-internal fun plural(count: Int, one: String, many: String = one + "s") = "$count ${if (count == 1) one else many}"
 
 /** How the owner is named in confirmations: the account's name, or what signed-out use is called elsewhere. */
 internal fun ownerLabel(provider: YouTubeMusicProvider, ownerKey: String): String = when {
-    ownerKey == UNVERIFIED_SCOPE_KEY -> "this account"
-    provider.accountScope() == AccountScope.Guest -> "signed-out listening"
-    else -> provider.accountProfile?.name?.takeIf { it.isNotBlank() } ?: "this account"
+    ownerKey == UNVERIFIED_SCOPE_KEY -> string(R.string.this_account)
+    provider.accountScope() == AccountScope.Guest -> string(R.string.signed_out_listening_2)
+    else -> provider.accountProfile?.name?.takeIf { it.isNotBlank() } ?: string(R.string.this_account)
 }
 
 internal data class PrivacyPrompt(val title: String, val body: String, val confirm: String)
 
 /** Each confirmation says whose data, that it cannot be undone, and that YouTube Music is not changed. */
 internal fun privacyPrompt(action: PrivacyAction, owner: String, data: LocalDataSummary, retentionDays: Int = 0, retentionCount: Int = 0): PrivacyPrompt = when (action) {
-    PrivacyAction.ClearAccountHistory -> PrivacyPrompt("Clear ${plural(data.accountPlays, "play")}?",
-        "Removes the listening history of $owner from this phone, with its recently played list and play counts. " +
-            "History of audio stored on this phone is kept. This cannot be undone. Your YouTube Music history is not changed.", "Clear")
-    PrivacyAction.ClearDeviceHistory -> PrivacyPrompt("Clear ${plural(data.devicePlays, "play")}?",
-        "Removes the history of audio stored on this phone. The audio files stay, and no account's history is changed. This cannot be undone.", "Clear")
-    PrivacyAction.ClearSearches -> PrivacyPrompt("Clear ${plural(data.searches, "search", "searches")}?",
-        "Removes the recent searches of $owner from this phone. This cannot be undone. Nothing changes in YouTube Music.", "Clear")
-    PrivacyAction.DeleteDownloads -> PrivacyPrompt("Delete ${plural(data.downloads, "download")}?",
-        "Removes the downloaded songs, artwork and lyrics of $owner from this phone and cancels its waiting downloads. " +
-            "This cannot be undone, but the songs can be downloaded again. Your YouTube Music library is not changed.", "Delete")
-    PrivacyAction.DeleteAccountData -> PrivacyPrompt("Delete local data?",
-        "Removes everything Riff keeps on this phone for $owner: listening history, searches, the saved queue, tracks saved in Riff and downloads. " +
-            "Playback from this account stops. Settings, other accounts' data and the audio files stored on this phone are kept. " +
-            "You stay signed in, and nothing changes in YouTube Music. This cannot be undone.", "Delete")
-    PrivacyAction.ShortenRetention -> PrivacyPrompt("Keep history for ${retentionLabel(retentionDays).lowercase()}?",
-        "${plural(retentionCount, "older play")} will be removed now, from every account on this phone, and plays will be removed as they pass that age. " +
-            "This cannot be undone. Your YouTube Music history is not changed.", "Remove and keep ${retentionLabel(retentionDays).lowercase()}")
+    PrivacyAction.ClearAccountHistory -> PrivacyPrompt(quantity(R.plurals.clear_n_plays, data.accountPlays),
+        string(R.string.removes_the_listening_history_of_x_from, owner), string(R.string.clear))
+    PrivacyAction.ClearDeviceHistory -> PrivacyPrompt(quantity(R.plurals.clear_n_plays, data.devicePlays),
+        string(R.string.removes_the_history_of_audio_stored_on), string(R.string.clear))
+    PrivacyAction.ClearSearches -> PrivacyPrompt(quantity(R.plurals.clear_n_searches, data.searches),
+        string(R.string.removes_the_recent_searches_of_x_from, owner), string(R.string.clear))
+    PrivacyAction.DeleteDownloads -> PrivacyPrompt(quantity(R.plurals.delete_n_downloads, data.downloads),
+        string(R.string.removes_the_downloaded_songs_artwork_and_lyr, owner), string(R.string.delete))
+    PrivacyAction.DeleteAccountData -> PrivacyPrompt(string(R.string.delete_local_data),
+        string(R.string.removes_everything_riff_keeps_on_this_phone, owner), string(R.string.delete))
+    PrivacyAction.ShortenRetention -> PrivacyPrompt(string(R.string.keep_history_for_x, retentionLabel(retentionDays).lowercase()),
+        quantity(R.plurals.n_older_plays_will_be_removed_now, retentionCount), string(R.string.remove_and_keep_x, retentionLabel(retentionDays).lowercase()))
 }
 
-internal fun retentionLabel(days: Int?) = when (days) { 30 -> "30 days"; 90 -> "90 days"; 365 -> "1 year"; else -> "Until cleared" }
+internal fun retentionLabel(days: Int?) = when (days) { 30 -> string(R.string.n_30_days); 90 -> string(R.string.n_90_days); 365 -> string(R.string.n_1_year); else -> string(R.string.until_cleared) }
 
 /** What to tell the user once an action has run. Partial and failed outcomes never read as success. */
 internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult): String = when (result) {
     is DataActionResult.Done -> when (action) {
-        PrivacyAction.ClearAccountHistory, PrivacyAction.ClearDeviceHistory -> "${plural(result.removed, "play")} cleared"
-        PrivacyAction.ClearSearches -> "${plural(result.removed, "search", "searches")} cleared"
-        PrivacyAction.DeleteDownloads -> "${plural(result.removed, "download")} deleted"
-        PrivacyAction.DeleteAccountData -> "Local data for this account deleted"
-        PrivacyAction.ShortenRetention -> "${plural(result.removed, "older play")} removed"
+        PrivacyAction.ClearAccountHistory, PrivacyAction.ClearDeviceHistory -> quantity(R.plurals.n_plays_cleared, result.removed)
+        PrivacyAction.ClearSearches -> quantity(R.plurals.n_searches_cleared, result.removed)
+        PrivacyAction.DeleteDownloads -> quantity(R.plurals.n_downloads_deleted, result.removed)
+        PrivacyAction.DeleteAccountData -> string(R.string.local_data_for_this_account_deleted)
+        PrivacyAction.ShortenRetention -> quantity(R.plurals.n_older_plays_removed, result.removed)
     }
-    is DataActionResult.Partial -> "Not everything could be removed. Still on this phone: ${result.remaining.joinToString(", ")}. The rest is gone."
-    is DataActionResult.Failed -> "Nothing was removed. Riff could not change its storage."
+    is DataActionResult.Partial -> string(R.string.not_everything_could_be_removed_still_on, result.remaining.joinToString(", ") { keyLabel(it) })
+    is DataActionResult.Failed -> string(R.string.nothing_was_removed_riff_could_not_change)
 }
 
 /**
@@ -135,14 +129,14 @@ internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult): St
         }
     }
     fun ask(action: PrivacyAction, count: Int) {
-        if (count == 0) onNotice("There is nothing to remove.") else { failure = null; asking = action }
+        if (count == 0) onNotice(string(R.string.there_is_nothing_to_remove)) else { failure = null; asking = action }
     }
     fun chooseRetention(days: Int?) {
         if (days == retention || working) return
         scope.launch {
             val older = if (days == null) 0 else data.retentionPreview(days)
             if (days != null && older > 0) { pendingRetention = days; pendingRetentionCount = older; failure = null; asking = PrivacyAction.ShortenRetention }
-            else { data.setRetention(days); retention = historyRetentionDays(context); onNotice("History is kept ${if (days == null) "until you clear it" else "for ${retentionLabel(days).lowercase()}"}") }
+            else { data.setRetention(days); retention = historyRetentionDays(context); onNotice(if (days == null) string(R.string.history_is_kept_until_you_clear_it) else string(R.string.history_is_kept_for_x, retentionLabel(days).lowercase())) }
         }
     }
     asking?.let { action ->
@@ -152,50 +146,50 @@ internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult): St
                 Text(failure ?: prompt.body, modifier = Modifier.testTag(if (failure == null) "privacy_prompt" else "privacy_failure"))
             } },
             confirmButton = { TextButton(enabled = !working, onClick = { uiHaptic(HapticCue.Confirm); run(action) },
-                modifier = Modifier.testTag("privacy_confirm")) { Text(if (failure == null) prompt.confirm else "Retry", color = Pink) } },
+                modifier = Modifier.testTag("privacy_confirm")) { Text(if (failure == null) prompt.confirm else string(R.string.retry), color = Pink) } },
             dismissButton = { TextButton(enabled = !working, onClick = { asking = null; failure = null },
-                modifier = Modifier.testTag("privacy_cancel")) { Text(if (failure == null) "Cancel" else "Close") } })
+                modifier = Modifier.testTag("privacy_cancel")) { Text(if (failure == null) string(R.string.cancel) else string(R.string.close)) } })
     }
     val found = summary
     ScreenList(model, bottom) {
-        item { BackHeading("Settings", model::back) }
-        item { ScreenTitle("Privacy and data", "What Riff keeps on this phone. Nothing here changes your YouTube Music account.") }
+        item { BackHeading(string(R.string.settings), model::back) }
+        item { ScreenTitle(string(R.string.privacy_and_data), string(R.string.what_riff_keeps_on_this_phone_nothing)) }
         item {
-            SettingsSection("Listening history") {
-                SettingsToggleRow("Save listening history", collections.historyEnabled, hapticToggle(collections::updateHistoryPreference),
+            SettingsSection(string(R.string.listening_history)) {
+                SettingsToggleRow(string(R.string.save_listening_history), collections.historyEnabled, hapticToggle(collections::updateHistoryPreference),
                     Icons.Rounded.History, "settings_history",
-                    "For every account on this phone. Turning it off stops new plays being saved; what is already saved stays until you clear it.")
+                    string(R.string.for_every_account_on_this_phone_turning))
                 SettingsDivider()
                 Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
-                    Text("Keep history for", color = White, fontSize = 15.sp)
+                    Text(string(R.string.keep_history_for), color = White, fontSize = 15.sp)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf<Int?>(30, 90, 365, null).forEach { days ->
                             FilterChip(retention == days, { uiHaptic(); chooseRetention(days) }, { Text(retentionLabel(days)) },
                                 modifier = Modifier.testTag("privacy_retention_${days ?: "keep"}"))
                         }
                     }
-                    Text("For every account on this phone. Riff keeps at most 100,000 plays for each account; beyond that the oldest are removed.",
+                    Text(string(R.string.for_every_account_on_this_phone_riff),
                         color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                 }
                 SettingsDivider()
-                if (verified) SettingsLinkRow("Clear history of $owner", found?.let { plural(it.accountPlays, "play") }, Icons.Rounded.History,
+                if (verified) SettingsLinkRow(string(R.string.clear_history_of_x, owner), found?.let { quantity(R.plurals.n_plays, it.accountPlays) }, Icons.Rounded.History,
                     "privacy_clear_account_history") { ask(PrivacyAction.ClearAccountHistory, found?.accountPlays ?: 0) }
-                else Text("Riff could not verify this account, so it keeps no history for it.", color = Muted, fontSize = 13.sp,
+                else Text(string(R.string.riff_could_not_verify_this_account_so_2), color = Muted, fontSize = 13.sp,
                     modifier = Modifier.padding(vertical = 12.dp).testTag("privacy_unverified"))
                 SettingsDivider()
-                SettingsLinkRow("Clear history of audio on this phone", found?.let { plural(it.devicePlays, "play") }, Icons.Rounded.PhoneAndroid,
+                SettingsLinkRow(string(R.string.clear_history_of_audio_on_this_phone), found?.let { quantity(R.plurals.n_plays, it.devicePlays) }, Icons.Rounded.PhoneAndroid,
                     "privacy_clear_device_history") { ask(PrivacyAction.ClearDeviceHistory, found?.devicePlays ?: 0) }
             }
         }
         if (verified) item {
-            SettingsSection("Kept for $owner") {
-                SettingsLinkRow("Clear search history", found?.let { plural(it.searches, "search", "searches") }, Icons.Rounded.Search,
+            SettingsSection(string(R.string.kept_for_x, owner)) {
+                SettingsLinkRow(string(R.string.clear_search_history), found?.let { quantity(R.plurals.n_searches, it.searches) }, Icons.Rounded.Search,
                     "privacy_clear_searches") { ask(PrivacyAction.ClearSearches, found?.searches ?: 0) }
                 SettingsDivider()
-                SettingsLinkRow("Delete downloads", found?.let { plural(it.downloads, "song") }, Icons.Rounded.DownloadDone,
+                SettingsLinkRow(string(R.string.delete_downloads), found?.let { quantity(R.plurals.n_songs, it.downloads) }, Icons.Rounded.DownloadDone,
                     "privacy_delete_downloads") { ask(PrivacyAction.DeleteDownloads, found?.downloads ?: 0) }
                 SettingsDivider()
-                SettingsLinkRow("Delete local data for this account", null, Icons.Rounded.DeleteOutline, "privacy_delete_account_data") {
+                SettingsLinkRow(string(R.string.delete_local_data_for_this_account), null, Icons.Rounded.DeleteOutline, "privacy_delete_account_data") {
                     failure = null; asking = PrivacyAction.DeleteAccountData
                 }
             }
@@ -207,8 +201,8 @@ internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult): St
             }
         }
         if (!earlier.empty) item {
-            SettingsSection("From earlier versions") {
-                SettingsLinkRow("Earlier data", null, Icons.Rounded.History, "settings_earlier_data") { model.push(Route.Settings(SettingsSection.EarlierData)) }
+            SettingsSection(string(R.string.from_earlier_versions)) {
+                SettingsLinkRow(string(R.string.earlier_data), null, Icons.Rounded.History, "settings_earlier_data") { model.push(Route.Settings(SettingsSection.EarlierData)) }
             }
         }
     }

@@ -36,10 +36,10 @@ internal fun legacyScopeKey(syncId: String, authUser: String): String =
 
 /** Stores receive this instead of a real key while the account is unverified; they refuse writes for it. */
 internal const val UNVERIFIED_SCOPE_KEY = "unverified"
-internal const val VERIFY_TO_SAVE_NOTICE = "Riff could not verify this account. Open Account and reconnect to save or download."
+internal val VERIFY_TO_SAVE_NOTICE: String get() = string(R.string.riff_could_not_verify_this_account_open)
 /** Why nothing can be saved for this owner. Signed in without a stable identity is not the same as signed out. */
 internal fun saveUnavailableNotice(scope: AccountScope): String =
-    if (scope == AccountScope.Unverified) VERIFY_TO_SAVE_NOTICE else "Sign in to save songs"
+    if (scope == AccountScope.Unverified) VERIFY_TO_SAVE_NOTICE else string(R.string.sign_in_to_save_songs)
 internal const val GUEST_SCOPE_KEY = "guest"
 
 /**

@@ -92,7 +92,7 @@ internal class OfflineMusicStore private constructor(private val context:Context
     @Synchronized fun enqueue(track:ProviderTrack,pinned:Boolean=true,scope:String=currentScope) {
         if(scope==UNVERIFIED_SCOPE_KEY) return
         remember(track,scope);val old=song(scope,track.videoId)
-        require(!track.isLive && track.isMusic) {"Only songs can be downloaded"}
+        require(!track.isLive && track.isMusic) {string(R.string.only_songs_can_be_downloaded)}
         val pin=if(pinned || old?.pinned==true) 1 else 0
         // Already waiting or with a transfer: it keeps its place. Asking again must not restart it.
         if(old?.status?.pending==true) update(scope,track.videoId,"pinned" to pin,"excluded" to 0)

@@ -161,7 +161,7 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         player.setMediaItems(items, saved.index, saved.positionMs)
         player.shuffleModeEnabled = saved.shuffle; player.repeatMode = saved.repeat; player.playWhenReady = false
         radioSeed = saved.radioSeed; queuedIds.addAll(saved.queue.filter { it.mediaId.startsWith("yt:") }.map { it.mediaId.removePrefix("yt:") })
-        player.setPlaylistMetadata(MediaMetadata.Builder().setSubtitle(if (radioSeed == null) "Album order" else "Restored queue · paused").build())
+        player.setPlaylistMetadata(MediaMetadata.Builder().setSubtitle(if (radioSeed == null) "Album order" else string(R.string.restored_queue_paused)).build())
         events.append("session_restored count=${items.size} index=${saved.index}")
         persistence().adopt(stored.ownerKey)
     }
@@ -263,7 +263,7 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         if (radioJob?.isActive == true || player.mediaItemCount - player.currentMediaItemIndex > 4 || player.mediaItemCount >= 80) return
         val started = generation; val owner = sessions.capture()
         radioJob = scope.launch {
-            status(player, true, "Finding more music on YouTube Music…")
+            status(player, true, string(R.string.finding_more_music_on_youtube_music))
             try {
                 if (candidates.isEmpty()) {
                     val (tracks, token) = provider.recommendations(seed, radioContinuation).getOrThrow()
@@ -284,11 +284,11 @@ internal class QueueCoordinator(private val context: Context, private val scope:
                     }) continue
                     if (!queuedIds.add(track.videoId)) continue
                     player.addMediaItem(catalogItem(track).also { autoEntries.add(it.entryId()) }); added++
-                    if (added == 1) status(player, true, "Adding YouTube Music recommendations…")
+                    if (added == 1) status(player, true, string(R.string.adding_youtube_music_recommendations))
                 }
-                status(player, false, if (added > 0) "Music from YouTube Music" else "No more playable recommendations right now")
+                status(player, false, if (added > 0) string(R.string.music_from_youtube_music) else string(R.string.no_more_playable_recommendations_right_now))
             } catch (e: CancellationException) { throw e }
-            catch (_: Exception) { if (started == generation) status(player, false, "Couldn't load recommendations. Your current song can keep playing.") }
+            catch (_: Exception) { if (started == generation) status(player, false, string(R.string.couldn_t_load_recommendations_your_current_s)) }
         }
     }
 

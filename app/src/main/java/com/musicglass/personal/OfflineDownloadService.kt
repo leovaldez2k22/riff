@@ -68,13 +68,13 @@ class OfflineDownloadService:Service() {
             work?.cancel();stopSelf();return START_NOT_STICKY
         }
         val manager=getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel("song-downloads","Song downloads",NotificationManager.IMPORTANCE_LOW))
+        manager.createNotificationChannel(NotificationChannel("song-downloads",string(R.string.song_downloads),NotificationManager.IMPORTANCE_LOW))
         fun notification(message:String):Notification {
             val open=PendingIntent.getActivity(this,0,Intent(this,MainActivity::class.java),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val pause=PendingIntent.getService(this,1,Intent(this,OfflineDownloadService::class.java).setAction("pause"),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            return Notification.Builder(this,"song-downloads").setSmallIcon(android.R.drawable.stat_sys_download).setContentTitle("Riff downloads").setContentText(message).setContentIntent(open).setOngoing(true).addAction(Notification.Action.Builder(null,"Pause",pause).build()).build()
+            return Notification.Builder(this,"song-downloads").setSmallIcon(android.R.drawable.stat_sys_download).setContentTitle(string(R.string.riff_downloads)).setContentText(message).setContentIntent(open).setOngoing(true).addAction(Notification.Action.Builder(null,string(R.string.pause),pause).build()).build()
         }
-        try {startForeground(703,notification("Preparing highest-quality audio"))}
+        try {startForeground(703,notification(string(R.string.preparing_highest_quality_audio)))}
         catch(e:RuntimeException) {
             // Android refused foreground work (started from the background, or the daily allowance is used up). The job carries on.
             PlaybackEventLog(this).append("download_foreground_refused kind=${e::class.simpleName}")

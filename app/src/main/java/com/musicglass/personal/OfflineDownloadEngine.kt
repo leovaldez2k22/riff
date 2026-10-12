@@ -102,7 +102,7 @@ internal object OfflineDownloadEngine {
                 fun advance(vararg fields:Pair<String,Any>) {if(!store.updateDownload(scope,id,generation,*fields)) throw Superseded()}
                 var phase="resolve"
                 try {
-                    checkState();progress("Downloading ${job.track.title}")
+                    checkState();progress(string(R.string.downloading_x_2, job.track.title))
                     if(store.audio(scope,id)==null) {
                         var stream=resolver.resolve(StreamRequest(id,download=true,quality=com.metrolist.innertubex.extraction.AudioQuality.HIGH)).getOrThrow()
                         if(stream.mimeType?.contains("mpegurl",true)==true) throw Stop(DownloadFailure.Unavailable)

@@ -34,13 +34,13 @@ import coil3.compose.AsyncImage
 private class QueueCoordinates {var value:LayoutCoordinates?=null}
 
 /** What a queue row offers without dragging or swiping (Q13). A move that would change nothing is not offered. */
-internal enum class QueueRowAction(val label:String) {MoveUp("Move up"),MoveDown("Move down"),PlayNext("Play next"),Remove("Remove from queue")}
+internal enum class QueueRowAction(private val labelRes:Int) {MoveUp(R.string.move_up),MoveDown(R.string.move_down),PlayNext(R.string.play_next),Remove(R.string.remove_from_queue);val label:String get()=string(labelRes)}
 internal fun queueRowActions(index:Int,current:Int,size:Int):List<QueueRowAction> = listOfNotNull(
     QueueRowAction.MoveUp.takeIf {index>0},QueueRowAction.MoveDown.takeIf {index<size-1},
     QueueRowAction.PlayNext.takeIf {index!=current && index!=current+1},QueueRowAction.Remove)
 /** Where a row lands so that it plays straight after the current one. */
 internal fun playNextTarget(index:Int,current:Int)=if(index<current) current else current+1
-internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==current) "Playing now, ${index+1} of $size" else "${index+1} of $size"
+internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==current) string(R.string.playing_now_x_of_x, index+1, size) else string(R.string.x_of_x, index+1, size)
 
 @Composable internal fun InlineQueue(playback:PlaybackGateway,provider:YouTubeMusicProvider,
     onClose:()->Unit,onLike:()->Unit,onMore:()->Unit,artworkModifier:Modifier=Modifier,onMoreBounds:(IntRect)->Unit={}) {
@@ -75,7 +75,7 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
             // Keep the hit target outside the shared artwork layer: its animated overlay can
             // otherwise leave touch coordinates at the full-size hero's position.
             Box(Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
-                .clickable(onClick=hapticClick(onClose)).semantics {contentDescription="Back to player"}.testTag("queue_artwork_back")) {
+                .clickable(onClick=hapticClick(onClose)).semantics {contentDescription=string(R.string.back_to_player)}.testTag("queue_artwork_back")) {
                 songTransition.SongContentFade(artworkModifier.fillMaxSize()) {song->
                     AsyncImage(song.artworkUrl,null,contentScale=ContentScale.Crop,modifier=Modifier.fillMaxSize())
                 }
@@ -87,21 +87,21 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
             }
             }
             val liked=provider.songLikes[state.mediaId.removePrefix("yt:")]==true
-            IconButton(onLike,modifier=Modifier.testTag("queue_like").semantics {stateDescription=if(liked) "Liked" else "Not liked"}) {Icon(if(liked) Icons.Rounded.Star else Icons.Rounded.StarBorder,"Like on YouTube Music",tint=White)}
-            IconButton(hapticClick(onMore),modifier=Modifier.testTag("queue_more").onGloballyPositioned {val r=it.boundsInWindow();onMoreBounds(IntRect(r.topLeft.round(),r.bottomRight.round()))}) {Icon(Icons.Rounded.MoreHoriz,"Song options",tint=White)}
-            IconButton(hapticClick(onClose),modifier=Modifier.testTag("queue_back")) {Icon(Icons.Rounded.ExpandMore,"Close queue",tint=White)}
+            IconButton(onLike,modifier=Modifier.testTag("queue_like").semantics {stateDescription=if(liked) string(R.string.liked) else string(R.string.not_liked)}) {Icon(if(liked) Icons.Rounded.Star else Icons.Rounded.StarBorder,string(R.string.like_on_youtube_music),tint=White)}
+            IconButton(hapticClick(onMore),modifier=Modifier.testTag("queue_more").onGloballyPositioned {val r=it.boundsInWindow();onMoreBounds(IntRect(r.topLeft.round(),r.bottomRight.round()))}) {Icon(Icons.Rounded.MoreHoriz,string(R.string.song_options),tint=White)}
+            IconButton(hapticClick(onClose),modifier=Modifier.testTag("queue_back")) {Icon(Icons.Rounded.ExpandMore,string(R.string.close_queue),tint=White)}
         }
         Row(Modifier.fillMaxWidth().height(46.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            FilterChip(state.shuffle,hapticClick(playback::toggleShuffle),label={Icon(Icons.Rounded.Shuffle,"Shuffle",modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f),shape=RoundedCornerShape(50))
-            FilterChip(state.repeat!=0,hapticClick(playback::cycleRepeat),label={Icon(if(state.repeat==1) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,"Repeat",modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f),shape=RoundedCornerShape(50))
-            FilterChip(state.queueMessage !in setOf("Album order","Collection order"),{},enabled=false,label={Icon(Icons.Rounded.AllInclusive,"YouTube Music recommendations",modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f),shape=RoundedCornerShape(50))
+            FilterChip(state.shuffle,hapticClick(playback::toggleShuffle),label={Icon(Icons.Rounded.Shuffle,string(R.string.shuffle),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f),shape=RoundedCornerShape(50))
+            FilterChip(state.repeat!=0,hapticClick(playback::cycleRepeat),label={Icon(if(state.repeat==1) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,string(R.string.repeat),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f),shape=RoundedCornerShape(50))
+            FilterChip(state.queueMessage !in setOf("Album order","Collection order"),{},enabled=false,label={Icon(Icons.Rounded.AllInclusive,string(R.string.youtube_music_recommendations),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f),shape=RoundedCornerShape(50))
         }
         Row(Modifier.fillMaxWidth().padding(top=6.dp,bottom=4.dp),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Continue Playing",color=White,fontWeight=FontWeight.SemiBold,fontSize=15.sp)
-                Text(if(state.queueTitle.isNotBlank()) "From ${state.queueTitle}" else if(state.album.isNotBlank()) "From ${state.album}" else state.queueMessage.ifBlank {"From YouTube Music"},color=White.copy(alpha=.6f),fontSize=11.sp,maxLines=1)
+                Text(string(R.string.continue_playing),color=White,fontWeight=FontWeight.SemiBold,fontSize=15.sp)
+                Text(if(state.queueTitle.isNotBlank()) string(R.string.from_x, state.queueTitle) else if(state.album.isNotBlank()) string(R.string.from_x, state.album) else keyLabel(state.queueMessage).ifBlank {string(R.string.from_youtube_music)},color=White.copy(alpha=.6f),fontSize=11.sp,maxLines=1)
             }
-            TextButton({uiHaptic(HapticCue.Selection);history=!history}) {Text(if(history) "Up next" else "History",color=White,fontSize=11.sp)}
+            TextButton({uiHaptic(HapticCue.Selection);history=!history}) {Text(if(history) string(R.string.up_next) else string(R.string.history),color=White,fontSize=11.sp)}
         }
         LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("queue_list").onGloballyPositioned {listCoordinates.value=it},state=listState) {
             itemsIndexed(visible,key={_,e->rowKey(e.index,e.value)}) {_,entry->
@@ -137,7 +137,7 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
                     }
                     IconButton(onClick=hapticClick {playback.removeQueueItem(latestIndex)},
                         modifier=Modifier.size(48.dp).testTag("queue_remove_$index")) {
-                        Icon(Icons.Rounded.RemoveCircleOutline,"Remove ${item.title} from queue",tint=White.copy(alpha=.65f),modifier=Modifier.size(22.dp))
+                        Icon(Icons.Rounded.RemoveCircleOutline,string(R.string.remove_x_from_queue, item.title),tint=White.copy(alpha=.65f),modifier=Modifier.size(22.dp))
                     }
                     // Dragging is for touch only: a screen reader or a switch reorders with the row's own actions,
                     // so the handle is not a second thing to land on.
@@ -159,7 +159,7 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
                         }.padding(4.dp))
                 }
             }
-            if(visible.isEmpty()) item {Text(if(state.queueLoading) "Finding more music\u2026" else "You're at the end of this queue.",color=White.copy(alpha=.6f),fontSize=13.sp,modifier=Modifier.padding(12.dp))}
+            if(visible.isEmpty()) item {Text(if(state.queueLoading) string(R.string.finding_more_music) else string(R.string.you_re_at_the_end_of_this),color=White.copy(alpha=.6f),fontSize=13.sp,modifier=Modifier.padding(12.dp))}
         }
     }
 }

@@ -42,8 +42,8 @@ internal class LocalAudioRepository(private val context: Context) {
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
                     tracks += LocalAudioTrack(id, ContentUris.withAppendedId(source, id),
-                        cursor.getString(titleColumn).orEmpty().ifBlank { "Unknown track" },
-                        cursor.getString(artistColumn).orEmpty().ifBlank { "Unknown artist" },
+                        cursor.getString(titleColumn).orEmpty().ifBlank { string(R.string.unknown_track) },
+                        cursor.getString(artistColumn).orEmpty().ifBlank { string(R.string.unknown_artist) },
                         cursor.getString(albumColumn).orEmpty(),
                         cursor.getLong(durationColumn).coerceAtLeast(0L))
                 }

@@ -61,7 +61,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
             Text("${card.kind.label}${card.subtitle.takeIf(String::isNotBlank)?.let { " \u00B7 $it" }.orEmpty()}",color=Muted,fontSize=RiffType.detail,maxLines=2,overflow=TextOverflow.Ellipsis)
         }
         if(onEnqueue!=null && card.track()!=null) Box {
-            IconButton({ uiHaptic(); menu=true},modifier=Modifier.testTag("catalog_menu_${card.key()}")) {Icon(Icons.Rounded.MoreHoriz,"Song options",tint=Muted)}
+            IconButton({ uiHaptic(); menu=true},modifier=Modifier.testTag("catalog_menu_${card.key()}")) {Icon(Icons.Rounded.MoreHoriz,string(R.string.song_options),tint=Muted)}
             SongActionMenu(menu,{menu=false}) {
                 SongActionItem("Play next",onClick={ menu=false;onEnqueue(true)})
                 SongActionItem("Add to queue",onClick={ menu=false;onEnqueue(false)})
@@ -107,13 +107,13 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     }
     fun open(card:ProviderHomeCard) {history.record(model.searchQuery);keyboard?.hide();openCatalogCard(model,card) {scope.launch {playRealTrack(provider,playback,it,onNotice,video=model.searchFilter=="Videos")}}}
     ScreenList(model,bottom) {
-        item { ScreenTitle("Search","Songs, albums, artists and playlists") }
+        item { ScreenTitle(string(R.string.search),string(R.string.songs_albums_artists_and_playlists)) }
         item { OutlinedTextField(model.searchQuery,{ model.searchQuery=it.take(160) },singleLine=true,shape=RoundedCornerShape(28.dp),
-            label={ Text("Search YouTube Music") },modifier=Modifier.fillMaxWidth().focusRequester(focus).testTag("search_input"),
+            label={ Text(string(R.string.search_youtube_music)) },modifier=Modifier.fillMaxWidth().focusRequester(focus).testTag("search_input"),
             keyboardOptions=KeyboardOptions(imeAction=ImeAction.Search),keyboardActions=KeyboardActions(onSearch={history.record(model.searchQuery);keyboard?.hide()}),
             trailingIcon={Row {
-                if(model.searchQuery.isNotEmpty()) IconButton({uiHaptic();model.searchQuery=""},modifier=Modifier.testTag("search_clear")) {Icon(Icons.Rounded.Close,"Clear search")}
-                IconButton({ uiHaptic(); if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) voice.start {model.searchQuery=it} else micPermission.launch(Manifest.permission.RECORD_AUDIO)}) {Icon(Icons.Rounded.Mic,"Voice search")}
+                if(model.searchQuery.isNotEmpty()) IconButton({uiHaptic();model.searchQuery=""},modifier=Modifier.testTag("search_clear")) {Icon(Icons.Rounded.Close,string(R.string.clear_search))}
+                IconButton({ uiHaptic(); if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) voice.start {model.searchQuery=it} else micPermission.launch(Manifest.permission.RECORD_AUDIO)}) {Icon(Icons.Rounded.Mic,string(R.string.voice_search))}
             }}) }
         item { Row(Modifier.fillMaxWidth().fullBleed(20.dp).horizontalScroll(rememberScrollState()).padding(horizontal=20.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("All","Songs","Albums","Artists","Playlists","Podcasts","Videos").forEach { kind ->
@@ -122,20 +122,20 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         } }
         if(model.searchQuery.isBlank() && history.entries.isNotEmpty()) {
             item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                Text("Recent searches",color=White,modifier=Modifier.weight(1f));TextButton(hapticClick(history::clear)) {Text("Clear all")}
+                Text(string(R.string.recent_searches),color=White,modifier=Modifier.weight(1f));TextButton(hapticClick(history::clear)) {Text(string(R.string.clear_all))}
             }}
             items(history.entries,key={"search-history:$it"}) {query->
                 Row(Modifier.fillMaxWidth().heightIn(min=48.dp).clickable { uiHaptic(); history.record(query);model.searchQuery=query;keyboard?.hide()}.testTag("search_history_row"),verticalAlignment=Alignment.CenterVertically) {
                     Icon(Icons.Rounded.History,null,tint=Muted);Text(query,color=White,modifier=Modifier.weight(1f).padding(horizontal=12.dp),maxLines=1,overflow=TextOverflow.Ellipsis)
-                    IconButton({ uiHaptic(); history.remove(query)}) {Icon(Icons.Rounded.Close,"Remove $query from search history",tint=Muted)}
+                    IconButton({ uiHaptic(); history.remove(query)}) {Icon(Icons.Rounded.Close,string(R.string.remove_x_from_search_history, query),tint=Muted)}
                 }
             }
         }
         voice.message?.let {item {Text(it,color=Muted,fontSize=12.sp)}}
-        item {FilterChip(model.searchSort=="Title",{ uiHaptic(HapticCue.Selection); model.searchSort=if(model.searchSort=="Title") "Relevance" else "Title"},label={Text("Sort: ${model.searchSort}")})}
-        if(loading && cards.isEmpty()) item(key="state:loading") { ListSkeleton("Searching") }
+        item {FilterChip(model.searchSort=="Title",{ uiHaptic(HapticCue.Selection); model.searchSort=if(model.searchSort=="Title") "Relevance" else "Title"},label={Text(string(R.string.sort_x, keyLabel(model.searchSort)))})}
+        if(loading && cards.isEmpty()) item(key="state:loading") { ListSkeleton(string(R.string.searching)) }
         error?.let { item(key="state:problem") { ContentProblem(it,onRetry={retry++},onSignIn={model.push(Route.Account)}) } }
-        if(!loading && error==null && cards.isEmpty()) item(key="state:empty") { ContentEmpty(if(model.searchQuery.isBlank()) "Find your next listen." else "No matching results.") }
+        if(!loading && error==null && cards.isEmpty()) item(key="state:empty") { ContentEmpty(if(model.searchQuery.isBlank()) string(R.string.find_your_next_listen) else string(R.string.no_matching_results)) }
         items(if(model.searchSort=="Title") cards.sortedBy {it.title.lowercase()} else cards,key={it.key()}) { card -> CatalogCardRow(card,onEnqueue={next->scope.launch{enqueueRealTrack(provider,playback,card,next,onNotice)}}) { open(card) } }
         moreError?.let { item(key="state:more") { Text(it,color=White,fontSize=RiffType.body,modifier=Modifier.testTag("load_more_problem")) } }
         if(next!=null) item { Button({ uiHaptic(); 
@@ -143,11 +143,11 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
             loading=true;moreError=null;scope.launch {
                 val result=provider.discover(query,token,filter)
                 if(query==model.searchQuery && filter==model.searchFilter && revision==provider.authRevision) {
-                    result.fold(onSuccess={ cards=(cards+it.cards).distinctBy { c->c.key() };next=pageTokens.next(it.next);keep() },onFailure={ moreError=it.message?:"Could not load more" })
+                    result.fold(onSuccess={ cards=(cards+it.cards).distinctBy { c->c.key() };next=pageTokens.next(it.next);keep() },onFailure={ moreError=it.message?:string(R.string.could_not_load_more) })
                     loading=false
                 }
             }
-        },enabled=!loading,modifier=Modifier.testTag("catalog_load_more")) { Text("Load more") } }
+        },enabled=!loading,modifier=Modifier.testTag("catalog_load_more")) { Text(string(R.string.load_more)) } }
     }
 }
 @Composable internal fun CatalogDetailScreen(model:ShellModel,bottom:Dp,provider:YouTubeMusicProvider,
@@ -167,15 +167,15 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     }
     fun open(card:ProviderHomeCard)=openCatalogCard(model,card) { scope.launch { playRealTrack(provider,playback,it,onNotice) } }
     ScreenList(model,bottom) {
-        item { BackHeading("Back",model::back) }
+        item { BackHeading(string(R.string.back),model::back) }
         page?.artworkUrl?.let { art -> item { CatalogArtwork(art,id,
             modifier=Modifier.fillMaxWidth().height(240.dp).clip(RoundedCornerShape(RiffRadius.hero)).testTag("collection_artwork")) } }
         item { ScreenTitle(page?.title?.ifBlank { routeTitle }?:routeTitle,
             page?.subtitle?.takeIf(String::isNotBlank)?.take(600)) }
-        if(loading && page==null) item(key="state:loading") { ListSkeleton("Loading") }
+        if(loading && page==null) item(key="state:loading") { ListSkeleton(string(R.string.loading)) }
         error?.let { item(key="state:problem") { ContentProblem(it,onRetry={retry++},onSignIn={model.push(Route.Account)}) } }
         val data=page
-        if(!loading && error==null && data!=null && data.cards.isEmpty() && data.shelves.isEmpty()) item(key="state:empty") { ContentEmpty("Nothing here yet.") }
+        if(!loading && error==null && data!=null && data.cards.isEmpty() && data.shelves.isEmpty()) item(key="state:empty") { ContentEmpty(string(R.string.nothing_here_yet)) }
         if(data!=null) {
             if(data.shelves.size>1) data.shelves.forEachIndexed { i,shelf -> item(key="shelf:$i") {
                 HomeCardShelf(shelf.title,shelf.cards,150.dp,onOpen=::open)
@@ -185,10 +185,10 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
                 val token=data.next;val revision=provider.authRevision;loading=true;moreError=null
                 scope.launch { val result=provider.browseCatalog(id,token)
                     if(revision==provider.authRevision) {
-                        result.fold(onSuccess={ page=data.copy(cards=(data.cards+it.cards).distinctBy {c->c.key()},next=it.next?.takeUnless {n->n==token},shelves=emptyList()) },onFailure={moreError=it.message?:"Could not load more"});loading=false
+                        result.fold(onSuccess={ page=data.copy(cards=(data.cards+it.cards).distinctBy {c->c.key()},next=it.next?.takeUnless {n->n==token},shelves=emptyList()) },onFailure={moreError=it.message?:string(R.string.could_not_load_more)});loading=false
                     }
                 }
-            },enabled=!loading) {Text("Load more")} }
+            },enabled=!loading) {Text(string(R.string.load_more))} }
         }
     }
 }
@@ -207,7 +207,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     }
     fun open(card:ProviderHomeCard)=openCatalogCard(model,card) {scope.launch {playRealTrack(provider,playback,it,onNotice)}}
     ScreenList(model,bottom) {
-        item { ScreenTitle(title,if(title=="Radio") "Live now on YouTube" else "Shows and episodes for you") }
+        item { ScreenTitle(title,if(title=="Radio") string(R.string.live_now_on_youtube) else string(R.string.shows_and_episodes_for_you)) }
         if(title=="Radio") item {Row(Modifier.fillMaxWidth().fullBleed(20.dp).horizontalScroll(rememberScrollState()).padding(horizontal=20.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             radioCategories.forEach {g->GlassCategoryChip(g,key="radio:$g",selected=genre==g) {model.radioCategory=g}}
         }}
@@ -216,11 +216,11 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
                 GlassCategoryChip(g,key="podcast:$g",selected=genre==g,tag="podcast_genre_${g.lowercase().replace(' ','_')}") {model.podcastGenre=g}}
         }}
 
-        if(loading && shelves.isEmpty()) item(key="state:loading") {ListSkeleton("Loading $title")}
+        if(loading && shelves.isEmpty()) item(key="state:loading") {ListSkeleton(string(R.string.loading_x, title))}
         error?.let {item(key="state:problem") {ContentProblem(it,onRetry={retry++},onSignIn={model.push(Route.Account)})}}
         shelves.forEachIndexed {i,shelf->item(key="explore:$i"){HomeCardShelf(shelf.title,shelf.cards,180.dp,maxCards=if(title=="Radio") Int.MAX_VALUE else 12,onOpen=::open)}}
-        if(!loading && error==null && shelves.isEmpty()) item(key="state:empty") {ContentEmpty(if(title=="Radio") "Stations appear when their channels are live." else "No recommended shows available yet.")}
-        item {ToolLink(if(title=="Radio") "Find more live stations" else "Find a podcast") {
+        if(!loading && error==null && shelves.isEmpty()) item(key="state:empty") {ContentEmpty(if(title=="Radio") string(R.string.stations_appear_when_their_channels_are_live) else string(R.string.no_recommended_shows_available_yet))}
+        item {ToolLink(if(title=="Radio") string(R.string.find_more_live_stations) else string(R.string.find_a_podcast)) {
             model.searchQuery=if(title=="Radio") "live radio" else "podcasts";model.searchFilter=if(title=="Radio") "All" else "Podcasts";model.select("Search")
         }}
     }
@@ -246,18 +246,18 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     fun open(card:ProviderHomeCard)=openCatalogCard(model,card){scope.launch {playRealTrack(provider,playback,it,onNotice)}}
     ScreenList(model,bottom) {
         item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top) {
-            Box(Modifier.weight(1f)) {ScreenTitle("Library","Your YouTube Music collection")}
+            Box(Modifier.weight(1f)) {ScreenTitle(string(R.string.library),string(R.string.your_youtube_music_collection))}
             IconButton({uiHaptic();model.push(Route.ListeningHistory)},modifier=Modifier.testTag("library_history")) {
-                Icon(Icons.Rounded.History,"Listening history",tint=White)
+                Icon(Icons.Rounded.History,string(R.string.listening_history),tint=White)
             }
         }}
         item {Row(Modifier.fillMaxWidth().fullBleed(20.dp).horizontalScroll(rememberScrollState()).padding(horizontal=20.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("All","Songs","Favorites","Playlists","Albums","Artists","Podcasts","History").forEach {filter->
-                GlassCategoryChip(if(filter=="Favorites") "Liked songs" else filter,key="library:$filter",selected=kind==filter,tag="library_filter_${filter.lowercase()}") {model.libraryFilter=filter}}
+                GlassCategoryChip(if(filter=="Favorites") string(R.string.liked_songs) else filter,key="library:$filter",selected=kind==filter,tag="library_filter_${filter.lowercase()}") {model.libraryFilter=filter}}
         }}
         item {LibraryShortcutTiles(model)}
-        if(!provider.signedIn) item {ToolLink("Sign in to YouTube Music"){model.push(Route.Account)}}
-        if(loading && cards.isEmpty()) item(key="state:loading") {ListSkeleton("Loading your library")}
+        if(!provider.signedIn) item {ToolLink(string(R.string.sign_in_to_youtube_music)){model.push(Route.Account)}}
+        if(loading && cards.isEmpty()) item(key="state:loading") {ListSkeleton(string(R.string.loading_your_library))}
         error?.let {item(key="state:problem") {ContentProblem(it,onRetry={retry++},onSignIn={model.push(Route.Account)})}}
         items(cards,key={it.key()}) {card->CatalogCardRow(card,onEnqueue={next->scope.launch{enqueueRealTrack(provider,playback,card,next,onNotice)}}){open(card)}}
         moreError?.let {item(key="state:more") {Text(it,color=White,fontSize=RiffType.body,modifier=Modifier.testTag("load_more_problem"))}}
@@ -266,26 +266,26 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
             scope.launch {
                 val result=if(kind=="Favorites") provider.likedSongsPage(token).map{CatalogPage(it.tracks.map(ProviderTrack::homeCard),it.nextToken)}
                     else provider.libraryCatalog(kind,token)
-                if(model.libraryFilter==kind && revision==provider.authRevision) {result.fold(onSuccess={cards=(cards+it.cards).distinctBy {c->c.key()};next=it.next?.takeUnless {n->n==token}},onFailure={moreError=it.message?:"Could not load more"});loading=false}
+                if(model.libraryFilter==kind && revision==provider.authRevision) {result.fold(onSuccess={cards=(cards+it.cards).distinctBy {c->c.key()};next=it.next?.takeUnless {n->n==token}},onFailure={moreError=it.message?:string(R.string.could_not_load_more)});loading=false}
             }
-        },enabled=!loading,modifier=Modifier.testTag("library_load_more")){Text("Load more")}}
+        },enabled=!loading,modifier=Modifier.testTag("library_load_more")){Text(string(R.string.load_more))}}
         val local=when(kind){"History"->collections.onlineHistory;"Favorites"->collections.onlineFavorites;"Playlists"->collections.onlinePlaylist;else->emptyList()}
-        if(local.isNotEmpty()) item {Text(if(kind=="History") "Listening history" else "Saved on this phone",color=Muted)}
+        if(local.isNotEmpty()) item {Text(if(kind=="History") string(R.string.listening_history) else string(R.string.saved_on_this_phone),color=Muted)}
         items(local.filterNot {track->cards.any {it.videoId==track.videoId}},key={"local:${it.videoId}"}) {track->ProviderSongRow(track,{scope.launch{playRealTrack(provider,playback,track,onNotice)}})}
-        if(!loading && error==null && cards.isEmpty() && local.isEmpty() && provider.signedIn) item(key="state:empty") {ContentEmpty("Nothing in this collection yet.")}
+        if(!loading && error==null && cards.isEmpty() && local.isEmpty() && provider.signedIn) item(key="state:empty") {ContentEmpty(string(R.string.nothing_in_this_collection_yet))}
     }
 }
 internal suspend fun enqueueRealTrack(provider:YouTubeMusicProvider,playback:PlaybackGateway,
     card:ProviderHomeCard,next:Boolean,onNotice:(String)->Unit) {
     val track=card.track()?:return
-    if(playback is MusicPlaybackGateway) {playback.enqueueSong(track,next);uiHaptic(HapticCue.Confirm);onNotice(if(next) "Playing next" else "Added to queue");return}
+    if(playback is MusicPlaybackGateway) {playback.enqueueSong(track,next);uiHaptic(HapticCue.Confirm);onNotice(if(next) string(R.string.playing_next) else string(R.string.added_to_queue));return}
     val revision=provider.authRevision
     provider.resolve(track.videoId,track.isLive).fold(onSuccess={stream->
         if(revision==provider.authRevision) {
             if(playback.state.queue.isEmpty()) playback.playProvider(track,stream)
             else playback.enqueueProvider(track,stream,next)
             uiHaptic(HapticCue.Confirm)
-            onNotice(if(next) "Playing next" else "Added to queue")
+            onNotice(if(next) string(R.string.playing_next) else string(R.string.added_to_queue))
         }
-    },onFailure={onNotice(it.message?:"Could not add to queue")})
+    },onFailure={onNotice(it.message?:string(R.string.could_not_add_to_queue))})
 }

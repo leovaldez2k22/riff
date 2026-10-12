@@ -209,12 +209,12 @@ internal class ProviderSessionManager(context: Context, internal val dependencie
             val body = runCatching { json.parseToJsonElement(text) as? JsonObject }.getOrNull()
             when (classifySessionProbe(response.status.value, body, text, networkError = false)) {
                 SessionState.Valid -> Result.success(VerifiedSignIn(candidate, body?.let(::parseAccountProfile)))
-                SessionState.Expired -> Result.failure(IllegalStateException("Google has not completed sign-in. Continue in the sign-in page."))
-                else -> Result.failure(IllegalStateException("Could not verify your account. Check your connection and try again."))
+                SessionState.Expired -> Result.failure(IllegalStateException(string(R.string.google_has_not_completed_sign_in_continue)))
+                else -> Result.failure(IllegalStateException(string(R.string.could_not_verify_your_account_check_your)))
             }
         } catch (error: CancellationException) { throw error }
         catch (_: Exception) {
-            Result.failure(IllegalStateException("Could not verify your account. Check your connection and try again."))
+            Result.failure(IllegalStateException(string(R.string.could_not_verify_your_account_check_your)))
         }
     }
 
@@ -322,7 +322,7 @@ internal class ProviderSessionManager(context: Context, internal val dependencie
         return try {withContext(dependencies.dispatchers.io) {Result.success(block())}}
         catch(e:CancellationException) {
             caller.ensureActive()
-            Result.failure(IllegalStateException("YouTube Music refreshed its session. Please retry."))
+            Result.failure(IllegalStateException(string(R.string.youtube_music_refreshed_its_session_please_r)))
         } catch(e:Exception) {
             // A 401 on a signed-in request means the session likely expired: confirm it and say so.
             if(signedIn && isAuthFailure(e)) {checkSessionIfDue(forced=true);return Result.failure(IllegalStateException(SESSION_EXPIRED_MESSAGE))}

@@ -36,18 +36,19 @@ internal enum class DownloadState(val db: String) {
 }
 
 /** Why a download stopped, as the user is told. Nothing from a response or an address is kept. */
-internal enum class DownloadFailure(val wire: String, val message: String) {
-    Storage("storage", "Not enough free space. Free space or raise the download budget, then restart."),
-    Budget("budget", "Download budget reached. Raise the budget or remove downloads, then restart."),
-    Rejected("rejected", "YouTube Music refused the audio. Restart the download later."),
-    Incomplete("incomplete", "The audio did not arrive in full. Check the connection, then restart."),
-    Damaged("damaged", "The audio received could not be used. Restart the download."),
-    Unavailable("unavailable", "No downloadable audio is available for this song."),
-    Commit("commit", "Could not save the download. Check storage, then restart."),
+internal enum class DownloadFailure(val wire: String, private val messageRes: Int) {
+    Storage("storage", R.string.not_enough_free_space_free_space_or),
+    Budget("budget", R.string.download_budget_reached_raise_the_budget_or),
+    Rejected("rejected", R.string.youtube_music_refused_the_audio_restart_the),
+    Incomplete("incomplete", R.string.the_audio_did_not_arrive_in_full),
+    Damaged("damaged", R.string.the_audio_received_could_not_be_used),
+    Unavailable("unavailable", R.string.no_downloadable_audio_is_available_for_this),
+    Commit("commit", R.string.could_not_save_the_download_check_storage),
     /** A finished download whose files are gone or no longer match. */
-    Integrity("integrity", "This download is damaged or missing. Download it again."),
-    Unrecognised("unrecognised", "This download was left in a state Riff does not know. Download it again."),
-    Other("other", "Download incomplete. Check storage and connection, then restart.");
+    Integrity("integrity", R.string.this_download_is_damaged_or_missing_download),
+    Unrecognised("unrecognised", R.string.this_download_was_left_in_a_state),
+    Other("other", R.string.download_incomplete_check_storage_and_connec);
+    val message: String get() = string(messageRes)
 }
 
 /** How many runs try a failed download again by themselves. After that it waits for the user. */

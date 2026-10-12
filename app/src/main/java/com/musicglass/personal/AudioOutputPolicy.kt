@@ -1,5 +1,5 @@
 package com.musicglass.personal
-internal enum class OutputKind(val label:String) { Phone("Phone speaker"),Earphones("Earphones"),Headphones("Headphones"),Speaker("External speaker") }
+internal enum class OutputKind(private val labelRes:Int) { Phone(R.string.phone_speaker),Earphones(R.string.earphones),Headphones(R.string.headphones),Speaker(R.string.external_speaker);val label:String get()=string(labelRes) }
 /** Use the selected media route. Device names refine Bluetooth's otherwise generic headset type. */
 internal fun outputKind(type:Int,name:String):OutputKind {
     val n=name.lowercase(java.util.Locale.ROOT)

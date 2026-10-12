@@ -58,43 +58,42 @@ internal class DocumentPicker(val create: (String, (PickedDocument?) -> Unit) ->
     }
 }
 
-internal const val EXPORT_WARNING = "The file is not encrypted. It contains your listening history and searches, and anyone who has the file can read it. " +
-    "It holds no passwords or sign-in data, and no audio."
+internal val EXPORT_WARNING: String get() = string(R.string.the_file_is_not_encrypted_it_contains)
 
 /** What a section holds, in the user's words. */
 internal fun describeCounts(c: SectionCounts): String = listOfNotNull(
-    c.settings.takeIf { it > 0 }?.let { plural(it, "setting") }, c.hidden.takeIf { it > 0 }?.let { plural(it, "hidden item") },
-    c.saved.takeIf { it > 0 }?.let { plural(it, "saved track") }, c.recents.takeIf { it > 0 }?.let { "$it recently played" },
-    c.searches.takeIf { it > 0 }?.let { plural(it, "search", "searches") }, c.plays.takeIf { it > 0 }?.let { plural(it, "play") },
-    c.downloads.takeIf { it > 0 }?.let { plural(it, "download name") }).joinToString(", ").ifEmpty { "Nothing" }
+    c.settings.takeIf { it > 0 }?.let { quantity(R.plurals.n_settings, it) }, c.hidden.takeIf { it > 0 }?.let { quantity(R.plurals.n_hidden_items, it) },
+    c.saved.takeIf { it > 0 }?.let { quantity(R.plurals.n_saved_tracks, it) }, c.recents.takeIf { it > 0 }?.let { quantity(R.plurals.n_recently_played, it) },
+    c.searches.takeIf { it > 0 }?.let { quantity(R.plurals.n_searches, it) }, c.plays.takeIf { it > 0 }?.let { quantity(R.plurals.n_plays, it) },
+    c.downloads.takeIf { it > 0 }?.let { quantity(R.plurals.n_download_names, it) }).joinToString(", ").ifEmpty { string(R.string.nothing) }
 
 internal fun rejectText(reason: RejectReason): String = when (reason) {
-    RejectReason.NotRiff -> "This is not a Riff data file."
-    RejectReason.Newer -> "This file was made by a newer version of Riff. Update Riff to import it."
-    RejectReason.Truncated -> "This file is incomplete or damaged."
-    RejectReason.TooLarge -> "This file is larger than 128 MB and was not read."
-    RejectReason.Unreadable -> "Riff could not read this file."
-    RejectReason.Storage -> "There is not enough free space on this phone to read the file."
-} + " Nothing was changed."
+    RejectReason.NotRiff -> string(R.string.this_is_not_a_riff_data_file)
+    RejectReason.Newer -> string(R.string.this_file_was_made_by_a_newer)
+    RejectReason.Truncated -> string(R.string.this_file_is_incomplete_or_damaged)
+    RejectReason.TooLarge -> string(R.string.this_file_is_larger_than_128_mb)
+    RejectReason.Unreadable -> string(R.string.riff_could_not_read_this_file)
+    RejectReason.Storage -> string(R.string.there_is_not_enough_free_space_on)
+} + string(R.string.nothing_was_changed)
 
 internal fun exportText(outcome: ExportOutcome): String = when (outcome) {
-    is ExportOutcome.Done -> "${plural(outcome.records, "item")} exported"
-    ExportOutcome.Cancelled -> "Export cancelled. No file was written."
-    ExportOutcome.TooLarge -> "The file would be larger than 128 MB. Choose less to export. No file was written."
-    is ExportOutcome.Failed -> "Could not export. No usable file was written."
+    is ExportOutcome.Done -> quantity(R.plurals.n_items_exported, outcome.records)
+    ExportOutcome.Cancelled -> string(R.string.export_cancelled_no_file_was_written)
+    ExportOutcome.TooLarge -> string(R.string.the_file_would_be_larger_than_128)
+    is ExportOutcome.Failed -> string(R.string.could_not_export_no_usable_file_was)
 }
 
 /** Every line of the summary shown after an import. Nothing that was skipped or failed is left out. */
 internal fun importSummary(report: ImportReport): List<String> = buildList {
-    add(if (report.added.total == 0) "Nothing new was added." else "Added: ${describeCounts(report.added)}.")
-    if (report.present > 0) add("${plural(report.present, "item")} already on this phone ${if (report.present == 1) "was" else "were"} left as ${if (report.present == 1) "it is" else "they are"}.")
-    if (report.malformed > 0) add("${plural(report.malformed, "record")} could not be read and ${if (report.malformed == 1) "was" else "were"} skipped.")
-    if (report.overLimit > 0) add("${plural(report.overLimit, "item")} did not fit: a list here was full.")
-    if (report.expired > 0) add("${plural(report.expired, "play")} older than your history period ${if (report.expired == 1) "was" else "were"} not added.")
-    if (report.settingsKept > 0) add("The history period was kept as it is, so that no plays are removed.")
-    if (report.sectionsLeft > 0) add("${plural(report.sectionsLeft, "account section")} ${if (report.sectionsLeft == 1) "was" else "were"} not imported.")
-    if (report.added.downloads > 0) add("Downloads are recorded by name only. Nothing was downloaded.")
-    if (report.notStored.isNotEmpty()) add("Could not be stored: ${report.notStored.joinToString(", ")}. Import the file again to retry.")
+    add(if (report.added.total == 0) string(R.string.nothing_new_was_added) else string(R.string.added_x, describeCounts(report.added)))
+    if (report.present > 0) add(quantity(R.plurals.n_items_already_on_this_phone_were, report.present))
+    if (report.malformed > 0) add(quantity(R.plurals.n_records_could_not_be_read_and, report.malformed))
+    if (report.overLimit > 0) add(quantity(R.plurals.n_items_did_not_fit_a_list, report.overLimit))
+    if (report.expired > 0) add(quantity(R.plurals.n_plays_older_than_your_history_period, report.expired))
+    if (report.settingsKept > 0) add(string(R.string.the_history_period_was_kept_as_it))
+    if (report.sectionsLeft > 0) add(quantity(R.plurals.n_account_sections_were_not_imported, report.sectionsLeft))
+    if (report.added.downloads > 0) add(string(R.string.downloads_are_recorded_by_name_only_nothing))
+    if (report.notStored.isNotEmpty()) add(string(R.string.could_not_be_stored_x_import_the, report.notStored.joinToString(", ") { keyLabel(it) }))
 }
 
 private sealed interface TransferStep {
@@ -121,9 +120,9 @@ private sealed interface TransferStep {
     val accountName = if (provider.accountScope() is AccountScope.Provider && ownerKey != UNVERIFIED_SCOPE_KEY) owner else null
 
     fun ownerName(kind: OwnerKind, key: String?, position: Int) = when (kind) {
-        OwnerKind.Device -> "This phone"
-        OwnerKind.Guest -> "Signed-out listening"
-        OwnerKind.Provider -> if (key == ownerKey && accountName != null) accountName.replaceFirstChar(Char::uppercase) else "Another account used on this phone ($position)"
+        OwnerKind.Device -> string(R.string.this_phone)
+        OwnerKind.Guest -> string(R.string.signed_out_listening)
+        OwnerKind.Provider -> if (key == ownerKey && accountName != null) accountName.replaceFirstChar(Char::uppercase) else string(R.string.another_account_used_on_this_phone_x, position)
     }
     fun close(plan: ImportPlan? = null) { step = null; if (plan != null) scope.launch { transfer.discard(plan) } }
 
@@ -158,8 +157,8 @@ private sealed interface TransferStep {
             scope.launch {
                 when (val opened = transfer.open(document.read, stop::get)) {
                     is ImportOpen.Ready -> step = TransferStep.Preview(opened.plan)
-                    is ImportOpen.Rejected -> step = TransferStep.Result("File not imported", listOf(rejectText(opened.reason)))
-                    ImportOpen.Cancelled -> { step = null; onNotice("Import cancelled. Nothing was changed.") }
+                    is ImportOpen.Rejected -> step = TransferStep.Result(string(R.string.file_not_imported), listOf(rejectText(opened.reason)))
+                    ImportOpen.Cancelled -> { step = null; onNotice(string(R.string.import_cancelled_nothing_was_changed)) }
                 }
             }
         }
@@ -170,26 +169,26 @@ private sealed interface TransferStep {
             when (val outcome = transfer.import(plan, adopt, stop::get) { done, total -> step = TransferStep.Importing(done, total) }) {
                 is ImportOutcome.Finished -> {
                     onImported(); uiHaptic(HapticCue.Confirm)
-                    step = TransferStep.Result(if (outcome.report.notStored.isEmpty()) "Import finished" else "Import incomplete", importSummary(outcome.report))
+                    step = TransferStep.Result(if (outcome.report.notStored.isEmpty()) string(R.string.import_finished) else string(R.string.import_incomplete), importSummary(outcome.report))
                 }
-                ImportOutcome.Cancelled -> { step = null; onNotice("Import cancelled. Nothing was changed.") }
-                is ImportOutcome.Rejected -> step = TransferStep.Result("File not imported", listOf(rejectText(outcome.reason)))
-                is ImportOutcome.Failed -> step = TransferStep.Result("File not imported", listOf("Riff could not change its storage. Nothing was changed."))
+                ImportOutcome.Cancelled -> { step = null; onNotice(string(R.string.import_cancelled_nothing_was_changed)) }
+                is ImportOutcome.Rejected -> step = TransferStep.Result(string(R.string.file_not_imported), listOf(rejectText(outcome.reason)))
+                is ImportOutcome.Failed -> step = TransferStep.Result(string(R.string.file_not_imported), listOf(string(R.string.riff_could_not_change_its_storage_nothing)))
             }
         }
     }
 
-    SettingsSection("Move to another phone") {
-        SettingsLinkRow("Export local data", null, Icons.Rounded.FileUpload, "privacy_export") { if (step == null) startExport() }
+    SettingsSection(string(R.string.move_to_another_phone)) {
+        SettingsLinkRow(string(R.string.export_local_data), null, Icons.Rounded.FileUpload, "privacy_export") { if (step == null) startExport() }
         SettingsDivider()
-        SettingsLinkRow("Import local data", null, Icons.Rounded.FileDownload, "privacy_import") { if (step == null) startImport() }
-        Text("Settings, saved tracks, searches and listening history, as one file you choose the place of. Nothing is sent to YouTube Music.",
+        SettingsLinkRow(string(R.string.import_local_data), null, Icons.Rounded.FileDownload, "privacy_import") { if (step == null) startImport() }
+        Text(string(R.string.settings_saved_tracks_searches_and_listening),
             color = Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
     }
 
     when (val now = step) {
         null -> Unit
-        is TransferStep.ChooseExport -> FrostedAlertDialog(onDismissRequest = { step = null }, title = { Text("Export local data") },
+        is TransferStep.ChooseExport -> FrostedAlertDialog(onDismissRequest = { step = null }, title = { Text(string(R.string.export_local_data)) },
             text = { Column(Modifier.verticalScroll(rememberScrollState())) {
                 var other = 0
                 now.owners.forEach { item ->
@@ -201,48 +200,47 @@ private sealed interface TransferStep {
                 Text(EXPORT_WARNING, color = White, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp).testTag("export_warning"))
             } },
             confirmButton = { TextButton(enabled = chosen.isNotEmpty(), onClick = { uiHaptic(); export() }, modifier = Modifier.testTag("export_confirm")) {
-                Text("Choose where to save", color = Pink) } },
-            dismissButton = { TextButton({ step = null }, modifier = Modifier.testTag("export_cancel")) { Text("Cancel") } })
-        is TransferStep.Exporting -> ProgressDialog("Exporting", "${plural(now.done, "item")} written", null) { stop.set(true) }
-        TransferStep.Reading -> ProgressDialog("Reading the file", "Nothing is changed while the file is read.", null) { stop.set(true) }
+                Text(string(R.string.choose_where_to_save), color = Pink) } },
+            dismissButton = { TextButton({ step = null }, modifier = Modifier.testTag("export_cancel")) { Text(string(R.string.cancel)) } })
+        is TransferStep.Exporting -> ProgressDialog(string(R.string.exporting), quantity(R.plurals.n_items_written, now.done), null) { stop.set(true) }
+        TransferStep.Reading -> ProgressDialog(string(R.string.reading_the_file), string(R.string.nothing_is_changed_while_the_file_is), null) { stop.set(true) }
         is TransferStep.Preview -> {
             val plan = now.plan
             val importable = plan.sections.any { it.counts.total > 0 && (it.destination != Destination.Other || it.index in adopt) }
-            FrostedAlertDialog(onDismissRequest = { close(plan) }, title = { Text("Import local data?") },
+            FrostedAlertDialog(onDismissRequest = { close(plan) }, title = { Text(string(R.string.import_local_data_2)) },
                 text = { Column(Modifier.verticalScroll(rememberScrollState()).testTag("import_preview")) {
-                    if (plan.sections.isEmpty()) Text("This file holds nothing that can be imported.", color = White, fontSize = 14.sp)
+                    if (plan.sections.isEmpty()) Text(string(R.string.this_file_holds_nothing_that_can_be), color = White, fontSize = 14.sp)
                     plan.sections.forEach { section ->
                         when (section.destination) {
                             Destination.Direct -> PlainRow(ownerName(section.kind, null, 0), describeCounts(section.counts))
-                            Destination.Account -> PlainRow((accountName ?: "This account").replaceFirstChar(Char::uppercase), describeCounts(section.counts) + ". The same account as the one signed in.")
-                            Destination.Other -> if (plan.canAdopt) CheckRow("From another account", describeCounts(section.counts) + ". Add to $owner?",
+                            Destination.Account -> PlainRow((accountName ?: string(R.string.this_account_2)).replaceFirstChar(Char::uppercase), describeCounts(section.counts) + ". The same account as the one signed in.")
+                            Destination.Other -> if (plan.canAdopt) CheckRow(string(R.string.from_another_account), describeCounts(section.counts) + ". Add to $owner?",
                                 section.index in adopt, "import_adopt_${section.index}") { adopt = if (it) adopt + section.index else adopt - section.index }
-                            else PlainRow("From an account", describeCounts(section.counts) + ". Not imported: sign in to that account first, then import the file again.")
+                            else PlainRow(string(R.string.from_an_account), describeCounts(section.counts) + ". Not imported: sign in to that account first, then import the file again.")
                         }
                     }
-                    if (plan.malformed > 0) Text("${plural(plan.malformed, "record")} in this file cannot be read and will be skipped.", color = Muted, fontSize = 13.sp,
+                    if (plan.malformed > 0) Text(quantity(R.plurals.n_records_in_this_file_cannot_be, plan.malformed), color = Muted, fontSize = 13.sp,
                         modifier = Modifier.padding(top = 8.dp).testTag("import_malformed"))
-                    if (plan.overLimit > 0) Text("${plural(plan.overLimit, "record")} are beyond what one list may hold and will be skipped.", color = Muted, fontSize = 13.sp,
+                    if (plan.overLimit > 0) Text(quantity(R.plurals.n_records_are_beyond_what_one_list, plan.overLimit), color = Muted, fontSize = 13.sp,
                         modifier = Modifier.padding(top = 8.dp))
-                    Text("Importing adds to what is on this phone and removes nothing. Nothing is played or downloaded, and nothing changes in YouTube Music.",
+                    Text(string(R.string.importing_adds_to_what_is_on_this),
                         color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
                 } },
                 confirmButton = { TextButton(enabled = importable, onClick = { uiHaptic(); if (adopt.isEmpty()) import(plan) else step = TransferStep.ConfirmAdopt(plan) },
-                    modifier = Modifier.testTag("import_confirm")) { Text("Import", color = Pink) } },
-                dismissButton = { TextButton({ close(plan) }, modifier = Modifier.testTag("import_cancel")) { Text("Cancel") } })
+                    modifier = Modifier.testTag("import_confirm")) { Text(string(R.string.import_label), color = Pink) } },
+                dismissButton = { TextButton({ close(plan) }, modifier = Modifier.testTag("import_cancel")) { Text(string(R.string.cancel)) } })
         }
         is TransferStep.ConfirmAdopt -> FrostedAlertDialog(onDismissRequest = { step = TransferStep.Preview(now.plan) },
-            title = { Text("Add another account's data?") },
-            text = { Text("They are added to the data of $owner on this phone. This part of the file comes from another account, so its plays, " +
-                "searches and saved tracks are included, and they cannot be separated afterwards.", modifier = Modifier.testTag("import_adopt_prompt")) },
-            confirmButton = { TextButton({ uiHaptic(HapticCue.Confirm); import(now.plan) }, modifier = Modifier.testTag("import_adopt_confirm")) { Text("Add and import", color = Pink) } },
-            dismissButton = { TextButton({ step = TransferStep.Preview(now.plan) }, modifier = Modifier.testTag("import_adopt_cancel")) { Text("Back") } })
-        is TransferStep.Importing -> ProgressDialog("Importing", "${now.done} of ${plural(now.total, "item")}",
+            title = { Text(string(R.string.add_another_account_s_data)) },
+            text = { Text(string(R.string.they_are_added_to_the_data_of, owner), modifier = Modifier.testTag("import_adopt_prompt")) },
+            confirmButton = { TextButton({ uiHaptic(HapticCue.Confirm); import(now.plan) }, modifier = Modifier.testTag("import_adopt_confirm")) { Text(string(R.string.add_and_import), color = Pink) } },
+            dismissButton = { TextButton({ step = TransferStep.Preview(now.plan) }, modifier = Modifier.testTag("import_adopt_cancel")) { Text(string(R.string.back)) } })
+        is TransferStep.Importing -> ProgressDialog(string(R.string.importing), quantity(R.plurals.n_of_n_items, now.total, now.done),
             if (now.total > 0) now.done.toFloat() / now.total else null) { stop.set(true) }
         is TransferStep.Result -> FrostedAlertDialog(onDismissRequest = { step = null }, title = { Text(now.title) },
             text = { Column(Modifier.verticalScroll(rememberScrollState()).testTag("transfer_result")) {
                 now.lines.forEach { Text(it, color = White, fontSize = 14.sp, modifier = Modifier.padding(bottom = 6.dp)) } } },
-            confirmButton = { TextButton({ step = null }, modifier = Modifier.testTag("transfer_close")) { Text("Close", color = Pink) } })
+            confirmButton = { TextButton({ step = null }, modifier = Modifier.testTag("transfer_close")) { Text(string(R.string.close), color = Pink) } })
     }
 }
 
@@ -269,9 +267,9 @@ private sealed interface TransferStep {
     var asked by remember { mutableStateOf(false) }
     FrostedAlertDialog(onDismissRequest = {}, title = { Text(title) },
         text = { Column(Modifier.testTag("transfer_progress")) {
-            Text(if (asked) "Stopping…" else detail, color = White, fontSize = 14.sp, modifier = Modifier.padding(bottom = 10.dp))
+            Text(if (asked) string(R.string.stopping) else detail, color = White, fontSize = 14.sp, modifier = Modifier.padding(bottom = 10.dp))
             if (fraction == null) LinearProgressIndicator(Modifier.fillMaxWidth())
             else LinearProgressIndicator(progress = { fraction.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
         } },
-        confirmButton = { TextButton(enabled = !asked, onClick = { asked = true; onCancel() }, modifier = Modifier.testTag("transfer_cancel")) { Text("Cancel") } })
+        confirmButton = { TextButton(enabled = !asked, onClick = { asked = true; onCancel() }, modifier = Modifier.testTag("transfer_cancel")) { Text(string(R.string.cancel)) } })
 }

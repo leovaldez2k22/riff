@@ -149,8 +149,8 @@ internal class YouTubeMusicProvider(context: Context,
 }
 
 
-internal const val OFFLINE_MESSAGE = "You're offline. Check your connection and try again."
-internal const val TIMEOUT_MESSAGE = "YouTube Music took too long to answer. Try again."
+internal val OFFLINE_MESSAGE: String get() = string(R.string.you_re_offline_check_your_connection_and)
+internal val TIMEOUT_MESSAGE: String get() = string(R.string.youtube_music_took_too_long_to_answer)
 
 /**
  * What a failed provider request tells the user. Network failures get plain words: the raw

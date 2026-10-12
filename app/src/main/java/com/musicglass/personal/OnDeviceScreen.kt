@@ -91,7 +91,7 @@ internal fun OnDeviceScreen(model: ShellModel, bottom: androidx.compose.ui.unit.
             if (it is SecurityException) {
                 granted = false
                 denied = true
-            } else loadError = "Could not read this device's audio library."
+            } else loadError = string(R.string.could_not_read_this_device_s_audio)
         })
         loading = false
     }
@@ -100,34 +100,34 @@ internal fun OnDeviceScreen(model: ShellModel, bottom: androidx.compose.ui.unit.
     }) }
     val results = remember(index, query) { index.search(query) }
     ScreenList(model, bottom) {
-        item { BackHeading("Library", model::back) }
-        item { ScreenTitle("On device", "Audio files indexed by Android on this phone") }
+        item { BackHeading(string(R.string.library), model::back) }
+        item { ScreenTitle(string(R.string.on_device), string(R.string.audio_files_indexed_by_android_on_this)) }
         if (!granted) {
             item {
-                Text(if (denied) "Audio access was denied. You can allow it when ready."
-                    else "Allow audio access to show files stored on this phone.", color = Muted)
+                Text(if (denied) string(R.string.audio_access_was_denied_you_can_allow)
+                    else string(R.string.allow_audio_access_to_show_files_stored), color = Muted)
             }
             item { Button(onClick = { uiHaptic();  permission.launch(audioPermission) },
                 modifier = Modifier.testTag("request_audio_permission")) {
-                Text("Allow audio access")
+                Text(string(R.string.allow_audio_access))
             } }
         } else {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("${tracks.size} audio ${if (tracks.size == 1) "file" else "files"}",
+                    Text(quantity(R.plurals.n_audio_files, tracks.size),
                         color = Muted, modifier = Modifier.weight(1f))
-                    Text("Refresh", color = Pink, modifier = Modifier.clickable { uiHaptic();  refreshKey++ }
+                    Text(string(R.string.refresh), color = Pink, modifier = Modifier.clickable { uiHaptic();  refreshKey++ }
                         .padding(12.dp).testTag("device_refresh"))
                 }
             }
             item { OutlinedTextField(query, onValueChange = { query = it },
-                singleLine = true, label = { Text("Search on-device audio") },
+                singleLine = true, label = { Text(string(R.string.search_on_device_audio)) },
                 modifier = Modifier.fillMaxWidth().testTag("device_search")) }
-            if (loading && tracks.isEmpty()) item(key = "state:loading") { ListSkeleton("Reading audio files") }
+            if (loading && tracks.isEmpty()) item(key = "state:loading") { ListSkeleton(string(R.string.reading_audio_files)) }
             loadError?.let { error -> item(key = "state:problem") { ContentProblem(error, onRetry = { refreshKey++ }) } }
             if (!loading && loadError == null && results.isEmpty()) item(key = "state:empty") {
-                ContentEmpty(if (tracks.isEmpty()) "No music files were found on this phone."
-                    else "No audio files match this search.")
+                ContentEmpty(if (tracks.isEmpty()) string(R.string.no_music_files_were_found_on_this)
+                    else string(R.string.no_audio_files_match_this_search))
             }
             items(results, key = { tracks[it].id }) { position ->
                 val track = tracks[position]
@@ -136,7 +136,7 @@ internal fun OnDeviceScreen(model: ShellModel, bottom: androidx.compose.ui.unit.
                     .motionClickable { playback.playLocal(track) }
                     .testTag("local_track_${track.id}"),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = "Play ${track.title}",
+                    Icon(Icons.Filled.PlayArrow, contentDescription = string(R.string.play_x, track.title),
                         tint = Pink, modifier = Modifier.size(48.dp))
                     Column(Modifier.weight(1f)) {
                         Text(track.title, color = White, maxLines = 1,

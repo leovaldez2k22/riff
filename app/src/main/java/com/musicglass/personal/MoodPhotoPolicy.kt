@@ -44,6 +44,6 @@ internal fun parseOpenversePhotos(root:kotlinx.serialization.json.JsonObject):Li
             !url.startsWith("https://") || !(host.endsWith(".staticflickr.com") || host in setOf("upload.wikimedia.org","thumb.wikimedia.org","images.unsplash.com")) ||
             Regex("drawing|illustration|painting|diagram|logo|AI.generated",RegexOption.IGNORE_CASE).containsMatchIn(o.str("title"))) return@mapNotNull null
         val id=o.str("id");if(!id.matches(Regex("[a-f0-9-]{36}"))) return@mapNotNull null
-        PhotoCandidate("ov-$id",url,o.str("creator"),when(license) {"cc0"->"CC0";"pdm"->"Public domain";"by-sa"->"CC BY-SA ${o.str("license_version")}";else->"CC BY ${o.str("license_version")}"},o.str("foreign_landing_url"),o.str("license_url"))
+        PhotoCandidate("ov-$id",url,o.str("creator"),when(license) {"cc0"->"CC0";"pdm"->string(R.string.public_domain);"by-sa"->"CC BY-SA ${o.str("license_version")}";else->"CC BY ${o.str("license_version")}"},o.str("foreign_landing_url"),o.str("license_url"))
     }
 }

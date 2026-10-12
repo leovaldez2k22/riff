@@ -70,7 +70,7 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
     val router = remember(context) { MediaRouter2.getInstance(context) }
     val maxVolume = remember(audio) { audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1) }
     var volume by remember(audio) { mutableIntStateOf(audio.getStreamVolume(AudioManager.STREAM_MUSIC)) }
-    var routeName by remember { mutableStateOf("This phone") }
+    var routeName by remember { mutableStateOf(string(R.string.this_phone)) }
     var routeKind by remember { mutableStateOf(OutputKind.Phone) }
     val mediaAttributes = remember { AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -89,8 +89,8 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
                 android.media.MediaRoute2Info.TYPE_BLE_HEADSET->AudioDeviceInfo.TYPE_BLE_HEADSET
                 else->if(route==null) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else -1
             }
-            routeName=if(type in setOf(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,AudioDeviceInfo.TYPE_BUILTIN_EARPIECE)) "This phone"
-                else device?.productName?.toString()?.takeIf(String::isNotBlank) ?:route?.name?.toString()?:"Audio output"
+            routeName=if(type in setOf(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,AudioDeviceInfo.TYPE_BUILTIN_EARPIECE)) string(R.string.this_phone)
+                else device?.productName?.toString()?.takeIf(String::isNotBlank) ?:route?.name?.toString()?:string(R.string.audio_output)
             routeKind=outputKind(type,routeName)
             delay(500)
         }
@@ -103,8 +103,8 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
                 onValueChange={ next -> volume=next.roundToInt().coerceIn(0,maxVolume)
                     audio.setStreamVolume(AudioManager.STREAM_MUSIC,volume,0) },valueRange=0f..maxVolume.toFloat(),haptics=SliderHaptics.Volume,
                 modifier=Modifier.weight(1f).padding(horizontal=8.dp).testTag("player_volume").semantics {
-                    contentDescription="Volume"
-                    stateDescription=if(volume==0) "Muted" else "${volume*100/maxVolume.coerceAtLeast(1)} percent"
+                    contentDescription=string(R.string.volume)
+                    stateDescription=if(volume==0) string(R.string.muted) else "${volume*100/maxVolume.coerceAtLeast(1)} percent"
                 })
             Icon(Icons.Rounded.VolumeUp, contentDescription = null, tint = White,
                 modifier = Modifier.size(23.dp))
@@ -113,13 +113,13 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
             Column(Modifier.weight(1f).height(62.dp).clickable(onClick = hapticClick(onLyrics))
                 .testTag("player_lyrics"), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
-                Icon(Icons.Rounded.SpeakerNotes, contentDescription = "Open lyrics", tint = White,
+                Icon(Icons.Rounded.SpeakerNotes, contentDescription = string(R.string.open_lyrics), tint = White,
                     modifier = Modifier.size(27.dp))
             }
             Column(Modifier.weight(1f).height(62.dp).clickable { uiHaptic(); 
                 if (Build.VERSION.SDK_INT >= 34) router.showSystemOutputSwitcher()
                 else context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
-            }.semantics { contentDescription = "Change audio output: ${routeKind.label}, $routeName" }
+            }.semantics { contentDescription = string(R.string.change_audio_output_x_x, routeKind.label, routeName) }
                 .testTag("player_output"), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
                 Icon(when(routeKind) {OutputKind.Phone->Icons.Rounded.Smartphone;OutputKind.Earphones->Icons.Rounded.Earbuds;OutputKind.Headphones->Icons.Rounded.Headphones;OutputKind.Speaker->Icons.Rounded.SpeakerGroup}, contentDescription = null, tint = White,
@@ -133,7 +133,7 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
             Column(Modifier.weight(1f).height(62.dp).clickable(onClick = hapticClick(onQueue))
                 .testTag("player_queue_bottom"), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
-                Icon(Icons.Rounded.FormatListBulleted, contentDescription = "Open queue", tint = White,
+                Icon(Icons.Rounded.FormatListBulleted, contentDescription = string(R.string.open_queue), tint = White,
                     modifier = Modifier.size(28.dp))
             }
         }

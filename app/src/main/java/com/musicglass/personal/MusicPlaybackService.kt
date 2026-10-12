@@ -342,7 +342,7 @@ class MusicPlaybackService : MediaSessionService() {
         if(save!=null) {
             // Committed before the queue is cleared. Stale means the owner's data was deleted meanwhile: nothing to keep.
             val outcome=persistence.commit(save)
-            check(outcome==StoreOutcome.Done || outcome==StoreOutcome.Stale) {"Could not save the queue"}
+            check(outcome==StoreOutcome.Done || outcome==StoreOutcome.Stale) {string(R.string.could_not_save_the_queue)}
         }
         withContext(Dispatchers.Main.immediate) {
             val player=session?.player?:return@withContext

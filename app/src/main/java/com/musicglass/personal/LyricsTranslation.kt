@@ -20,12 +20,12 @@ private suspend fun <T> Task<T>.awaitTranslation():T=suspendCancellableCoroutine
 }
 /** Original lyric lines and word timing are retained. English is a separate line-aligned layer. */
 internal suspend fun englishLyrics(context:Context,lines:List<LyricLine>,source:String?,status:(String)->Unit):List<String> {
-    require(lines.isNotEmpty()) {"No lyrics to translate"}
-    status("Identifying language\u2026")
+    require(lines.isNotEmpty()) {string(R.string.no_lyrics_to_translate)}
+    status(string(R.string.identifying_language))
     val identifier=LanguageIdentification.getClient()
     val language=try {source ?: TranslateLanguage.fromLanguageTag(identifier.identifyLanguage(lines.joinToString("\n") {it.text}.take(5000)).awaitTranslation())}
         finally {identifier.close()}
-    require(language!=null && language!="und") {"Choose the original language to translate these lyrics."}
+    require(language!=null && language!="und") {string(R.string.choose_the_original_language_to_translate_th)}
     if(language==TranslateLanguage.ENGLISH) return lines.map {it.text}
     val text=language+"\n"+lines.joinToString("\n") {it.text}
     val key=MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") {"%02x".format(it)}
@@ -34,11 +34,11 @@ internal suspend fun englishLyrics(context:Context,lines:List<LyricLine>,source:
     if(cached?.size==lines.size) return cached
     val translator=Translation.getClient(TranslatorOptions.Builder().setSourceLanguage(language).setTargetLanguage(TranslateLanguage.ENGLISH).build())
     try {
-        status("Preparing language model\u2026")
+        status(string(R.string.preparing_language_model))
         translator.downloadModelIfNeeded(DownloadConditions.Builder().build()).awaitTranslation()
         val translations=mutableMapOf<String,String>()
         val result=lines.mapIndexed {index,line->
-            status("Translating ${index+1} of ${lines.size} lines\u2026")
+            status(string(R.string.translating_x_of_x_lines, index+1, lines.size))
             translations[line.text] ?: translator.translate(line.text).awaitTranslation().also {translations[line.text]=it}
         }
         withContext(Dispatchers.IO) {

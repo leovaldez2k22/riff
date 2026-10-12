@@ -2,7 +2,7 @@ package com.musicglass.personal
 
 import kotlinx.serialization.json.*
 
-internal enum class CatalogKind(val label: String) { Song("Song"), Album("Album"), Artist("Artist"), Playlist("Playlist"), Podcast("Podcast"), Episode("Episode"), Live("Live radio") }
+internal enum class CatalogKind(private val labelRes: Int) { Song(R.string.song), Album(R.string.album), Artist(R.string.artist), Playlist(R.string.playlist), Podcast(R.string.podcast), Episode(R.string.episode), Live(R.string.live_radio); val label: String get() = string(labelRes) }
 internal data class CatalogPage(val cards: List<ProviderHomeCard>, val next: String? = null,
     val title: String = "", val subtitle: String = "", val artworkUrl: String? = null,
     val shelves: List<ProviderHomeSection> = emptyList(), val description: String = "",

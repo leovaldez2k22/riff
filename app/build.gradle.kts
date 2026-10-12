@@ -37,6 +37,8 @@ android {
     sourceSets.getByName("test").java.srcDir("src/testSupport/java")
     sourceSets.getByName("androidTest").java.srcDir("src/testSupport/java")
     sourceSets.getByName("test").resources.srcDir("src/androidTest/assets")
+    // Q13: a test that runs without Android reads the default text from strings.xml itself (Strings.kt).
+    sourceSets.getByName("test").resources.srcDir("src/main/res/values")
 
     signingConfigs {
         create("localRelease") {
@@ -54,6 +56,8 @@ android {
         }
     }
     buildTypes {
+        // Q13: en-XA (longer, accented) and ar-XB (right to left) come with a debug build, to look at text by eye.
+        debug { isPseudoLocalesEnabled = true }
         release {
             // R8 and resource shrinking (plan W4): the APK was 128.5 MiB, 61 MB of it unshrunk DEX.
             isMinifyEnabled = true

@@ -17,21 +17,21 @@ import kotlinx.coroutines.*
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
-internal data class WidgetPreset(val title:String,val receiver:Class<out AppWidgetProvider>,val layout:Int)
+internal data class WidgetPreset(private val titleRes:Int,val receiver:Class<out AppWidgetProvider>,val layout:Int) {val title:String get()=string(titleRes)}
 internal val riffWidgetPresets=listOf(
-    WidgetPreset("Compact",CompactRiffWidget::class.java,R.layout.widget_compact),
-    WidgetPreset("Wide",WideRiffWidget::class.java,R.layout.widget_wide),
-    WidgetPreset("Artwork",ArtworkRiffWidget::class.java,R.layout.widget_artwork),
-    WidgetPreset("Player",PlayerRiffWidget::class.java,R.layout.widget_player),
-    WidgetPreset("Large",LargeRiffWidget::class.java,R.layout.widget_large),
-    WidgetPreset("Circle",CircleRiffWidget::class.java,R.layout.widget_circle))
+    WidgetPreset(R.string.compact,CompactRiffWidget::class.java,R.layout.widget_compact),
+    WidgetPreset(R.string.wide,WideRiffWidget::class.java,R.layout.widget_wide),
+    WidgetPreset(R.string.artwork,ArtworkRiffWidget::class.java,R.layout.widget_artwork),
+    WidgetPreset(R.string.player,PlayerRiffWidget::class.java,R.layout.widget_player),
+    WidgetPreset(R.string.large,LargeRiffWidget::class.java,R.layout.widget_large),
+    WidgetPreset(R.string.circle,CircleRiffWidget::class.java,R.layout.widget_circle))
 internal const val WIDGET_CONTROL="com.musicglass.personal.WIDGET_CONTROL"
 internal fun widgetCommandAllowed(command:String)=command in setOf("toggle","previous","next")
 internal object RiffWidgets {
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.IO)
     private val generation=AtomicLong()
     private var current:WidgetState?=null
-    internal data class WidgetState(val title:String="Riff",val artist:String="Ready when you are",val art:String?=null,val playing:Boolean=false,val next:String="",val available:Boolean=false)
+    internal data class WidgetState(val title:String="Riff",val artist:String=string(R.string.ready_when_you_are),val art:String?=null,val playing:Boolean=false,val next:String="",val available:Boolean=false)
     fun token(context:Context):String {
         val prefs=context.getSharedPreferences("widget_control",Context.MODE_PRIVATE)
         synchronized(this) {
@@ -41,7 +41,7 @@ internal object RiffWidgets {
     fun publish(context:Context,player:Player) {
         val item=player.currentMediaItem;val meta=item?.mediaMetadata
         val next=if(player.hasNextMediaItem()) player.getMediaItemAt(player.nextMediaItemIndex).mediaMetadata.title?.toString().orEmpty() else ""
-        val state=WidgetState(meta?.title?.toString()?:"Riff",meta?.artist?.toString()?:"Ready when you are",meta?.artworkUri?.toString(),player.isPlaying,next,item!=null)
+        val state=WidgetState(meta?.title?.toString()?:"Riff",meta?.artist?.toString()?:string(R.string.ready_when_you_are),meta?.artworkUri?.toString(),player.isPlaying,next,item!=null)
         if(state==current) return
         current=state;refresh(context)
     }
@@ -68,7 +68,7 @@ internal object RiffWidgets {
         val views=RemoteViews(context.packageName,layout)
         views.setTextViewText(R.id.widget_title,state.title)
         if(preset!=5) views.setTextViewText(R.id.widget_artist,state.artist)
-        if(preset==4) views.setTextViewText(R.id.widget_up_next,if(state.next.isBlank()) "" else "Up next: ${state.next}")
+        if(preset==4) views.setTextViewText(R.id.widget_up_next,if(state.next.isBlank()) "" else string(R.string.up_next_x, state.next))
         if(bitmap!=null) views.setImageViewBitmap(R.id.widget_art,rounded(bitmap,preset==5))
         else views.setImageViewResource(R.id.widget_art,R.drawable.ic_launcher_foreground)
         views.setImageViewResource(R.id.widget_toggle,if(state.playing) R.drawable.widget_pause else R.drawable.widget_toggle)

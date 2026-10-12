@@ -41,7 +41,7 @@ import kotlinx.coroutines.withContext
     val dataSaver=remember(context) {DataSaverSettings(context)}
     val scope=rememberCoroutineScope()
     ScreenList(model,bottom) {
-        item {BackHeading("Back",model::back);ScreenTitle("Settings")}
+        item {BackHeading(string(R.string.back),model::back);ScreenTitle(string(R.string.settings))}
         item {
             Surface(Modifier.fillMaxWidth().padding(vertical=8.dp).testTag("settings_account")
                 .clickable(onClick=hapticClick {model.push(Route.Account)}),shape=RoundedCornerShape(24.dp),
@@ -52,26 +52,26 @@ import kotlinx.coroutines.withContext
                         modifier=Modifier.size(48.dp).clip(CircleShape))
                     else Icon(Icons.Rounded.AccountCircle,null,tint=Muted,modifier=Modifier.size(48.dp))
                     Column(Modifier.weight(1f).padding(horizontal=14.dp)) {
-                        Text(provider.accountProfile?.name ?: if(provider.signedIn) "Your account" else "YouTube Music",
+                        Text(provider.accountProfile?.name ?: if(provider.signedIn) string(R.string.your_account) else "YouTube Music",
                             color=White,fontSize=17.sp,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
-                        Text(if(provider.signedIn) "Manage account" else "Sign in",color=Muted,fontSize=12.sp)
+                        Text(if(provider.signedIn) string(R.string.manage_account) else string(R.string.sign_in),color=Muted,fontSize=12.sp)
                     }
                     Icon(Icons.Rounded.ChevronRight,null,tint=Muted)
                 }
             }
         }
-        item {SettingsSection("Interaction") {
-            SettingsToggleRow("Haptic feedback",preferences.hapticFeedback,
+        item {SettingsSection(string(R.string.interaction)) {
+            SettingsToggleRow(string(R.string.haptic_feedback),preferences.hapticFeedback,
                 hapticToggle(preferences::updateHapticFeedback),Icons.Rounded.Vibration,"settings_haptics")
         }}
-        item {SettingsSection("Audio") {
-            SettingsToggleRow("Volume booster",audio.enabled,hapticToggle(audio::updateEnabled),
-                Icons.AutoMirrored.Rounded.VolumeUp,"settings_volume_boost", "Amplify Riff playback up to 300%")
+        item {SettingsSection(string(R.string.audio)) {
+            SettingsToggleRow(string(R.string.volume_booster),audio.enabled,hapticToggle(audio::updateEnabled),
+                Icons.AutoMirrored.Rounded.VolumeUp,"settings_volume_boost", string(R.string.amplify_riff_playback_up_to_300))
             if(audio.enabled) {
                 SettingsDivider()
                 Column(Modifier.padding(vertical=8.dp)) {
                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                        Text("Boost level",color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
+                        Text(string(R.string.boost_level),color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
                         Text("${boostLevel.toInt()}%",color=White,fontSize=13.sp)
                     }
                     CapsuleSlider(boostLevel,{boostLevel=it},valueRange=100f..300f,
@@ -81,16 +81,16 @@ import kotlinx.coroutines.withContext
                 }
             }
             SettingsDivider()
-            SettingsToggleRow("Normalize volume",audio.normalize,hapticToggle(audio::updateNormalize),
-                Icons.Rounded.GraphicEq,"settings_normalize_volume","Turns down louder songs from YouTube Music when it supplies loudness data")
+            SettingsToggleRow(string(R.string.normalize_volume),audio.normalize,hapticToggle(audio::updateNormalize),
+                Icons.Rounded.GraphicEq,"settings_normalize_volume",string(R.string.turns_down_louder_songs_from_youtube_music))
             SettingsDivider()
-            SettingsToggleRow("Crossfade",crossfade.enabled,hapticToggle(crossfade::updateEnabled),
-                Icons.Rounded.Shuffle,"settings_crossfade","Blend the end of each song into the next")
+            SettingsToggleRow(string(R.string.crossfade),crossfade.enabled,hapticToggle(crossfade::updateEnabled),
+                Icons.Rounded.Shuffle,"settings_crossfade",string(R.string.blend_the_end_of_each_song_into))
             if(crossfade.enabled) {
                 SettingsDivider()
                 Column(Modifier.padding(vertical=8.dp)) {
                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                        Text("Crossfade length",color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
+                        Text(string(R.string.crossfade_length),color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
                         Text("${crossfadeLength.roundToInt()} s",color=White,fontSize=13.sp)
                     }
                     CapsuleSlider(crossfadeLength,{crossfadeLength=it},valueRange=1f..12f,steps=10,
@@ -100,18 +100,18 @@ import kotlinx.coroutines.withContext
                 }
             }
         }}
-        item {SettingsSection("Data usage") {
-            SettingsToggleRow("Data saver",dataSaver.enabled,hapticToggle(dataSaver::updateEnabled),
+        item {SettingsSection(string(R.string.data_usage)) {
+            SettingsToggleRow(string(R.string.data_saver),dataSaver.enabled,hapticToggle(dataSaver::updateEnabled),
                 Icons.Rounded.DataSaverOn,"settings_data_saver",
-                "Lower-bitrate audio and up to 360p video for new streams. Downloads keep their quality.")
+                string(R.string.lower_bitrate_audio_and_up_to_360p))
         }}
-        item {SettingsSection("Appearance") {
-            SettingsToggleRow("Frosted glass",preferences.frostedGlass,
+        item {SettingsSection(string(R.string.appearance)) {
+            SettingsToggleRow(string(R.string.frosted_glass),preferences.frostedGlass,
                 hapticToggle(preferences::updateFrostedGlass),Icons.Rounded.BlurOn,"settings_frosted_glass")
             SettingsDivider()
             Column(Modifier.padding(vertical=8.dp)) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                    Text("Glass intensity",color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
+                    Text(string(R.string.glass_intensity),color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
                     Text("${(preferences.glassIntensity*100).toInt()}%",color=Muted,fontSize=13.sp)
                 }
                 CapsuleSlider(preferences.glassIntensity,preferences::updateGlassIntensity,valueRange=0f..1.5f,
@@ -120,39 +120,39 @@ import kotlinx.coroutines.withContext
             SettingsDivider()
             Column(Modifier.padding(vertical=8.dp)) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                    Text("Frosted glass intensity",color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
+                    Text(string(R.string.frosted_glass_intensity),color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
                     Text("${(preferences.frostedIntensity*100).toInt()}%",color=Muted,fontSize=13.sp)
                 }
                 CapsuleSlider(preferences.frostedIntensity,preferences::updateFrostedIntensity,valueRange=0f..1.5f,
                     haptics=SliderHaptics.Intensity,modifier=Modifier.fillMaxWidth().testTag("settings_frosted_intensity"))
             }
             SettingsDivider()
-            SettingsToggleRow("Reduce motion",preferences.reduceMotion,
+            SettingsToggleRow(string(R.string.reduce_motion),preferences.reduceMotion,
                 hapticToggle(preferences::updateReduceMotion),Icons.Rounded.MotionPhotosOff,"settings_reduce_motion")
             SettingsDivider()
-            SettingsToggleRow("High-contrast controls",preferences.solidControls,
+            SettingsToggleRow(string(R.string.high_contrast_controls),preferences.solidControls,
                 hapticToggle(preferences::updateSolidControls),Icons.Rounded.Contrast,"settings_solid_controls")
         }}
-        item {SettingsSection("Downloads") {DownloadSettings(model,onNotice)}}
-        item {SettingsSection("Widgets") {WidgetSettings(onNotice)}}
-        item {SettingsSection("Library") {
-            SettingsLinkRow("Privacy and data",null,Icons.Rounded.Lock,"settings_privacy_data") {model.push(Route.Settings(SettingsSection.PrivacyData))}
+        item {SettingsSection(string(R.string.downloads)) {DownloadSettings(model,onNotice)}}
+        item {SettingsSection(string(R.string.widgets)) {WidgetSettings(onNotice)}}
+        item {SettingsSection(string(R.string.library)) {
+            SettingsLinkRow(string(R.string.privacy_and_data),null,Icons.Rounded.Lock,"settings_privacy_data") {model.push(Route.Settings(SettingsSection.PrivacyData))}
             SettingsDivider()
             val hidden=remember(context) {NotInterestedStore.get(context)}
-            SettingsLinkRow("Not interested",hidden.entries.size.takeIf {it>0}?.toString(),Icons.Rounded.Block,"settings_not_interested") {
+            SettingsLinkRow(string(R.string.not_interested),hidden.entries.size.takeIf {it>0}?.toString(),Icons.Rounded.Block,"settings_not_interested") {
                 model.push(Route.Settings(SettingsSection.NotInterested))
             }
         }}
-        item {SettingsSection("About") {
-            SettingsLinkRow("Copy playback diagnostics",icon=Icons.Rounded.BugReport,tag="settings_copy_diagnostics") {
+        item {SettingsSection(string(R.string.about)) {
+            SettingsLinkRow(string(R.string.copy_playback_diagnostics),icon=Icons.Rounded.BugReport,tag="settings_copy_diagnostics") {
                 scope.launch {
                     val report=withContext(kotlinx.coroutines.Dispatchers.IO) {
                         playbackDiagnosticsReport(PlaybackEventLog(context).recent(),BuildConfig.VERSION_NAME,
                             android.os.Build.VERSION.SDK_INT,"${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
                     }
                     context.getSystemService(android.content.ClipboardManager::class.java)
-                        .setPrimaryClip(android.content.ClipData.newPlainText("Riff playback diagnostics",report))
-                    onNotice("Playback diagnostics copied")
+                        .setPrimaryClip(android.content.ClipData.newPlainText(string(R.string.riff_playback_diagnostics),report))
+                    onNotice(string(R.string.playback_diagnostics_copied))
                 }
             }
         }}
@@ -201,7 +201,7 @@ import kotlinx.coroutines.withContext
     riffWidgetPresets.forEach {preset->
         SettingsLinkRow(preset.title,icon=Icons.Rounded.Widgets,tag="widget_add_${preset.title.lowercase()}") {
             if(manager.isRequestPinAppWidgetSupported) manager.requestPinAppWidget(android.content.ComponentName(context,preset.receiver),null,null)
-            else onNotice("Touch and hold your home screen, choose Widgets, then Riff.")
+            else onNotice(string(R.string.touch_and_hold_your_home_screen_choose))
         }
     }
 }

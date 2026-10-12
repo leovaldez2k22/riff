@@ -3,6 +3,7 @@ package com.musicglass.personal
 import android.app.Application
 import android.content.ComponentName
 import android.content.Context
+import android.content.res.Resources
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -34,6 +36,7 @@ import org.junit.Before
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestName
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
@@ -50,7 +53,7 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36], qualifiers = "w360dp-h640dp-xhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE) // text is only measured at its real size in this mode
-class AccessibilitySweepTest : AccessibilitySweepCases()
+class AccessibilitySweepTest : AccessibilitySweepCases() { override val pictures = listOf(1f, 2f) }
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36], qualifiers = "w640dp-h360dp-land-xhdpi")
@@ -62,11 +65,43 @@ class AccessibilitySweepLandscapeTest : AccessibilitySweepCases()
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class AccessibilitySweepLargeWindowTest : AccessibilitySweepCases()
 
+/**
+ * The same screens with every string from strings.xml made a third longer and marked, as a translation would
+ * be. Words on screen that are not marked did not come from strings.xml, and could never be translated.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36], qualifiers = "w360dp-h640dp-xhdpi")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class PseudoLocaleSweepTest : AccessibilitySweepCases() { override val pseudo = true; override val pictures = listOf(1f) }
+
+@Suppress("DEPRECATION") // the only constructor there is
+internal class PseudoResources(private val real: Resources) : Resources(real.assets, real.displayMetrics, real.configuration) {
+    private fun mark(text: String) = "[$text ${"~".repeat(text.length * 3 / 10 + 1)}]"
+    override fun getString(id: Int): String = mark(real.getString(id))
+    override fun getString(id: Int, vararg formatArgs: Any?): String = mark(real.getString(id, *formatArgs))
+    override fun getQuantityString(id: Int, quantity: Int, vararg formatArgs: Any?): String = mark(real.getQuantityString(id, quantity, *formatArgs))
+}
+
 abstract class AccessibilitySweepCases {
     @get:Rule val compose = createComposeRule()
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
     private var world: ProviderWorld? = null
-    @After fun close() { world?.close() }
+    protected open val pseudo = false
+    /** The text sizes at which each screen is also saved as a picture, in both directions, for a person to look at. */
+    protected open val pictures = emptyList<Float>()
+    @get:Rule val test = TestName()
+    private fun picture(scale: Float, way: LayoutDirection) {
+        // Drawn straight from the view: under Robolectric nothing ever reaches a screen to be copied from.
+        val view = (compose.onAllNodes(isRoot()).fetchSemanticsNodes(atLeastOneRootRequired = false).last().root as androidx.compose.ui.platform.ViewRootForTest).view
+        val bitmap = android.graphics.Bitmap.createBitmap(view.width, view.height, android.graphics.Bitmap.Config.ARGB_8888).also { view.draw(android.graphics.Canvas(it)) }
+        val pixels = IntArray(bitmap.width * bitmap.height).also { bitmap.getPixels(it, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height) }
+        assertTrue("the picture of ${test.methodName} is blank", pixels.distinct().size > 2)
+        val folder = java.io.File("build/reports/q13-screens").apply { mkdirs() }
+        java.io.File(folder, "${test.methodName}-${if (pseudo) "pseudo" else "text"}${(scale * 100).toInt()}-${way.name.lowercase()}.png").outputStream()
+            .use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+    }
+    @After fun close() { world?.close(); AppStrings.install(context.resources) }
+    @Before fun language() { if (pseudo) AppStrings.install(PseudoResources(context.resources)) }
     // Nothing here plays anything, so the solver process is never needed; without this a late connection
     // attempt lands in whichever test happens to be running.
     @Before fun noSolver() { shadowOf(context as Application).declareComponentUnbindable(ComponentName(context, SolverService::class.java)) }
@@ -127,6 +162,18 @@ abstract class AccessibilitySweepCases {
                 "'$name' is outside the screen".takeIf { seen.width > 0 && (seen.right <= 0f || seen.left >= width) && !scrollsSideways(node) })
         }
     }
+    /** Not words of ours: the fixture's own titles and names, and names that are the same in every language. */
+    private val data = listOf(Regex("Fixture Song With A Title Long Enough To Be Cut Off At Any Size"), Regex("Fixture (Song|Artist|list)( \\d)?"), Regex("Row \\d"), Regex("YouTube Music"), Regex("Riff"))
+    private val marked = Regex("\\[[^\\[\\]]*]")
+    /** Words on screen that did not come from strings.xml. */
+    private fun unmarked(): List<String> = compose.onAllNodes(SemanticsMatcher("anything") { true }, useUnmergedTree = true).fetchSemanticsNodes(atLeastOneRootRequired = false).flatMap { node ->
+        node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty() + node.config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text } +
+            listOfNotNull(node.config.getOrNull(SemanticsProperties.StateDescription))
+    }.distinct().filter { said ->
+        var rest = said
+        while (true) { val next = marked.replace(rest, ""); if (next == rest) break; rest = next }
+        data.fold(rest) { left, known -> known.replace(left, "") }.any { it.isLetter() }
+    }.map { "'$it' is not from strings.xml" }
     private fun dp(r: androidx.compose.ui.geometry.Rect) = compose.density.density.let { "${(r.left / it).toInt()},${(r.top / it).toInt()} ${(r.width / it).toInt()}x${(r.height / it).toInt()}" }
     private fun scrolls(node: SemanticsNode): Boolean = generateSequence(node.parent) { it.parent }.any {
         it.config.contains(SemanticsProperties.HorizontalScrollAxisRange) || it.config.contains(SemanticsProperties.VerticalScrollAxisRange) }
@@ -139,7 +186,8 @@ abstract class AccessibilitySweepCases {
         for (scale in listOf(1f, 1.3f, 1.6f, 2f)) for (way in LayoutDirection.entries) {
             fontScale = scale; direction = way
             try { settle(); problems() } catch (e: Throwable) { throw AssertionError("never settled at $scale ${way.name}", e) }
-            problems().forEach { found.getOrPut(it) { mutableListOf() } += "$scale ${way.name}" }
+            (problems() + if (pseudo) unmarked() else emptyList()).forEach { found.getOrPut(it) { mutableListOf() } += "$scale ${way.name}" }
+            if (scale in pictures) picture(scale, way)
         }
         assertEquals(emptyList<String>(), found.map { (problem, where) -> if (where.size == 8) problem else "$problem at $where" })
     }

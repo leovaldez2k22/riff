@@ -39,9 +39,9 @@ private enum class EarlierAction { ImportPlays, DeletePlays, RestoreQueue, Delet
     val ownerKey = remember(provider.authRevision, provider.storageRevision) { provider.storageScopeKey() }
     val verified = ownerKey != UNVERIFIED_SCOPE_KEY
     val ownerLabel = when {
-        !verified -> "this account"
-        provider.accountScope() == AccountScope.Guest -> "signed-out listening"
-        else -> provider.accountProfile?.name?.takeIf { it.isNotBlank() } ?: "this account"
+        !verified -> string(R.string.this_account)
+        provider.accountScope() == AccountScope.Guest -> string(R.string.signed_out_listening_2)
+        else -> provider.accountProfile?.name?.takeIf { it.isNotBlank() } ?: string(R.string.this_account)
     }
     LaunchedEffect(plays, queues, refresh, ownerKey) {
         val (found, importing) = withContext(process.runtime.dispatchers.io) {
@@ -57,30 +57,30 @@ private enum class EarlierAction { ImportPlays, DeletePlays, RestoreQueue, Delet
                 when (action) {
                     EarlierAction.ImportPlays -> {
                         val added = withContext(process.runtime.dispatchers.io) { legacy.importProviderHistory(ownerKey) }
-                        onNotice(if (added == null) "Could not import. Nothing was changed."
-                            else "$added ${if (added == 1) "play" else "plays"} added to the history of $ownerLabel")
+                        onNotice(if (added == null) string(R.string.could_not_import_nothing_was_changed)
+                            else quantity(R.plurals.n_plays_added_to_the_history_of, added, ownerLabel))
                     }
                     EarlierAction.DeletePlays -> {
                         val clean = withContext(process.runtime.dispatchers.io) { legacy.deleteUnassignedHistory() }
-                        onNotice(if (clean) "Unassigned plays deleted" else "Some unassigned plays could not be deleted. Try again.")
+                        onNotice(if (clean) string(R.string.unassigned_plays_deleted) else string(R.string.some_unassigned_plays_could_not_be_deleted))
                     }
                     EarlierAction.RestoreQueue -> {
                         val owner = withContext(process.runtime.dispatchers.io) { legacy.adoptQuarantinedQueue(ownerKey) }
-                        if (owner == null) onNotice("Could not restore the earlier queue. It was kept.")
+                        if (owner == null) onNotice(string(R.string.could_not_restore_the_earlier_queue_it))
                         else playback.restoreSavedQueue { loaded ->
-                            onNotice(if (loaded) "Earlier queue restored, paused" else "The earlier queue is saved and loads the next time Riff starts")
+                            onNotice(if (loaded) string(R.string.earlier_queue_restored_paused) else string(R.string.the_earlier_queue_is_saved_and_loads))
                         }
                     }
                     EarlierAction.DeleteQueue -> {
                         val gone = withContext(process.runtime.dispatchers.io) { legacy.deleteQuarantinedQueue() }
-                        onNotice(if (gone) "Earlier queue deleted" else "Could not delete the earlier queue. Try again.")
+                        onNotice(if (gone) string(R.string.earlier_queue_deleted) else string(R.string.could_not_delete_the_earlier_queue_try))
                     }
                     EarlierAction.ImportSearches -> {
                         val added = searches.importLegacy(ownerKey)
-                        onNotice(if (added == null) "Could not import. Nothing was changed." else "${plural(added, "search", "searches")} added for $ownerLabel")
+                        onNotice(if (added == null) string(R.string.could_not_import_nothing_was_changed) else quantity(R.plurals.n_searches_added_for_n, added, ownerLabel))
                     }
                     EarlierAction.DeleteSearches ->
-                        onNotice(if (searches.deleteLegacy()) "Earlier searches deleted" else "Could not delete the earlier searches. Try again.")
+                        onNotice(if (searches.deleteLegacy()) string(R.string.earlier_searches_deleted) else string(R.string.could_not_delete_the_earlier_searches_try))
                 }
             } finally { working = false; asking = null; refresh++ }
         }
@@ -88,83 +88,77 @@ private enum class EarlierAction { ImportPlays, DeletePlays, RestoreQueue, Delet
     asking?.let { action ->
         val found = earlier ?: UnassignedInventory()
         val (title, body, confirm) = when (action) {
-            EarlierAction.ImportPlays -> Triple("Import ${preview.kept} ${if (preview.kept == 1) "play" else "plays"}?",
-                "They are added to the history of $ownerLabel on this phone. If more than one account was used here, " +
-                    "plays from the other accounts are included, and they cannot be separated afterwards." +
-                    (if (preview.kept < preview.available) " Only the newest ${preview.kept} of ${preview.available} are kept." else "") +
-                    " The unassigned copy stays until you delete it.", "Import")
-            EarlierAction.DeletePlays -> Triple("Delete ${found.providerPlays} unassigned ${if (found.providerPlays == 1) "play" else "plays"}?",
-                "The unassigned copy is removed from this phone and cannot be recovered. Plays you already imported stay. Nothing changes in YouTube Music.", "Delete")
-            EarlierAction.RestoreQueue -> Triple("Restore the earlier queue?",
-                "It replaces the queue you have now and loads paused, as the queue of $ownerLabel. It may have been made while another account was signed in.", "Restore")
-            EarlierAction.DeleteQueue -> Triple("Delete the earlier queue?", "It is removed from this phone and cannot be recovered.", "Delete")
-            EarlierAction.ImportSearches -> Triple("Import ${plural(found.searches, "search", "searches")}?",
-                "They are added to the recent searches of $ownerLabel on this phone. If more than one account was used here, " +
-                    "searches made in the other accounts are included. Riff keeps the newest ${SEARCH_HISTORY_LIMIT} for each account.", "Import")
-            EarlierAction.DeleteSearches -> Triple("Delete ${plural(found.searches, "earlier search", "earlier searches")}?",
-                "They are removed from this phone and cannot be recovered. Nothing changes in YouTube Music.", "Delete")
+            EarlierAction.ImportPlays -> Triple(quantity(R.plurals.import_n_plays, preview.kept),
+                string(R.string.they_are_added_to_the_history_of, ownerLabel) +
+                    (if (preview.kept < preview.available) string(R.string.only_the_newest_x_of_x_are, preview.kept, preview.available) else "") +
+                    string(R.string.the_unassigned_copy_stays_until_you_delete), string(R.string.import_label))
+            EarlierAction.DeletePlays -> Triple(quantity(R.plurals.delete_n_unassigned_plays, found.providerPlays),
+                string(R.string.the_unassigned_copy_is_removed_from_this), string(R.string.delete))
+            EarlierAction.RestoreQueue -> Triple(string(R.string.restore_the_earlier_queue),
+                string(R.string.it_replaces_the_queue_you_have_now, ownerLabel), string(R.string.restore))
+            EarlierAction.DeleteQueue -> Triple(string(R.string.delete_the_earlier_queue), string(R.string.it_is_removed_from_this_phone_and), string(R.string.delete))
+            EarlierAction.ImportSearches -> Triple(quantity(R.plurals.import_n_searches, found.searches),
+                string(R.string.they_are_added_to_the_recent_searches, ownerLabel, SEARCH_HISTORY_LIMIT), string(R.string.import_label))
+            EarlierAction.DeleteSearches -> Triple(quantity(R.plurals.delete_n_earlier_searches, found.searches),
+                string(R.string.they_are_removed_from_this_phone_and), string(R.string.delete))
         }
         FrostedAlertDialog(onDismissRequest = { if (!working) asking = null }, title = { Text(title) }, text = { Text(body) },
             confirmButton = { TextButton(enabled = !working, onClick = { uiHaptic(HapticCue.Confirm); run(action) },
                 modifier = Modifier.testTag("earlier_confirm")) { Text(confirm, color = Pink) } },
-            dismissButton = { TextButton(enabled = !working, onClick = { asking = null }, modifier = Modifier.testTag("earlier_cancel")) { Text("Cancel") } })
+            dismissButton = { TextButton(enabled = !working, onClick = { asking = null }, modifier = Modifier.testTag("earlier_cancel")) { Text(string(R.string.cancel)) } })
     }
     ScreenList(model, bottom) {
-        item { BackHeading("Back", model::back) }
-        item { ScreenTitle("Earlier data", "Saved before Riff kept history and queues separately for each account.") }
+        item { BackHeading(string(R.string.back), model::back) }
+        item { ScreenTitle(string(R.string.earlier_data), string(R.string.saved_before_riff_kept_history_and_queues)) }
         val found = earlier
         when {
-            found == null -> item { Text("Checking…", color = Muted) }
-            found.empty -> item { Text("Nothing from earlier versions is waiting for a decision.", color = Muted, modifier = Modifier.testTag("earlier_empty")) }
+            found == null -> item { Text(string(R.string.checking), color = Muted) }
+            found.empty -> item { Text(string(R.string.nothing_from_earlier_versions_is_waiting_for), color = Muted, modifier = Modifier.testTag("earlier_empty")) }
         }
         if (found != null && found.sources > 0) item {
-            SettingsSection("Listening history") {
+            SettingsSection(string(R.string.listening_history)) {
                 Column(Modifier.fillMaxWidth().padding(12.dp)) {
-                    Text("${found.providerPlays} YouTube Music ${if (found.providerPlays == 1) "play was" else "plays were"} saved in one list for every " +
-                        "account used on this phone, so Riff cannot tell whose they are. They are not shown in History unless you import them. " +
-                        "Plays of audio stored on this phone were moved to History → On this phone.",
+                    Text(quantity(R.plurals.n_youtube_music_plays_were_saved_in, found.providerPlays),
                         color = Muted, fontSize = 13.sp, modifier = Modifier.testTag("earlier_history_summary"))
                     when {
                         found.providerPlays == 0 -> Unit
                         !verified -> Text(VERIFY_TO_SAVE_NOTICE, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
-                        preview.alreadyImported -> Text("Already imported into the history of $ownerLabel.", color = Muted, fontSize = 12.sp,
+                        preview.alreadyImported -> Text(string(R.string.already_imported_into_the_history_of_x, ownerLabel), color = Muted, fontSize = 12.sp,
                             modifier = Modifier.padding(top = 8.dp).testTag("earlier_imported"))
                         else -> TextButton({ uiHaptic(); asking = EarlierAction.ImportPlays }, modifier = Modifier.testTag("earlier_import")) {
-                            Text("Import into the history of $ownerLabel", color = Pink)
+                            Text(string(R.string.import_into_the_history_of_x, ownerLabel), color = Pink)
                         }
                     }
                     TextButton({ uiHaptic(); asking = EarlierAction.DeletePlays }, modifier = Modifier.testTag("earlier_delete_history")) {
-                        Text("Delete unassigned plays", color = Muted)
+                        Text(string(R.string.delete_unassigned_plays), color = Muted)
                     }
                 }
             }
         }
         if (found != null && found.searches > 0) item {
-            SettingsSection("Searches") {
+            SettingsSection(string(R.string.searches)) {
                 Column(Modifier.fillMaxWidth().padding(12.dp)) {
-                    Text("${plural(found.searches, "recent search", "recent searches")} ${if (found.searches == 1) "was" else "were"} saved in one list for every account " +
-                        "used on this phone. They are not shown in Search unless you import them.",
+                    Text(quantity(R.plurals.n_recent_searches_were_saved_in_one, found.searches),
                         color = Muted, fontSize = 13.sp, modifier = Modifier.testTag("earlier_search_summary"))
                     if (verified) TextButton({ uiHaptic(); asking = EarlierAction.ImportSearches }, modifier = Modifier.testTag("earlier_import_searches")) {
-                        Text("Import for $ownerLabel", color = Pink)
+                        Text(string(R.string.import_for_x, ownerLabel), color = Pink)
                     } else Text(VERIFY_TO_SAVE_NOTICE, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
                     TextButton({ uiHaptic(); asking = EarlierAction.DeleteSearches }, modifier = Modifier.testTag("earlier_delete_searches")) {
-                        Text("Delete earlier searches", color = Muted)
+                        Text(string(R.string.delete_earlier_searches), color = Muted)
                     }
                 }
             }
         }
         if (found != null && found.queueItems > 0) item {
-            SettingsSection("Queue") {
+            SettingsSection(string(R.string.queue)) {
                 Column(Modifier.fillMaxWidth().padding(12.dp)) {
-                    Text("A queue of ${found.queueItems} ${if (found.queueItems == 1) "song" else "songs"} was saved by an earlier version. " +
-                        "It was not loaded automatically because it may belong to another account.",
+                    Text(quantity(R.plurals.a_queue_of_n_songs_was_saved, found.queueItems),
                         color = Muted, fontSize = 13.sp, modifier = Modifier.testTag("earlier_queue_summary"))
                     if (verified) TextButton({ uiHaptic(); asking = EarlierAction.RestoreQueue }, modifier = Modifier.testTag("earlier_restore_queue")) {
-                        Text("Restore it, paused", color = Pink)
+                        Text(string(R.string.restore_it_paused), color = Pink)
                     } else Text(VERIFY_TO_SAVE_NOTICE, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
                     TextButton({ uiHaptic(); asking = EarlierAction.DeleteQueue }, modifier = Modifier.testTag("earlier_delete_queue")) {
-                        Text("Delete earlier queue", color = Muted)
+                        Text(string(R.string.delete_earlier_queue), color = Muted)
                     }
                 }
             }

@@ -43,7 +43,7 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
     }
     LaunchedEffect(model.tab,provider.authRevision) {
         provider.checkFeedWindow()
-        if(model.tab=="Library" && provider.signedIn) provider.scanLibraryPlaylists().onFailure {onNotice(it.message?:"Could not check playlists")}
+        if(model.tab=="Library" && provider.signedIn) provider.scanLibraryPlaylists().onFailure {onNotice(it.message?:string(R.string.could_not_check_playlists))}
     }
     val holder = rememberSaveableStateHolder()
     val navigationInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()

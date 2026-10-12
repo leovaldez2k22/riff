@@ -53,7 +53,7 @@ private class UnfoldShape(val progress: Float, val anchor: androidx.compose.ui.g
 
 @Composable internal fun PlayerActionMenu(expanded: Boolean, onDismissRequest: () -> Unit,
     anchorBounds: IntRect?, place: (IntRect, IntSize, IntSize, Int, Int, Int) -> IntOffset = ::playerMenuPosition,
-    paneTitle: String = "Song options", content: @Composable ColumnScope.() -> Unit) {
+    paneTitle: String = string(R.string.song_options), content: @Composable ColumnScope.() -> Unit) {
     val motion = LocalMotionPolicy.current
     val progress = remember {Animatable(0f)}
     var visible by remember {mutableStateOf(false)}

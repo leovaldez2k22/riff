@@ -558,9 +558,7 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
 
     private fun imported(outcome: ImportOutcome) = outcome.also {
         event("local_data action=import result=" + when (it) {
-            is ImportOutcome.Finished -> "${if (it.report.notStored.isEmpty()) "done" else "partial"} added=${it.report.added.total}" +
-                " present=${it.report.present} malformed=${it.report.malformed} over_limit=${it.report.overLimit} expired=${it.report.expired}" +
-                " left=${it.report.sectionsLeft} not_stored=${it.report.notStored.size}"
+            is ImportOutcome.Finished -> "${if (it.report.notStored.isEmpty()) "done" else "partial"} added=${it.report.added.total} present=${it.report.present} malformed=${it.report.malformed} over_limit=${it.report.overLimit} expired=${it.report.expired} left=${it.report.sectionsLeft} not_stored=${it.report.notStored.size}"
             ImportOutcome.Cancelled -> "cancelled"
             is ImportOutcome.Rejected -> "rejected reason=${it.reason.name.lowercase()}"
             is ImportOutcome.Failed -> "failed kind=${it.kind}"

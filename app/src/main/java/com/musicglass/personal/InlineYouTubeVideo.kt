@@ -32,7 +32,7 @@ import org.json.*
                 // Keep navigation inside the visible player; never launch a browser or another app.
                 return request.url.scheme!="https" || request.url.host?.let {it=="youtube.com" || it.endsWith(".youtube.com")}!=true
             }
-            override fun onReceivedError(view:WebView,request:WebResourceRequest,failure:WebResourceError) {if(request.isForMainFrame) error="Could not load YouTube. Check your connection."}
+            override fun onReceivedError(view:WebView,request:WebResourceRequest,failure:WebResourceError) {if(request.isForMainFrame) error=string(R.string.could_not_load_youtube_check_your_connection)}
         }
         val origin="https://${context.packageName}"
         loadUrl("https://www.youtube.com/embed/$id?autoplay=1&playsinline=1&controls=0&origin=$origin",mapOf("Referer" to "$origin/"))

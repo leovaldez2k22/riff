@@ -139,7 +139,7 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
         .graphicsLayer { val scale = peek?.scaleOf(card.key()) ?: 1f; scaleX = scale; scaleY = scale }
         .clip(RoundedCornerShape(corner))
         .combinedClickable(interactionSource = source, indication = androidx.compose.foundation.LocalIndication.current,
-            onLongClickLabel = if (card.track() != null) "Song options" else "Options",
+            onLongClickLabel = if (card.track() != null) string(R.string.song_options) else string(R.string.options),
             onLongClick = if (peek == null) null else ({ peek.open(card, bounds, cornerPx, reduced, onOpen) }),
             onClick = { uiHaptic(); onOpen() })
 }
@@ -167,7 +167,7 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
     fun share(text: String) = context.startActivity(Intent.createChooser(
         Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Share"))
     PlayerActionMenu(peek.menuOpen, { peek.dismiss() }, peek.bounds.roundToIntRect(), place = ::peekMenuPosition,
-        paneTitle = if (card?.track() != null) "Song options" else "Options") {
+        paneTitle = if (card?.track() != null) string(R.string.song_options) else string(R.string.options)) {
         val held = card ?: return@PlayerActionMenu
         val track = held.track()
         if (track != null) {
@@ -178,7 +178,7 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
                 SongActionItem("Download song") { act { requestSongDownload(context, track, onNotice) } }
             }
             held.artistId?.let { id -> SongActionItem("View artist") { peek.dismiss(); model.openCollection(id, playerArtistLabel(held.subtitle)) } }
-            held.albumId?.let { id -> SongActionItem("View album") { peek.dismiss(); model.openCollection(id, held.album.ifBlank { "Album" }) } }
+            held.albumId?.let { id -> SongActionItem("View album") { peek.dismiss(); model.openCollection(id, held.album.ifBlank { string(R.string.album) }) } }
             SongActionItem("Share song") { peek.dismiss(); share("${held.title} · ${held.subtitle}\nhttps://music.youtube.com/watch?v=${track.videoId}") }
         } else {
             SongActionItem("Open") { peek.openCard() }

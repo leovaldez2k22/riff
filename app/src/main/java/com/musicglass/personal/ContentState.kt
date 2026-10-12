@@ -21,13 +21,14 @@ import androidx.compose.ui.text.font.FontWeight
  * different things and never share a look: a failure is never drawn as an empty list. A failure stays on
  * screen until it is retried or left; it is not only a passing message.
  */
-internal enum class ProblemKind(val action: String) {
+internal enum class ProblemKind(private val actionRes: Int) {
     /** No connection or no answer in time. Trying again is the only thing to do. */
-    Offline("Retry"),
+    Offline(R.string.retry),
     /** The account's sign-in is no longer accepted. Trying again cannot help; signing in can. */
-    SessionExpired("Sign in"),
+    SessionExpired(R.string.sign_in),
     /** Anything else: the provider refused, failed or sent something unreadable. */
-    Unavailable("Retry")
+    Unavailable(R.string.retry);
+    val action: String get() = string(actionRes)
 }
 
 /** The kind of a failure, from the sentence the provider layer gave. Those sentences are fixed (ProviderContracts.kt). */

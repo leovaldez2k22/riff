@@ -29,18 +29,12 @@ internal class LibraryStateDb(context: Context, name: String? = "library-state.d
     init { setWriteAheadLoggingEnabled(true) }
 
     override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL("CREATE TABLE history_events(scope TEXT NOT NULL,event_id TEXT NOT NULL,media_id TEXT NOT NULL," +
-            "title TEXT NOT NULL,artist TEXT NOT NULL,artwork TEXT,played_at INTEGER NOT NULL,duration_ms INTEGER," +
-            "music INTEGER NOT NULL,search_text TEXT NOT NULL,PRIMARY KEY(scope,event_id))")
+        db.execSQL("CREATE TABLE history_events(scope TEXT NOT NULL,event_id TEXT NOT NULL,media_id TEXT NOT NULL,title TEXT NOT NULL,artist TEXT NOT NULL,artwork TEXT,played_at INTEGER NOT NULL,duration_ms INTEGER,music INTEGER NOT NULL,search_text TEXT NOT NULL,PRIMARY KEY(scope,event_id))")
         db.execSQL("CREATE INDEX history_recent ON history_events(scope,played_at DESC,event_id)")
-        db.execSQL("CREATE TABLE playback_snapshots(scope TEXT PRIMARY KEY NOT NULL,payload_version INTEGER NOT NULL," +
-            "payload TEXT NOT NULL,updated_at INTEGER NOT NULL)")
-        db.execSQL("CREATE TABLE scope_generations(scope TEXT PRIMARY KEY NOT NULL,history_epoch INTEGER NOT NULL DEFAULT 0," +
-            "snapshot_epoch INTEGER NOT NULL DEFAULT 0,deletion_epoch INTEGER NOT NULL DEFAULT 0)")
-        db.execSQL("CREATE TABLE migration_runs(migration_id TEXT PRIMARY KEY NOT NULL,source_fingerprint TEXT NOT NULL," +
-            "state TEXT NOT NULL,imported_count INTEGER NOT NULL,rejected_count INTEGER NOT NULL,completed_at INTEGER)")
-        db.execSQL("CREATE TABLE scope_aliases(legacy_scope TEXT PRIMARY KEY NOT NULL,canonical_scope TEXT NOT NULL," +
-            "verification_version INTEGER NOT NULL,state TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE playback_snapshots(scope TEXT PRIMARY KEY NOT NULL,payload_version INTEGER NOT NULL,payload TEXT NOT NULL,updated_at INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE scope_generations(scope TEXT PRIMARY KEY NOT NULL,history_epoch INTEGER NOT NULL DEFAULT 0,snapshot_epoch INTEGER NOT NULL DEFAULT 0,deletion_epoch INTEGER NOT NULL DEFAULT 0)")
+        db.execSQL("CREATE TABLE migration_runs(migration_id TEXT PRIMARY KEY NOT NULL,source_fingerprint TEXT NOT NULL,state TEXT NOT NULL,imported_count INTEGER NOT NULL,rejected_count INTEGER NOT NULL,completed_at INTEGER)")
+        db.execSQL("CREATE TABLE scope_aliases(legacy_scope TEXT PRIMARY KEY NOT NULL,canonical_scope TEXT NOT NULL,verification_version INTEGER NOT NULL,state TEXT NOT NULL)")
     }
 
     // Version 1 is the first. The inherited onDowngrade throws, so a newer schema is never rewritten by an older build.

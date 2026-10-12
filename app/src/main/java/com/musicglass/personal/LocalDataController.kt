@@ -89,7 +89,7 @@ internal class LocalDataController(context: Context, private val history: Histor
         when {
             failed == 0 -> DataActionResult.Done(removed)
             removed == 0 -> DataActionResult.Failed("files")
-            else -> DataActionResult.Partial(removed, listOf("$failed ${if (failed == 1) "download" else "downloads"}"))
+            else -> DataActionResult.Partial(removed, listOf(quantity(R.plurals.n_downloads, failed)))
         }
     }
 
@@ -113,7 +113,7 @@ internal class LocalDataController(context: Context, private val history: Histor
             val files = runCatching { downloads().deleteScope(owner) }.getOrNull()
             when {
                 files == null -> remaining += "downloads"
-                files.second > 0 -> { removed += files.first; remaining += "${files.second} download ${if (files.second == 1) "file" else "files"}" }
+                files.second > 0 -> { removed += files.first; remaining += quantity(R.plurals.n_download_files, files.second) }
                 else -> removed += files.first
             }
             if (remaining.isEmpty()) DataActionResult.Done(removed) else DataActionResult.Partial(removed, remaining)

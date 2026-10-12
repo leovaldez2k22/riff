@@ -229,7 +229,7 @@ private fun NavItem(name: String, selected: Boolean, showLabel: Boolean,
         if(event.type==KeyEventType.KeyUp && event.key in listOf(Key.Enter,Key.NumPadEnter,Key.Spacebar)) {onClick();true} else false
     }.focusable().testTag("tab_${name.lowercase()}")
         .semantics {
-            contentDescription = "$name tab${if (selected) ", selected" else ""}"
+            contentDescription = string(if (selected) R.string.x_tab_selected else R.string.x_tab, keyLabel(name))
             this.selected = selected
             role = Role.Tab
             onClick { onClick(); true }
@@ -237,7 +237,7 @@ private fun NavItem(name: String, selected: Boolean, showLabel: Boolean,
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(icon, contentDescription = null, tint = if (selected) Pink else White,
             modifier = Modifier.size(23.dp))
-        if (showLabel) Text(name, color = if (selected) Pink else if(LocalAccessibilitySettings.current.solidControls) White else Muted, fontSize = 10.sp, maxLines = 1)
+        if (showLabel) Text(keyLabel(name), color = if (selected) Pink else if(LocalAccessibilitySettings.current.solidControls) White else Muted, fontSize = 10.sp, maxLines = 1)
     }
 }
 

@@ -12,8 +12,8 @@ import java.security.MessageDigest
 
 /** Fixed-origin authenticated preference request, using one immutable account session. */
 internal suspend fun applyPlaylistSort(http:HttpClient,json:Json,session:InnerTube.SessionSnapshot,edit:PlaylistSortEdit) {
-    require(edit.validFor("VL${edit.playlistId}")) {"Invalid playlist sort preference"}
-    check(!session.cookie.isNullOrBlank() && !session.sapisid.isNullOrBlank()) {"Sign in again to sort this playlist"}
+    require(edit.validFor("VL${edit.playlistId}")) {string(R.string.invalid_playlist_sort_preference)}
+    check(!session.cookie.isNullOrBlank() && !session.sapisid.isNullOrBlank()) {string(R.string.sign_in_again_to_sort_this_playlist)}
     val client=YouTubeClient.WEB_REMIX
     val origin=YouTubeClient.ORIGIN_YOUTUBE_MUSIC
     val timestamp=System.currentTimeMillis()/1000
@@ -37,9 +37,9 @@ internal suspend fun applyPlaylistSort(http:HttpClient,json:Json,session:InnerTu
         header("Authorization","SAPISIDHASH ${timestamp}_$hash")
         setBody(TextContent(body.toString(),ContentType.Application.Json))
     }
-    check(response.status.value in 200..299) {"YouTube Music could not sort this playlist (HTTP ${response.status.value})"}
+    check(response.status.value in 200..299) {string(R.string.youtube_music_could_not_sort_this_playlist, response.status.value)}
     val result=json.parseToJsonElement(response.bodyAsText())
     check(catalogRenderer(result,"error")==null && catalogValue(result,"status")=="STATUS_SUCCEEDED") {
-        "YouTube Music could not apply this sort preference. Please reload and retry."
+        string(R.string.youtube_music_could_not_apply_this_sort)
     }
 }

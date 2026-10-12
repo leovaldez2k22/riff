@@ -163,7 +163,7 @@ internal fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
                     listOf(Color(0xFF655080), Color(0xFF315B75)))))
         }
         songTransition.SongContentFade(Modifier.weight(1f).clickable(onClick = hapticClick(onOpen))
-            .padding(start = 12.dp).semantics { contentDescription = "Open player: ${state.title}" }) {
+            .padding(start = 12.dp).semantics { contentDescription = string(R.string.open_player_x, state.title) }) {
             song->Column {
             Text(song.title, color = White, fontSize = if (largeText) 12.sp else 14.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -172,11 +172,11 @@ internal fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
             if (crashNotice)
                 // The mini player fits about 20 characters here (checked on a 1080 px phone); the
                 // full sentence goes to TalkBack.
-                Text("Stopped unexpectedly", color = Pink,
+                Text(string(R.string.stopped_unexpectedly), color = Pink,
                     fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.testTag("mini_crash_notice")
                         .semantics { liveRegion = LiveRegionMode.Polite
-                            contentDescription = "Playback stopped unexpectedly. Tap play to continue." })
+                            contentDescription = string(R.string.playback_stopped_unexpectedly_tap_play_to_co) })
             else if (LocalDensity.current.fontScale < 1.8f)
                 Text(playerArtistLabel(song.artist), color = Muted, fontSize = 11.sp,
                     maxLines = 1, modifier = Modifier.onGloballyPositioned {
@@ -186,20 +186,20 @@ internal fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
         if (crashNotice)
             IconButton(onClick = hapticClick { CrashNotice.clear(context) },
                 modifier = Modifier.size(48.dp).testTag("mini_crash_notice_dismiss")) {
-                Icon(Icons.Rounded.Close, contentDescription = "Dismiss notice", tint = Muted)
+                Icon(Icons.Rounded.Close, contentDescription = string(R.string.dismiss_notice), tint = Muted)
             }
         IconButton(onClick = hapticClick(playback::toggle),
             modifier = Modifier.size(48.dp).graphicsLayer { alpha = actionsAlpha }
                 .testTag("mini_play")) {
             Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                contentDescription = if (state.playing) "Pause" else "Play", tint = White,
+                contentDescription = if (state.playing) string(R.string.pause) else string(R.string.play), tint = White,
                 modifier = Modifier.onGloballyPositioned {
                     onElementBounds("play", it.unclippedBoundsInRoot()) })
         }
         IconButton(onClick = hapticClick(playback::next), enabled = state.queue.size > 1,
             modifier = Modifier.size(48.dp).graphicsLayer { alpha = actionsAlpha }
                 .testTag("mini_next")) {
-            Icon(Icons.Rounded.FastForward, contentDescription = "Next track", tint = White,
+            Icon(Icons.Rounded.FastForward, contentDescription = string(R.string.next_track), tint = White,
                 modifier = Modifier.onGloballyPositioned {
                     onElementBounds("next", it.unclippedBoundsInRoot()) })
         }

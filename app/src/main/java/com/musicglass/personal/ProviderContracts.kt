@@ -66,10 +66,11 @@ internal const val COLLECTION_TRACK_LIMIT = 2000
 internal const val COLLECTION_PAGE_LIMIT = 64
 
 /** Why a collection's track list is not the whole collection. */
-internal enum class CollectionTruncation(val label: String) {
-    Limit("Showing the first 2,000 songs. This collection has more than Riff can load."),
+internal enum class CollectionTruncation(private val labelRes: Int) {
+    Limit(R.string.showing_the_first_2_000_songs_this),
     /** The provider sent a page token it had already sent, or pages that added nothing. */
-    RepeatedPage("YouTube Music stopped sending new songs. This list may be incomplete.")
+    RepeatedPage(R.string.youtube_music_stopped_sending_new_songs_this);
+    val label: String get() = string(labelRes)
 }
 
 /** Page tokens already used by one listing. A token is followed once; a provider that sends it again has no further page. */
@@ -82,9 +83,9 @@ internal class PageTokens {
 // ---- failures
 
 /** HTTP status at or above 400 on a catalog request. No address, header or body is kept. */
-internal class ProviderHttpException(val status: Int) : IllegalStateException("YouTube Music is unavailable (HTTP $status)")
+internal class ProviderHttpException(val status: Int) : IllegalStateException(string(R.string.youtube_music_is_unavailable_http_x, status))
 /** HTTP 200 whose body is an error envelope: {"error":{"code":403,"status":"PERMISSION_DENIED"}}. */
-internal class ProviderEnvelopeException(val code: Int, val status: String) : IllegalStateException("YouTube Music returned an error ($code)")
+internal class ProviderEnvelopeException(val code: Int, val status: String) : IllegalStateException(string(R.string.youtube_music_returned_an_error_x, code))
 
 /** The error envelope of a response, if it is one. Only the number and the status word are read. */
 internal fun providerEnvelopeError(root: JsonElement?): ProviderEnvelopeException? {
@@ -95,16 +96,17 @@ internal fun providerEnvelopeError(root: JsonElement?): ProviderEnvelopeExceptio
 }
 
 /** What kind of failure a provider request ended in. Only what the evidence supports; the rest is [Unknown]. */
-internal enum class ProviderFault(val message: String) {
-    Offline(OFFLINE_MESSAGE),
-    Timeout(TIMEOUT_MESSAGE),
-    Auth(SESSION_EXPIRED_MESSAGE),
-    RateLimited("YouTube Music is limiting requests. Try again shortly."),
+internal enum class ProviderFault(private val messageRes: Int) {
+    Offline(R.string.you_re_offline_check_your_connection_and),
+    Timeout(R.string.youtube_music_took_too_long_to_answer),
+    Auth(R.string.your_youtube_music_session_has_expired_sign),
+    RateLimited(R.string.youtube_music_is_limiting_requests_try_again),
     /** The provider said the thing asked for does not exist (404). It does not say why. */
-    NotFound("This is not available on YouTube Music."),
-    Refused("YouTube Music refused this request."),
-    Provider("YouTube Music is having trouble. Try again later."),
-    Unknown("YouTube Music could not load this content")
+    NotFound(R.string.this_is_not_available_on_youtube_music),
+    Refused(R.string.youtube_music_refused_this_request),
+    Provider(R.string.youtube_music_is_having_trouble_try_again),
+    Unknown(R.string.youtube_music_could_not_load_this_content);
+    val message: String get() = string(messageRes)
 }
 
 /**
@@ -149,7 +151,7 @@ internal enum class MutationOutcome {
 
 /** A change whose outcome could not be read back. Not a failure of the change itself. */
 internal class MutationUnconfirmed(message: String = MUTATION_UNCONFIRMED_MESSAGE) : IllegalStateException(message)
-internal const val MUTATION_UNCONFIRMED_MESSAGE = "YouTube Music did not confirm this change. Riff will check before trying again."
+internal val MUTATION_UNCONFIRMED_MESSAGE: String get() = string(R.string.youtube_music_did_not_confirm_this_change)
 
 private fun statusOutcome(status: Int): MutationOutcome? = when {
     status == 408 || status >= 500 -> MutationOutcome.Unknown
@@ -192,7 +194,7 @@ internal fun transportOutcome(e: Throwable): MutationOutcome {
 // ---- capabilities
 
 /** Shown when an action is asked for while the session is still being checked. */
-internal const val CHECKING_ACCOUNT_NOTICE = "Checking your account. Try again in a moment."
+internal val CHECKING_ACCOUNT_NOTICE: String get() = string(R.string.checking_your_account_try_again_in_a)
 
 /** Whether an action can be offered now. The reason is shown to the user as written. */
 internal sealed interface Capability {
@@ -216,12 +218,12 @@ internal data class ProviderCapabilities(
     val feedback: Capability,
 ) {
     companion object {
-        const val SIGN_IN_LIBRARY = "Sign in to view your YouTube Music library"
-        const val SIGN_IN_LIKE = "Sign in to like songs on YouTube Music"
-        const val SIGN_IN_SAVE = "Sign in to save to YouTube Music"
-        const val SIGN_IN_EDIT = "Sign in to edit YouTube Music playlists"
-        const val SIGN_IN_FEEDBACK = "Sign in to send feedback to YouTube Music"
-        const val RESOLVER_UNAVAILABLE = "Online playback resolver unavailable"
+        val SIGN_IN_LIBRARY: String get() = string(R.string.sign_in_to_view_your_youtube_music_2)
+        val SIGN_IN_LIKE: String get() = string(R.string.sign_in_to_like_songs_on_youtube)
+        val SIGN_IN_SAVE: String get() = string(R.string.sign_in_to_save_to_youtube_music)
+        val SIGN_IN_EDIT: String get() = string(R.string.sign_in_to_edit_youtube_music_playlists)
+        val SIGN_IN_FEEDBACK: String get() = string(R.string.sign_in_to_send_feedback_to_youtube)
+        val RESOLVER_UNAVAILABLE: String get() = string(R.string.online_playback_resolver_unavailable)
     }
 }
 
@@ -257,8 +259,8 @@ internal data class CollectionCapabilities(
     val save: Capability, val removeEntries: Capability, val checkMembership: Capability,
 ) {
     companion object {
-        const val READ_ONLY = "This playlist is read-only"
-        const val NOT_A_PLAYLIST = "Only playlists can be edited"
+        val READ_ONLY: String get() = string(R.string.this_playlist_is_read_only)
+        val NOT_A_PLAYLIST: String get() = string(R.string.only_playlists_can_be_edited)
     }
 }
 

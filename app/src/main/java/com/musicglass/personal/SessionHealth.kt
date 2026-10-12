@@ -54,4 +54,4 @@ internal class SessionCheckSchedule(private val clock: () -> Long, private val m
     @Synchronized fun reset() { lastCheck = Long.MIN_VALUE / 2 }
 }
 
-internal const val SESSION_EXPIRED_MESSAGE = "Your YouTube Music session has expired. Sign in again from Account."
+internal val SESSION_EXPIRED_MESSAGE: String get() = string(R.string.your_youtube_music_session_has_expired_sign)

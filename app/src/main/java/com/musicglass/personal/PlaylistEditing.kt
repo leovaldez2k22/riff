@@ -22,9 +22,9 @@ internal fun playlistEditAccepted(body:String):Boolean=runCatching {
 /** A provider visitor/session refresh may cancel its request, never the whole picker coroutine. */
 internal suspend fun <T> sessionSafeMutation(block:suspend ()->T):Result<T> = supervisorScope {
     try {Result.success(async(Dispatchers.IO) {block()}.await())}
-    catch(error:CancellationException) {ensureActive();Result.failure(IllegalStateException("YouTube Music refreshed its session. Retry the remaining selections."))}
+    catch(error:CancellationException) {ensureActive();Result.failure(IllegalStateException(string(R.string.youtube_music_refreshed_its_session_retry_th)))}
     catch(error:MutationUnconfirmed) {Result.failure(error)}
-    catch(error:Exception) {Result.failure(IllegalStateException(error.message?.takeIf {!it.contains("http",true)}?:"YouTube Music could not update this playlist"))}
+    catch(error:Exception) {Result.failure(IllegalStateException(error.message?.takeIf {!it.contains("http",true)}?:string(R.string.youtube_music_could_not_update_this_playlist)))}
 }
 
 /**
@@ -32,15 +32,15 @@ internal suspend fun <T> sessionSafeMutation(block:suspend ()->T):Result<T> = su
  * read back. They stay selected like any other failure; the next attempt reads the playlist before sending.
  */
 internal data class PlaylistBatchResult(val completed:Set<String>,val failures:Map<String,String>,val unconfirmed:Set<String> = emptySet()) {
-    fun summary():String = "${completed.size} saved; ${failures.size} could not be updated. "+
-        (if(unconfirmed.isNotEmpty()) "${unconfirmed.size} not confirmed by YouTube Music. " else "")+
-        failures.values.first().trimEnd('.')+". Retry the remaining selections."
+    fun summary():String = listOfNotNull(string(R.string.x_saved_x_could_not_be_updated, completed.size, failures.size),
+        if(unconfirmed.isNotEmpty()) string(R.string.x_not_confirmed_by_youtube_music, unconfirmed.size) else null,
+        string(R.string.x_retry_the_remaining_selections, failures.values.first().trimEnd('.'))).joinToString(" ")
 }
 internal suspend fun addToSelectedPlaylists(ids:Set<String>,add:suspend (String)->Result<Unit>):PlaylistBatchResult {
     val completed=linkedSetOf<String>();val failures=linkedMapOf<String,String>();val unconfirmed=linkedSetOf<String>()
     ids.forEach {id->add(id).fold(onSuccess={completed+=id},onFailure={error->
         if(error is kotlinx.coroutines.CancellationException) throw error
-        failures[id]=error.message?:"Could not update playlist"
+        failures[id]=error.message?:string(R.string.could_not_update_playlist)
         if(error is MutationUnconfirmed) unconfirmed+=id
     })}
     return PlaylistBatchResult(completed,failures,unconfirmed)
@@ -71,13 +71,13 @@ internal suspend fun addTrackToPlaylist(reader:ProviderCatalogReader,mutations:P
         loading=true;error=null
         provider.editablePlaylists().fold(onSuccess={pages=it},onFailure={error=it.message});loading=false
     }
-    AlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text("Add to playlists")},
+    AlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.add_to_playlists))},
         text={Column(Modifier.testTag("playlist_picker")) {
             Text(track.title,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             if(loading || busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             if(busy) Text(progress)
-            error?.let {Text(it,color=Pink);if(pages.isEmpty()) TextButton({retry++}) {Text("Retry")}}
-            if(!loading && error==null && pages.isEmpty()) Text("Create a playlist in YouTube Music to add songs here.")
+            error?.let {Text(it,color=Pink);if(pages.isEmpty()) TextButton({retry++}) {Text(string(R.string.retry))}}
+            if(!loading && error==null && pages.isEmpty()) Text(string(R.string.create_a_playlist_in_youtube_music_to))
             LazyColumn(Modifier.heightIn(max=360.dp)) {items(pages,key={it.key()}) {card->
                 val id=card.browseId?:return@items
                 Row(Modifier.fillMaxWidth().clickable(enabled=!busy) {selected=if(id in selected) selected-id else selected+id;uiHaptic(HapticCue.Selection)}.padding(vertical=6.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
@@ -90,16 +90,16 @@ internal suspend fun addTrackToPlaylist(reader:ProviderCatalogReader,mutations:P
             scope.launch {
                 val result=addToSelectedPlaylists(requested) {id->
                     progress=pages.firstOrNull {it.browseId==id}?.title.orEmpty()
-                    if(provider.authRevision!=revision) Result.failure(IllegalStateException("Account changed"))
+                    if(provider.authRevision!=revision) Result.failure(IllegalStateException(string(R.string.account_changed)))
                     else addTrackToPlaylist(provider,provider,id,progress,track)
                 }
                 selected=selected-result.completed;busy=false
                 if(result.completed.isNotEmpty()) provider.refreshLibraryIndex()
-                if(result.failures.isEmpty()) {uiHaptic(HapticCue.Confirm);onNotice("Song saved in ${result.completed.size} playlists");onDismiss()}
+                if(result.failures.isEmpty()) {uiHaptic(HapticCue.Confirm);onNotice(string(R.string.song_saved_in_x_playlists, result.completed.size));onDismiss()}
                 else {uiHaptic(HapticCue.Reject);error=result.summary()}
             }
-        }) {Text(if(busy) "Saving…" else "Add to ${selected.size} playlists")}},
-        dismissButton={TextButton(enabled=!busy,onClick=onDismiss) {Text("Cancel")}})
+        }) {Text(if(busy) string(R.string.saving) else string(R.string.add_to_x_playlists, selected.size))}},
+        dismissButton={TextButton(enabled=!busy,onClick=onDismiss) {Text(string(R.string.cancel))}})
 }
 
 /** Shared action used by player, search, album and playlist rows. */

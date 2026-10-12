@@ -39,8 +39,8 @@ internal suspend fun requestSongDownload(context:Context,track:ProviderTrack,onN
     try {
         if(!OfflineMusicStore.get(context).canSave) {uiHaptic(HapticCue.Reject);onNotice(VERIFY_TO_SAVE_NOTICE);return}
         withContext(Dispatchers.IO) {OfflineMusicStore.get(context).enqueue(track)}
-        DownloadCoordinator.start(context);uiHaptic(HapticCue.Confirm);onNotice("Downloading highest available audio, artwork and lyrics")
-    } catch(e:CancellationException) {throw e} catch(_:Exception) {uiHaptic(HapticCue.Reject);onNotice("Could not start download. Retry from Downloads.")}
+        DownloadCoordinator.start(context);uiHaptic(HapticCue.Confirm);onNotice(string(R.string.downloading_highest_available_audio_artwork))
+    } catch(e:CancellationException) {throw e} catch(_:Exception) {uiHaptic(HapticCue.Reject);onNotice(string(R.string.could_not_start_download_retry_from_download))}
 }
 @Composable internal fun DownloadSongAction(track:ProviderTrack,onNotice:(String)->Unit={},onDismiss:()->Unit={}) {
     if(track.isLive || !track.isMusic) return
@@ -50,16 +50,16 @@ internal suspend fun requestSongDownload(context:Context,track:ProviderTrack,onN
 internal fun storageLabel(bytes:Long)=if(bytes>=1024L*1024*1024) "%.1f GB".format(bytes/(1024.0*1024*1024)) else "%.1f MB".format(bytes/(1024.0*1024))
 internal val downloadBudgets=(1..16).map {it*1073741824L}+listOf(24L,32L,64L,128L,256L).map {it*1073741824L}+Long.MAX_VALUE
 internal fun downloadBudgetIndex(bytes:Long)=downloadBudgets.indexOfFirst {it>=bytes}.let {if(it<0) downloadBudgets.lastIndex else it}
-internal fun downloadBudgetLabel(bytes:Long)=if(bytes==Long.MAX_VALUE) "Unlimited" else "${bytes/1073741824L} GB"
+internal fun downloadBudgetLabel(bytes:Long)=if(bytes==Long.MAX_VALUE) string(R.string.unlimited) else "${bytes/1073741824L} GB"
 
 internal suspend fun requestCollectionDownload(context:Context,tracks:List<ProviderTrack>,onNotice:(String)->Unit) {
     try {
         if(!OfflineMusicStore.get(context).canSave) {uiHaptic(HapticCue.Reject);onNotice(VERIFY_TO_SAVE_NOTICE);return}
         val count=withContext(Dispatchers.IO) {OfflineMusicStore.get(context).enqueueSongs(tracks)}
-        if(count==0) {onNotice("No downloadable songs in this collection");return}
+        if(count==0) {onNotice(string(R.string.no_downloadable_songs_in_this_collection));return}
         DownloadCoordinator.start(context);uiHaptic(HapticCue.Confirm)
-        onNotice("$count ${if(count==1) "song" else "songs"} queued for download")
-    } catch(e:CancellationException) {throw e} catch(_:Exception) {uiHaptic(HapticCue.Reject);onNotice("Could not start playlist download. Retry from Downloads.")}
+        onNotice(quantity(R.plurals.n_songs_queued_for_download, count))
+    } catch(e:CancellationException) {throw e} catch(_:Exception) {uiHaptic(HapticCue.Reject);onNotice(string(R.string.could_not_start_playlist_download_retry_from))}
 }
 @androidx.annotation.OptIn(markerClass=[androidx.media3.common.util.UnstableApi::class])
 @Composable internal fun DownloadSettings(model:ShellModel,onNotice:(String)->Unit) {
@@ -79,43 +79,43 @@ internal suspend fun requestCollectionDownload(context:Context,tracks:List<Provi
         if(!dragging) budgetIndex=downloadBudgetIndex(store.budgetBytes).toFloat()
         cacheBytes=withContext(Dispatchers.IO) {MusicDiskCache.get(context).cacheSpace}
     }
-    SettingsToggleRow("Smart Downloads",enabled,{value->enabled=value;uiHaptic(if(value) HapticCue.ToggleOn else HapticCue.ToggleOff)
+    SettingsToggleRow(string(R.string.smart_downloads),enabled,{value->enabled=value;uiHaptic(if(value) HapticCue.ToggleOn else HapticCue.ToggleOff)
         scope.launch {withContext(Dispatchers.IO) {store.setSmart(value)}}},Icons.Rounded.AutoAwesome,"settings_smart_downloads",
-        "Up to 250 recently played songs")
+        string(R.string.up_to_250_recently_played_songs))
     SettingsDivider()
-    SettingsToggleRow("Allow mobile data",mobile,{value->mobile=value;uiHaptic(if(value) HapticCue.ToggleOn else HapticCue.ToggleOff)
+    SettingsToggleRow(string(R.string.allow_mobile_data),mobile,{value->mobile=value;uiHaptic(if(value) HapticCue.ToggleOn else HapticCue.ToggleOff)
         scope.launch {withContext(Dispatchers.IO) {store.setAllowMobileData(value)}}},Icons.Rounded.DataUsage,"settings_download_mobile_data",
-        if(mobile) "Wi-Fi and mobile data" else "Unmetered Wi-Fi only")
+        if(mobile) string(R.string.wi_fi_and_mobile_data) else string(R.string.unmetered_wi_fi_only))
     SettingsDivider()
     Column(Modifier.padding(vertical=12.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            Text("Storage budget",color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
+            Text(string(R.string.storage_budget),color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
             Text(downloadBudgetLabel(downloadBudgets[budgetIndex.roundToInt()]),color=White,fontSize=14.sp,fontWeight=FontWeight.Medium,
                 modifier=Modifier.testTag("settings_download_budget_value"))
         }
         CapsuleSlider(budgetIndex,{dragging=true;budgetIndex=it},valueRange=0f..downloadBudgets.lastIndex.toFloat(),steps=downloadBudgets.size-2,
             onValueChangeFinished={val bytes=downloadBudgets[budgetIndex.roundToInt()]
                 scope.launch {withContext(Dispatchers.IO) {store.setBudget(bytes)};dragging=false}},
-            modifier=Modifier.fillMaxWidth().testTag("settings_download_budget").semantics {contentDescription="Download storage budget";stateDescription=downloadBudgetLabel(downloadBudgets[budgetIndex.roundToInt()])})
+            modifier=Modifier.fillMaxWidth().testTag("settings_download_budget").semantics {contentDescription=string(R.string.download_storage_budget);stateDescription=downloadBudgetLabel(downloadBudgets[budgetIndex.roundToInt()])})
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-            Text("1 GB",color=Muted,fontSize=11.sp);Text("Unlimited",color=Muted,fontSize=11.sp)
+            Text(string(R.string.n_1_gb),color=Muted,fontSize=11.sp);Text(string(R.string.unlimited),color=Muted,fontSize=11.sp)
         }
     }
     SettingsDivider()
-    SettingsLinkRow("Downloaded songs",icon=Icons.Rounded.DownloadDone,tag="settings_downloads") {model.push(Route.Downloads)}
+    SettingsLinkRow(string(R.string.downloaded_songs),icon=Icons.Rounded.DownloadDone,tag="settings_downloads") {model.push(Route.Downloads)}
     SettingsDivider()
-    SettingsLinkRow("Clear playback cache",storageLabel(cacheBytes),Icons.Rounded.CleaningServices,"settings_clear_cache") {
+    SettingsLinkRow(string(R.string.clear_playback_cache),storageLabel(cacheBytes),Icons.Rounded.CleaningServices,"settings_clear_cache") {
         confirmClearCache=true
     }
     if(confirmClearCache) FrostedAlertDialog(onDismissRequest={if(!clearingCache) {confirmClearCache=false;cacheFailure=null}},
-        title={Text("Clear playback cache?")},text={Text(cacheFailure?:"Remove cached streaming audio (${storageLabel(cacheBytes)})? Downloaded songs will be kept.",
+        title={Text(string(R.string.clear_playback_cache_2))},text={Text(cacheFailure?:string(R.string.remove_cached_streaming_audio_x_downloaded_s, storageLabel(cacheBytes)),
             modifier=Modifier.testTag(if(cacheFailure==null) "clear_cache_prompt" else "clear_cache_failure"))},
         confirmButton={TextButton(enabled=!clearingCache,onClick={clearingCache=true;cacheFailure=null;scope.launch {
-            try {withContext(Dispatchers.IO) {MusicDiskCache.clear(context)};cacheBytes=0;confirmClearCache=false;uiHaptic(HapticCue.Confirm);onNotice("Playback cache cleared; downloads kept")}
-            catch(e:CancellationException) {throw e} catch(_:Exception) {cacheFailure="The playback cache could not be cleared. Nothing was removed from your downloads."}
+            try {withContext(Dispatchers.IO) {MusicDiskCache.clear(context)};cacheBytes=0;confirmClearCache=false;uiHaptic(HapticCue.Confirm);onNotice(string(R.string.playback_cache_cleared_downloads_kept))}
+            catch(e:CancellationException) {throw e} catch(_:Exception) {cacheFailure=string(R.string.the_playback_cache_could_not_be_cleared)}
             finally {clearingCache=false}
-        }},modifier=Modifier.testTag("confirm_clear_cache")) {Text(if(cacheFailure==null) "Clear cache" else "Try again",color=Pink)}},
-        dismissButton={TextButton(enabled=!clearingCache,onClick={confirmClearCache=false;cacheFailure=null}) {Text(if(cacheFailure==null) "Cancel" else "Close")}})
+        }},modifier=Modifier.testTag("confirm_clear_cache")) {Text(if(cacheFailure==null) string(R.string.clear_cache) else string(R.string.try_again),color=Pink)}},
+        dismissButton={TextButton(enabled=!clearingCache,onClick={confirmClearCache=false;cacheFailure=null}) {Text(if(cacheFailure==null) string(R.string.cancel) else string(R.string.close))}})
 }
 
 private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val artwork:String?)
@@ -134,15 +134,15 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
     var deleteScope by remember {mutableStateOf<String?>(null)}
     var deleting by remember {mutableStateOf(false)}
     var deleteFailure by remember {mutableStateOf<String?>(null)}
-    deleteScope?.let {account->FrostedAlertDialog(onDismissRequest={if(!deleting) {deleteScope=null;deleteFailure=null}},title={Text("Delete all downloads?")},
-        text={Text(deleteFailure?:"Remove all downloaded songs, artwork and lyrics from this account on this phone, and cancel its pending downloads?",
+    deleteScope?.let {account->FrostedAlertDialog(onDismissRequest={if(!deleting) {deleteScope=null;deleteFailure=null}},title={Text(string(R.string.delete_all_downloads))},
+        text={Text(deleteFailure?:string(R.string.remove_all_downloaded_songs_artwork_and_lyri),
             modifier=Modifier.testTag(if(deleteFailure==null) "delete_downloads_prompt" else "delete_downloads_failure"))},
         confirmButton={TextButton(enabled=!deleting,onClick={deleting=true;deleteFailure=null;scope.launch {
-            try {withContext(Dispatchers.IO) {store.removeAll(account)};deleteScope=null;uiHaptic(HapticCue.Confirm);onNotice("All downloads deleted")}
-            catch(e:CancellationException) {throw e} catch(_:Exception) {deleteFailure="Not every download could be deleted. Some may remain; try again."}
+            try {withContext(Dispatchers.IO) {store.removeAll(account)};deleteScope=null;uiHaptic(HapticCue.Confirm);onNotice(string(R.string.all_downloads_deleted))}
+            catch(e:CancellationException) {throw e} catch(_:Exception) {deleteFailure=string(R.string.not_every_download_could_be_deleted_some)}
             finally {deleting=false}
-        }},modifier=Modifier.testTag("confirm_delete_downloads")) {Text(if(deleteFailure==null) "Delete all downloads" else "Try again",color=Pink)}},
-        dismissButton={TextButton(enabled=!deleting,onClick={deleteScope=null;deleteFailure=null}) {Text(if(deleteFailure==null) "Cancel" else "Close")}})}
+        }},modifier=Modifier.testTag("confirm_delete_downloads")) {Text(if(deleteFailure==null) string(R.string.delete_all_downloads_2) else string(R.string.try_again),color=Pink)}},
+        dismissButton={TextButton(enabled=!deleting,onClick={deleteScope=null;deleteFailure=null}) {Text(if(deleteFailure==null) string(R.string.cancel) else string(R.string.close))}})}
     LaunchedEffect(revision,provider.authRevision) {
         val scopeKey=store.currentScope
         val result=withContext(Dispatchers.IO) {
@@ -165,7 +165,7 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
     fun play(id:String?=null,shuffle:Boolean=false) {
         if(tracks.isEmpty()) return
         val index=if(shuffle) tracks.indices.random() else if(id==null) 0 else tracks.indexOfFirst {it.videoId==id}
-        if(index>=0) {uiHaptic();playback.playCollection(tracks,index,"Downloads",shuffle)}
+        if(index>=0) {uiHaptic();playback.playCollection(tracks,index,string(R.string.downloads),shuffle)}
     }
     LazyColumn(state=listState,modifier=Modifier.fillMaxSize().background(tone).testTag("downloads_detail"),
         contentPadding=PaddingValues(bottom=bottom)) {
@@ -176,10 +176,10 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
                 } else AsyncImage(cover,null,contentScale=ContentScale.Crop,
                     modifier=Modifier.fillMaxSize().testTag("downloads_artwork"))
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha=.32f),.42f to Color.Transparent,1f to tone)))
-                Box(Modifier.statusBarsPadding().padding(horizontal=16.dp)) {BackHeading("Library",model::back,overPicture=true)}
+                Box(Modifier.statusBarsPadding().padding(horizontal=16.dp)) {BackHeading(string(R.string.library),model::back,overPicture=true)}
                 Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().wordsOverPicture(tone).padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally) {
-                    Text("Downloads",color=White,fontSize=28.sp,fontWeight=FontWeight.SemiBold)
-                    Text(if(!loaded) "Loading\u2026" else "${ready.size} ${if(ready.size==1) "song" else "songs"} \u00B7 ${storageLabel(used)}",
+                    Text(string(R.string.downloads),color=White,fontSize=28.sp,fontWeight=FontWeight.SemiBold)
+                    Text(if(!loaded) string(R.string.loading_2) else quantity(R.plurals.n_songs_n, ready.size, storageLabel(used)),
                         color=White.copy(alpha=.78f),fontSize=15.sp,modifier=Modifier.padding(top=6.dp))
                 }
             }
@@ -188,16 +188,16 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
             Row(Modifier.fillMaxWidth().padding(horizontal=28.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically,
                 horizontalArrangement=Arrangement.spacedBy(14.dp)) {
                 FilledTonalIconButton({play(shuffle=true)},enabled=tracks.isNotEmpty(),modifier=Modifier.size(52.dp).testTag("downloads_shuffle"),
-                    colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=White.copy(alpha=.12f))) {Icon(Icons.Rounded.Shuffle,"Shuffle downloads",tint=White)}
+                    colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=White.copy(alpha=.12f))) {Icon(Icons.Rounded.Shuffle,string(R.string.shuffle_downloads),tint=White)}
                 Button({play()},enabled=tracks.isNotEmpty(),modifier=Modifier.weight(1f).height(56.dp).testTag("downloads_play"),shape=RoundedCornerShape(50),
                     colors=ButtonDefaults.buttonColors(containerColor=White,contentColor=tone)) {
-                    Icon(Icons.Rounded.PlayArrow,null);Spacer(Modifier.width(8.dp));Text("Play",fontSize=22.sp,fontWeight=FontWeight.SemiBold)
+                    Icon(Icons.Rounded.PlayArrow,null);Spacer(Modifier.width(8.dp));Text(string(R.string.play),fontSize=22.sp,fontWeight=FontWeight.SemiBold)
                 }
                 FilledTonalIconButton({uiHaptic();deleteScope=store.currentScope},enabled=entries.isNotEmpty() && !deleting,modifier=Modifier.size(52.dp).testTag("downloads_delete_all"),
-                    colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=White.copy(alpha=.12f))) {Icon(Icons.Rounded.DeleteOutline,"Delete all downloads",tint=White)}
+                    colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=White.copy(alpha=.12f))) {Icon(Icons.Rounded.DeleteOutline,string(R.string.delete_all_downloads_2),tint=White)}
             }
         }
-        item {CollectionTools("downloaded songs",query,{query=it},sort,{sortName=it.name},true)}
+        item {CollectionTools(string(R.string.downloaded_songs_2),query,{query=it},sort,{sortName=it.name},true)}
         if(entries.isNotEmpty()) item {
             Row(Modifier.padding(horizontal=20.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 listOf("All","Downloaded","Pending").forEach {name->FilterChip(filter==name,{uiHaptic(HapticCue.Selection);filter=name},
@@ -205,8 +205,8 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
             }
         }
         if(loaded && visible.isEmpty()) item {
-            Text(if(query.isNotBlank()) "No songs match this search." else if(entries.isEmpty()) "Download a song from its menu, or turn on Smart Downloads in Settings."
-                else if(filter=="Pending") "All downloads are ready." else "No downloaded songs yet.",color=White.copy(alpha=.7f),fontSize=14.sp,
+            Text(if(query.isNotBlank()) string(R.string.no_songs_match_this_search) else if(entries.isEmpty()) string(R.string.download_a_song_from_its_menu_or)
+                else if(filter=="Pending") string(R.string.all_downloads_are_ready) else string(R.string.no_downloaded_songs_yet),color=White.copy(alpha=.7f),fontSize=14.sp,
                 modifier=Modifier.padding(horizontal=24.dp,vertical=20.dp))
         }
         itemsIndexed(visible,key={_,entry->entry.song.track.videoId}) {index,entry->
@@ -225,7 +225,7 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
                     }
                     if(entry.ready && !active && song.durationMs>0) Text("${song.durationMs/60000}:${((song.durationMs/1000)%60).toString().padStart(2,'0')}",color=White.copy(alpha=.6f),fontSize=12.sp)
                     Box {
-                        IconButton({uiHaptic();menu=true},modifier=Modifier.testTag("download_menu_${song.track.videoId}")) {Icon(Icons.Rounded.MoreVert,"Download options",tint=White.copy(alpha=.65f))}
+                        IconButton({uiHaptic();menu=true},modifier=Modifier.testTag("download_menu_${song.track.videoId}")) {Icon(Icons.Rounded.MoreVert,string(R.string.download_options),tint=White.copy(alpha=.65f))}
                         SongActionMenu(menu,{menu=false}) {
                             AddToPlaylistAction(song.track,{menu=false}) {playlistTrack=it}
                             SongActionItem("Download details",onClick={menu=false;detailsId=song.track.videoId})
@@ -233,7 +233,7 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
                                 SongActionItem(downloadRetryLabel(entry.ready),onClick={menu=false;scope.launch {requestSongDownload(context,song.track,onNotice)}})
                             if(!song.pinned && entry.ready) SongActionItem("Keep downloaded",onClick={menu=false;scope.launch {requestSongDownload(context,song.track,onNotice)}})
                             if(active) SongActionItem("Pause download",onClick={menu=false;scope.launch {withContext(Dispatchers.IO) {store.pause(song.scope,song.track.videoId)}}})
-                            SongActionItem("Remove download",onClick={menu=false;scope.launch {withContext(Dispatchers.IO) {store.remove(song.scope,song.track.videoId)};onNotice("Download removed")}})
+                            SongActionItem("Remove download",onClick={menu=false;scope.launch {withContext(Dispatchers.IO) {store.remove(song.scope,song.track.videoId)};onNotice(string(R.string.download_removed))}})
                         }
                     }
                 }
@@ -249,29 +249,29 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
         val song=details.song
         Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
             Text(playerArtistLabel(song.track.artist),color=Muted)
-            Text(if(details.ready) "Ready offline \u00B7 ${storageLabel(song.bytes)}" else downloadStatus(song,false),color=White)
+            Text(if(details.ready) string(R.string.ready_offline_x, storageLabel(song.bytes)) else downloadStatus(song,false),color=White)
             if(song.quality.isNotBlank()) Text(song.quality.replace("audio/webm","WebM").replace("audio/mp4","AAC"),color=Muted,fontSize=13.sp)
-            Text(if(song.pinned) "Kept on this phone" else "Managed by Smart Downloads",color=Muted,fontSize=13.sp)
-            Text("Artwork: ${assetStatus(song.artworkState)}",color=Muted,fontSize=13.sp)
-            Text("Lyrics: ${assetStatus(song.lyricsState)}",color=Muted,fontSize=13.sp)
+            Text(if(song.pinned) string(R.string.kept_on_this_phone) else string(R.string.managed_by_smart_downloads),color=Muted,fontSize=13.sp)
+            Text(string(R.string.artwork_x, assetStatus(song.artworkState)),color=Muted,fontSize=13.sp)
+            Text(string(R.string.lyrics_x, assetStatus(song.lyricsState)),color=Muted,fontSize=13.sp)
             if(song.error.isNotBlank()) Text(song.error,color=Pink,fontSize=13.sp)
         }
-    },confirmButton={TextButton({uiHaptic();detailsId=null}) {Text("Done",color=Pink)}},containerColor=Raised)
+    },confirmButton={TextButton({uiHaptic();detailsId=null}) {Text(string(R.string.done),color=Pink)}},containerColor=Raised)
 }
 /** [ready] is whether the audio itself is on the phone and playable; artwork and lyrics may still be wanted. */
 internal fun downloadStatus(song:OfflineSong,ready:Boolean)=when(song.status) {
-    DownloadState.Queued->if(ready) "Waiting to save artwork and lyrics" else "Waiting to download"
-    DownloadState.Resolving->if(ready) "Saving artwork and lyrics" else "Preparing download"
-    DownloadState.Transferring->if(song.total>0) "Downloading ${(song.bytes*100/song.total).coerceIn(0,100)}%" else "Downloading\u2026"
-    DownloadState.Validating->"Checking audio"
-    DownloadState.Assets->"Saving artwork and lyrics"
+    DownloadState.Queued->if(ready) string(R.string.waiting_to_save_artwork_and_lyrics) else string(R.string.waiting_to_download)
+    DownloadState.Resolving->if(ready) string(R.string.saving_artwork_and_lyrics) else string(R.string.preparing_download)
+    DownloadState.Transferring->if(song.total>0) string(R.string.downloading_x, (song.bytes*100/song.total).coerceIn(0,100)) else string(R.string.downloading)
+    DownloadState.Validating->string(R.string.checking_audio)
+    DownloadState.Assets->string(R.string.saving_artwork_and_lyrics)
     // A transfer never continues from where it stopped: it begins again with a fresh stream.
-    DownloadState.Paused->if(ready) "Paused" else "Paused \u00B7 starts again from the beginning"
-    DownloadState.Failed->if(ready) "Artwork or lyrics missing" else "Download failed"
-    DownloadState.Complete->if(ready) "Downloaded" else "Download missing"
-    DownloadState.Metadata,DownloadState.Cancelled->"Not downloaded"
-    null->"Needs downloading again"
+    DownloadState.Paused->if(ready) string(R.string.paused) else string(R.string.paused_starts_again_from_the_beginning)
+    DownloadState.Failed->if(ready) string(R.string.artwork_or_lyrics_missing) else string(R.string.download_failed)
+    DownloadState.Complete->if(ready) "Downloaded" else string(R.string.download_missing)
+    DownloadState.Metadata,DownloadState.Cancelled->string(R.string.not_downloaded)
+    null->string(R.string.needs_downloading_again)
 }
 /** Honest about what the action does: audio is fetched again from the start; only missing artwork or lyrics are added to audio that is there. */
-internal fun downloadRetryLabel(ready:Boolean)=if(ready) "Retry missing assets" else "Restart download"
-private fun assetStatus(state:String)=when(state) {"available"->"Saved";"instrumental"->"Instrumental";"unavailable"->"Not available";"failed"->"Retry needed";else->"Pending"}
+internal fun downloadRetryLabel(ready:Boolean)=if(ready) "Retry missing assets" else string(R.string.restart_download)
+private fun assetStatus(state:String)=when(state) {"available"->string(R.string.saved);"instrumental"->string(R.string.instrumental);"unavailable"->string(R.string.not_available);"failed"->string(R.string.retry_needed);else->string(R.string.pending)}

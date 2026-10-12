@@ -48,8 +48,7 @@ internal fun describeExit(exit: ProcessExit): String {
     val description = exit.description.orEmpty().replace(Regex("\\s+"), " ")
         .replace(Regex("https?://\\S+"), "<url>").take(80).trim()
     val process = exit.processName.substringAfter(':', "main")
-    return "process_exit at=${exit.timestamp} process=$process reason=${exitReasonName(exit.reason)} " +
-        "status=${exit.status} importance=${exit.importance} pss_kb=${exit.pssKb} rss_kb=${exit.rssKb}" +
+    return "process_exit at=${exit.timestamp} process=$process reason=${exitReasonName(exit.reason)} status=${exit.status} importance=${exit.importance} pss_kb=${exit.pssKb} rss_kb=${exit.rssKb}" +
         if (description.isEmpty()) "" else " desc=\"$description\""
 }
 
@@ -123,7 +122,5 @@ internal fun stopContext(context: Context, playWhenReady: Boolean, playbackState
     val power = context.getSystemService(PowerManager::class.java)
     val activity = context.getSystemService(ActivityManager::class.java)
     val bucket = runCatching { context.getSystemService(UsageStatsManager::class.java).appStandbyBucket }.getOrDefault(-1)
-    return "service_destroy play_when_ready=$playWhenReady state=$playbackState task_removed=$taskRemoved " +
-        "idle=${power.isDeviceIdleMode} power_save=${power.isPowerSaveMode} " +
-        "bg_restricted=${activity.isBackgroundRestricted} standby_bucket=$bucket"
+    return "service_destroy play_when_ready=$playWhenReady state=$playbackState task_removed=$taskRemoved idle=${power.isDeviceIdleMode} power_save=${power.isPowerSaveMode} bg_restricted=${activity.isBackgroundRestricted} standby_bucket=$bucket"
 }

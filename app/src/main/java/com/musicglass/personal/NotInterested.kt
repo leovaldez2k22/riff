@@ -92,6 +92,6 @@ internal suspend fun markNotInterested(context: Context, provider: YouTubeMusicP
     NotInterestedStore.get(context).add(entry.copy(at = System.currentTimeMillis()))
     if (entry.song) playback.dropTrack(entry.key)
     val sent = provider.sendNotInterested(entry.key.takeIf { entry.song }, token).getOrDefault(false)
-    onNotice(if (sent) "Got it. YouTube Music will suggest this less"
-        else if (entry.song) "Got it. Riff won't suggest this song" else "Got it. Riff will hide this")
+    onNotice(if (sent) string(R.string.got_it_youtube_music_will_suggest_this)
+        else if (entry.song) string(R.string.got_it_riff_won_t_suggest_this) else string(R.string.got_it_riff_will_hide_this))
 }

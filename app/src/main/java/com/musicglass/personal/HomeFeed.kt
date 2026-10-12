@@ -85,7 +85,7 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
     LaunchedEffect(provider.authRevision, mood, epoch, refresh) {
         error = null; loading = provider.cachedFeed("home:$mood")==null
         provider.homeSections(mood).fold(onSuccess = { shelves = it;feedReady=true },
-            onFailure = { error = it.message ?: "YouTube Music is unavailable" })
+            onFailure = { error = it.message ?: string(R.string.youtube_music_is_unavailable) })
         loading = false
     }
     LaunchedEffect(provider.authRevision, epoch, refresh) {
@@ -105,11 +105,11 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
     val currentPhoto=photos[mood]
     if(photoCredits && currentPhoto!=null) {
         val context=androidx.compose.ui.platform.LocalContext.current
-        androidx.compose.material3.AlertDialog(onDismissRequest={photoCredits=false},title={Text("Background photo")},text={Column {
+        androidx.compose.material3.AlertDialog(onDismissRequest={photoCredits=false},title={Text(string(R.string.background_photo))},text={Column {
             Text(currentPhoto.author);Text(currentPhoto.license)
-            androidx.compose.material3.TextButton({context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(currentPhoto.page)))}) {Text("View original photo")}
-            if(currentPhoto.licenseUrl.isNotBlank()) androidx.compose.material3.TextButton({context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(currentPhoto.licenseUrl)))}) {Text("View licence")}
-        }},confirmButton={androidx.compose.material3.TextButton({photoCredits=false}) {Text("Done")}})
+            androidx.compose.material3.TextButton({context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(currentPhoto.page)))}) {Text(string(R.string.view_original_photo))}
+            if(currentPhoto.licenseUrl.isNotBlank()) androidx.compose.material3.TextButton({context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(currentPhoto.licenseUrl)))}) {Text(string(R.string.view_licence))}
+        }},confirmButton={androidx.compose.material3.TextButton({photoCredits=false}) {Text(string(R.string.done))}})
     }
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     Box(Modifier.fillMaxSize()) {
@@ -118,11 +118,11 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
         verticalArrangement = Arrangement.spacedBy(18.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Home", color = White, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(string(R.string.home), color = White, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 IconButton(onClick = { uiHaptic();  model.push(Route.Settings()) },modifier = Modifier.testTag("home_settings")) {
-                    if (profile?.artworkUrl != null) AsyncImage(profile?.artworkUrl, contentDescription = "Settings",
+                    if (profile?.artworkUrl != null) AsyncImage(profile?.artworkUrl, contentDescription = string(R.string.settings),
                         contentScale = ContentScale.Crop, modifier = Modifier.size(38.dp).clip(CircleShape))
-                    else Icon(Icons.Filled.AccountCircle, contentDescription = "Settings", tint = White)
+                    else Icon(Icons.Filled.AccountCircle, contentDescription = string(R.string.settings), tint = White)
                 }
             }
         }
@@ -135,40 +135,40 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
                 }
             }
         }
-        if(mood.isNotBlank() && currentPhoto!=null) item {Text("Photo credits",color=Muted,fontSize=10.sp,modifier=Modifier.padding(horizontal=20.dp).clickable {photoCredits=true})}
+        if(mood.isNotBlank() && currentPhoto!=null) item {Text(string(R.string.photo_credits),color=Muted,fontSize=10.sp,modifier=Modifier.padding(horizontal=20.dp).clickable {photoCredits=true})}
         // Placeholder shelves sized like the real ones (W3); Home still waits for the fresh feed (rc17).
         if (loading && shelves.isEmpty()) item { HomeFeedSkeleton(Modifier.padding(top = 8.dp)) }
         error?.let { message -> item {
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(message, color = Muted)
-                Text("Retry", color = Pink, modifier = Modifier.clickable { uiHaptic();  refresh++ }.padding(8.dp))
+                Text(string(R.string.retry), color = Pink, modifier = Modifier.clickable { uiHaptic();  refresh++ }.padding(8.dp))
             }
         } }
         if (speed.isNotEmpty()) item {
             Column(Modifier.padding(horizontal = 20.dp)) {
-                Text(if (!provider.signedIn) "Discover your music" else
-                    profile?.name?.takeIf(String::isNotBlank)?.let { "Hello, $it" } ?: "Welcome back",
+                Text(if (!provider.signedIn) string(R.string.discover_your_music) else
+                    profile?.name?.takeIf(String::isNotBlank)?.let { string(R.string.hello_x, it) } ?: string(R.string.welcome_back),
                     color = Muted, fontSize = 12.sp)
-                HomeHeading("Speed dial")
+                HomeHeading(string(R.string.speed_dial))
             }
             Spacer(Modifier.height(16.dp))
             HomeSpeedDial(speed, ::open)
         }
-        if (recent.isNotEmpty() && musicShelves.none {it.title.contains("listen again",true)}) item { HomeRowShelf("Recently played", recent, ::open) }
-        val shown=homeDiscoveryShelves(musicShelves)+if(mood.isBlank() && !loading && error==null && musicShelves.none {it.title.contains("forgotten fav",true)}) listOf(ProviderHomeSection("Forgotten favourites",emptyList())) else emptyList()
+        if (recent.isNotEmpty() && musicShelves.none {it.title.contains("listen again",true)}) item { HomeRowShelf(string(R.string.recently_played), recent, ::open) }
+        val shown=homeDiscoveryShelves(musicShelves)+if(mood.isBlank() && !loading && error==null && musicShelves.none {it.title.contains("forgotten fav",true)}) listOf(ProviderHomeSection(string(R.string.forgotten_favourites),emptyList())) else emptyList()
         orderedHomeShelves(shown).forEachIndexed {index,shelf->
             if(shelf.cards.isNotEmpty()) item(key="shelf:$index") {
                 if(shelf.title.contains("quick picks",true)) HomeRowShelf(shelf.title,shelf.cards,::open)
                 else HomeCardShelf(shelf.title,shelf.cards,150.dp,onOpen=::open)
             } else if(shelf.title.contains("forgotten fav",true)) item(key="shelf:$index") {
                 Column(Modifier.padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                    HomeHeading("Forgotten favourites")
-                    Text(if(provider.signedIn) "YouTube Music hasn't offered this shelf for your account yet." else "Sign in to find your forgotten favourites.",color=Muted,fontSize=13.sp)
+                    HomeHeading(string(R.string.forgotten_favourites))
+                    Text(if(provider.signedIn) string(R.string.youtube_music_hasn_t_offered_this_shelf) else string(R.string.sign_in_to_find_your_forgotten_favourites),color=Muted,fontSize=13.sp)
                 }
             }
         }
         if (!loading && error == null && speed.isEmpty()) item {
-            Text("No recommendations available. Search for music to get started.", color = Muted,
+            Text(string(R.string.no_recommendations_available_search_for_musi), color = Muted,
                 modifier = Modifier.padding(horizontal = 20.dp))
         }
     }
@@ -177,7 +177,7 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
 
 @Composable
 private fun HomeHeading(title: String, action: (() -> Unit)? = null,
-    actionLabel: String = "Play all") {
+    actionLabel: String = string(R.string.play_all)) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(title, color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold,
             maxLines = 2, modifier = Modifier.weight(1f))
@@ -244,8 +244,8 @@ private fun HomeArtwork(url:String?,key:String,modifier:Modifier=Modifier) {
 
 @Composable
 internal fun HomeRowShelf(title: String, cards: List<ProviderHomeCard>,
-    onOpen: (ProviderHomeCard) -> Unit, emptyMessage: String = "Loading from YouTube Music\u2026",
-    action: (() -> Unit)? = null, actionLabel: String = "Play all") {
+    onOpen: (ProviderHomeCard) -> Unit, emptyMessage: String = string(R.string.loading_from_youtube_music),
+    action: (() -> Unit)? = null, actionLabel: String = string(R.string.play_all)) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.padding(horizontal = 20.dp)) {
             HomeHeading(title, action.takeIf { cards.isNotEmpty() }, actionLabel)
@@ -280,7 +280,7 @@ internal fun HomeCardShelf(title: String, cards: List<ProviderHomeCard>, width: 
     onOpen: (ProviderHomeCard) -> Unit) {
     Column(Modifier.fillMaxWidth().fullBleed(LocalShelfInset.current), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         Box(Modifier.padding(horizontal=20.dp)) {HomeHeading(title)}
-        if (cards.isEmpty()) Text("Loading from YouTube Music\u2026", color = Muted,
+        if (cards.isEmpty()) Text(string(R.string.loading_from_youtube_music), color = Muted,
             fontSize = 13.sp)
         else LazyRow(Modifier.fillMaxWidth(),contentPadding=PaddingValues(horizontal=20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {

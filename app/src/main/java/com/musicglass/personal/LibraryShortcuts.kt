@@ -30,15 +30,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-internal fun songCountLabel(count: Int, noun: String = "song") = when (count) {
-    0 -> "None yet"
-    1 -> "1 $noun"
-    else -> "$count ${noun}s"
-}
+internal fun songCountLabel(count: Int, noun: String = "song") =
+    if (count == 0) string(R.string.none_yet) else quantity(if (noun == "file") R.plurals.n_files else R.plurals.n_songs, count)
 
 /** Downloads summary for its Library tile: finished songs, how many are still downloading, and up to 4 covers. */
 internal data class DownloadSummary(val ready: Int, val active: Int, val covers: List<String>) {
-    val label get() = if (active > 0) "Downloading $active" + if (ready > 0) " · $ready ready" else "" else songCountLabel(ready)
+    val label get() = if (active > 0) { if (ready > 0) string(R.string.downloading_x_x_ready, active, ready) else string(R.string.downloading_x_2, active) } else songCountLabel(ready)
 }
 
 /** Library's Downloads and On device entries: one compact row of two tiles with live counts. */
@@ -63,10 +60,10 @@ internal data class DownloadSummary(val ready: Int, val active: Int, val covers:
         if (permitted) deviceCount = LocalAudioRepository(context).list().getOrNull()?.size
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        ShortcutTile("library:tile:downloads", "Downloads", downloads?.label ?: " ", Modifier.weight(1f).testTag("library_downloads"),
+        ShortcutTile("library:tile:downloads", string(R.string.downloads), downloads?.label ?: " ", Modifier.weight(1f).testTag("library_downloads"),
             { model.push(Route.Downloads) }) { CoverCollage(downloads?.covers.orEmpty(), Icons.Rounded.DownloadDone) }
-        ShortcutTile("library:tile:device", "On device", when {
-            !permitted -> "Allow access"
+        ShortcutTile("library:tile:device", keyLabel("On device"), when {
+            !permitted -> string(R.string.allow_access)
             deviceCount == null -> " "
             else -> songCountLabel(deviceCount!!, "file")
         }, Modifier.weight(1f).testTag("library_device"), { model.push(Route.DeviceAudio) }) {

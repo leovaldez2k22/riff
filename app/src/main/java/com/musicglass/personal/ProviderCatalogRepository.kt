@@ -81,7 +81,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
         val response = innerTube.browse(YouTubeClient.WEB_REMIX,browseId = browseId,params = params,
             continuation = token,setLogin = signedIn)
         if (response.status.value >= 400) throw ProviderHttpException(response.status.value)
-        check(revision == authRevision) { "Account changed while loading" }
+        check(revision == authRevision) { string(R.string.account_changed_while_loading) }
         val root = json.parseToJsonElement(response.bodyAsText())
         // HTTP 200 can carry an error. It is a failure, not a page with nothing on it.
         providerEnvelopeError(root)?.let { throw it }
@@ -102,7 +102,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                     else -> false
                 }
                 if (!retryable || attempt >= 2 || revision != authRevision) {
-                    if (e is TimeoutCancellationException) throw IllegalStateException("YouTube Music took too long to respond")
+                    if (e is TimeoutCancellationException) throw IllegalStateException(string(R.string.youtube_music_took_too_long_to_respond))
                     throw e
                 }
                 attempt++
@@ -127,7 +127,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
         val response = innerTube.search(YouTubeClient.WEB_REMIX,query = query.trim().take(100),params = params,
             continuation = token,setLogin = signedIn)
         if (response.status.value >= 400) throw ProviderHttpException(response.status.value)
-        check(revision == authRevision) { "Account changed while searching" }
+        check(revision == authRevision) { string(R.string.account_changed_while_searching) }
         fun matches(card: ProviderHomeCard): Boolean = when(filter) {
             "Videos" -> card.videoId!=null && card.kind==CatalogKind.Song
             "Albums" -> card.kind == CatalogKind.Album
@@ -155,13 +155,13 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                 if(page.cards.none(::matches)) page=mixedPage.copy(next=null)
             }
         }
-        check(revision == authRevision) { "Account changed while searching" }
+        check(revision == authRevision) { string(R.string.account_changed_while_searching) }
         page.copy(cards=page.cards.filter(::matches))
     }
 
     suspend fun browseCatalog(id: String)=browseCatalog(id,null)
     suspend fun browseCatalog(id: String, token: String?): Result<CatalogPage> = providerResult {
-        require(id.matches(Regex("[A-Za-z0-9_-]{2,200}"))) { "Collection is unavailable" }
+        require(id.matches(Regex("[A-Za-z0-9_-]{2,200}"))) { string(R.string.collection_is_unavailable) }
         if(token!=null) requestCatalog(id,token) else collectionCache.get(feedKey("collection:$id")) {requestCatalog(id)}
     }
     suspend fun completeCollection(id:String):Result<CatalogPage> = providerResult {
@@ -191,7 +191,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                 page=page.copy(cards=page.cards+more.cards,albumTracks=page.albumTracks+more.albumTracks,next=more.collectionNext)
             }
             if(page.albumTracks.size>COLLECTION_TRACK_LIMIT) truncation=CollectionTruncation.Limit
-            check(revision==authRevision) {"Account changed while loading this collection"}
+            check(revision==authRevision) {string(R.string.account_changed_while_loading_this_collectio)}
             styled(page.copy(cards=page.cards.take(COLLECTION_TRACK_LIMIT),albumTracks=page.albumTracks.take(COLLECTION_TRACK_LIMIT),next=null,truncation=truncation))
         } finally {if(publishPartial) partialCollections.remove(key)}
     }
@@ -211,13 +211,13 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
         val shelves=(page?.shelves.orEmpty()+existing).distinctBy(ProviderHomeSection::title)
         if(shelves.isNotEmpty()) shelves else {
             val shows=discover("podcasts",filter="Podcasts").getOrThrow().cards
-            if(shows.isEmpty()) emptyList() else listOf(ProviderHomeSection("Discover shows",shows))
+            if(shows.isEmpty()) emptyList() else listOf(ProviderHomeSection(string(R.string.discover_shows),shows))
         }
     }
     suspend fun artistFor(track: ProviderTrack): Result<String?> = providerResult {
         track.artistId ?: run {
             val response = innerTube.next(YouTubeClient.WEB_REMIX,videoId = track.videoId)
-            check(response.status.value < 400) { "Artist is unavailable" }
+            check(response.status.value < 400) { string(R.string.artist_is_unavailable) }
             val root = json.parseToJsonElement(response.bodyAsText())
             val panel = parseQueueTracks(root).firstOrNull { it.videoId == track.videoId }
             panel?.artistId ?: discover(playerArtistLabel(track.artist),filter = "Artists").getOrThrow().cards
@@ -227,7 +227,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
     suspend fun albumFor(videoId: String, known: String?): Result<String?> = providerResult {
         known ?: run {
             val response=innerTube.next(YouTubeClient.WEB_REMIX,videoId=videoId)
-            check(response.status.value<400) {"Album is unavailable"}
+            check(response.status.value<400) {string(R.string.album_is_unavailable)}
             parseQueueTracks(json.parseToJsonElement(response.bodyAsText())).firstOrNull {it.videoId==videoId}?.albumId
         }
     }
@@ -235,7 +235,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
     suspend fun recommendations(videoId: String, token: String?): Result<Pair<List<ProviderTrack>,String?>> = providerResult {
         val revision=authRevision
         val response=innerTube.next(YouTubeClient.WEB_REMIX,videoId=videoId,playlistId="RDAMVM$videoId",params="wAEB",continuation=token)
-        check(response.status.value<400) {"Up next is unavailable"}
+        check(response.status.value<400) {string(R.string.up_next_is_unavailable)}
         val root=json.parseToJsonElement(response.bodyAsText())
         var tracks=parseQueueTracks(root)
         var next=catalogContinuation(root)
@@ -255,7 +255,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
             val artist=tracks.firstOrNull {it.videoId==videoId}?.artist
             if(!artist.isNullOrBlank()) tracks=(tracks+searchPage(playerArtistLabel(artist)).getOrThrow().tracks).distinctBy(ProviderTrack::videoId)
         }
-        check(revision==authRevision) {"Account changed while loading up next"}
+        check(revision==authRevision) {string(R.string.account_changed_while_loading_up_next)}
         // The token just used is never handed back as the next one: the caller would ask for the same page for ever.
         tracks to next?.takeUnless {it==token}
     }
@@ -268,7 +268,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
             feedCache.get(feedKey("radio-channel:${channel.handle}")) {RadioShelf(loadRadioChannel(channel))}.shelf
         }}.awaitAll().filterNotNull()}
         val unique=uniqueRadioShelves(shelves)
-        if(category=="Featured") check(unique.isNotEmpty()) {"No live stations could be reached. Try again when online."}
+        if(category=="Featured") check(unique.isNotEmpty()) {string(R.string.no_live_stations_could_be_reached_try)}
         unique
     }
     private data class RadioShelf(val shelf:ProviderHomeSection?)
@@ -342,7 +342,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
             val response = innerTube.browse(YouTubeClient.WEB_REMIX,
                 browseId = "FEmusic_home", setLogin = signedIn)
             if (response.status.value >= 400) return@withContext Result.failure(
-                IllegalStateException("YouTube Music home is unavailable (HTTP ${response.status.value})"))
+                IllegalStateException(string(R.string.youtube_music_home_is_unavailable_http_x, response.status.value)))
             val root = json.parseToJsonElement(response.bodyAsText())
             val sections = parseHomeSections(root).toMutableList()
             var continuation=catalogContinuation(root)
@@ -365,17 +365,17 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
             }
             if (sections.isEmpty()) return@withContext Result.failure(
                 IllegalStateException(serverMessage?.takeIf(String::isNotBlank)
-                    ?: "YouTube Music returned no home recommendations"))
+                    ?: string(R.string.youtube_music_returned_no_home_recommendatio)))
             if (authRevision != revision) return@withContext Result.failure(
-                IllegalStateException("Account changed while loading home"))
+                IllegalStateException(string(R.string.account_changed_while_loading_home)))
             Result.success(sections)
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
             Result.failure(IllegalStateException(
                 if (error is java.net.UnknownHostException)
-                    "Cannot reach music.youtube.com on this network"
-                else "Could not load YouTube Music home (${error::class.simpleName})"))
+                    string(R.string.cannot_reach_music_youtube_com_on_this)
+                else string(R.string.could_not_load_youtube_music_home_x, error::class.simpleName)))
         }
     }
 
@@ -402,14 +402,14 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                 catch (_: Exception) { /* Keep a valid partial account profile. */ }
             }
             if (authRevision != revision || !signedIn) return@withContext Result.failure(
-                IllegalStateException("Account changed while loading profile"))
+                IllegalStateException(string(R.string.account_changed_while_loading_profile)))
             Log.i("RiffProfile", "loaded name=${!profile?.name.isNullOrBlank()} photo=${profile?.artworkUrl != null}")
             accountProfile = profile
             Result.success(profile)
         } catch (error: CancellationException) { throw error }
         catch (error: Exception) {
             Result.failure(IllegalStateException(
-                "Could not load account profile (${error::class.simpleName})"))
+                string(R.string.could_not_load_account_profile_x, error::class.simpleName)))
         }
     }
 
@@ -417,24 +417,24 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
     suspend fun likedSongsPage(nextToken: String? = null): Result<ProviderSearchPage> =
         withContext(dependencies.dispatchers.io) {
             if (!signedIn) return@withContext Result.failure(
-                IllegalStateException("Sign in to view your YouTube Music liked songs"))
+                IllegalStateException(string(R.string.sign_in_to_view_your_youtube_music)))
             val revision = authRevision
             try {
                 paceSearch()
                 val response = innerTube.browse(YouTubeClient.WEB_REMIX,
                     browseId = "VLLM", continuation = nextToken, setLogin = true)
                 if (response.status.value >= 400) return@withContext Result.failure(
-                    IllegalStateException("Account library is unavailable (HTTP ${response.status.value})"))
+                    IllegalStateException(string(R.string.account_library_is_unavailable_http_x, response.status.value)))
                 val root = json.parseToJsonElement(response.bodyAsText())
                 if (authRevision != revision || !signedIn) return@withContext Result.failure(
-                    IllegalStateException("Account changed while loading the library"))
+                    IllegalStateException(string(R.string.account_changed_while_loading_the_library)))
                 val tracks = parseTracks(root, limit = 2000)
                 Result.success(ProviderSearchPage(tracks, findContinuation(root)))
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
                 Result.failure(IllegalStateException(
-                    "Could not read the account library (${error::class.simpleName})"))
+                    string(R.string.could_not_read_the_account_library_x, error::class.simpleName)))
             }
         }
 
@@ -455,9 +455,9 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                 params = songsFilter,
                 continuation = nextToken, setLogin = useLogin)
             if (response.status.value == 429) return@withContext Result.failure(
-                IllegalStateException("YouTube Music search is temporarily rate limited. Try again shortly."))
+                IllegalStateException(string(R.string.youtube_music_search_is_temporarily_rate_lim)))
             if (response.status.value >= 400) return@withContext Result.failure(
-                IllegalStateException("YouTube Music search is unavailable (HTTP ${response.status.value})."))
+                IllegalStateException(string(R.string.youtube_music_search_is_unavailable_http_x, response.status.value)))
             var root = json.parseToJsonElement(response.bodyAsText())
             var mixedShelves = 0
             var mixedRows = 0
@@ -469,7 +469,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                 val mixed = innerTube.search(YouTubeClient.WEB_REMIX,
                     query = cleanQuery, setLogin = useLogin)
                 if (mixed.status.value == 429) return@withContext Result.failure(
-                    IllegalStateException("YouTube Music search is temporarily rate limited. Try again shortly."))
+                    IllegalStateException(string(R.string.youtube_music_search_is_temporarily_rate_lim)))
                 if (mixed.status.value < 400) {
                     val mixedRoot = json.parseToJsonElement(mixed.bodyAsText())
                     mixedShelves = countKey(mixedRoot, "musicShelfRenderer")
@@ -483,7 +483,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                         val refreshed = innerTube.search(YouTubeClient.WEB_REMIX,
                             query = cleanQuery, params = liveFilter, setLogin = useLogin)
                         if (refreshed.status.value == 429) return@withContext Result.failure(
-                            IllegalStateException("YouTube Music search is temporarily rate limited. Try again shortly."))
+                            IllegalStateException(string(R.string.youtube_music_search_is_temporarily_rate_lim)))
                         if (refreshed.status.value < 400)
                             root = json.parseToJsonElement(refreshed.bodyAsText())
                     }
@@ -491,16 +491,13 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
             }
             val filteredTracks = parseTracks(root)
             if (authRevision != revision) return@withContext Result.failure(
-                IllegalStateException("Account changed while searching"))
+                IllegalStateException(string(R.string.account_changed_while_searching)))
             val useMixedSongs = nextToken == null && filteredTracks.isEmpty() &&
                 mixedSongTracks.isNotEmpty()
             val tracks = if (useMixedSongs) mixedSongTracks else filteredTracks
             if (nextToken == null && tracks.isEmpty() && countKey(root, "musicShelfRenderer") == 0) {
-                Log.i("RiffSearch", "no_song_rows filtered_shelves=0 " +
-                    "mixed_shelves=$mixedShelves mixed_rows=$mixedRows " +
-                    "mixed_song_rows=${mixedSongTracks.size} songs_chip=$liveChipFound " +
-                    "dynamic_retry=$liveFilterTried")
-                Result.failure(IllegalStateException("Song catalog unavailable on this device"))
+                Log.i("RiffSearch", "no_song_rows filtered_shelves=0 mixed_shelves=$mixedShelves mixed_rows=$mixedRows mixed_song_rows=${mixedSongTracks.size} songs_chip=$liveChipFound dynamic_retry=$liveFilterTried")
+                Result.failure(IllegalStateException(string(R.string.song_catalog_unavailable_on_this_device)))
             } else {
                 val page = ProviderSearchPage(tracks,
                     if (useMixedSongs) null else findContinuation(root))
@@ -513,7 +510,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            Result.failure(IllegalStateException("YouTube Music search is unavailable (${error::class.simpleName})"))
+            Result.failure(IllegalStateException(string(R.string.youtube_music_search_is_unavailable_x, error::class.simpleName)))
         }
     }
 
@@ -521,7 +518,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
     suspend fun videoFor(track:ProviderTrack):Result<String?> = providerResult {
         feedCache.get(feedKey("video-pair:${track.videoId}")) {
             val response=innerTube.next(YouTubeClient.WEB_REMIX,videoId=track.videoId,playlistId="RDAMVM${track.videoId}")
-            check(response.status.value<400) {"Could not check the YouTube Music video switcher"}
+            check(response.status.value<400) {string(R.string.could_not_check_the_youtube_music_video)}
             VideoPair(musicVideoPair(json.parseToJsonElement(response.bodyAsText()),track))
         }.id
     }

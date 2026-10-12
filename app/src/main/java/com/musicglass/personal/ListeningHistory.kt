@@ -31,8 +31,8 @@ internal fun historyDayLabel(playedAt: Long, now: Long, zone: java.time.ZoneId =
     val day = java.time.Instant.ofEpochMilli(playedAt).atZone(zone).toLocalDate()
     val today = java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
     return when (day) {
-        today -> "Today"
-        today.minusDays(1) -> "Yesterday"
+        today -> string(R.string.today)
+        today.minusDays(1) -> string(R.string.yesterday)
         else -> day.format(java.time.format.DateTimeFormatter.ofPattern(
             if (day.year == today.year) "EEEE, d MMMM" else "d MMMM yyyy", java.util.Locale.getDefault()))
     }

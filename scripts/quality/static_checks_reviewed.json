@@ -25,5 +25,8 @@
     {"file": "RiffApp.kt", "contains": "derivedStateOf { model.sheet.isNotEmpty() || playerMorph.position.value > .001f }", "reason": "Inside derivedStateOf: the shell recomposes only when the result flips, not on every frame of the drag."},
     {"file": "RiffApp.kt", "contains": "miniMorph = { playerMorph.position.value },", "reason": "Passed as a lambda and read in the mini player's draw and layout phases, so the shell is not recomposed."},
     {"file": "RiffApp.kt", "contains": "PlayerMorphHost({ playerMorph.position.value },", "reason": "Passed as a lambda and read where the player is drawn, so the shell and the screens under it are not recomposed."}
+  ],
+  "strings": [
+    {"file": "LibraryHistoryScreens.kt", "contains": "Text(\"YouTube Music\")", "reason": "The provider's name, the same in every language."}
   ]
 }

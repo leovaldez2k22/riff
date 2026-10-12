@@ -21,13 +21,13 @@ internal class VoiceSearchController(private val context: Context) : AutoCloseab
     private var generation = 0
 
     fun permissionDenied() {
-        message = "Microphone permission is needed for voice search. You can still type a search."
+        message = string(R.string.microphone_permission_is_needed_for_voice_se)
     }
 
     fun start(onResult: (String) -> Unit) {
         if (listening) return
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-            message = "Voice recognition is unavailable on this device."
+            message = string(R.string.voice_recognition_is_unavailable_on_this_dev)
             return
         }
         val run = ++generation
@@ -36,29 +36,29 @@ internal class VoiceSearchController(private val context: Context) : AutoCloseab
             recognizer = service
             service.setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {
-                    if (run == generation) {message = "Listening\u2026";uiHaptic(HapticCue.Confirm)}
+                    if (run == generation) {message = string(R.string.listening);uiHaptic(HapticCue.Confirm)}
                 }
                 override fun onBeginningOfSpeech() = Unit
                 override fun onRmsChanged(rmsdB: Float) = Unit
                 override fun onBufferReceived(buffer: ByteArray?) = Unit
                 override fun onEndOfSpeech() {
-                    if (run == generation) message = "Finding words\u2026"
+                    if (run == generation) message = string(R.string.finding_words)
                 }
                 override fun onError(error: Int) {
                     if (run != generation) return
                     message = when (error) {
                         SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED ->
-                            "This language is not supported by the device's speech service."
+                            string(R.string.this_language_is_not_supported_by_the)
                         SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE ->
-                            "This language is not available yet. Try typing the search."
+                            string(R.string.this_language_is_not_available_yet_try)
                         SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
-                            "No words recognized. Try again or type a search."
+                            string(R.string.no_words_recognized_try_again_or_type)
                         SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
-                            "Microphone permission is needed for voice search."
+                            string(R.string.microphone_permission_is_needed_for_voice_se_2)
                         SpeechRecognizer.ERROR_NETWORK,
                         SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
-                            "Voice recognition needs a network connection on this device."
-                        else -> "Voice recognition failed. Try again or type a search."
+                            string(R.string.voice_recognition_needs_a_network_connection)
+                        else -> string(R.string.voice_recognition_failed_try_again_or_type)
                     }
                     finish()
                 }
@@ -66,7 +66,7 @@ internal class VoiceSearchController(private val context: Context) : AutoCloseab
                     if (run != generation) return
                     val words = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         ?.firstOrNull()?.trim().orEmpty()
-                    if (words.isBlank()) message = "No words recognized. Try again or type a search."
+                    if (words.isBlank()) message = string(R.string.no_words_recognized_try_again_or_type)
                     else {
                         message = null
                         onResult(words.take(100))
@@ -83,10 +83,10 @@ internal class VoiceSearchController(private val context: Context) : AutoCloseab
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
             }
             listening = true
-            message = "Starting voice search\u2026"
+            message = string(R.string.starting_voice_search)
             service.startListening(intent)
         } catch (_: Exception) {
-            message = "Voice recognition is unavailable on this device."
+            message = string(R.string.voice_recognition_is_unavailable_on_this_dev)
             finish()
         }
     }
@@ -95,7 +95,7 @@ internal class VoiceSearchController(private val context: Context) : AutoCloseab
         if (!listening) return
         generation++
         runCatching { recognizer?.cancel() }
-        message = "Voice search canceled."
+        message = string(R.string.voice_search_canceled)
         finish()
     }
 

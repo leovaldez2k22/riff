@@ -52,18 +52,18 @@ internal class ProviderLibraryRepository(private val session: ProviderSessionMan
             val revision=authRevision
             val key=feedKey("collection:$id")
             endpoint.playlistEdit?.let {edit->
-                check(signedIn) {"Sign in to sort this playlist"}
-                require(edit.validFor(id)) {"This playlist sort command is unavailable"}
+                check(signedIn) {string(R.string.sign_in_to_sort_this_playlist)}
+                require(edit.validFor(id)) {string(R.string.this_playlist_sort_command_is_unavailable)}
                 val session=innerTube.sessionSnapshot()
-                check(revision==authRevision) {"Account changed while sorting"}
+                check(revision==authRevision) {string(R.string.account_changed_while_sorting)}
                 // Do not retry this write: a timeout can mean the preference was already applied.
                 collectionCache.invalidate(key)
                 applyPlaylistSort(http,json,session,edit)
-                check(revision==authRevision) {"Account changed while sorting"}
+                check(revision==authRevision) {string(R.string.account_changed_while_sorting)}
             }
             val page=completeCollectionFresh(id,endpoint.takeIf {it.playlistEdit==null}).getOrThrow()
-            check(revision==authRevision) {"Account changed while sorting"}
-            check(page.albumTracks.isNotEmpty() || page.cards.any {it.track()!=null}) {"YouTube Music did not return a sorted track list"}
+            check(revision==authRevision) {string(R.string.account_changed_while_sorting)}
+            check(page.albumTracks.isNotEmpty() || page.cards.any {it.track()!=null}) {string(R.string.youtube_music_did_not_return_a_sorted)}
             if(endpoint.playlistEdit!=null) collectionCache.put(key,page)
             page
         }
@@ -74,7 +74,7 @@ internal class ProviderLibraryRepository(private val session: ProviderSessionMan
         else collectionCache.get(feedKey("library:$libraryRevision:$kind")) {libraryArtwork(libraryCatalogFresh(kind).getOrThrow())}
     }
     private suspend fun libraryCatalogFresh(kind: String, token: String? = null): Result<CatalogPage> = providerResult {
-        check(signedIn) { "Sign in to view your YouTube Music library" }
+        check(signedIn) { string(R.string.sign_in_to_view_your_youtube_music_2) }
         requestCatalog(when(kind) { "Playlists" -> "FEmusic_liked_playlists"; "Albums" -> "FEmusic_liked_albums"
             "Artists" -> "FEmusic_library_corpus_track_artists"; "Podcasts" -> "FEmusic_library_non_music_audio_list"; "All" -> "FEmusic_library_landing"; else -> "FEmusic_liked_videos" },token)
     }
@@ -83,7 +83,7 @@ internal class ProviderLibraryRepository(private val session: ProviderSessionMan
         var page=libraryCatalogFresh("Playlists").getOrThrow()
         val cards=page.cards.toMutableList();val seen=mutableSetOf<String>()
         while(page.next!=null && seen.add(page.next!!) && cards.size<2000) {page=libraryCatalogFresh("Playlists",page.next).getOrThrow();cards.addAll(page.cards)}
-        check(revision==authRevision) {"Account changed while scanning library"}
+        check(revision==authRevision) {string(R.string.account_changed_while_scanning_library)}
         val latest=libraryArtwork(CatalogPage(cards)).cards.filter {it.kind==CatalogKind.Playlist}.distinctBy {it.key()}
         val old=cachedLibrary("Playlists")?.cards.orEmpty()
         old.filter {c->latest.none {it.key()==c.key()}}.forEach {collectionCache.invalidate(feedKey("collection:${it.browseId}"))}
@@ -110,12 +110,12 @@ internal class ProviderLibraryRepository(private val session: ProviderSessionMan
      * edit is never sent a second time on a guess, since adding twice would add twice.
      */
     private suspend fun playlistMutation(id:String,edit:String,applied:(CatalogPage)->Boolean,request:suspend ()->io.ktor.client.statement.HttpResponse):Result<Unit> = sessionSafeMutation {
-        check(signedIn) {"Sign in to edit YouTube Music playlists"}
-        require(id.startsWith("VL") && id.length>2 && id!="VLLM" && id!="VLSE" && id.matches(Regex("[A-Za-z0-9_-]{3,200}"))) {"Choose an editable playlist"}
+        check(signedIn) {string(R.string.sign_in_to_edit_youtube_music_playlists)}
+        require(id.startsWith("VL") && id.length>2 && id!="VLLM" && id!="VLSE" && id.matches(Regex("[A-Za-z0-9_-]{3,200}"))) {string(R.string.choose_an_editable_playlist)}
         val revision=authRevision;val key="$revision:$id:$edit";val cacheKey=feedKey("collection:$id")
         suspend fun readBack():Boolean {
             val page=try {completeCollectionFresh(id).getOrThrow()} catch(e:CancellationException) {currentCoroutineContext().ensureActive();throw MutationUnconfirmed()} catch(e:Exception) {throw MutationUnconfirmed()}
-            check(revision==authRevision) {"Account changed while updating playlist"}
+            check(revision==authRevision) {string(R.string.account_changed_while_updating_playlist)}
             // A list that is not the whole playlist cannot show that an entry is absent.
             if(page.truncation!=null && !applied(page)) throw MutationUnconfirmed()
             return applied(page)
@@ -130,7 +130,7 @@ internal class ProviderLibraryRepository(private val session: ProviderSessionMan
         val outcome=sentOutcome({fault=it}) {val response=request();playlistEditOutcome(response.status.value,response.bodyAsText())}
         // Whatever was answered, what is cached may no longer be what the provider has.
         collectionCache.invalidate(cacheKey)
-        check(revision==authRevision) {"Account changed while updating playlist"}
+        check(revision==authRevision) {string(R.string.account_changed_while_updating_playlist)}
         when(outcome) {
             MutationOutcome.Acknowledged -> done()
             // A request that never left failed for the reason it never left, not because of the playlist.
@@ -143,52 +143,52 @@ internal class ProviderLibraryRepository(private val session: ProviderSessionMan
         }
     }
     suspend fun addPlaylistSong(id:String,videoId:String):Result<Unit> {
-        if(!videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) return Result.failure(IllegalStateException("This song cannot be added to a playlist"))
+        if(!videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) return Result.failure(IllegalStateException(string(R.string.this_song_cannot_be_added_to_a)))
         return playlistMutation(id,"add:$videoId",{page->page.albumTracks.any {it.videoId==videoId}}) {innerTube.addToPlaylist(YouTubeClient.WEB_REMIX,id,videoId)}
     }
     suspend fun removePlaylistSong(id:String,card:ProviderHomeCard):Result<Unit> {
         val setId=card.setVideoId;val videoId=card.videoId
-        if(setId==null || videoId==null) return Result.failure(IllegalStateException("YouTube Music did not supply this playlist entry's ID"))
+        if(setId==null || videoId==null) return Result.failure(IllegalStateException(string(R.string.youtube_music_did_not_supply_this_playlist)))
         return playlistMutation(id,"remove:$setId",{page->page.albumTracks.none {it.setVideoId==setId}}) {innerTube.removePlaylistSong(YouTubeClient.WEB_REMIX,id,setId,videoId)}
     }
     suspend fun saveAlbum(browseId:String):Result<Unit> = providerResult {
-        check(signedIn) {"Sign in to save albums on YouTube Music"}
-        require(browseId.matches(Regex("[A-Za-z0-9_-]{2,200}"))) {"This cannot be saved"}
+        check(signedIn) {string(R.string.sign_in_to_save_albums_on_youtube)}
+        require(browseId.matches(Regex("[A-Za-z0-9_-]{2,200}"))) {string(R.string.this_cannot_be_saved)}
         val revision=authRevision
         val response=innerTube.browse(YouTubeClient.WEB_REMIX,browseId=browseId,setLogin=true)
-        check(response.status.value<400) {"Could not read album"}
+        check(response.status.value<400) {string(R.string.could_not_read_album)}
         val root=json.parseToJsonElement(response.bodyAsText())
         val header=catalogRenderer(root,"musicResponsiveHeaderRenderer")?:catalogRenderer(root,"musicDetailHeaderRenderer")
         val playlist=if(browseId.startsWith("VL")) browseId.removePrefix("VL") else catalogValue(header,"playlistId")?:error("This album cannot be saved from its current provider response")
-        check(revision==authRevision) {"Account changed while saving"}
+        check(revision==authRevision) {string(R.string.account_changed_while_saving)}
         val outcome=sentOutcome {val saved=innerTube.likePlaylist(YouTubeClient.WEB_REMIX,playlist);likeOutcome(saved.status.value,saved.bodyAsText())}
-        check(revision==authRevision) {"Account changed while saving"}
+        check(revision==authRevision) {string(R.string.account_changed_while_saving)}
         when(outcome) {
             MutationOutcome.Acknowledged -> libraryRevision++
             MutationOutcome.Rejected -> error("Could not save album")
             // Saving twice is the same as saving once, so there is nothing to protect by reading first.
-            MutationOutcome.Unknown -> {libraryRevision++;throw MutationUnconfirmed("YouTube Music did not confirm saving this. It is safe to try again.")}
+            MutationOutcome.Unknown -> {libraryRevision++;throw MutationUnconfirmed(string(R.string.youtube_music_did_not_confirm_saving_this))}
         }
     }
     suspend fun loadLike(videoId: String): Result<Boolean?> = providerResult {
         if (!signedIn) return@providerResult null
         val revision = authRevision
         val response = innerTube.next(YouTubeClient.WEB_REMIX,videoId = videoId)
-        check(response.status.value < 400) { "Could not read like status" }
+        check(response.status.value < 400) { string(R.string.could_not_read_like_status) }
         val value = parseLikeStatus(json.parseToJsonElement(response.bodyAsText()))
         if (revision == authRevision && signedIn && value != null) songLikes[videoId] = value
         value
     }
     suspend fun setSongLike(videoId: String, liked: Boolean): Result<Unit> = providerResult {
         likeGate.withLock {
-            check(signedIn) { "Sign in to like songs on YouTube Music" }
-            require(videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) { "This song cannot be liked" }
+            check(signedIn) { string(R.string.sign_in_to_like_songs_on_youtube) }
+            require(videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) { string(R.string.this_song_cannot_be_liked) }
             val revision = authRevision
             val outcome = sentOutcome {
                 val response = if(liked) innerTube.likeVideo(YouTubeClient.WEB_REMIX,videoId) else innerTube.unlikeVideo(YouTubeClient.WEB_REMIX,videoId)
                 likeOutcome(response.status.value,response.bodyAsText())
             }
-            check(revision == authRevision && signedIn) { "Account changed while saving" }
+            check(revision == authRevision && signedIn) { string(R.string.account_changed_while_saving) }
             when(outcome) {
                 MutationOutcome.Acknowledged -> Unit
                 MutationOutcome.Rejected -> error("YouTube Music did not accept the like")
@@ -199,10 +199,10 @@ internal class ProviderLibraryRepository(private val session: ProviderSessionMan
                         val response = innerTube.next(YouTubeClient.WEB_REMIX,videoId = videoId)
                         if(response.status.value >= 400) null else parseLikeStatus(json.parseToJsonElement(response.bodyAsText()))
                     } catch(e: CancellationException) { currentCoroutineContext().ensureActive(); null } catch(e: Exception) { null }
-                    check(revision == authRevision && signedIn) { "Account changed while saving" }
+                    check(revision == authRevision && signedIn) { string(R.string.account_changed_while_saving) }
                     if(now == null) throw MutationUnconfirmed()
                     songLikes[videoId] = now
-                    check(now == liked) { "YouTube Music did not save the like. Try again." }
+                    check(now == liked) { string(R.string.youtube_music_did_not_save_the_like) }
                 }
             }
             songLikes[videoId] = liked; libraryRevision++
@@ -218,7 +218,7 @@ internal class ProviderLibraryRepository(private val session: ProviderSessionMan
             else notInterestedTokenFor(json.parseToJsonElement(response.bodyAsText()), id)
         } ?: return@providerResult false
         val response = innerTube.feedback(YouTubeClient.WEB_REMIX, listOf(feedback))
-        check(response.status.value < 400 && revision == authRevision) { "YouTube Music did not accept the feedback" }
+        check(response.status.value < 400 && revision == authRevision) { string(R.string.youtube_music_did_not_accept_the_feedback) }
         true
     }
 }

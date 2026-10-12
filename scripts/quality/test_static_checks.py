@@ -122,6 +122,31 @@ class MeasuresRule(unittest.TestCase):
         self.assertEqual([], rules(run(self.SCREEN)))
 
 
+class StringsRule(unittest.TestCase):
+    def test_words_written_into_a_screen_are_found(self):
+        self.assertEqual(["strings"], rules(run('@Composable fun S() { Text("Play next") }')))
+        self.assertEqual(["strings"], rules(run('fun m() = Modifier.semantics { contentDescription = "Close player" }')))
+        self.assertEqual(["strings"], rules(run('fun m() = Modifier.semantics { stateDescription = "$n of $size" }')))
+        self.assertEqual(["strings"], rules(run('fun n(b: Notification.Builder) = b.setContentTitle("Downloading")')))
+        self.assertEqual(["strings"], rules(run('fun n() = onNotice("Could not save")')))
+
+    def test_text_from_resources_passes(self):
+        self.assertEqual([], rules(run('@Composable fun S() { Text(string(R.string.play_next)); Text(keyLabel("Songs")); Text(title) }')))
+
+    def test_literals_without_words_pass(self):
+        self.assertEqual([], rules(run('@Composable fun S() { Text("${a.label}${b?.let { " - $it" }.orEmpty()}") }')))
+        self.assertEqual(["strings"], rules(run('@Composable fun S() { Text("${if (on) "+" else "-"}$n seconds") }')))
+        self.assertEqual([], rules(run('@Composable fun S() { Text("$minutes:$seconds"); Text("\\u00B7"); Text("${count}x"); Text(" ") }')))
+
+    def test_comments_and_other_strings_are_not_read(self):
+        self.assertEqual([], rules(run('// Text("Play next")\nval sample = "Text(\\"Play next\\")"\n')))
+
+    def test_a_reviewed_name_passes_and_a_stale_review_is_found(self):
+        reviewed = {"strings": [{"file": "Sample.kt", "contains": 'Text("YouTube Music")', "reason": "a name"}]}
+        self.assertEqual([], rules(run('@Composable fun S() { Text("YouTube Music") }', reviewed)))
+        self.assertEqual(["reviewed"], rules(run('@Composable fun S() { Text(name) }', reviewed)))
+
+
 class Stripping(unittest.TestCase):
     def test_offsets_and_lines_are_kept(self):
         source = 'val a = "x{y" // note {\n/* { */ val b = \'{\'\n'

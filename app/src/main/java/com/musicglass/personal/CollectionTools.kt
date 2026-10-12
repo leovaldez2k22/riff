@@ -16,8 +16,9 @@ import java.text.Collator
 import java.text.Normalizer
 import java.util.Locale
 
-internal enum class CollectionSort(val label:String) {
-    Original("Manual ordering"),Title("Title"),TitleDescending("Title (Z–A)"),Artist("Artist"),Newest("Newest first"),Oldest("Oldest first"),Album("Album"),TopVoted("Top voted")
+internal enum class CollectionSort(private val labelRes:Int) {
+    Original(R.string.manual_ordering),Title(R.string.title),TitleDescending(R.string.title_z_a),Artist(R.string.artist),Newest(R.string.newest_first),Oldest(R.string.oldest_first),Album(R.string.album),TopVoted(R.string.top_voted);
+    val label:String get()=string(labelRes)
 }
 private fun searchKey(text:String)=Normalizer.normalize(text,Normalizer.Form.NFKD).replace(Regex("\\p{M}+"),"").lowercase(Locale.ROOT)
 /** Indexes continue to refer to the full authored collection, even after searching and sorting. */
@@ -42,9 +43,9 @@ internal fun <T> collectionView(rows:List<T>,query:String,sort:CollectionSort,ti
 @Composable internal fun CollectionTools(label:String,query:String,onQuery:(String)->Unit,sort:CollectionSort,onSort:(CollectionSort)->Unit,hasDates:Boolean,playlist:Boolean=false,serverSorts:Set<CollectionSort> = emptySet(),busy:Boolean=false) {
     var expanded by remember {mutableStateOf(false)}
     Column(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(query,onQuery,singleLine=true,shape=RoundedCornerShape(24.dp),label={Text("Search $label",fontSize=13.sp)},
+        OutlinedTextField(query,onQuery,singleLine=true,shape=RoundedCornerShape(24.dp),label={Text(string(R.string.search_x, label),fontSize=13.sp)},
             textStyle=LocalTextStyle.current.copy(fontSize=14.sp,color=White),leadingIcon={Icon(Icons.Rounded.Search,null,tint=White.copy(alpha=.65f))},
-            trailingIcon={if(query.isNotEmpty()) IconButton({onQuery("")}) {Icon(Icons.Rounded.Close,"Clear search",tint=White)}},
+            trailingIcon={if(query.isNotEmpty()) IconButton({onQuery("")}) {Icon(Icons.Rounded.Close,string(R.string.clear_search),tint=White)}},
             modifier=Modifier.fillMaxWidth().testTag("collection_search"))
         Box {
             FilterChip(true,{uiHaptic();expanded=true},label={Text(sort.label,fontSize=12.sp)},leadingIcon={Icon(Icons.Rounded.Sort,null,modifier=Modifier.size(16.dp))},modifier=Modifier.testTag("collection_sort"))
@@ -60,7 +61,7 @@ internal fun <T> collectionView(rows:List<T>,query:String,sort:CollectionSort,ti
                     val enabled=supplied && !busy
                     DropdownMenuItem(text={Column {
                         Text(option.label,color=if(enabled) White else Muted,maxLines=1,overflow=TextOverflow.Ellipsis)
-                        if(!supplied) Text(if(option==CollectionSort.TopVoted) "Voting not available for this playlist" else "Dates not supplied for this collection",fontSize=11.sp,color=Muted)
+                        if(!supplied) Text(if(option==CollectionSort.TopVoted) string(R.string.voting_not_available_for_this_playlist) else string(R.string.dates_not_supplied_for_this_collection),fontSize=11.sp,color=Muted)
                     }},enabled=enabled,onClick={uiHaptic(HapticCue.Selection);onSort(option);expanded=false},trailingIcon={if(sort==option) Icon(Icons.Rounded.Check,null,tint=Pink)},modifier=Modifier.testTag("collection_sort_${option.name.lowercase()}"))
                 }
             }

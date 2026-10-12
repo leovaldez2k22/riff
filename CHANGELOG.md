@@ -2,6 +2,11 @@
 
 ## Unreleased — 0.10.0-rc1 (code 22)
 
+- Accessibility: every queue row offers **Move up**, **Move down**, **Play next** and **Remove** to a screen reader or a switch, without dragging, and says its position. The like button says whether the song is liked. Essential controls take presses in at least 48 dp.
+- Changed: text and controls drawn over artwork or a photograph now sit on a darker scrim or a patch of their own (the player's close button and heading, a collection's title block, Home over a photograph, speed-dial titles), and a colour taken from very bright artwork is darkened further, so they stay readable over a white picture. Screens with bright artwork look darker than before.
+- At large text sizes on a short screen the player scrolls instead of squeezing its controls.
+- All text the app shows or speaks moved to string resources (English only; no translations are included). Debug builds include the `en-XA` and `ar-XB` pseudo-locales.
+- The accessibility checks are the app's own; no formal accessibility audit or certification has been done. TalkBack and keyboard walk-throughs on a phone are still to be done (`docs/quality/accessibility.md`).
 - Adds source revision, content digest, dirty/local state and variant to build metadata, About and copied diagnostics.
 - Adds local evidence manifests with APK/source/report hashes and strict rejection of incomplete test runs. No new release has been published.
 - Account data no longer depends on the account's position in the Google account chooser. Existing downloads and saved tracks stay with their account; data split across older keys is merged in the background without deleting validated audio.

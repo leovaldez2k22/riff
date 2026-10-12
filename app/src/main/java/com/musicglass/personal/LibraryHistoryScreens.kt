@@ -78,7 +78,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
         scope.launch {
             // The name must match too: after an import from another phone the same number can be a different file.
             val local = LocalAudioRepository(context).list().getOrNull()?.firstOrNull { it.id == id && it.title.take(180) == entry.title }
-            if (local != null) playback.playLocal(local) else onNotice("This file is no longer on your phone")
+            if (local != null) playback.playLocal(local) else onNotice(string(R.string.this_file_is_no_longer_on_your))
         }
     }
     val shown = entries
@@ -102,45 +102,45 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
                         else clearFailure = privacyOutcome(action, result)
                     } finally { clearWorking = false }
                 }
-            }, modifier = Modifier.testTag("history_clear_confirm")) { Text(if (clearFailure == null) prompt.confirm else "Retry", color = Pink) } },
+            }, modifier = Modifier.testTag("history_clear_confirm")) { Text(if (clearFailure == null) prompt.confirm else string(R.string.retry), color = Pink) } },
             dismissButton = { TextButton(enabled = !clearWorking, onClick = { clearing = null; clearFailure = null },
-                modifier = Modifier.testTag("history_clear_cancel")) { Text(if (clearFailure == null) "Cancel" else "Close") } })
+                modifier = Modifier.testTag("history_clear_cancel")) { Text(if (clearFailure == null) string(R.string.cancel) else string(R.string.close)) } })
     }
     ScreenList(model, bottom) {
-        item { BackHeading("Library", model::back) }
-        item { ScreenTitle("History", total?.takeIf { query.isBlank() }?.let { "${plural(it, "play")} · kept on this phone only" }) }
+        item { BackHeading(string(R.string.library), model::back) }
+        item { ScreenTitle(string(R.string.history), total?.takeIf { query.isBlank() }?.let { quantity(R.plurals.n_plays_kept_on_this_phone_only, it) }) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 FilterChip(!onDevice, { uiHaptic(); onDevice = false }, { Text("YouTube Music") }, modifier = Modifier.testTag("history_scope_account"))
-                FilterChip(onDevice, { uiHaptic(); onDevice = true }, { Text("On this phone") }, modifier = Modifier.testTag("history_scope_device"))
+                FilterChip(onDevice, { uiHaptic(); onDevice = true }, { Text(string(R.string.on_this_phone)) }, modifier = Modifier.testTag("history_scope_device"))
                 Spacer(Modifier.weight(1f))
                 if (owner != null && (total ?: 0) > 0 && query.isBlank()) TextButton({ uiHaptic(); clearFailure = null; clearing = owner },
-                    modifier = Modifier.testTag("history_clear")) { Text("Clear", color = Muted) }
+                    modifier = Modifier.testTag("history_clear")) { Text(string(R.string.clear), color = Muted) }
             }
         }
         if (!historyEnabled(context)) item {
-            Text("Saving history is off. Turn it on in Settings → Privacy and data.", color = Muted, fontSize = 13.sp)
+            Text(string(R.string.saving_history_is_off_turn_it_on), color = Muted, fontSize = 13.sp)
         }
         if (!onDevice && accountKey == UNVERIFIED_SCOPE_KEY) item {
-            Text("Riff could not verify this account, so its history is not saved or shown. Open Account and reconnect.",
+            Text(string(R.string.riff_could_not_verify_this_account_so),
                 color = Muted, fontSize = 13.sp, modifier = Modifier.testTag("history_unverified"))
         }
         if (!earlier.empty) item {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Raised).padding(12.dp).testTag("history_earlier"),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text(earlierDataSummary(earlier), color = White, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                TextButton({ uiHaptic(); model.push(Route.Settings(SettingsSection.EarlierData)) }, modifier = Modifier.testTag("history_earlier_review")) { Text("Review", color = Pink) }
+                TextButton({ uiHaptic(); model.push(Route.Settings(SettingsSection.EarlierData)) }, modifier = Modifier.testTag("history_earlier_review")) { Text(string(R.string.review), color = Pink) }
             }
         }
         if (!shown.isNullOrEmpty() || query.isNotBlank()) item {
             OutlinedTextField(query, { query = it.take(80) }, singleLine = true, shape = RoundedCornerShape(28.dp),
-                placeholder = { Text("Search your history") }, leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                placeholder = { Text(string(R.string.search_your_history)) }, leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 modifier = Modifier.fillMaxWidth().testTag("history_search"))
         }
         when {
-            shown == null -> item { Text("Loading your history…", color = Muted) }
-            shown.isEmpty() && query.isNotBlank() -> item { Text("No plays match “$query”.", color = Muted) }
-            shown.isEmpty() -> item { Text(if (onDevice) "Audio you play from this phone will appear here." else "Songs you play will appear here.", color = Muted) }
+            shown == null -> item { Text(string(R.string.loading_your_history), color = Muted) }
+            shown.isEmpty() && query.isNotBlank() -> item { Text(string(R.string.no_plays_match_x, query), color = Muted) }
+            shown.isEmpty() -> item { Text(if (onDevice) string(R.string.audio_you_play_from_this_phone_will) else string(R.string.songs_you_play_will_appear_here), color = Muted) }
         }
         var lastDay = ""
         shown.orEmpty().forEachIndexed { index, entry ->
@@ -157,19 +157,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
             }
         }
         if (next != null) item {
-            TextButton({ uiHaptic(); older() }, modifier = Modifier.testTag("history_more")) { Text("Show older plays") }
+            TextButton({ uiHaptic(); older() }, modifier = Modifier.testTag("history_more")) { Text(string(R.string.show_older_plays)) }
         }
     }
 }
 
 internal fun earlierDataSummary(earlier: UnassignedInventory): String {
     val parts = listOfNotNull(
-        earlier.providerPlays.takeIf { it > 0 }?.let { plural(it, "play") },
-        earlier.queueItems.takeIf { it > 0 }?.let { "a queue of ${plural(it, "song")}" },
-        earlier.searches.takeIf { it > 0 }?.let { plural(it, "search", "searches") })
-    val text = when (parts.size) { 0 -> "Data"; 1 -> parts[0]; 2 -> parts.joinToString(" and "); else -> parts.dropLast(1).joinToString(", ") + " and " + parts.last() }
+        earlier.providerPlays.takeIf { it > 0 }?.let { quantity(R.plurals.n_plays, it) },
+        earlier.queueItems.takeIf { it > 0 }?.let { quantity(R.plurals.a_queue_of_n_songs, it) },
+        earlier.searches.takeIf { it > 0 }?.let { quantity(R.plurals.n_searches, it) })
+    val text = when (parts.size) { 0 -> string(R.string.data); 1 -> parts[0]; 2 -> string(R.string.x_and_x, parts[0], parts[1]); else -> string(R.string.x_x_and_x, parts[0], parts[1], parts[2]) }
     val several = parts.size > 1 || earlier.providerPlays > 1 || earlier.searches > 1
-    return "$text from before this update ${if (several) "are" else "is"} not assigned to an account."
+    return string(if (several) R.string.x_from_before_this_update_are_not_assigned else R.string.x_from_before_this_update_is_not_assigned, text)
 }
 
 @Composable private fun HistoryRow(entry: HistoryEntry, time: String, onPlay: () -> Unit) {
@@ -183,8 +183,8 @@ internal fun earlierDataSummary(earlier: UnassignedInventory): String {
             else Icon(Icons.Rounded.MusicNote, null, tint = Muted)
         }
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text(entry.title.ifBlank { "Unknown song" }, color = White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(playerArtistLabel(entry.artist).ifBlank { if (card == null) "On this phone" else "" }, color = Muted, fontSize = 12.sp,
+            Text(entry.title.ifBlank { string(R.string.unknown_song) }, color = White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(playerArtistLabel(entry.artist).ifBlank { if (card == null) string(R.string.on_this_phone) else "" }, color = Muted, fontSize = 12.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Text(time, color = Muted, fontSize = 12.sp)
@@ -197,9 +197,9 @@ internal fun earlierDataSummary(earlier: UnassignedInventory): String {
     val store = remember(context) { NotInterestedStore.get(context) }
     val entries = store.entries.asReversed()
     ScreenList(model, bottom) {
-        item { BackHeading("Settings", model::back) }
-        item { ScreenTitle("Not interested", "Riff hides these from Home and autoplay. Undo lets Riff suggest them again.") }
-        if (entries.isEmpty()) item { Text("Nothing hidden. Use “Not interested” in a song's options to hide it.", color = Muted) }
+        item { BackHeading(string(R.string.settings), model::back) }
+        item { ScreenTitle(string(R.string.not_interested), string(R.string.riff_hides_these_from_home_and_autoplay)) }
+        if (entries.isEmpty()) item { Text(string(R.string.nothing_hidden_use_not_interested_in_a), color = Muted) }
         items(entries, key = { it.key }) { entry ->
             Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).testTag("not_interested_row"), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).background(Raised), contentAlignment = Alignment.Center) {
@@ -208,18 +208,18 @@ internal fun earlierDataSummary(earlier: UnassignedInventory): String {
                     else Icon(Icons.Rounded.MusicNote, null, tint = Muted)
                 }
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text(entry.title.ifBlank { if (entry.song) "Song" else "Collection" }, color = White, fontSize = 14.sp,
+                    Text(entry.title.ifBlank { if (entry.song) string(R.string.song) else string(R.string.collection) }, color = White, fontSize = 14.sp,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(listOf(if (entry.song) "Song" else "Album or playlist", playerArtistLabel(entry.subtitle))
+                    Text(listOf(if (entry.song) string(R.string.song) else string(R.string.album_or_playlist), playerArtistLabel(entry.subtitle))
                         .filter(String::isNotBlank).joinToString(" · "), color = Muted, fontSize = 12.sp,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                TextButton({ uiHaptic(HapticCue.Confirm); store.remove(entry.key); onNotice("Riff can suggest this again") },
-                    modifier = Modifier.testTag("not_interested_undo")) { Text("Undo", color = Pink) }
+                TextButton({ uiHaptic(HapticCue.Confirm); store.remove(entry.key); onNotice(string(R.string.riff_can_suggest_this_again)) },
+                    modifier = Modifier.testTag("not_interested_undo")) { Text(string(R.string.undo), color = Pink) }
             }
         }
         if (entries.isNotEmpty()) item {
-            Text("YouTube Music keeps its own record of feedback you've sent from Riff.", color = Muted, fontSize = 12.sp,
+            Text(string(R.string.youtube_music_keeps_its_own_record_of), color = Muted, fontSize = 12.sp,
                 modifier = Modifier.padding(top = 8.dp))
         }
     }

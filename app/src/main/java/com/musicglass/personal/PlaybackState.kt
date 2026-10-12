@@ -33,7 +33,7 @@ internal enum class PlaybackStatus {
 internal enum class RecoveryReason(val wire: String) {
     ProviderStream("stream"), LiveProfile("live"), Network("network");
     /** What the user is told while this goes on; null when the retry needs no words. */
-    fun notice(): String? = if (this == Network) "Connection lost; waiting to reconnect" else null
+    fun notice(): String? = if (this == Network) string(R.string.connection_lost_waiting_to_reconnect) else null
     companion object { fun of(wire: String?) = entries.firstOrNull { it.wire == wire } }
 }
 
@@ -47,27 +47,28 @@ internal enum class PlaybackFailureKind {
 }
 
 /** What the user can do about a failure. */
-internal enum class FailureAction(val label: String) {
-    Retry("Retry"), Skip("Skip"), SignIn("Sign in"), Redownload("Redownload"), RemoveDownload("Remove"),
+internal enum class FailureAction(private val labelRes: Int) {
+    Retry(R.string.retry), Skip(R.string.skip), SignIn(R.string.sign_in), Redownload(R.string.redownload), RemoveDownload(R.string.remove);
+    val label: String get() = string(labelRes)
 }
 
 /** A failure the user is told about. [detail] is a fixed code, never provider text, a URL or account data. */
 internal data class PlaybackFailure(val kind: PlaybackFailureKind, val detail: String = "") {
     fun message(): String = when (kind) {
-        PlaybackFailureKind.Connection -> "Playback could not connect: $detail"
-        PlaybackFailureKind.CollectionInvalid -> "Could not open this collection"
-        PlaybackFailureKind.CollectionTooLarge -> "This collection is too large to queue"
-        PlaybackFailureKind.CollectionRejected -> "Could not open collection queue"
-        PlaybackFailureKind.CollectionPrepare -> "Could not prepare collection queue"
-        PlaybackFailureKind.StreamRejected -> "Provider playback is unavailable"
-        PlaybackFailureKind.StreamCommand -> "Could not start provider playback"
-        PlaybackFailureKind.LocalUnavailable -> "This on-device audio file is unavailable"
-        PlaybackFailureKind.LocalCommand -> "Could not open this on-device audio file"
-        PlaybackFailureKind.CouldNotPlay -> "Could not play this item"
-        PlaybackFailureKind.SessionExpired -> "Sign in again to access account content"
-        PlaybackFailureKind.LocalFileMissing -> "File unavailable on this device"
-        PlaybackFailureKind.DownloadInvalid -> "Download incomplete or unavailable"
-        PlaybackFailureKind.SolverUnavailable -> "Online playback resolver unavailable"
+        PlaybackFailureKind.Connection -> string(R.string.playback_could_not_connect_x, detail)
+        PlaybackFailureKind.CollectionInvalid -> string(R.string.could_not_open_this_collection)
+        PlaybackFailureKind.CollectionTooLarge -> string(R.string.this_collection_is_too_large_to_queue)
+        PlaybackFailureKind.CollectionRejected -> string(R.string.could_not_open_collection_queue)
+        PlaybackFailureKind.CollectionPrepare -> string(R.string.could_not_prepare_collection_queue)
+        PlaybackFailureKind.StreamRejected -> string(R.string.provider_playback_is_unavailable)
+        PlaybackFailureKind.StreamCommand -> string(R.string.could_not_start_provider_playback)
+        PlaybackFailureKind.LocalUnavailable -> string(R.string.this_on_device_audio_file_is_unavailable)
+        PlaybackFailureKind.LocalCommand -> string(R.string.could_not_open_this_on_device_audio)
+        PlaybackFailureKind.CouldNotPlay -> string(R.string.could_not_play_this_item)
+        PlaybackFailureKind.SessionExpired -> string(R.string.sign_in_again_to_access_account_content)
+        PlaybackFailureKind.LocalFileMissing -> string(R.string.file_unavailable_on_this_device)
+        PlaybackFailureKind.DownloadInvalid -> string(R.string.download_incomplete_or_unavailable)
+        PlaybackFailureKind.SolverUnavailable -> string(R.string.online_playback_resolver_unavailable)
     }
     fun actions(): List<FailureAction> = when (kind) {
         PlaybackFailureKind.CouldNotPlay -> listOf(FailureAction.Retry, FailureAction.Skip)

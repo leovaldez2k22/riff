@@ -141,7 +141,7 @@ private fun TransportButton(icon: ImageVector, label: String, onClick: () -> Uni
 }
 
 /** Why the position bar does not move for a live stream: there is nothing behind or ahead to move to. */
-internal const val LIVE_SEEK_EXPLANATION = "Live radio can't be rewound"
+internal val LIVE_SEEK_EXPLANATION: String get() = string(R.string.live_radio_can_t_be_rewound)
 
 /** Position ticks only recompose this small subtree; the thumb follows a drag exactly. */
 @Composable
@@ -159,11 +159,11 @@ internal fun SeekControl(playback: PlaybackGateway, mediaId: String, durationMs:
             },valueRange=0f..duration.toFloat(),enabled=durationMs>0 && !playback.state.live,
             // Said as a time, not as a percentage; a live stream says why it cannot be moved.
             modifier=Modifier.fillMaxWidth().testTag("playback_seek").semantics {
-                contentDescription="Position"
-                stateDescription=if(live) LIVE_SEEK_EXPLANATION else "${clock(position.toLong())} of ${clock(duration)}"
+                contentDescription=string(R.string.position)
+                stateDescription=if(live) LIVE_SEEK_EXPLANATION else string(R.string.position_x_of_x, clock(position.toLong()), clock(duration))
             })
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(if(playback.state.live) "LIVE" else clock(position.toLong()), color = if(playback.state.live) Pink else Muted, fontSize = 12.sp)
+            Text(if(playback.state.live) string(R.string.live) else clock(position.toLong()), color = if(playback.state.live) Pink else Muted, fontSize = 12.sp)
             Text(if(playback.state.live) LIVE_SEEK_EXPLANATION else "−${clock((duration - position.toLong()).coerceAtLeast(0))}",
                 color = Muted, fontSize = 12.sp)
         }
@@ -209,7 +209,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     fun addToLibrary() {
         collections.setOnlineFavorite(providerTrack(),true)
         uiHaptic(HapticCue.Confirm)
-        onNotice("Saved on this phone")
+        onNotice(string(R.string.saved_on_this_phone))
     }
     fun share(text: String) {
         val intent = Intent(Intent.ACTION_SEND).apply {
@@ -293,7 +293,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             if(open) {
                 InlineQueue(playback,provider,onQueueClose,onLike={
                     if(!provider.capabilities.like.available) onNotice(provider.capabilities.like.reason?:CHECKING_ACCOUNT_NOTICE) else scope.launch {
-                        provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);collections.setOnlineFavorite(providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:"Could not save like")})
+                        provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);collections.setOnlineFavorite(providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))})
                     }
                 },onMore={moreExpanded=true},onMoreBounds={moreAnchor=it},artworkModifier=Modifier.sharedBounds(rememberSharedContentState("queue-art"),this))
             } else Box(Modifier.fillMaxSize()) {
@@ -323,11 +323,11 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 // Each sits on its own patch of scrim: over white artwork neither could be seen (Q13).
                 IconButton(onClick = hapticClick(onClose),enabled=!queueOpen, modifier = Modifier.testTag("player_close")) {
                     Box(Modifier.size(RiffSpace.scrimPatch).scrimPatch(RiffContrast.scrimForControl), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Close player", tint = White)
+                        Icon(Icons.Rounded.Close, contentDescription = string(R.string.close_player), tint = White)
                     }
                 }
                 Box(Modifier.weight(1f)) {
-                    Text("NOW PLAYING", color = White, fontSize = 12.sp,
+                    Text(string(R.string.now_playing), color = White, fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, maxLines = 1,
                         modifier = Modifier.scrimLabel(RiffContrast.scrimForText))
                 }
@@ -366,12 +366,12 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     provider.setSongLike(videoId,!favorite).fold(onSuccess={
                         uiHaptic(HapticCue.Confirm)
                         collections.setOnlineFavorite(providerTrack(),!favorite)
-                        onNotice(if(!favorite) "Liked on YouTube Music" else "Removed from YouTube Music liked songs")
-                    },onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:"Could not save like")});likeBusy=false
+                        onNotice(if(!favorite) string(R.string.liked_on_youtube_music) else string(R.string.removed_from_youtube_music_liked_songs))
+                    },onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))});likeBusy=false
                 } }
             }, enabled = state.source == "YouTube Music" && !likeBusy && !queueOpen, modifier = Modifier.size(40.dp)
                 .testTag("playback_favorite").semantics {
-                    contentDescription = "Like on YouTube Music"; stateDescription = if(favorite) "Liked" else "Not liked"
+                    contentDescription = string(R.string.like_on_youtube_music); stateDescription = if(favorite) string(R.string.liked) else string(R.string.not_liked)
                 }) {
                 Crossfade(targetState = favorite,
                     animationSpec = GlassMotion.timed(GlassMotion.selectionMs, motion),
@@ -386,7 +386,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 IconButton(onClick = { uiHaptic();  moreExpanded = true },
                     enabled=!queueOpen,modifier = Modifier.size(40.dp)
                         .testTag("player_more").onGloballyPositioned {if(!queueOpen) {val r=it.boundsInWindow();moreAnchor=androidx.compose.ui.unit.IntRect(r.topLeft.round(),r.bottomRight.round())}}) {
-                    Icon(Icons.Rounded.MoreHoriz, contentDescription = "More song options",
+                    Icon(Icons.Rounded.MoreHoriz, contentDescription = string(R.string.more_song_options),
                         tint = White, modifier = Modifier.size(21.dp))
                 }
                 PlayerActionMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }, anchorBounds=moreAnchor) {
@@ -395,18 +395,18 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                         listOf("View credits", "Add to playlist", "Share song", "View album", "View artist", "Favorite", "Play next", "Add to queue", "Save on this phone", "Library shortcuts", "Sleep timer") + (if(hasQueue) listOf("Remove from queue") else emptyList()) + (if(state.live) emptyList() else listOf("Not interested"))
                         else listOf("Library shortcuts", "View credits", "Sleep timer")
                     options.forEach { option ->
-                        SongActionItem(if(option=="Sleep timer" && state.sleepDeadlineMs>0) "Sleep timer · ${sleepMinutesRemaining(state.sleepDeadlineMs,android.os.SystemClock.elapsedRealtime())} min" else option, onClick = { 
+                        SongActionItem(if(option=="Sleep timer" && state.sleepDeadlineMs>0) string(R.string.sleep_timer_x_min, sleepMinutesRemaining(state.sleepDeadlineMs,android.os.SystemClock.elapsedRealtime())) else option, onClick = { 
                             moreExpanded = false
                             when (option) {
                                 "Favorite" -> if(!provider.capabilities.like.available) onNotice(provider.capabilities.like.reason?:CHECKING_ACCOUNT_NOTICE) else scope.launch {
-                                    provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);collections.setOnlineFavorite(providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:"Could not save like")})
+                                    provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);collections.setOnlineFavorite(providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))})
                                 }
                                 "Remove from queue" -> playback.removeQueueItem(state.index)
                                 "Not interested" -> scope.launch {markNotInterested(context,provider,playback,NotInterestedEntry(videoId,state.title,state.artist,state.artworkUrl),null,onNotice)}
                                 "View artist" -> onArtist()
                                 "View album" -> onAlbum()
                                 "Play next", "Add to queue" -> scope.launch {
-                                    provider.resolve(videoId,state.live).fold(onSuccess={playback.enqueueProvider(providerTrack(),it,option=="Play next");onNotice("Added to queue")},onFailure={onNotice(it.message?:"Could not add to queue")})
+                                    provider.resolve(videoId,state.live).fold(onSuccess={playback.enqueueProvider(providerTrack(),it,option=="Play next");onNotice(string(R.string.added_to_queue))},onFailure={onNotice(it.message?:string(R.string.could_not_add_to_queue))})
                                 }
                                 "Save on this phone" -> if (collectionsCanSave(collections)) addToLibrary()
                                     else onNotice(saveUnavailableNotice(provider.accountScope()))
@@ -426,27 +426,27 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically) {
             TransportButton(Icons.Rounded.Shuffle,
-                "Shuffle ${if (state.shuffle) "on" else "off"}", playback::toggleShuffle,
+                if (state.shuffle) string(R.string.shuffle_on) else string(R.string.shuffle_off), playback::toggleShuffle,
                 modifier = Modifier.testTag("playback_shuffle"), active = state.shuffle,
                 enabled = hasQueue, diameter = 42.dp, iconSize = 22.dp)
-            TransportButton(Icons.Rounded.FastRewind, "Previous track", playback::previous,
+            TransportButton(Icons.Rounded.FastRewind, string(R.string.previous_track), playback::previous,
                 modifier = Modifier.testTag("playback_previous"), enabled = hasQueue,
                 diameter = 54.dp, iconSize = 38.dp)
             TransportButton(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                if (state.playing) "Pause" else "Play", playback::toggle,
+                if (state.playing) string(R.string.pause) else string(R.string.play), playback::toggle,
                 modifier = Modifier.testTag("playback_toggle")
                     .graphicsLayer { alpha = sharedContentAlpha() }
                     .onGloballyPositioned {
                         onMorphElementBounds("play", it) },
                 diameter = 64.dp, iconSize = 52.dp)
-            TransportButton(Icons.Rounded.FastForward, "Next track", playback::next,
+            TransportButton(Icons.Rounded.FastForward, string(R.string.next_track), playback::next,
                 modifier = Modifier.testTag("playback_next")
                     .graphicsLayer { alpha = sharedContentAlpha() }
                     .onGloballyPositioned {
                         onMorphElementBounds("next", it) }, enabled = hasQueue,
                 diameter = 54.dp, iconSize = 38.dp)
             TransportButton(if (state.repeat == 1) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                "Repeat ${when (state.repeat) { 1 -> "one"; 2 -> "all"; else -> "off" }}",
+                when (state.repeat) { 1 -> string(R.string.repeat_one); 2 -> string(R.string.repeat_all); else -> string(R.string.repeat_off) },
                 playback::cycleRepeat, modifier = Modifier.testTag("playback_repeat"),
                 active = state.repeat != 0, diameter = 42.dp, iconSize = 22.dp)
         }
@@ -458,31 +458,30 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             try {
                 if(state.video) {playback.restoreAudio(providerTrack(),playback.currentPositionMs());return@launch}
                 val lookup=kotlinx.coroutines.withTimeoutOrNull(25_000) {provider.videoFor(providerTrack())}
-                if(lookup==null || lookup.isFailure) {onNotice("Could not check official videos. Check your connection and retry.");return@launch}
+                if(lookup==null || lookup.isFailure) {onNotice(string(R.string.could_not_check_official_videos_check_your));return@launch}
                 val target=lookup.getOrNull()
                 if(playback.state.let {it.playback.queueItemId to it.mediaId}!=requested) return@launch
-                if(target==null) {onNotice("No official music video is available");return@launch}
+                if(target==null) {onNotice(string(R.string.no_official_music_video_is_available));return@launch}
                 val result=kotlinx.coroutines.withTimeoutOrNull(35_000) {provider.resolve(target,video=true)}
                 if(playback.state.let {it.playback.queueItemId to it.mediaId}!=requested) return@launch
-                if(result==null) onNotice("Official video unavailable. Try again later.") else result.fold(onSuccess={stream->
-                    if(!pairedVideoTitleAllowed(providerTrack(),stream.resolvedTitle) || stream.videoUrl==null && stream.sabrVideoBootstrap==null && stream.mimeType?.contains("mpegurl",true)!=true) onNotice("No official music video is available")
+                if(result==null) onNotice(string(R.string.official_video_unavailable_try_again_later)) else result.fold(onSuccess={stream->
+                    if(!pairedVideoTitleAllowed(providerTrack(),stream.resolvedTitle) || stream.videoUrl==null && stream.sabrVideoBootstrap==null && stream.mimeType?.contains("mpegurl",true)!=true) onNotice(string(R.string.no_official_music_video_is_available))
                     else playback.replaceProvider(providerTrack(),stream,playback.currentPositionMs())
-                },onFailure={onNotice("Official video unavailable. Try again later.")})
+                },onFailure={onNotice(string(R.string.official_video_unavailable_try_again_later))})
             } catch(e:kotlinx.coroutines.CancellationException) {throw e}
             finally {videoBusy=false}
-        }},modifier=Modifier.testTag("player_video")) {Text(if(videoBusy) "Preparing video\u2026" else if(state.video) "Switch to audio" else "Play video",color=White,fontSize=13.sp)}
+        }},modifier=Modifier.testTag("player_video")) {Text(if(videoBusy) string(R.string.preparing_video) else if(state.video) string(R.string.switch_to_audio) else string(R.string.play_video),color=White,fontSize=13.sp)}
         PlaybackProblem(state.notice, state.error, state.playback.failure, onFailureAction)
         }
     }
     if (creditsVisible) AlertDialog(onDismissRequest = { creditsVisible = false },
-        title = { Text("Credits", color = White) },
+        title = { Text(string(R.string.credits), color = White) },
         text = {
-            Text("${state.title}\n${state.artist}" +
-                "\nFull contributor credits are unavailable for this source.",
+            Text(string(R.string.x_x_full_contributor_credits_are_unavailable, state.title, state.artist),
                 color = White)
         },
         confirmButton = { TextButton(onClick = { uiHaptic();  creditsVisible = false }) {
-            Text("Done", color = Pink)
+            Text(string(R.string.done), color = Pink)
         } },
         containerColor = Raised)
 }

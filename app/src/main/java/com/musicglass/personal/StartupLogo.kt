@@ -109,7 +109,7 @@ private fun startupSmoothStep(from: Float, to: Float, value: Float): Float {
                 val glow=Brush.radialGradient(listOf(Color(0xFF4296EF).copy(alpha=.3f),Color.Transparent),origin,radius)
                 onDrawBehind {drawCircle(glow,radius,origin)}
             })
-            Canvas(Modifier.fillMaxSize().semantics { contentDescription = "Riff" }) {
+            Canvas(Modifier.fillMaxSize().semantics { contentDescription = string(R.string.app_name) }) {
                 val progress = (reveal.value * StartupDurationMs / WaveArrivalMs).coerceIn(0f, 1f)
                 val remaining = 1f - progress
                 val arrival = if (progress < .5f) 4f*progress*progress*progress

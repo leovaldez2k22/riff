@@ -244,16 +244,16 @@ internal fun RiffApp() {
                         val state=playback.state
                         scope.launch {
                             provider.artistFor(ProviderTrack(state.mediaId.removePrefix("yt:"),state.title,state.artist,state.artworkUrl,state.artistId,state.albumId,state.album,state.live)).fold(
-                                onSuccess={id->if(id!=null) {model.sheet="";model.openCollection(id,playerArtistLabel(state.artist))} else snackbar.showSnackbar("Artist profile is unavailable for this recording")},
-                                onFailure={snackbar.showSnackbar(it.message?:"Could not open artist")})
+                                onSuccess={id->if(id!=null) {model.sheet="";model.openCollection(id,playerArtistLabel(state.artist))} else snackbar.showSnackbar(string(R.string.artist_profile_is_unavailable_for_this_recor))},
+                                onFailure={snackbar.showSnackbar(it.message?:string(R.string.could_not_open_artist))})
                         }
                     },
                     onAlbum = {
                         val state=playback.state
                         scope.launch {
                             provider.albumFor(state.mediaId.removePrefix("yt:"),state.albumId).fold(
-                                onSuccess={id->if(id!=null) {model.sheet="";model.openCollection(id,state.album.ifBlank {"Album"})} else snackbar.showSnackbar("Album is unavailable for this recording")},
-                                onFailure={snackbar.showSnackbar(it.message?:"Could not open album")})
+                                onSuccess={id->if(id!=null) {model.sheet="";model.openCollection(id,state.album.ifBlank {string(R.string.album)})} else snackbar.showSnackbar(string(R.string.album_is_unavailable_for_this_recording))},
+                                onFailure={snackbar.showSnackbar(it.message?:string(R.string.could_not_open_album))})
                         }
                     },
                     onFailureAction = { action ->
@@ -272,7 +272,7 @@ internal fun RiffApp() {
                                     store.remove(store.currentScope,track.videoId,exclude=action==FailureAction.RemoveDownload)
                                     if(action==FailureAction.Redownload) store.enqueue(track)
                                 }.isSuccess}
-                                snackbar.showSnackbar(if(!done) "Could not change this download" else if(action==FailureAction.Redownload) "Downloading again" else "Download removed")
+                                snackbar.showSnackbar(if(!done) string(R.string.could_not_change_this_download) else if(action==FailureAction.Redownload) string(R.string.downloading_again) else string(R.string.download_removed))
                                 if(done) playback.retry()
                             }
                         }
@@ -301,7 +301,7 @@ internal fun RiffApp() {
                 containerColor = Raised, scrimColor = Color.Black.copy(alpha = .55f)) {
                 Column(Modifier.fillMaxWidth().preferredFrameRate(LocalUiRefreshRate.current).padding(horizontal = 24.dp)
                     .padding(bottom = 36.dp)) {
-                    Text("Library", color = White, fontSize = 23.sp,
+                    Text(string(R.string.library), color = White, fontSize = 23.sp,
                         modifier = Modifier.padding(bottom = 12.dp))
                     listOf("All", "Favorites", "History", "Playlists").forEach { filter ->
                         Text(filter, color = White, modifier = Modifier.fillMaxWidth()

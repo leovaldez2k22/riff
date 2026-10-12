@@ -55,7 +55,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
     var stage by remember { mutableStateOf(if (browserOpen) SignInStage.Loading
         else if (provider.signedIn && provider.sessionState != SessionState.Expired) SignInStage.Connected else SignInStage.Ready) }
     var message by remember { mutableStateOf(if (provider.sessionState == SessionState.Expired)
-        "Your session has expired. Reconnect your YouTube Music account." else "Access your playlists, liked songs, and recommendations.") }
+        string(R.string.your_session_has_expired_reconnect_your_yout) else string(R.string.access_your_playlists_liked_songs_and_recomm)) }
     var web by remember { mutableStateOf<WebView?>(null) }
     var loading by remember { mutableStateOf(false) }
     var progress by remember { mutableIntStateOf(0) }
@@ -81,7 +81,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
         startedAt = SystemClock.elapsedRealtime()
         progress = 0
         stage = SignInStage.Loading
-        message = "Opening secure sign-in…"
+        message = string(R.string.opening_secure_sign_in)
     }
 
     fun verify(view: WebView, token: Int) {
@@ -94,7 +94,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
         val verifyNavigation = navigation
         verification = scope.launch {
             stage = SignInStage.Verifying
-            message = "Connecting your account…"
+            message = string(R.string.connecting_your_account)
             val outcome = withTimeoutOrNull(SIGN_IN_VERIFY_MS) {
                 // Google's document can finish before its account config is initialized.
                 var candidate: WebSignInCandidate? = null
@@ -116,7 +116,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                 }
                 val readyCandidate = candidate
                     ?: return@withTimeoutOrNull Result.failure<VerifiedSignIn>(IllegalStateException(
-                        "Could not confirm the selected YouTube Music account. Check the account shown on the page, or restart sign-in."))
+                        string(R.string.could_not_confirm_the_selected_youtube_music)))
                 provider.verifySignIn(readyCandidate)
             }
             if (!attempt.accepts(token) || navigation != verifyNavigation) return@launch
@@ -129,14 +129,14 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                 stage = SignInStage.Connected
                 browserOpen = false
                 uiHaptic(HapticCue.Confirm)
-                onNotice("YouTube Music account connected")
+                onNotice(string(R.string.youtube_music_account_connected))
                 model.back()
             } else {
                 stage = SignInStage.Failed
                 message = if (switched is SessionTransition.Failed)
-                    "Could not switch accounts safely. Nothing was moved between accounts. Try again."
+                    string(R.string.could_not_switch_accounts_safely_nothing_was)
                 else outcome?.exceptionOrNull()?.message
-                    ?: "Could not finish checking your account. Try again."
+                    ?: string(R.string.could_not_finish_checking_your_account_try)
             }
         }
     }
@@ -174,11 +174,11 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
             if (stage == SignInStage.Verifying) continue
             if (next == SignInStage.Slow) {
                 stage = next
-                message = "This is taking longer than expected. You can retry or go back."
+                message = string(R.string.this_is_taking_longer_than_expected_you)
             } else if (next == SignInStage.Failed) {
                 loading = false
                 stage = next
-                message = "The sign-in page took too long to load. Check your connection and try again."
+                message = string(R.string.the_sign_in_page_took_too_long)
             }
         }
     }
@@ -187,9 +187,9 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
         Pink.copy(alpha = .12f), Ink, Ink))).statusBarsPadding().navigationBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { uiHaptic(); leave() }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to Riff", tint = White)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, string(R.string.back_to_riff), tint = White)
             }
-            Text(if (stage == SignInStage.Connected) "Your account" else "Connect YouTube Music",
+            Text(if (stage == SignInStage.Connected) string(R.string.your_account) else string(R.string.connect_youtube_music),
                 color = White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         }
         val controlsModifier = if (browserOpen) Modifier.weight(.45f, fill = false) else Modifier
@@ -198,13 +198,13 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
             if (!browserOpen) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 20.dp, bottom = 12.dp)) {
                     Image(painterResource(R.drawable.ic_launcher_foreground), null, Modifier.size(64.dp))
-                    Text("Riff", color = White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                    Text(string(R.string.app_name), color = White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Text(if (stage == SignInStage.Connected) when (provider.sessionState) {
-                SessionState.Valid -> "Connected to YouTube Music"
-                SessionState.Expired -> "Your session has expired. Reconnect to continue."
-                else -> "Account saved on this phone. Connection has not been verified yet."
+                SessionState.Valid -> string(R.string.connected_to_youtube_music)
+                SessionState.Expired -> string(R.string.your_session_has_expired_reconnect_to_contin)
+                else -> string(R.string.account_saved_on_this_phone_connection_has)
             } else message, color = Muted, fontSize = 14.sp,
                 modifier = Modifier.padding(vertical = 10.dp).semantics { liveRegion = LiveRegionMode.Polite }
                     .testTag("account_status"))
@@ -212,42 +212,42 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                 val profile = provider.accountProfile
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     profile?.artworkUrl?.let {
-                        AsyncImage(it, "Account picture", Modifier.size(48.dp).padding(end = 8.dp))
+                        AsyncImage(it, string(R.string.account_picture), Modifier.size(48.dp).padding(end = 8.dp))
                     }
-                    Text(profile?.name?.takeIf { it.isNotBlank() } ?: "Your YouTube Music account", color = White)
+                    Text(profile?.name?.takeIf { it.isNotBlank() } ?: string(R.string.your_youtube_music_account), color = White)
                 }
                 Button(onClick = { restart(changeAccount = provider.sessionState != SessionState.Expired) },
                     modifier = Modifier.fillMaxWidth().testTag("account_open_sign_in")) {
-                    Text(if (provider.sessionState == SessionState.Expired) "Reconnect account" else "Change account")
+                    Text(if (provider.sessionState == SessionState.Expired) string(R.string.reconnect_account) else string(R.string.change_account))
                 }
                 if (provider.accountScope() == AccountScope.Unverified) {
-                    Text("Could not verify this account for local saves. Reconnect to keep downloads and saved tracks with your account. Existing data is kept.",
+                    Text(string(R.string.could_not_verify_this_account_for_local),
                         color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp).testTag("account_unverified"))
                     TextButton(onClick = { restart(changeAccount = false) },
-                        modifier = Modifier.testTag("account_verify")) { Text("Verify account") }
+                        modifier = Modifier.testTag("account_verify")) { Text(string(R.string.verify_account)) }
                 }
-                Text("App-saved online tracks stay on this phone and are hidden after sign-out.",
+                Text(string(R.string.app_saved_online_tracks_stay_on_this),
                     color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))
                 val legacyCount = collections.legacyOnlineCount()
                 if (legacyCount > 0 && provider.accountScopeKey() != null) {
                     TextButton(onClick = {
-                        if (collections.importLegacyOnlineToCurrentAccount()) onNotice("Older app-saved tracks imported to this account")
-                    }, modifier = Modifier.testTag("account_import_legacy")) { Text("Import $legacyCount older app-saved entries") }
+                        if (collections.importLegacyOnlineToCurrentAccount()) onNotice(string(R.string.older_app_saved_tracks_imported_to_this))
+                    }, modifier = Modifier.testTag("account_import_legacy")) { Text(string(R.string.import_x_older_app_saved_entries, legacyCount)) }
                 }
                 TextButton(onClick = {
                     scope.launch {
                         val result = sessions.transition("sign_out", AccountScope.Guest) { provider.signOut(); true }
                         if (result is SessionTransition.Committed) {
-                            stage = SignInStage.Ready; message = "Signed out on this phone. Reconnect whenever you're ready."
-                        } else onNotice("Could not sign out safely. Try again.")
+                            stage = SignInStage.Ready; message = string(R.string.signed_out_on_this_phone_reconnect_whenever)
+                        } else onNotice(string(R.string.could_not_sign_out_safely_try_again))
                     }
-                }, modifier = Modifier.testTag("account_sign_out")) { Text("Sign out", color = Muted) }
+                }, modifier = Modifier.testTag("account_sign_out")) { Text(string(R.string.sign_out), color = Muted) }
             } else if (!browserOpen) {
                 Button(onClick = { uiHaptic(); restart(changeAccount = false) }, shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("account_open_sign_in")) {
-                    Text("Continue to sign-in")
+                    Text(string(R.string.continue_to_sign_in))
                 }
-                Text("You'll sign in on Google's page. Your password is not stored by Riff.",
+                Text(string(R.string.you_ll_sign_in_on_google_s),
                     color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 12.dp))
             } else {
                 SignInBrowserActions(stage == SignInStage.Verifying,
@@ -255,7 +255,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                         verification?.cancel()
                         stage = SignInStage.Loading; loading = true
                         startedAt = SystemClock.elapsedRealtime()
-                        message = "Retrying Google's sign-in page…"
+                        message = string(R.string.retrying_google_s_sign_in_page)
                         web?.reload() // Preserve the browser's form/navigation context.
                     }, onRestart = { restart() })
             }
@@ -283,7 +283,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                             picker = callback
                             runCatching { imagePicker.launch("image/*") }.onFailure {
                                 picker = null; callback.onReceiveValue(null)
-                                message = "Could not open the image picker. You can continue without changing your picture."
+                                message = string(R.string.could_not_open_the_image_picker_you)
                             }
                             return true
                         }
@@ -294,35 +294,35 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                             verification?.cancel()
                             signInSelectedAccount(url.orEmpty())?.let { selectedAccountIndex = it }
                             navigation++; startedAt = SystemClock.elapsedRealtime(); loading = true; progress = 0
-                            stage = SignInStage.Loading; message = "Loading Google's sign-in page…"
+                            stage = SignInStage.Loading; message = string(R.string.loading_google_s_sign_in_page)
                         }
                         override fun onPageFinished(view: WebView, url: String?) {
                             if (!attempt.accepts(token) || url != view.url || stage == SignInStage.Verifying) return
                             if (stage == SignInStage.Failed) return // Keep main-frame failures visible until an explicit retry.
                             loading = false; stage = SignInStage.Waiting
                             message = if (changingAccount)
-                                "Choose your account on Google's page, then tap Continue to Riff to confirm it."
-                            else "Complete sign-in on Google's page. Once signed in, you can continue to Riff."
+                                string(R.string.choose_your_account_on_google_s_page)
+                            else string(R.string.complete_sign_in_on_google_s_page)
                             if (shouldVerifyFinishedSignIn(url.orEmpty(), changingAccount)) verify(view, token)
                         }
                         override fun onFormResubmission(view: WebView, dontResend: android.os.Message, resend: android.os.Message) {
                             dontResend.sendToTarget()
                             if (attempt.accepts(token)) {
                                 loading = false; stage = SignInStage.Waiting
-                                message = "This Google form cannot be reloaded. Use Restart sign-in to open a fresh page."
+                                message = string(R.string.this_google_form_cannot_be_reloaded_use)
                             }
                         }
                         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                             if (attempt.accepts(token) && request.isForMainFrame) {
                                 loading = false; stage = SignInStage.Failed
-                                message = "The sign-in page could not load. Check your connection and retry."
+                                message = string(R.string.the_sign_in_page_could_not_load)
                             }
                         }
                         override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
                             if (attempt.accepts(token) && request.isForMainFrame) {
                                 loading = false; stage = SignInStage.Failed
-                                message = if (response.statusCode == 403) "Google refused this sign-in page. Retry or go back."
-                                    else "Google's sign-in page is unavailable. Please retry."
+                                message = if (response.statusCode == 403) string(R.string.google_refused_this_sign_in_page_retry)
+                                    else string(R.string.google_s_sign_in_page_is_unavailable)
                             }
                         }
                         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -340,7 +340,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                                 PlaybackEventLog(context).append("sign_in_blocked main=${request.isForMainFrame} scheme=${request.url.scheme} host=${request.url.host}")
                                 if (request.isForMainFrame) {
                                     loading = false; stage = SignInStage.Failed
-                                    message = "Google's page tried to open ${request.url.host ?: request.url.scheme}. Use Continue to Riff or restart sign-in."
+                                    message = string(R.string.google_s_page_tried_to_open_x, request.url.host ?: request.url.scheme)
                                 }
                             }
                             return !allowed
@@ -367,7 +367,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                     SignInBrowserLoading(stage == SignInStage.Verifying)
                 }
             }
-            TextButton(onClick = { leave() }, modifier = Modifier.fillMaxWidth().testTag("account_cancel")) { Text("Back to Riff") }
+            TextButton(onClick = { leave() }, modifier = Modifier.fillMaxWidth().testTag("account_cancel")) { Text(string(R.string.back_to_riff)) }
         }
     }
 }
@@ -385,7 +385,7 @@ internal fun SignInBrowserLoading(verifying: Boolean) {
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         CircularProgressIndicator(Modifier.size(32.dp), color = Pink)
         Spacer(Modifier.height(16.dp))
-        Text(if (verifying) "Checking your account…" else "Opening Google sign-in…",
+        Text(if (verifying) string(R.string.checking_your_account) else string(R.string.opening_google_sign_in),
             color = White, fontSize = 14.sp)
     }
 }
@@ -397,10 +397,10 @@ internal fun SignInBrowserActions(verifying: Boolean, onContinue: () -> Unit,
         LinearProgressIndicator(Modifier.fillMaxWidth().testTag("account_verifying"))
     } else {
         Button(onClick = onContinue, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("account_finish")) {
-            Text("Continue to Riff")
+            Text(string(R.string.continue_to_riff))
         }
-        TextButton(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp).testTag("account_retry")) { Text("Reload page") }
-        TextButton(onClick = onRestart, modifier = Modifier.heightIn(min = 48.dp).testTag("account_restart")) { Text("Restart sign-in") }
+        TextButton(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp).testTag("account_retry")) { Text(string(R.string.reload_page)) }
+        TextButton(onClick = onRestart, modifier = Modifier.heightIn(min = 48.dp).testTag("account_restart")) { Text(string(R.string.restart_sign_in)) }
     }
 }
 

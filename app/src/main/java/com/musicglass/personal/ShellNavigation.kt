@@ -43,7 +43,7 @@ internal sealed interface Route {
         private const val FIELD = '\u001f'
         /** Null when [id] is not a provider browse id. The title is display text only, cut to [MAX_TITLE]. */
         fun collection(id: String?, title: String?): Collection? =
-            id?.takeIf(COLLECTION_ID::matches)?.let { Collection(it, title.orEmpty().filter { c -> c >= ' ' && c != FIELD }.take(MAX_TITLE).ifBlank { "Collection" }) }
+            id?.takeIf(COLLECTION_ID::matches)?.let { Collection(it, title.orEmpty().filter { c -> c >= ' ' && c != FIELD }.take(MAX_TITLE).ifBlank { string(R.string.collection) }) }
         /** A route that carries no argument, by its saved name. */
         fun plain(wire: String): Route? = when (wire) {
             Account.wire -> Account; DeviceAudio.wire -> DeviceAudio; Downloads.wire -> Downloads; ListeningHistory.wire -> ListeningHistory
@@ -197,7 +197,7 @@ internal class ShellModel {
     /** The collection on screen, or the one last left, which is still drawn while its screen animates away. */
     private val shownCollection: Route.Collection? get() = routes[root]?.lastOrNull { it is Route.Collection } as? Route.Collection ?: lastCollection
     val selectedPlaylistId: String get() = shownCollection?.id.orEmpty()
-    val selectedCollectionTitle: String get() = shownCollection?.title ?: "Collection"
+    val selectedCollectionTitle: String get() = shownCollection?.title ?: string(R.string.collection)
 
     var miniVisible by mutableStateOf(false)
     var searchQuery by mutableStateOf("")

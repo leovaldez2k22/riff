@@ -53,18 +53,18 @@ internal fun sleepMinutesRemaining(deadline:Long,now:Long):Long=((deadline-now).
     val now=sleepTimerNow(deadline)
     Row(Modifier.fillMaxWidth().testTag("player_sleep_countdown").clickable(onClick=onClick),horizontalArrangement=Arrangement.Center,verticalAlignment=Alignment.CenterVertically) {
         Icon(Icons.Rounded.Bedtime,null,tint=Muted,modifier=Modifier.size(13.dp));Spacer(Modifier.width(5.dp))
-        Text("Sleep in ${sleepCountdown(deadline,now)}",color=Muted,fontSize=11.sp,maxLines=1)
+        Text(string(R.string.sleep_in_x, sleepCountdown(deadline,now)),color=Muted,fontSize=11.sp,maxLines=1)
     }
 }
 @Composable internal fun SleepTimerDialog(playback:PlaybackGateway,onDismiss:()->Unit) {
     var custom by remember {mutableStateOf("")}
     fun set(minutes:Int) {playback.setSleepTimer(minutes);uiHaptic(HapticCue.Confirm);onDismiss()}
-    AlertDialog(onDismissRequest=onDismiss,title={Text("Sleep timer")},text={Column(Modifier.testTag("sleep_timer")) {
-        if(playback.state.sleepDeadlineMs>0) Text("${sleepMinutesRemaining(playback.state.sleepDeadlineMs,sleepTimerNow(playback.state.sleepDeadlineMs))} minutes remaining")
+    AlertDialog(onDismissRequest=onDismiss,title={Text(string(R.string.sleep_timer))},text={Column(Modifier.testTag("sleep_timer")) {
+        if(playback.state.sleepDeadlineMs>0) Text(string(R.string.x_minutes_remaining, sleepMinutesRemaining(playback.state.sleepDeadlineMs,sleepTimerNow(playback.state.sleepDeadlineMs))))
         LazyColumn(Modifier.heightIn(max=250.dp)) {listOf(5,10,15,30,45,60,90).forEach {minutes->item {
-            TextButton({set(minutes)},modifier=Modifier.fillMaxWidth().testTag("sleep_timer_$minutes")) {Text("$minutes minutes")}
+            TextButton({set(minutes)},modifier=Modifier.fillMaxWidth().testTag("sleep_timer_$minutes")) {Text(string(R.string.x_minutes, minutes))}
         }}}
-        OutlinedTextField(custom,{custom=it.filter(Char::isDigit).take(4)},singleLine=true,label={Text("Custom minutes (1–1440)")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),modifier=Modifier.testTag("sleep_timer_custom"))
-    }},confirmButton={TextButton({set(custom.toIntOrNull()?:0)},enabled=custom.toIntOrNull() in 1..1440) {Text("Set timer")}},
-        dismissButton={TextButton({set(0)}) {Text(if(playback.state.sleepDeadlineMs>0) "Cancel timer" else "Close")}})
+        OutlinedTextField(custom,{custom=it.filter(Char::isDigit).take(4)},singleLine=true,label={Text(string(R.string.custom_minutes_1_1440))},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),modifier=Modifier.testTag("sleep_timer_custom"))
+    }},confirmButton={TextButton({set(custom.toIntOrNull()?:0)},enabled=custom.toIntOrNull() in 1..1440) {Text(string(R.string.set_timer))}},
+        dismissButton={TextButton({set(0)}) {Text(if(playback.state.sleepDeadlineMs>0) string(R.string.cancel_timer) else string(R.string.close))}})
 }
