@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q12-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -870,6 +870,96 @@ Device state: emulator shut down with adb emu kill, adb server stopped, Gradle d
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
 Commit: ec3950a on local branch codex/riff-quality-m0 (not pushed).
 Next exact action: Q11. It is inside the 9 October authorization (Q03-Q18) but the user's instruction covered Q10 only; wait for "start Q11".
+
+## Q11
+### Q11 completion (12 October 2026)
+Status: PASS locally and on the disposable emulator. A pinned Gradle formatter or analyzer is BLOCKED offline, and frame measurement and anything on a phone are BLOCKED or not covered (below).
+Source: e44ce24a050273ab18aa1c1035e7293563b448fc dirty (the two user files named at the end are the only uncommitted changes), digest prefix 839b54c26f45 (full value in the manifests). Evidence root: artifacts/quality/e44ce24a050273ab18aa1c1035e7293563b448fc-dirty-839b54c26f45/
+User instruction on 12 October 2026: "Start q11" (standing rule: complete every aspect of the phase). Q10A comes before Q11 on the plan's critical path but is not authorized, so it was not started; Q11 does not depend on its output. Q05R, Q10A, Q12A and Q15A remain unauthorized. Q12 has not been started.
+
+Commits (local branch codex/riff-quality-m0, not pushed), behavioural changes kept apart from moves where the two could be separated:
+- 4f26ad2 checkpoint 1: typed routes, versioned shell state, shell split.
+- a0445cd checkpoint 2: playback service split.
+- b5e6aca checkpoint 3: provider split (bodies moved line for line by a script; no logic edits).
+- 62dcaee checkpoint 4: cancellation, lifecycle collection, static checks, dead code, docs.
+- e44ce24: Media3 opt-in on QueueCoordinator (lint error found by the first evidence run).
+
+Implemented, by plan action:
+- 1 Ownership: docs/quality/architecture.md records what AppContainer (process), MusicPlaybackService (players, session, playback jobs), MainActivity/RiffApp (screen-only effects) and SolverService own, and what each closes or cancels. The code already followed this after Q03-Q10; Q11 moved the remaining service and provider internals behind it and wrote it down.
+- 2 Provider: YouTubeMusicProvider.kt went from 1379 lines to a 169-line forwarding facade that still implements StreamResolver, ProviderSession, ProviderCatalogReader and ProviderMutations. Parts: ProviderSessionManager (341), ProviderCatalogRepository (655), ProviderLibraryRepository (224), ProviderStreamResolver (187).
+- 3 Service: MusicPlaybackService.kt went from 906 to 419 lines and keeps the Media3 session, callbacks, custom commands, lifecycle, sleep timer and history. New: QueueCoordinator, PlaybackPersistence, AudioTransitionCoordinator, PlaybackSources, PlaybackFaults. RecoveryCoordinator already existed from Q07 (PlaybackRecovery.kt) and is wired, not rewritten.
+- 4 Shell: RiffApp.kt 1095 to 324 lines, ShellScene.kt 631 to 110. New: ShellNavigation.kt (model, routes, saved state), PlayerPresentation.kt (PlayerPresentationState holds the drag and morph state), ShellChrome.kt, OnDeviceScreen.kt, ScreenParts.kt. The player's position and the playback position are read through lambdas, derivedStateOf or snapshotFlow; the eight places a screen file reads one are on the reviewed list of the position rule.
+- 5 Routes: sealed Route (Account, DeviceAudio, Downloads, ListeningHistory, Settings(section), Collection(id, title)); every argument read from saved state is validated; one stack per root, bounded at 16.
+- 6 ShellSavedState: named and versioned ("riff-shell/2"). The positional list of earlier builds is still read. It holds no credential, stream address or playing item.
+- 7 Dead code, each removed only after a reference search over app/src (main, test, androidTest), the manifest and build files found no use. Checkpoint 1: the first Search, Explore and Library screens, the liked-songs and accessibility screens behind them, YouTubeLiveScreen.kt and the collapsed queue. Checkpoint 3: collectionPage and recentSongs in the provider. Checkpoint 4: QueuePanel (InlineQueue carries the same test tags and is the queue in use), Modifier.fadingEdges (FadingEdges.kt), startManual in OfflineDownloadService.kt, LocalCollections.clearCurrentAccountOnlineData, toggleOnlineFavorite and toggleOnlinePlaylist, GlassMotion.targetFrameRate, contentMs and modalMs, and the unused locals glassBounds, titleWidth and queueSheetState. Default no-op API reviewed and kept: SessionParticipant.quiesce and bind have empty defaults, and AppContainer and three tests each implement only one of them.
+- 8 Formatter and analysis: .editorconfig records the conventions the sources already follow. scripts/quality/static_checks.py (Python only) has six rules: cancellation, blocking, direction, lifecycle, position, size (700 lines). 18 entries, each naming a file, a line fragment and a reason, cover the 23 accepted sites in static_checks_reviewed.json; no rule or file can be switched off, and an entry that matches nothing is a finding. No mass reformat was done. A Gradle formatter is BLOCKED (below).
+- 9 Cancellation: suspendCatching (Cancellation.kt) replaces runCatching at eleven places where the block can suspend (AppContainer pruning, ArtworkColor x2, EarlierDataScreen, LibraryHistoryScreens x2, LocalDataController.clearOwner, the moods fetch, stream prewarm, RiffWidgets x2). It rethrows when the caller is no longer active and otherwise returns the failure, which is the "retryable error only while the parent is active" rule; providerResult already did this for provider calls. PlaybackPersistence.loadNewest keeps the caller's cancellation. 14 collectAsState calls became collectAsStateWithLifecycle. The readability check for a local file moved from the main thread to the IO dispatcher inside the queue command. runBlocking remains at three reviewed places (bounded final save in the service, the SABR loader thread, the solver process).
+- 10 No forwarding repositories or use cases were added. The one forwarding class is the provider facade, kept so that callers and tests did not change; architecture.md says it goes when no caller names it.
+- 11 Dependency direction: the direction rule fails a file that is both a screen file and a store, client or service file. One reviewed site: AccountScreen turns cookies on for its own sign-in WebView.
+
+Behaviour changes (all in CHANGELOG):
+- Each root keeps its own open collection. Before, one was shared and switching roots could show the wrong one.
+- Cancelled work stops at the places above instead of continuing to its next line.
+- An unreadable local file now fails after the request has taken its queue ticket, not before.
+- Screens stop collecting those 14 flows while the activity is stopped.
+
+Verification:
+- Debug (q11-debug-01/manifest.json): PASS_LOCAL. 788 JVM tests / 89 suites, zero failures, errors or skips (Q10: 736 / 84). Lint 0 errors, 81 warnings, 3 hints (Q10: 84 and 5). Against q10-debug-01, 13 warnings appear in the new files and 18 leave the files they were moved out of, all of two kinds (UseKtx, AutoboxingStateCreation); no new kind of issue. APK SHA-256 b3285bdfb4fa6989ba5207273a9bf36792194459fcba881dec8cf96a09b74c2c.
+- New JVM tests (52): ShellNavigationTest (15), PlayerPresentationStateTest (6), PlaybackPersistenceTest (10), QueueCoordinatorTest (16), CancellationTest (5). QueueCoordinatorTest and PlaybackPersistenceTest run the extracted classes on a real ExoPlayer under Robolectric.
+- Existing tests changed, setup only, assertions untouched: UiInteractionTest (7 lines) and CollectionTruncationUiTest (2 lines) build the shell model through the typed route API. No existing test was removed. No androidTest source was changed.
+- Emulator, bound (q11-debug-fixture-01/manifest.json, log q11-instrumentation-01.log, install-01.log): PASS_LOCAL, all five gates PASS. 46 tests, 318.869 s, the same classes as Q10. Test APK SHA-256 1dd2090911a0b2210b89668ae608ca23752ad18733feee77316973b2e745bab4. Network disabled (ping_exit=2 in the install log).
+- Emulator, not bound (q11-two-player-instrumentation-01.log, install-02.log): CrossfadeDeviceTest and SongFadeDeviceTest, 15 tests, OK, 208.85 s, on a freshly started emulator.
+- Release (q11-release-01/manifest.json): PASS_LOCAL. junit {"suites": 89, "tests": 788, "failures": 0, "errors": 0, "skipped": 0}; lint {"Warning": 81, "Hint": 3}, the same difference against q10-release-01 as debug. APK SHA-256 b49fe939d4fe37fa5ccbab4161ca535dab9285567f15129368f6dbfc784b3f25.
+- Shrunk release, solver seam (solver-seam-release-01.txt): PASS, unchanged.
+- Static checks (static-checks-01.txt): 149 files, 23 reviewed sites, 0 findings. Script tests (quality-script-tests-01.txt): 47 tests OK, of which 19 are new in test_static_checks.py, including one that runs the checks on the app sources.
+- Stress (stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only.
+- The evidence was taken before this ledger entry was written; the entry is the only change after it.
+
+Failed attempts:
+- q11-debug-01-failed-lint (kept in the evidence root; it was taken at 62dcaee): FAIL. JVM 788 / 0 failures, lint 1 error: UnsafeOptInUsageError at QueueCoordinator.kt, where setCustomCacheKey had moved from the service without its Media3 opt-in. Unit tests and compilation do not catch this; lint does. Fixed in e44ce24 and every run above was taken after it.
+- Working runs, not kept as files: recursive type inference between the service's lazy coordinators (explicit types added); QueueCoordinatorTest failed with a null binder until the solver service was declared unbindable in the test, with resolver failure then simulated by HTTP 500; the first direction rule (a file without @Composable may not import Compose UI) was wrong for UI helper files and was redefined; the first cancellation rule reported 149 sites, most of them blocking code, and was narrowed to blocks that can suspend.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| Existing behaviour assertions retained | PASS | 736 earlier JVM tests still present and passing; two changed in setup only; 46 + 15 emulator tests unchanged and passing |
+| Entry points resolve | PASS | Manifest class names unchanged; debug, release and stress builds; app started and the service bound by the emulator classes; solver seam PASS in the shrunk release |
+| All regression lanes pass | PASS on what this machine can run | Debug, release, emulator bound and unbound, stress compile, script tests |
+| Large classes lose unrelated responsibilities | PASS | Service, provider and shell splits above; each new class has one listed responsibility in architecture.md and direct tests for queue, persistence, navigation and player presentation |
+| Not file size alone | PASS | The size rule is a tripwire only; the splits are by owner and are tested as units |
+| Position and drag state do not invalidate unrelated screens each frame | PASS by structure, not measured | Position rule and its reviewed list; PlayerPresentationStateTest. No recomposition count or frame timing was taken |
+| Cancellation rethrown; retryable only while the parent is active | PASS (JVM) | CancellationTest; cancellation rule with 6 reviewed sites, none in a cancellable coroutine |
+| No blocking main-thread Binder or network | PASS for what the audit found | Local-file check moved; blocking rule. The audit was by reading and by rule, not by StrictMode on a device |
+| Pinned formatter | BLOCKED | Below |
+
+Decisions (mine, not the user's):
+- New classes stay in the root package com.musicglass.personal (ADR-Q01 keeps one module and stable entry-point names; subpackages would have turned every move into a visibility change).
+- The provider facade and the four interfaces on it stay for now, so no caller or test changed in the same commit as the move.
+- Collection sorting lives in ProviderLibraryRepository, since only an owned playlist can be sorted.
+- The static checks are text rules in Python rather than a compiler plugin. They can miss a suspending call hidden behind a non-suspend name and can be satisfied by a reviewed entry with a poor reason; the reasons are there to be read.
+- The size ceiling is 700 lines. No file is over it, so there is no size exception.
+- Frame-rate proof is left to Q14, which owns performance measurement.
+
+Known limits:
+- The facade still exposes everything; nothing stops new code from taking the whole provider instead of a narrow interface.
+- ProviderLibraryRepository reads through ProviderCatalogRepository (cache keys and collection reads), so the two are not independent.
+- collectAsStateWithLifecycle changes when 14 screens receive updates. This was exercised by the Robolectric UI tests and the emulator classes, not by a test that stops and restarts the activity and asserts the catch-up.
+- The trailer on these commits reads "Co-authored-by: Codex": the repository's commit-msg hook rewrites the trailer that was supplied. The hook was left as it is.
+
+Not covered by any test:
+- Recomposition counts or frame timing while the player is dragged.
+- Process death and restore of ShellSavedState on a device (the round trip and the earlier format are covered on the JVM).
+- The unreadable-local-file path of PLAY_LOCAL_AUDIO after its move to the IO dispatcher.
+
+BLOCKED:
+- A pinned Gradle formatter or analyzer (ktlint, detekt or Spotless). None is in the project's offline Gradle home and the plan's builds run --offline. Rerun: with network, choose one, pin its version and checksum in the version catalog and verification metadata, run it once as a commit that contains only formatting, then add its check task to collect_results.py. Until then .editorconfig and static_checks.py are what exists.
+- Frame timing and recomposition on a phone (Q14 owns the measurement). Rerun: release build on the reference phone, drag the player and scrub the seek bar under a frame-timing capture; no screen under the player should recompose per frame.
+- The release APK on a device.
+- Carried from Q04 to Q10: as listed in the Q08, Q08A, Q09 and Q10 entries.
+
+Device state: emulator shut down with adb emu kill after each run, adb server stopped, Gradle daemons stopped before and after the stress build. Nothing new was left on the emulator by Q11; the bound classes create and remove the same fixture data as in Q10.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q12. It is inside the 9 October authorization (Q03-Q18) but the user's instruction covered Q11 only; wait for "start Q12".
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
