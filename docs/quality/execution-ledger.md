@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q10A PASS locally with open items (see the Q10A section, which follows Q11); Q12-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q10A PASS locally with open items (see the Q10A section, which follows Q11); Q12 PASS locally with open items, device walk-through BLOCKED (see the Q12 section); Q13-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -1050,6 +1050,103 @@ Device state: emulator shut down with adb emu kill after each run, adb server st
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
 Commit: be72164 on local branch codex/riff-quality-m0 (not pushed), after 3f83586.
 Next exact action: Q12. It is inside the 9 October authorization (Q03-Q18) but no instruction has named it; wait for "start Q12".
+
+## Q12
+### Q12 completion (12 October 2026)
+Status: PASS locally with open items. The physical-device walk-through that the acceptance asks for is BLOCKED (no phone; installation on one is not authorized) and was not done. Everything else in the package was done or is listed below as not done.
+Source: 6124fec6ccff3098abefa6325ec83fbf26fd8817 dirty (the two user files named at the end are the only uncommitted changes), digest prefix 9e717f3171f6 (full value in the manifests). Evidence root: artifacts/quality/6124fec6ccff3098abefa6325ec83fbf26fd8817-dirty-9e717f3171f6/
+User instruction on 12 October 2026: "start q12". Q12 is inside the 9 October authorization (Q03-Q18).
+
+Audit findings that led to changes:
+- A failure, an empty result and a load in progress were each one line of text in Search, collection detail, Radio and Podcasts, Library and On device. A failed "Load more" was only a snackbar. Radio/Podcasts and On device had no way to try again.
+- Nested collections shared one saved-state key ("<tab>/collection") and one AnimatedContent target, so opening an artist from a playlist and pressing Back returned to the top of the playlist, with no transition between the two. Found by reading ShellScene.kt.
+- Returning to Search from a collection emptied the list and searched again after the 450 ms debounce.
+- The position and volume sliders exposed only a bare range to accessibility; live radio said "Live radio" with no reason for the disabled bar.
+- Confirm buttons read "Clear" and "Delete all"; a failed clear or delete closed into a snackbar.
+- No shared measures: the same 20 dp edge, 12 dp radius and 14 sp body size were written out in each file.
+- Rendering the Search screen inside the real theme showed dark purple text on the pink "Load more" button (Material's default onPrimary).
+Audited and left as they are: the full player hides and disables its title row and its buttons while the queue is open (no invisible pressable layer); titles ellipsize in rows and in both players and there is no marquee anywhere; lyrics already tell loading, failed and none apart; the sleep timer deadline has one source (the service's session extras) that the UI reads.
+
+Implemented:
+- 1 States. ContentState.kt: ContentProblem (the sentence, one action chosen by problemKind, a polite live region, stays until retried) and ContentEmpty. ShelfSkeleton.kt: ListSkeleton, six rows of 60 dp. Used by Search, collection detail, Radio/Podcasts, Library, On device. An expired session offers Sign in and opens Account. A failed next page keeps the rows and is said beside Load more (load_more_problem). The skeleton is shown only while nothing is on screen.
+- 2 Layout stability. ListSkeleton has a fixed size; ProviderSongRow and the plain collection hero now use CatalogArtwork, the same stand-in whether the address is missing or the image fails.
+- 3 Long titles. Already ellipsized; the row subtitle and the back heading gained an ellipsis. The full title is in the Credits dialog of the player. No marquee exists.
+- 4 Seek and volume. contentDescription "Position"/"Volume" and stateDescription "1:05 of 3:20", "40 percent", "Muted". Live: disabled, LIVE_SEEK_EXPLANATION on screen and as the state.
+- 5 Navigation state. ShellScreen (root, depth, route) with a key that includes a collection's id; AnimatedContent and the saveable state holder use it; a closed screen's state is removed; LocalCollectionRoute gives a collection screen its own id and title. ShellModel.searchSnapshot keeps the last search in memory (never saved, never for another account or query). Double tap on a tab resets as before.
+- 6 Dialogs and errors. Failures of Clear cache and Delete all downloads are shown inside the dialog, which stays open with "Try again" and "Close". List failures stay on screen (item 1).
+- 7 Wording. "Clear cache", "Delete all downloads". No implementation detail was found in product text on the audited screens.
+- 8 Downloads, Smart Downloads and cache: the existing text already separates them ("Managed by Smart Downloads", "Downloaded songs will be kept"); the cache prompt keeps that sentence. No change beyond item 7.
+- 9 Ownership of artwork and text: audited, no change (see above).
+- 10 Pictures. ScreenBaselineTest: nine PNGs under app/src/test/resources/quality/screens (search empty, loading, offline, error, results, results at font scale 2; mini player playing, paused, paused at font scale 2), drawn with Robolectric native graphics at 360 x 640 dp inside RiffTheme, compared with a tolerance of 0.2 percent of pixels differing by more than 8 per channel. -PriffRecordScreens records.
+- Tokens. DesignTokens.kt: RiffSpace, RiffRadius, RiffType, RiffTheme, contrastRatio. Adopted in the shared parts and the new components only. static_checks.py has a new rule, measures, with static_checks_measures.json: 659 raw dp/sp in 34 screen files; a file may not gain one, a new screen file may have none, a count that is too high is a finding.
+- Theme: filled buttons are Pink with Ink text.
+- Mechanical, no behaviour change: RiffTheme extracted from RiffApp.kt; LyricsTimingDialog, lyricsOffsetStep and lyricsOffsetLabel extracted from LyricsPanel.kt; SeekControl made internal. They are in the same commit as the behaviour changes because they touch the same files; the commit message lists them.
+- Docs: docs/quality/core-journeys.md (state rules, tokens, navigation state, journey-to-test table, picture limits, the 13-step device walk-through), architecture.md, CHANGELOG.md.
+
+Verification:
+- Debug (q12-debug-01/manifest.json): PASS_LOCAL. 843 JVM tests / 95 suites, zero failures, errors or skips (Q10A: 801 / 90). Lint 0 errors, 81 warnings, 3 hints; no issue added or removed against q10a-debug-01. APK SHA-256 9a25efea96f3a3674f94ed386243a7e00cda00c78fd539618081b0b74c911a13.
+- New JVM tests, 42: ContentStateUiTest (13), NavigationStateUiTest (5), PlayerControlSemanticsTest (4), JourneyDecisionsTest (10), ScreenBaselineTest (10, nine pictures and one test of the comparison itself).
+- Existing test changed: DownloadControlsTest.clearingPlaybackCacheRequiresConfirmationAndCancelKeepsTheAudio gained two assertions (button text "Clear cache", prompt says downloads are kept). Nothing was removed or loosened; it passed unchanged before the addition as it presses the button by tag.
+- Script tests (quality-script-tests-01.txt): 72 tests OK, of which 7 are new (MeasuresRule).
+- Emulator, bound (q12-debug-fixture-01/manifest.json, log q12-instrumentation-01.log, install-01.log): PASS_LOCAL, all five gates PASS. 46 tests, 333.086 s, network off (ping_exit=2). Test APK SHA-256 a4665a873aa4e448c2d38038538b1196d194694076e59fec16dd63ddc0d3aa25. The built app APK matched the manifest hash before install.
+- Emulator, not bound (q12-two-player-01.log, install-02.log): CrossfadeDeviceTest and SongFadeDeviceTest, 15 tests, OK, 211.423 s, on a freshly started emulator, first attempt.
+- Release (q12-release-01/manifest.json): PASS_LOCAL. 843 tests / 95 suites, zero failures; lint 81 warnings, 3 hints; no issue added or removed against q10a-release-01. APK SHA-256 e77b8802af721ec1c4f909df1a85413e2c934e37a6666ecb79ae9be34b7d6841.
+- Shrunk release, solver seam (solver-seam-release-01.txt): PASS, unchanged.
+- Static checks (static-checks-01.txt): 151 files, 23 reviewed sites, 659 raw measures in 34 screen files, 0 findings.
+- Stress (stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only.
+- The pictures were compared, not recorded, in both collector runs (the property is not passed), so the nine PNGs were reproduced three times on this machine after recording.
+- The evidence was taken after commit 6124fec and before this ledger entry was written; the entry is the only change after it.
+
+Failed attempts (during development, before the evidence runs; no evidence run failed):
+- q12_states.py, the first edit script, failed: the file tool strips trailing spaces and the source has them after "uiHaptic(); ". The patterns were corrected and it was applied once.
+- First compile after the navigation edit failed: a replace-all turned the new line's own fallback into a self-reference in ImmersiveCollection.kt. Corrected by hand.
+- NavigationStateUiTest, runs 1 to 4: (a) LocalAccessibilitySettings was not provided; (b) rows below the hero are not composed, so waiting for row 0 never ended; (c) two tests waited for a second provider request that never came. With a diagnostic the request did come. The cause as far as I established it: in a test of the whole ShellScene the Compose test scheduler did not pick up an answer that finished on another thread unless some coroutine was waiting on the test clock. The test now keeps a 100 ms heartbeat coroutine in its content, and says so in a comment. I did not find why the bare-screen tests (ContentStateUiTest) do not need it. This is a property of the test harness; on a device the dispatchers are real.
+- PlayerControlSemanticsTest: I asserted that a disabled slider has no set-progress action. Material's slider keeps the action and marks the node disabled. The assertion was removed; "not enabled" is asserted.
+- static_checks.py edit: a shell here-document turned doubled backslashes into single ones, which broke a regex and two string literals. Repaired from a script file; the 26 static-check tests and the full 72 pass.
+- ScreenBaselineTest, first run: captureToImage waits for a frame that never comes while the test clock is stopped. The view is drawn into a bitmap directly instead.
+- ScreenBaselineTest, first pictures: recorded outside the app theme, so the field text was nearly invisible. That was the test, not the app. RiffTheme was extracted and the pictures recorded again; looking at them showed the purple-on-pink button, which was then changed and the pictures recorded a third time.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| Every UX journey has decision-level Compose or JVM tests | PASS, with the gaps listed under "Not covered" | Table in docs/quality/core-journeys.md; every test class named there exists and ran in q12-debug-01 |
+| Physical-device walk-through of every journey | BLOCKED | No phone; not attempted; steps in core-journeys.md |
+| No new flow promises unsupported behaviour | PASS by review | New text: the three state components, "Live radio can't be rewound", "Clear cache", "Delete all downloads", two failure sentences. Each describes what the code does |
+| An exception never becomes an empty list | PASS for Search and collection detail (tested); by reading for Radio/Podcasts, Library, On device | ContentStateUiTest; the same pattern in the other three, not screen-tested |
+| Fixed skeleton size, no jump on image failure | PASS (JVM) | whileSearchingAPlaceholderOfFixedSize...; aRowWithoutArtworkIsTheSameSizeAsOneWithIt |
+| Seek and volume expose value; live explained | PASS (JVM) | PlayerControlSemanticsTest |
+| Tab and nested state preserved; reset only when asked | PASS (JVM) for nested collections and Search | NavigationStateUiTest |
+| Destructive wording and truthful failure | PASS for wording (JVM); the in-dialog failure text is not tested | DownloadControlsTest; see "Not covered" |
+| Screenshot baselines | PASS on this machine | ScreenBaselineTest, nine pictures |
+| Tokens centralized | PARTIAL | Shared parts only; 659 raw measures remain, held by the ratchet |
+
+Decisions (mine, not the user's):
+- Tokens were adopted only in shared parts and new code, and the rest held by a ratchet, rather than rewriting 659 measures in 34 screens with no device to look at.
+- The search snapshot is in memory only and is one search deep.
+- When the stack is cut at its depth bound (16), keys shift by one; a screen that deep may lose its scroll position. Accepted.
+- The pictures use the mini player for playing and paused, not the full player, which needs hosts that only exist inside the app root.
+- The tolerance (0.2 percent, 8 per channel) is a guess that passed three times here; it has not met another operating system.
+- Black text on pink for filled buttons is a visible change I made from the contrast figures and one picture, not from a design decision by the user. It is one line in RiffTheme if it is not wanted.
+- An expired session's "Sign in" opens the Account screen rather than starting sign-in directly.
+
+Not covered by any test:
+- The nested-collection defect was established by reading the old code. The new test was not run against the old code, so it is not shown to fail there.
+- Radio/Podcasts, Library (signed in) and On device with the new state components at screen level; Home and Explore states.
+- The in-dialog failure of Clear cache and Delete all downloads (no seam to make them fail).
+- Session expiry at screen level (a 401 starts a session check that the test would have to script); the decision is tested on the component.
+- Focus returning to the invoking control when a dialog closes; transport not being obscured; both need a device and TalkBack.
+- The selected row matching the playing track on Search; the lock screen; the widget's state as published from a real player (the rendering of a given state is tested).
+- The full player, Home, Library and collection screens in pictures.
+- The pictures on any system other than this Windows machine.
+
+BLOCKED or not done:
+- Device walk-through (13 steps in docs/quality/core-journeys.md). Rerun: connect a phone with a test account that holds nothing personal, get approval to install the debug build, follow the steps, record device, Android version and build identity.
+- Converting the remaining raw measures to tokens: not done, by decision above.
+- Carried from Q04 to Q10A: as listed in those entries.
+
+Device state: emulator shut down with adb emu kill after each run, adb server stopped, Gradle daemons stopped before and after the stress build. The emulator's network stayed off throughout. No physical device, no real account, no provider request: every provider answer in the new tests is scripted, and artwork loading is replaced in the picture tests.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q13. It is inside the 9 October authorization (Q03-Q18) but no instruction has named it; wait for "start Q13".
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
