@@ -1,0 +1,176 @@
+{
+ "responseContext": {},
+ "contents": {
+  "singleColumnMusicWatchNextResultsRenderer": {
+   "tabbedRenderer": {
+    "watchNextTabbedResultsRenderer": {
+     "tabs": [
+      {
+       "tabRenderer": {
+        "content": {
+         "musicQueueRenderer": {
+          "content": {
+           "playlistPanelRenderer": {
+            "contents": [
+             {
+              "playlistPanelVideoWrapperRenderer": {
+               "primaryRenderer": {
+                "playlistPanelVideoRenderer": {
+                 "videoId": "fxsong00001",
+                 "title": {
+                  "runs": [
+                   {
+                    "text": "Fixture Song 1"
+                   }
+                  ]
+                 },
+                 "longBylineText": {
+                  "runs": [
+                   {
+                    "text": "Fixture Artist",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCfixtureArtist00000001",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                       }
+                      }
+                     }
+                    }
+                   },
+                   {
+                    "text": " \u2022 "
+                   },
+                   {
+                    "text": "Fixture Album",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_fixtureAlbum01",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                       }
+                      }
+                     }
+                    }
+                   },
+                   {
+                    "text": " \u2022 "
+                   },
+                   {
+                    "text": "2020"
+                   }
+                  ]
+                 },
+                 "thumbnail": {
+                  "thumbnails": [
+                   {
+                    "url": "https://lh3.googleusercontent.com/fixture-panel-1=w120-h120",
+                    "width": 120,
+                    "height": 120
+                   }
+                  ]
+                 },
+                 "navigationEndpoint": {
+                  "watchEndpoint": {
+                   "videoId": "fxsong00001",
+                   "watchEndpointMusicSupportedConfigs": {
+                    "watchEndpointMusicConfig": {
+                     "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                    }
+                   }
+                  }
+                 }
+                }
+               },
+               "counterpart": [
+                {
+                 "counterpartRenderer": {
+                  "playlistPanelVideoRenderer": {
+                   "videoId": "fxvideo0002",
+                   "title": {
+                    "runs": [
+                     {
+                      "text": "Fixture Song 1 (Lyrics)"
+                     }
+                    ]
+                   },
+                   "longBylineText": {
+                    "runs": [
+                     {
+                      "text": "Fixture Artist",
+                      "navigationEndpoint": {
+                       "browseEndpoint": {
+                        "browseId": "UCfixtureArtist00000001",
+                        "browseEndpointContextSupportedConfigs": {
+                         "browseEndpointContextMusicConfig": {
+                          "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                         }
+                        }
+                       }
+                      }
+                     },
+                     {
+                      "text": " \u2022 "
+                     },
+                     {
+                      "text": "Fixture Album",
+                      "navigationEndpoint": {
+                       "browseEndpoint": {
+                        "browseId": "MPREb_fixtureAlbum01",
+                        "browseEndpointContextSupportedConfigs": {
+                         "browseEndpointContextMusicConfig": {
+                          "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                         }
+                        }
+                       }
+                      }
+                     },
+                     {
+                      "text": " \u2022 "
+                     },
+                     {
+                      "text": "2020"
+                     }
+                    ]
+                   },
+                   "thumbnail": {
+                    "thumbnails": [
+                     {
+                      "url": "https://lh3.googleusercontent.com/fixture-panel-12=w120-h120",
+                      "width": 120,
+                      "height": 120
+                     }
+                    ]
+                   },
+                   "navigationEndpoint": {
+                    "watchEndpoint": {
+                     "videoId": "fxvideo0002",
+                     "watchEndpointMusicSupportedConfigs": {
+                      "watchEndpointMusicConfig": {
+                       "musicVideoType": "MUSIC_VIDEO_TYPE_UGC"
+                      }
+                     }
+                    }
+                   }
+                  }
+                 },
+                 "segmentMap": {}
+                }
+               ]
+              }
+             }
+            ]
+           }
+          }
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}

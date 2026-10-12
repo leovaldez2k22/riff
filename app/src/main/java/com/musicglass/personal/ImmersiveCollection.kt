@@ -43,6 +43,8 @@ import kotlinx.coroutines.launch
     var remoteSort by remember(data) {mutableStateOf<CollectionSort?>(data.selectedSort)}
     var sorting by remember(model.selectedPlaylistId) {mutableStateOf(false)}
     val source=sortedPage?:data
+    // What can be offered for this list as it stands: the session, whether it is editable, and whether it is the whole collection.
+    val caps=collectionCapabilities(source,complete,playlist,provider.capabilities)
     val songs=if(source.albumTracks.isNotEmpty()) source.albumTracks else source.cards.filter {it.kind in setOf(CatalogKind.Song,CatalogKind.Episode)}
     var query by rememberSaveable(model.selectedPlaylistId) {mutableStateOf("")}
     var sortName by rememberSaveable(model.selectedPlaylistId) {mutableStateOf((data.selectedSort?:CollectionSort.Original).name)}
@@ -67,6 +69,8 @@ import kotlinx.coroutines.launch
     }
     fun play(index:Int?=null,shuffle:Boolean=false) {
         if(tracks.isEmpty()) return
+        // Play and Shuffle mean the whole collection. One row of a list that is labelled as partial plays from what is loaded.
+        if(index==null || shuffle) caps.playAll.reason?.let {onNotice(it);return}
         if(!complete) {pendingPlay=index to shuffle;onNotice("Starting once all songs load");return}
         val queue=ordered.mapNotNull {tracks.getOrNull(it.index)}
         val start=if(index==null) 0 else ordered.indexOfFirst {it.index==index}.coerceAtLeast(0)
@@ -99,13 +103,13 @@ import kotlinx.coroutines.launch
         if(!artist && tracks.isNotEmpty()) item {
             Row(Modifier.fillMaxWidth().padding(horizontal=28.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically,
                 horizontalArrangement=Arrangement.spacedBy(14.dp)) {
-                FilledTonalIconButton({ uiHaptic(); play(tracks.indices.random(),true)},modifier=Modifier.size(52.dp),
+                FilledTonalIconButton({ uiHaptic(); play(tracks.indices.random(),true)},enabled=caps.playAll !is Capability.Unavailable,modifier=Modifier.size(52.dp).testTag("album_shuffle"),
                     colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=White.copy(alpha=.12f))) {Icon(Icons.Rounded.Shuffle,if(playlist) "Shuffle playlist" else "Shuffle album",tint=White)}
-                Button({ uiHaptic(); play()},modifier=Modifier.weight(1f).height(56.dp).testTag("album_play"),shape=RoundedCornerShape(50),
+                Button({ uiHaptic(); play()},enabled=caps.playAll !is Capability.Unavailable,modifier=Modifier.weight(1f).height(56.dp).testTag("album_play"),shape=RoundedCornerShape(50),
                     colors=ButtonDefaults.buttonColors(containerColor=White,contentColor=tone)) {
                     Icon(Icons.Rounded.PlayArrow,null);Spacer(Modifier.width(8.dp));Text("Play",fontSize=22.sp,fontWeight=FontWeight.SemiBold)
                 }
-                FilledTonalIconButton({scope.launch {
+                FilledTonalIconButton({if(!caps.save.available) onNotice(caps.save.reason?:CHECKING_ACCOUNT_NOTICE) else scope.launch {
                     provider.saveAlbum(model.selectedPlaylistId).fold(onSuccess={uiHaptic(HapticCue.Confirm);onNotice(if(playlist) "Playlist saved to YouTube Music" else "Album saved to YouTube Music")},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:"Could not save collection")})
                 }},modifier=Modifier.size(52.dp).testTag("album_save"),colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=White.copy(alpha=.12f))) {
                     Icon(Icons.Rounded.Add,if(playlist) "Save playlist" else "Save album",tint=White)
@@ -114,12 +118,15 @@ import kotlinx.coroutines.launch
         }
         if(!artist && tracks.isNotEmpty()) item {
             OutlinedButton(onClick={uiHaptic();downloading=true;pendingDownload=true
-                if(!complete) onNotice("Download will start once all songs load")},enabled=!downloading,
+                if(!complete) onNotice("Download will start once all songs load")},enabled=!downloading && caps.downloadAll !is Capability.Unavailable,
                 modifier=Modifier.fillMaxWidth().padding(horizontal=28.dp).testTag("collection_download_all"),shape=RoundedCornerShape(50)) {
                 Icon(Icons.Rounded.Download,null);Spacer(Modifier.width(8.dp))
                 Text(if(downloading && !complete) "Waiting for all songs…" else if(downloading) "Queuing downloads…" else "Download all songs",color=White)
             }
         }
+        source.truncation?.let {cut->item {
+            Text(cut.label,color=White.copy(alpha=.82f),fontSize=14.sp,modifier=Modifier.padding(horizontal=20.dp,vertical=8.dp).testTag("collection_truncated"))
+        }}
         if(loadingError!=null) item {
             Column(Modifier.padding(horizontal=20.dp)) {
                 Text(loadingError,color=Pink)
@@ -142,7 +149,7 @@ import kotlinx.coroutines.launch
                     },onFailure={onNotice(it.message?:"Could not sort playlist")})} finally {sorting=false}
                 }
             } else {sortedPage=null;remoteSort=null;sortName=option.name}
-        },songs.any {it.addedAt!=null},playlist,source.sortEndpoints.keys,sorting || !complete)}
+        },songs.any {it.addedAt!=null},playlist,source.sortEndpoints.keys,sorting || !caps.sort.available)}
         if(sorting) item {Text("Sorting playlist…",color=Muted,modifier=Modifier.padding(horizontal=20.dp))}
         if(!complete) item {Text("Loading more songs… ${songs.size} so far",color=White.copy(alpha=.7f),fontSize=14.sp,
             modifier=Modifier.padding(horizontal=20.dp,vertical=8.dp).testTag("collection_loading_more"))}
@@ -166,7 +173,7 @@ import kotlinx.coroutines.launch
                     Box {IconButton({ uiHaptic(); menu=true}) {Icon(Icons.Rounded.MoreVert,"Song options",tint=White.copy(alpha=.6f))}
                         SongActionMenu(menu,{menu=false}) {
                             card.track()?.let {DownloadSongAction(it,onNotice,onDismiss={menu=false});AddToPlaylistAction(it,{menu=false}) {playlistTrack=it}}
-                            if(playlist && data.editable && card.setVideoId!=null) SongActionItem("Remove from playlist") {menu=false;removing=card}
+                            if(caps.removeEntries.available && card.setVideoId!=null) SongActionItem("Remove from playlist") {menu=false;removing=card}
                             SongActionItem("Play next",onClick={ menu=false;scope.launch {enqueueRealTrack(provider,playback,card,true,onNotice)}})
                             SongActionItem("Add to queue",onClick={ menu=false;scope.launch {enqueueRealTrack(provider,playback,card,false,onNotice)}})
                         }

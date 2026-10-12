@@ -29,7 +29,8 @@ internal fun classifySessionProbe(status: Int?, body: JsonObject?, bodyText: Str
 
 /** An authenticated request was refused with 401: the session is very likely expired. */
 internal fun isAuthFailure(error: Throwable?): Boolean = generateSequence(error) { it.cause }.take(16)
-    .any { it is InnerTubeHttpException && it.status.value == 401 }
+    .any { it is InnerTubeHttpException && it.status.value == 401 || it is ProviderHttpException && it.status == 401 ||
+        it is ProviderEnvelopeException && (it.code == 401 || it.status == "UNAUTHENTICATED") }
 
 /**
  * When to ask Google again: at most one probe every [minIntervalMs] on resume, but at once (after

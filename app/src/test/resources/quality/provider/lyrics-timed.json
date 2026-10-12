@@ -1,0 +1,43 @@
+{
+ "responseContext": {},
+ "contents": {
+  "elementRenderer": {
+   "newElement": {
+    "type": {
+     "componentType": {
+      "model": {
+       "timedLyricsModel": {
+        "lyricsData": {
+         "timedLyricsData": [
+          {
+           "lyricLine": "First fixture line",
+           "cueRange": {
+            "startTimeMilliseconds": "0",
+            "endTimeMilliseconds": "1500"
+           }
+          },
+          {
+           "lyricLine": "Second fixture line",
+           "cueRange": {
+            "startTimeMilliseconds": "1500",
+            "endTimeMilliseconds": "3000"
+           }
+          },
+          {
+           "lyricLine": "Third fixture line",
+           "cueRange": {
+            "startTimeMilliseconds": "3000",
+            "endTimeMilliseconds": "4500"
+           }
+          }
+         ],
+         "sourceMessage": "Source: Fixture"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

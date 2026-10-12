@@ -1,0 +1,378 @@
+{
+ "responseContext": {},
+ "contents": {
+  "twoColumnBrowseResultsRenderer": {
+   "tabs": [
+    {
+     "tabRenderer": {
+      "content": {
+       "sectionListRenderer": {
+        "contents": [
+         {
+          "musicEditablePlaylistDetailHeaderRenderer": {
+           "header": {
+            "musicResponsiveHeaderRenderer": {
+             "title": {
+              "runs": [
+               {
+                "text": "Fixture Owned Playlist"
+               }
+              ]
+             },
+             "subtitle": {
+              "runs": [
+               {
+                "text": "Playlist"
+               },
+               {
+                "text": " \u2022 "
+               },
+               {
+                "text": "2026"
+               }
+              ]
+             },
+             "straplineText": {
+              "runs": [
+               {
+                "text": "Fixture Listener"
+               }
+              ]
+             },
+             "thumbnail": {
+              "musicThumbnailRenderer": {
+               "thumbnail": {
+                "thumbnails": [
+                 {
+                  "url": "https://lh3.googleusercontent.com/fixture-playlist-fixture-owned-playlist=w544-h544",
+                  "width": 544,
+                  "height": 544
+                 }
+                ]
+               }
+              }
+             },
+             "description": {
+              "musicDescriptionShelfRenderer": {
+               "description": {
+                "runs": [
+                 {
+                  "text": "A playlist that exists only in this fixture."
+                 }
+                ]
+               }
+              }
+             }
+            }
+           },
+           "editHeader": {
+            "musicPlaylistEditHeaderRenderer": {
+             "title": {
+              "runs": [
+               {
+                "text": "Fixture Owned Playlist"
+               }
+              ]
+             },
+             "playlistId": "PLfixtureOwned0000000001",
+             "privacy": "PRIVATE"
+            }
+           }
+          }
+         }
+        ]
+       }
+      }
+     }
+    }
+   ],
+   "secondaryContents": {
+    "sectionListRenderer": {
+     "contents": [
+      {
+       "musicPlaylistShelfRenderer": {
+        "playlistId": "PLfixtureOwned0000000001",
+        "contents": [
+         {
+          "musicResponsiveListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://lh3.googleusercontent.com/fixture-song-1=w120-h120",
+                "width": 120,
+                "height": 120
+               }
+              ]
+             }
+            }
+           },
+           "flexColumns": [
+            {
+             "musicResponsiveListItemFlexColumnRenderer": {
+              "text": {
+               "runs": [
+                {
+                 "text": "Fixture Song 1",
+                 "navigationEndpoint": {
+                  "watchEndpoint": {
+                   "videoId": "fxsong00001",
+                   "watchEndpointMusicSupportedConfigs": {
+                    "watchEndpointMusicConfig": {
+                     "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemFlexColumnRenderer": {
+              "text": {
+               "runs": [
+                {
+                 "text": "Song"
+                },
+                {
+                 "text": " \u2022 "
+                },
+                {
+                 "text": "Fixture Artist",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "UCfixtureArtist00000001",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                    }
+                   }
+                  }
+                 }
+                },
+                {
+                 "text": " \u2022 "
+                },
+                {
+                 "text": "Fixture Album",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "MPREb_fixtureAlbum01",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                    }
+                   }
+                  }
+                 }
+                },
+                {
+                 "text": " \u2022 "
+                },
+                {
+                 "text": "3:01"
+                }
+               ]
+              }
+             }
+            }
+           ],
+           "playlistItemData": {
+            "videoId": "fxsong00001",
+            "playlistSetVideoId": "fixture-set-1"
+           }
+          }
+         },
+         {
+          "musicResponsiveListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://lh3.googleusercontent.com/fixture-song-2=w120-h120",
+                "width": 120,
+                "height": 120
+               }
+              ]
+             }
+            }
+           },
+           "flexColumns": [
+            {
+             "musicResponsiveListItemFlexColumnRenderer": {
+              "text": {
+               "runs": [
+                {
+                 "text": "Fixture Song 2",
+                 "navigationEndpoint": {
+                  "watchEndpoint": {
+                   "videoId": "fxsong00002",
+                   "watchEndpointMusicSupportedConfigs": {
+                    "watchEndpointMusicConfig": {
+                     "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemFlexColumnRenderer": {
+              "text": {
+               "runs": [
+                {
+                 "text": "Song"
+                },
+                {
+                 "text": " \u2022 "
+                },
+                {
+                 "text": "Fixture Artist",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "UCfixtureArtist00000001",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                    }
+                   }
+                  }
+                 }
+                },
+                {
+                 "text": " \u2022 "
+                },
+                {
+                 "text": "Fixture Album",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "MPREb_fixtureAlbum01",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                    }
+                   }
+                  }
+                 }
+                },
+                {
+                 "text": " \u2022 "
+                },
+                {
+                 "text": "3:02"
+                }
+               ]
+              }
+             }
+            }
+           ],
+           "playlistItemData": {
+            "videoId": "fxsong00002",
+            "playlistSetVideoId": "fixture-set-2"
+           }
+          }
+         }
+        ],
+        "continuations": [
+         {
+          "nextContinuationData": {
+           "continuation": "fixture-owned-page-2"
+          }
+         }
+        ],
+        "subHeaders": [
+         {
+          "sortFilterSubMenuRenderer": {
+           "title": "Sort",
+           "subMenuItems": [
+            {
+             "title": "Manual ordering",
+             "serviceEndpoint": {
+              "playlistEditEndpoint": {
+               "playlistId": "PLfixtureOwned0000000001",
+               "actions": [
+                {
+                 "action": "ACTION_SET_PLAYLIST_VIDEO_ORDER",
+                 "playlistVideoOrder": 0
+                }
+               ]
+              }
+             },
+             "selected": true
+            },
+            {
+             "title": "Newest first",
+             "serviceEndpoint": {
+              "playlistEditEndpoint": {
+               "playlistId": "PLfixtureOwned0000000001",
+               "actions": [
+                {
+                 "action": "ACTION_SET_PLAYLIST_VIDEO_ORDER",
+                 "playlistVideoOrder": 1
+                }
+               ],
+               "params": "fixture-sort-newest"
+              }
+             }
+            },
+            {
+             "title": "Oldest first",
+             "serviceEndpoint": {
+              "playlistEditEndpoint": {
+               "playlistId": "PLfixtureOwned0000000001",
+               "actions": [
+                {
+                 "action": "ACTION_SET_PLAYLIST_VIDEO_ORDER",
+                 "playlistVideoOrder": 2
+                }
+               ]
+              }
+             }
+            },
+            {
+             "title": "Title",
+             "serviceEndpoint": {
+              "playlistEditEndpoint": {
+               "playlistId": "PLfixtureOwned0000000001",
+               "actions": [
+                {
+                 "action": "ACTION_SET_PLAYLIST_DYNAMIC_SORT_PREFERENCE",
+                 "playlistDynamicSortPreference": "TITLE"
+                }
+               ]
+              }
+             }
+            },
+            {
+             "title": "Artist",
+             "serviceEndpoint": {
+              "playlistEditEndpoint": {
+               "playlistId": "PLfixtureOwned0000000001",
+               "actions": [
+                {
+                 "action": "ACTION_REMOVE_VIDEO",
+                 "setVideoId": "fixture-set-1"
+                }
+               ]
+              }
+             }
+            }
+           ]
+          }
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}

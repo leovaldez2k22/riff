@@ -47,7 +47,6 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -101,7 +100,7 @@ internal class AppPlayerConfigRepository(context: Context, prefsName: String = "
 
 /** WebView owns cookies; app-private preferences retain the noncookie page session fields. */
 internal class YouTubeMusicProvider(context: Context,
-    private val dependencies: RuntimeDependencies = AppContainer.get(context).runtime) : StreamResolver, AutoCloseable {
+    private val dependencies: RuntimeDependencies = AppContainer.get(context).runtime) : StreamResolver, ProviderSession, ProviderCatalogReader, ProviderMutations, AutoCloseable {
     companion object {
         fun checkExistingFeedWindow() {AppContainer.existing()?.existingProvider()?.checkFeedWindow()}
         fun checkExistingSession() {AppContainer.existing()?.existingProvider()?.checkSessionIfDue()}
@@ -133,16 +132,17 @@ internal class YouTubeMusicProvider(context: Context,
     private val playbackEvents = PlaybackEventLog(context)
     private val sessionPrefs = context.applicationContext.getSharedPreferences(
         "provider_session", Context.MODE_PRIVATE)
-    var signedIn by mutableStateOf(false)
+    override var signedIn by mutableStateOf(false)
         private set
     /** Whether Google still accepts the saved sign-in (W5); signedIn only means cookies exist. */
-    var sessionState by mutableStateOf(SessionState.SignedOut)
+    override var sessionState by mutableStateOf(SessionState.SignedOut)
         private set
     private val sessionChecks=SessionCheckSchedule(dependencies.clocks::monotonicMillis)
     private val sessionProbeGate=Mutex()
     /** On resume at most every 6 hours; [forced] right after a 401 (at most every 30 s). */
     private var deferredSessionCheck:kotlinx.coroutines.Job?=null
-    fun checkSessionIfDue(forced:Boolean=false) {
+    fun checkSessionIfDue()=checkSessionIfDue(false)
+    override fun checkSessionIfDue(forced:Boolean) {
         if(!signedIn) {sessionState=SessionState.SignedOut;return}
         if(sessionChecks.due(forced)) {runtimeScope.launch {probeSession()};return}
         // A 401 right after a check must not be dropped: run it once the 30 s gap has passed.
@@ -195,7 +195,7 @@ internal class YouTubeMusicProvider(context: Context,
     private val sessionNonce = java.util.UUID.randomUUID().toString()
     private val sessionFlow = MutableStateFlow(SessionToken(AccountScope.Guest, 0, sessionNonce))
     /** Active owner and generation. Capture before async work; validate before publishing or saving. */
-    val session: StateFlow<SessionToken> get() = sessionFlow
+    override val session: StateFlow<SessionToken> get() = sessionFlow
     private fun publishSession() { sessionFlow.value = SessionToken(accountScope(), authRevision.toLong(), sessionNonce) }
     private val searchCache = object : LinkedHashMap<String, Pair<Long, ProviderSearchPage>>(24, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Long, ProviderSearchPage>>?) =
@@ -239,8 +239,10 @@ internal class YouTubeMusicProvider(context: Context,
     // before any use; if that fails, online resolution is refused (requireSolver) and this one never runs.
     private val unusedInProcessCipher=YouTubeCipherService(http,configStore)
     private val remoteCipher=RemoteCipherClient(context.applicationContext,onEvent={playbackEvents.append(it)})
-    internal var cipherIsolated=false
+    internal var cipherIsolated by mutableStateOf(false)
         private set
+    /** What can be offered for the session as it is now. Read in composition, it follows the session. */
+    val capabilities:ProviderCapabilities get()=providerCapabilities(sessionState,accountScope(),cipherIsolated || dependencies.resolver!=null)
     /** Fail closed: challenges are never solved in the process that plays audio. */
     private fun requireSolver():RemoteCipherClient =
         if(cipherIsolated) remoteCipher else throw SolverUnavailableException("Solver bridge is not installed")
@@ -380,7 +382,7 @@ internal class YouTubeMusicProvider(context: Context,
     }
 
     /** Signed in without a stable identifier is Unverified, never Guest. */
-    fun accountScope(): AccountScope = if (!signedIn) AccountScope.Guest
+    override fun accountScope(): AccountScope = if (!signedIn) AccountScope.Guest
         else verifiedAccountIdentity(dataSyncId)?.let(::providerScope) ?: AccountScope.Unverified
 
     /** The owner a verified sign-in would become, before it is committed. */
@@ -442,7 +444,7 @@ internal class YouTubeMusicProvider(context: Context,
     }
 
     /** For stores that also keep signed-out data. An unverified session gets a key stores refuse to write. */
-    fun storageScopeKey(): String = when (accountScope()) {
+    override fun storageScopeKey(): String = when (accountScope()) {
         AccountScope.Guest -> GUEST_SCOPE_KEY
         is AccountScope.Provider -> accountScopeKey() ?: UNVERIFIED_SCOPE_KEY
         else -> UNVERIFIED_SCOPE_KEY
@@ -453,11 +455,13 @@ internal class YouTubeMusicProvider(context: Context,
         if (paced) paceSearch()
         val response = innerTube.browse(YouTubeClient.WEB_REMIX,browseId = browseId,params = params,
             continuation = token,setLogin = signedIn)
-        if (response.status.value >= 400) throw CatalogHttpException(response.status.value)
+        if (response.status.value >= 400) throw ProviderHttpException(response.status.value)
         check(revision == authRevision) { "Account changed while loading" }
-        return catalogPage(json.parseToJsonElement(response.bodyAsText()))
+        val root = json.parseToJsonElement(response.bodyAsText())
+        // HTTP 200 can carry an error. It is a failure, not a page with nothing on it.
+        providerEnvelopeError(root)?.let { throw it }
+        return catalogPage(root)
     }
-    private class CatalogHttpException(val status: Int) : IllegalStateException("YouTube Music is unavailable (HTTP $status)")
     // Retries a collection page on network errors, timeouts, 429 and 5xx; other HTTP errors and account changes fail at once.
     private suspend fun requestCollectionPage(id: String, token: String? = null, params: String? = null): CatalogPage {
         val revision = authRevision
@@ -469,7 +473,7 @@ internal class YouTubeMusicProvider(context: Context,
                 val retryable = when (e) {
                     is TimeoutCancellationException, is java.io.IOException -> true
                     is CancellationException -> throw e
-                    is CatalogHttpException -> e.status == 429 || e.status >= 500
+                    is ProviderHttpException -> e.status == 429 || e.status >= 500
                     else -> false
                 }
                 if (!retryable || attempt >= 2 || revision != authRevision) {
@@ -490,10 +494,14 @@ internal class YouTubeMusicProvider(context: Context,
         } catch(e:Exception) {
             // A 401 on a signed-in request means the session likely expired: confirm it and say so.
             if(signedIn && isAuthFailure(e)) {checkSessionIfDue(forced=true);return Result.failure(IllegalStateException(SESSION_EXPIRED_MESSAGE))}
+            // Not a failure of the change: its outcome is not known. Callers tell the two apart by type.
+            if(e is MutationUnconfirmed) return Result.failure(e)
             Result.failure(IllegalStateException(providerErrorMessage(e)))
         }
     }
-    suspend fun discover(query: String, token: String? = null, filter: String = "All"): Result<CatalogPage> = providerResult {
+    suspend fun discover(query: String)=discover(query,null,"All")
+    suspend fun discover(query: String, filter: String)=discover(query,null,filter)
+    override suspend fun discover(query: String, token: String?, filter: String): Result<CatalogPage> = providerResult {
         val revision = authRevision
         val params = when(filter) {
             "Songs" -> songsFilter
@@ -507,7 +515,7 @@ internal class YouTubeMusicProvider(context: Context,
         paceSearch()
         val response = innerTube.search(YouTubeClient.WEB_REMIX,query = query.trim().take(100),params = params,
             continuation = token,setLogin = signedIn)
-        check(response.status.value < 400) { "Search unavailable (HTTP ${response.status.value})" }
+        if (response.status.value >= 400) throw ProviderHttpException(response.status.value)
         check(revision == authRevision) { "Account changed while searching" }
         fun matches(card: ProviderHomeCard): Boolean = when(filter) {
             "Videos" -> card.videoId!=null && card.kind==CatalogKind.Song
@@ -518,7 +526,9 @@ internal class YouTubeMusicProvider(context: Context,
             "Songs" -> card.kind == CatalogKind.Song && card.videoId != null
             else -> true
         }
-        var page = catalogPage(json.parseToJsonElement(response.bodyAsText()))
+        val searchRoot = json.parseToJsonElement(response.bodyAsText())
+        providerEnvelopeError(searchRoot)?.let { throw it }
+        var page = catalogPage(searchRoot)
         if(token==null && params!=null && page.cards.none(::matches)) {
             paceSearch()
             val mixed=innerTube.search(YouTubeClient.WEB_REMIX,query=query.trim().take(100),setLogin=signedIn)
@@ -538,18 +548,19 @@ internal class YouTubeMusicProvider(context: Context,
         page.copy(cards=page.cards.filter(::matches))
     }
 
-    suspend fun browseCatalog(id: String, token: String? = null): Result<CatalogPage> = providerResult {
+    suspend fun browseCatalog(id: String)=browseCatalog(id,null)
+    override suspend fun browseCatalog(id: String, token: String?): Result<CatalogPage> = providerResult {
         require(id.matches(Regex("[A-Za-z0-9_-]{2,200}"))) { "Collection is unavailable" }
         if(token!=null) requestCatalog(id,token) else collectionCache.get(feedKey("collection:$id")) {requestCatalog(id)}
     }
-    suspend fun completeCollection(id:String):Result<CatalogPage> = providerResult {
+    override suspend fun completeCollection(id:String):Result<CatalogPage> = providerResult {
         collectionCache.get(feedKey("collection:$id")) {completeCollectionFresh(id).getOrThrow()}
     }
     // Pages loaded so far for collections still fetching their continuations, so screens can render before the last page.
     private val partialCollections=mutableStateMapOf<String,CatalogPage>()
-    fun partialCollection(id:String):CatalogPage?=partialCollections[feedKey("collection:$id")]
+    override fun partialCollection(id:String):CatalogPage?=partialCollections[feedKey("collection:$id")]
     private val collectionSortGate=Mutex()
-    suspend fun sortedCollection(id:String,endpoint:CollectionSortEndpoint):Result<CatalogPage> = providerResult {
+    override suspend fun sortedCollection(id:String,endpoint:CollectionSortEndpoint):Result<CatalogPage> = providerResult {
         collectionSortGate.withLock {
             val revision=authRevision
             val key=feedKey("collection:$id")
@@ -578,21 +589,27 @@ internal class YouTubeMusicProvider(context: Context,
             // Collection pages arrive one after another, so they skip the search pacer rather than queueing 800 ms apart.
             val first=requestCollectionPage(sort?.browseId?:id,sort?.continuation,sort?.params)
             var page=first.copy(next=first.collectionNext)
-            val seen=mutableSetOf<String>()
-            while(page.next!=null && seen.add(page.next!!)) {
-                check(page.albumTracks.size<2000) {"This collection exceeds the supported 2,000-song queue"}
+            val seen=mutableSetOf<String>();var truncation:CollectionTruncation?=null;var pages=1;var barren=0
+            while(page.next!=null) {
+                // A list that is not the whole collection says so; it is never passed off as complete.
+                if(page.albumTracks.size>=COLLECTION_TRACK_LIMIT) {truncation=CollectionTruncation.Limit;break}
+                // A token seen before, pages that add nothing, or more pages than any collection needs: the provider is going round.
+                if(!seen.add(page.next!!) || barren>=2 || pages>=COLLECTION_PAGE_LIMIT) {truncation=CollectionTruncation.RepeatedPage;break}
                 if(publishPartial && revision==authRevision) partialCollections[key]=styled(page.copy(next=null))
-                val more=requestCollectionPage(id,page.next)
+                val more=requestCollectionPage(id,page.next);pages++
+                val known=page.albumTracks.mapTo(HashSet()) {it.setVideoId?:it.key()}
+                barren=if(more.albumTracks.any {(it.setVideoId?:it.key()) !in known}) 0 else barren+1
                 page=page.copy(cards=page.cards+more.cards,albumTracks=page.albumTracks+more.albumTracks,next=more.collectionNext)
             }
-            check(page.albumTracks.size<=2000) {"This collection exceeds the supported 2,000-song queue"}
+            if(page.albumTracks.size>COLLECTION_TRACK_LIMIT) truncation=CollectionTruncation.Limit
             check(revision==authRevision) {"Account changed while loading this collection"}
-            styled(page)
+            styled(page.copy(cards=page.cards.take(COLLECTION_TRACK_LIMIT),albumTracks=page.albumTracks.take(COLLECTION_TRACK_LIMIT),next=null,truncation=truncation))
         } finally {if(publishPartial) partialCollections.remove(key)}
     }
     private fun likedArtwork()="android.resource://${appContext.packageName}/${R.drawable.liked_music_art}"
     private fun libraryArtwork(page:CatalogPage)=page.copy(cards=page.cards.map {if(it.browseId=="VLLM") it.copy(artworkUrl=likedArtwork()) else it})
-    suspend fun libraryCatalog(kind:String,token:String?=null):Result<CatalogPage> = providerResult {
+    suspend fun libraryCatalog(kind:String)=libraryCatalog(kind,null)
+    override suspend fun libraryCatalog(kind:String,token:String?):Result<CatalogPage> = providerResult {
         if(token!=null) libraryCatalogFresh(kind,token).getOrThrow()
         else collectionCache.get(feedKey("library:$libraryRevision:$kind")) {libraryArtwork(libraryCatalogFresh(kind).getOrThrow())}
     }
@@ -637,21 +654,59 @@ internal class YouTubeMusicProvider(context: Context,
         val list=scanLibraryPlaylists().getOrThrow()
         list.filter {it.browseId!=null && it.browseId!="VLLM" && it.browseId!="VLSE"}
     }
-    private suspend fun playlistMutation(id:String,request:suspend ()->io.ktor.client.statement.HttpResponse):Result<Unit> = sessionSafeMutation {
+    /** Edits sent for this session whose outcome is not known. Each is settled by reading the playlist before anything is sent again. */
+    private val unsettledEdits=java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    /** A request cancelled from inside (the library refreshing its session) may still have arrived. */
+    private suspend fun sentOutcome(onFault:(Exception)->Unit={},send:suspend ()->MutationOutcome):MutationOutcome =
+        try {send()}
+        catch(e:CancellationException) {currentCoroutineContext().ensureActive();MutationOutcome.Unknown}
+        catch(e:Exception) {onFault(e);transportOutcome(e)}
+    /**
+     * One playlist edit. [applied] reads a freshly loaded playlist and says whether the edit is in it.
+     * Acknowledged: done. Rejected: failed, and sending again is safe. Unknown: the playlist is read; the
+     * edit is never sent a second time on a guess, since adding twice would add twice.
+     */
+    private suspend fun playlistMutation(id:String,edit:String,applied:(CatalogPage)->Boolean,request:suspend ()->io.ktor.client.statement.HttpResponse):Result<Unit> = sessionSafeMutation {
         check(signedIn) {"Sign in to edit YouTube Music playlists"}
-        require(id.startsWith("VL") && id.length>2 && id!="VLLM") {"Choose an editable playlist"}
-        val revision=authRevision;val response=request();val body=response.bodyAsText()
-        check(response.status.value<400 && playlistEditAccepted(body)) {"YouTube Music could not update this playlist. It may be read-only."}
+        require(id.startsWith("VL") && id.length>2 && id!="VLLM" && id!="VLSE" && id.matches(Regex("[A-Za-z0-9_-]{3,200}"))) {"Choose an editable playlist"}
+        val revision=authRevision;val key="$revision:$id:$edit";val cacheKey=feedKey("collection:$id")
+        suspend fun readBack():Boolean {
+            val page=try {completeCollectionFresh(id).getOrThrow()} catch(e:CancellationException) {currentCoroutineContext().ensureActive();throw MutationUnconfirmed()} catch(e:Exception) {throw MutationUnconfirmed()}
+            check(revision==authRevision) {"Account changed while updating playlist"}
+            // A list that is not the whole playlist cannot show that an entry is absent.
+            if(page.truncation!=null && !applied(page)) throw MutationUnconfirmed()
+            return applied(page)
+        }
+        fun done() {unsettledEdits.remove(key);collectionCache.invalidate(cacheKey);libraryRevision++}
+        if(key in unsettledEdits) {
+            collectionCache.invalidate(cacheKey)
+            if(readBack()) {playbackEvents.append("provider_edit_settled applied=true");done();return@sessionSafeMutation}
+            playbackEvents.append("provider_edit_settled applied=false");unsettledEdits.remove(key)
+        }
+        var fault:Exception?=null
+        val outcome=sentOutcome({fault=it}) {val response=request();playlistEditOutcome(response.status.value,response.bodyAsText())}
+        // Whatever was answered, what is cached may no longer be what the provider has.
+        collectionCache.invalidate(cacheKey)
         check(revision==authRevision) {"Account changed while updating playlist"}
-        collectionCache.invalidate(feedKey("collection:$id"));libraryRevision++
+        when(outcome) {
+            MutationOutcome.Acknowledged -> done()
+            // A request that never left failed for the reason it never left, not because of the playlist.
+            MutationOutcome.Rejected -> error(fault?.let(::providerErrorMessage)?:"YouTube Music could not update this playlist. It may be read-only.")
+            MutationOutcome.Unknown -> {
+                unsettledEdits.add(key);playbackEvents.append("provider_edit_unknown")
+                if(readBack()) {playbackEvents.append("provider_edit_settled applied=true");done()}
+                else {unsettledEdits.remove(key);playbackEvents.append("provider_edit_settled applied=false");error("YouTube Music did not save this change. Try again.")}
+            }
+        }
     }
-    suspend fun addPlaylistSong(id:String,videoId:String):Result<Unit> = playlistMutation(id) {
-        require(videoId.matches(Regex("[A-Za-z0-9_-]{11}")))
-        innerTube.addToPlaylist(YouTubeClient.WEB_REMIX,id,videoId)
+    override suspend fun addPlaylistSong(id:String,videoId:String):Result<Unit> {
+        if(!videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) return Result.failure(IllegalStateException("This song cannot be added to a playlist"))
+        return playlistMutation(id,"add:$videoId",{page->page.albumTracks.any {it.videoId==videoId}}) {innerTube.addToPlaylist(YouTubeClient.WEB_REMIX,id,videoId)}
     }
-    suspend fun removePlaylistSong(id:String,card:ProviderHomeCard):Result<Unit> = playlistMutation(id) {
-        val setId=card.setVideoId?:error("YouTube Music did not supply this playlist entry's ID")
-        innerTube.removePlaylistSong(YouTubeClient.WEB_REMIX,id,setId,requireNotNull(card.videoId))
+    override suspend fun removePlaylistSong(id:String,card:ProviderHomeCard):Result<Unit> {
+        val setId=card.setVideoId;val videoId=card.videoId
+        if(setId==null || videoId==null) return Result.failure(IllegalStateException("YouTube Music did not supply this playlist entry's ID"))
+        return playlistMutation(id,"remove:$setId",{page->page.albumTracks.none {it.setVideoId==setId}}) {innerTube.removePlaylistSong(YouTubeClient.WEB_REMIX,id,setId,videoId)}
     }
     suspend fun artistFor(track: ProviderTrack): Result<String?> = providerResult {
         track.artistId ?: run {
@@ -670,7 +725,8 @@ internal class YouTubeMusicProvider(context: Context,
             parseQueueTracks(json.parseToJsonElement(response.bodyAsText())).firstOrNull {it.videoId==videoId}?.albumId
         }
     }
-    suspend fun recommendations(videoId: String, token: String? = null): Result<Pair<List<ProviderTrack>,String?>> = providerResult {
+    suspend fun recommendations(videoId: String)=recommendations(videoId,null)
+    override suspend fun recommendations(videoId: String, token: String?): Result<Pair<List<ProviderTrack>,String?>> = providerResult {
         val revision=authRevision
         val response=innerTube.next(YouTubeClient.WEB_REMIX,videoId=videoId,playlistId="RDAMVM$videoId",params="wAEB",continuation=token)
         check(response.status.value<400) {"Up next is unavailable"}
@@ -694,21 +750,29 @@ internal class YouTubeMusicProvider(context: Context,
             if(!artist.isNullOrBlank()) tracks=(tracks+searchPage(playerArtistLabel(artist)).getOrThrow().tracks).distinctBy(ProviderTrack::videoId)
         }
         check(revision==authRevision) {"Account changed while loading up next"}
-        tracks to next
+        // The token just used is never handed back as the next one: the caller would ask for the same page for ever.
+        tracks to next?.takeUnless {it==token}
     }
-    suspend fun saveAlbum(browseId:String):Result<Unit> = providerResult {
+    override suspend fun saveAlbum(browseId:String):Result<Unit> = providerResult {
         check(signedIn) {"Sign in to save albums on YouTube Music"}
+        require(browseId.matches(Regex("[A-Za-z0-9_-]{2,200}"))) {"This cannot be saved"}
         val revision=authRevision
         val response=innerTube.browse(YouTubeClient.WEB_REMIX,browseId=browseId,setLogin=true)
         check(response.status.value<400) {"Could not read album"}
         val root=json.parseToJsonElement(response.bodyAsText())
         val header=catalogRenderer(root,"musicResponsiveHeaderRenderer")?:catalogRenderer(root,"musicDetailHeaderRenderer")
         val playlist=if(browseId.startsWith("VL")) browseId.removePrefix("VL") else catalogValue(header,"playlistId")?:error("This album cannot be saved from its current provider response")
-        val saved=innerTube.likePlaylist(YouTubeClient.WEB_REMIX,playlist)
-        check(saved.status.value<400 && revision==authRevision) {"Could not save album"}
-        libraryRevision++
+        check(revision==authRevision) {"Account changed while saving"}
+        val outcome=sentOutcome {val saved=innerTube.likePlaylist(YouTubeClient.WEB_REMIX,playlist);likeOutcome(saved.status.value,saved.bodyAsText())}
+        check(revision==authRevision) {"Account changed while saving"}
+        when(outcome) {
+            MutationOutcome.Acknowledged -> libraryRevision++
+            MutationOutcome.Rejected -> error("Could not save album")
+            // Saving twice is the same as saving once, so there is nothing to protect by reading first.
+            MutationOutcome.Unknown -> {libraryRevision++;throw MutationUnconfirmed("YouTube Music did not confirm saving this. It is safe to try again.")}
+        }
     }
-    suspend fun loadLike(videoId: String): Result<Boolean?> = providerResult {
+    override suspend fun loadLike(videoId: String): Result<Boolean?> = providerResult {
         if (!signedIn) return@providerResult null
         val revision = authRevision
         val response = innerTube.next(YouTubeClient.WEB_REMIX,videoId = videoId)
@@ -717,22 +781,37 @@ internal class YouTubeMusicProvider(context: Context,
         if (revision == authRevision && signedIn && value != null) songLikes[videoId] = value
         value
     }
-    suspend fun setSongLike(videoId: String, liked: Boolean): Result<Unit> = providerResult {
+    override suspend fun setSongLike(videoId: String, liked: Boolean): Result<Unit> = providerResult {
         likeGate.withLock {
             check(signedIn) { "Sign in to like songs on YouTube Music" }
-            require(videoId.matches(Regex("[A-Za-z0-9_-]{11}")))
+            require(videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) { "This song cannot be liked" }
             val revision = authRevision
-            val response = if(liked) innerTube.likeVideo(YouTubeClient.WEB_REMIX,videoId)
-                else innerTube.unlikeVideo(YouTubeClient.WEB_REMIX,videoId)
-            check(response.status.value < 400) { "Could not update the YouTube Music like" }
-            val body = response.bodyAsText()
-            check(body.isBlank() || (json.parseToJsonElement(body) as? JsonObject)?.get("error") == null) { "YouTube Music did not accept the like" }
+            val outcome = sentOutcome {
+                val response = if(liked) innerTube.likeVideo(YouTubeClient.WEB_REMIX,videoId) else innerTube.unlikeVideo(YouTubeClient.WEB_REMIX,videoId)
+                likeOutcome(response.status.value,response.bodyAsText())
+            }
             check(revision == authRevision && signedIn) { "Account changed while saving" }
+            when(outcome) {
+                MutationOutcome.Acknowledged -> Unit
+                MutationOutcome.Rejected -> error("YouTube Music did not accept the like")
+                MutationOutcome.Unknown -> {
+                    // Not answered: what the provider has now decides, not what was asked for.
+                    playbackEvents.append("provider_like_unknown")
+                    val now = try {
+                        val response = innerTube.next(YouTubeClient.WEB_REMIX,videoId = videoId)
+                        if(response.status.value >= 400) null else parseLikeStatus(json.parseToJsonElement(response.bodyAsText()))
+                    } catch(e: CancellationException) { currentCoroutineContext().ensureActive(); null } catch(e: Exception) { null }
+                    check(revision == authRevision && signedIn) { "Account changed while saving" }
+                    if(now == null) throw MutationUnconfirmed()
+                    songLikes[videoId] = now
+                    check(now == liked) { "YouTube Music did not save the like. Try again." }
+                }
+            }
             songLikes[videoId] = liked; libraryRevision++
         }
     }
     /** Sends YouTube Music's "Not interested" feedback; looks the token up from the song's radio when none is known. */
-    suspend fun sendNotInterested(videoId: String?, token: String?): Result<Boolean> = providerResult {
+    override suspend fun sendNotInterested(videoId: String?, token: String?): Result<Boolean> = providerResult {
         if (!signedIn) return@providerResult false
         val revision = authRevision
         val feedback = token ?: videoId?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }?.let { id ->
@@ -774,7 +853,7 @@ internal class YouTubeMusicProvider(context: Context,
     suspend fun search(query: String): Result<List<ProviderTrack>> =
         searchPage(query).map(ProviderSearchPage::tracks)
 
-    suspend fun lyricsFor(videoId: String, durationMs: Long): LyricsDocument? = withContext(dependencies.dispatchers.io) {
+    override suspend fun lyricsFor(videoId: String, durationMs: Long): LyricsDocument? = withContext(dependencies.dispatchers.io) {
         if (!videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) return@withContext null
         val revision = authRevision
         val next = innerTube.next(YouTubeClient.WEB_REMIX, videoId = videoId)
@@ -810,7 +889,8 @@ internal class YouTubeMusicProvider(context: Context,
         if (revision != authRevision) null else listOfNotNull(synced, web).maxByOrNull { it.quality }
     }
 
-    suspend fun homeSections(mood:String=""):Result<List<ProviderHomeSection>> = providerResult {
+    suspend fun homeSections()=homeSections("")
+    override suspend fun homeSections(mood:String):Result<List<ProviderHomeSection>> = providerResult {
         feedCache.get(feedKey("home:$mood")) {
             if(mood.isBlank()) homeSectionsFresh().getOrThrow() else {
                 if(homeMoods.isEmpty()) homeSections().getOrThrow()
@@ -883,7 +963,7 @@ internal class YouTubeMusicProvider(context: Context,
         }
     }
 
-    suspend fun profile():Result<ProviderProfile?> = providerResult {
+    override suspend fun profile():Result<ProviderProfile?> = providerResult {
         feedCache.get(feedKey("profile")) {Unit to profileFresh().getOrThrow()}.second.also {accountProfile=it}
     }
     private suspend fun profileFresh(): Result<ProviderProfile?> = withContext(dependencies.dispatchers.io) {
@@ -1042,7 +1122,7 @@ internal class YouTubeMusicProvider(context: Context,
     }
 
     private data class VideoPair(val id:String?)
-    suspend fun videoFor(track:ProviderTrack):Result<String?> = providerResult {
+    override suspend fun videoFor(track:ProviderTrack):Result<String?> = providerResult {
         feedCache.get(feedKey("video-pair:${track.videoId}")) {
             val response=innerTube.next(YouTubeClient.WEB_REMIX,videoId=track.videoId,playlistId="RDAMVM${track.videoId}")
             check(response.status.value<400) {"Could not check the YouTube Music video switcher"}
@@ -1164,11 +1244,11 @@ internal class YouTubeMusicProvider(context: Context,
             val chip = node["chipCloudChipRenderer"] as? JsonObject
             val label = (chip?.get("text") as? JsonObject)?.get("runs") as? JsonArray
             val name = label?.joinToString("") { run ->
-                ((run as? JsonObject)?.get("text"))?.jsonPrimitive?.content.orEmpty()
+                ((run as? JsonObject)?.get("text"))?.textOrNull.orEmpty()
             }
             val endpoint = chip?.get("navigationEndpoint") as? JsonObject
             val search = endpoint?.get("searchEndpoint") as? JsonObject
-            val params = search?.get("params")?.jsonPrimitive?.content
+            val params = search?.get("params")?.textOrNull
             if (name.equals("Songs", ignoreCase = true) && !params.isNullOrBlank()) params
             else node.values.firstNotNullOfOrNull(::findSongsFilter)
         }
@@ -1177,11 +1257,11 @@ internal class YouTubeMusicProvider(context: Context,
     }
 
     private fun providerText(node: JsonElement?): String = when (node) {
-        is JsonObject -> node["simpleText"]?.let { runCatching { it.jsonPrimitive.content }.getOrNull() }
+        is JsonObject -> node["simpleText"]?.let { it.textOrNull }
             ?: (node["runs"] as? JsonArray)?.joinToString("") {
-                (it as? JsonObject)?.get("text")?.jsonPrimitive?.content.orEmpty()
+                (it as? JsonObject)?.get("text")?.textOrNull.orEmpty()
             }.orEmpty()
-        else -> node?.let { runCatching { it.jsonPrimitive.content }.getOrNull() }.orEmpty()
+        else -> node?.let { it.textOrNull }.orEmpty()
     }
 
     private fun findRenderer(node: JsonElement, key: String): JsonObject? = when (node) {
@@ -1193,7 +1273,7 @@ internal class YouTubeMusicProvider(context: Context,
 
     private fun providerValue(node: JsonElement?, key: String): String? = when (node) {
         is JsonObject -> node[key]?.let {
-            runCatching { it.jsonPrimitive.content }.getOrNull()
+            it.textOrNull
         } ?: node.values.firstNotNullOfOrNull { providerValue(it, key) }
         is JsonArray -> node.firstNotNullOfOrNull { providerValue(it, key) }
         else -> null
@@ -1244,7 +1324,7 @@ internal class YouTubeMusicProvider(context: Context,
             val title = shelf?.get("title") as? JsonObject
             val runs = title?.get("runs") as? JsonArray
             val name = runs?.joinToString("") { run ->
-                (run as? JsonObject)?.get("text")?.jsonPrimitive?.content.orEmpty()
+                (run as? JsonObject)?.get("text")?.textOrNull.orEmpty()
             }
             if (name.equals("Songs", ignoreCase = true) && shelf != null) parseTracks(shelf)
             else node.values.flatMap(::parseSongShelfTracks).distinctBy(ProviderTrack::videoId)
@@ -1264,13 +1344,13 @@ internal class YouTubeMusicProvider(context: Context,
             val continuations = node["continuations"] as? JsonArray
             val shelfToken = continuations?.firstNotNullOfOrNull { entry ->
                 val data = (entry as? JsonObject)?.get("nextContinuationData") as? JsonObject
-                data?.get("continuation")?.jsonPrimitive?.content
+                data?.get("continuation")?.textOrNull
             }
             if (!shelfToken.isNullOrBlank()) shelfToken else {
                 val item = node["continuationItemRenderer"] as? JsonObject
                 val endpoint = item?.get("continuationEndpoint") as? JsonObject
                 val command = endpoint?.get("continuationCommand") as? JsonObject
-                val token = command?.get("token")?.jsonPrimitive?.content
+                val token = command?.get("token")?.textOrNull
                 if (!token.isNullOrBlank()) token else node.values.firstNotNullOfOrNull(::findContinuation)
             }
         }
@@ -1291,5 +1371,9 @@ internal fun providerErrorMessage(e: Throwable): String {
     if (chain.any { it is java.net.UnknownHostException || it is java.net.ConnectException ||
             it is java.net.NoRouteToHostException }) return OFFLINE_MESSAGE
     if (chain.any { it is java.net.SocketTimeoutException || it.javaClass.simpleName.contains("Timeout") }) return TIMEOUT_MESSAGE
-    return e.message?.takeIf { !it.contains("http",true) && !it.contains("host",true) } ?: "YouTube Music could not load this content"
+    // What the provider's own answer supports, in plain words; otherwise the request's own message, or the general one.
+    return when (val fault = classifyProviderFailure(e)) {
+        ProviderFault.RateLimited, ProviderFault.NotFound, ProviderFault.Refused, ProviderFault.Provider -> fault.message
+        else -> e.message?.takeIf { !it.contains("http",true) && !it.contains("host",true) } ?: ProviderFault.Unknown.message
+    }
 }

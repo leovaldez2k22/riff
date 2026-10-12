@@ -284,7 +284,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             val queueVisibility=this
             if(open) {
                 InlineQueue(playback,provider,onQueueClose,onLike={
-                    if(!provider.signedIn) onNotice("Sign in to like songs on YouTube Music") else scope.launch {
+                    if(!provider.capabilities.like.available) onNotice(provider.capabilities.like.reason?:CHECKING_ACCOUNT_NOTICE) else scope.launch {
                         provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);collections.setOnlineFavorite(providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:"Could not save like")})
                     }
                 },onMore={moreExpanded=true},onMoreBounds={moreAnchor=it},artworkModifier=Modifier.sharedBounds(rememberSharedContentState("queue-art"),this))
@@ -345,7 +345,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             }
             }
             IconButton(onClick = {
-                if(!provider.signedIn) onNotice("Sign in from Settings to like songs on YouTube Music")
+                if(!provider.capabilities.like.available) onNotice(provider.capabilities.like.reason?:CHECKING_ACCOUNT_NOTICE)
                 else { likeBusy=true;scope.launch {
                     provider.setSongLike(videoId,!favorite).fold(onSuccess={
                         uiHaptic(HapticCue.Confirm)
@@ -382,7 +382,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                         SongActionItem(if(option=="Sleep timer" && state.sleepDeadlineMs>0) "Sleep timer · ${sleepMinutesRemaining(state.sleepDeadlineMs,android.os.SystemClock.elapsedRealtime())} min" else option, onClick = { 
                             moreExpanded = false
                             when (option) {
-                                "Favorite" -> if(!provider.signedIn) onNotice("Sign in to like songs on YouTube Music") else scope.launch {
+                                "Favorite" -> if(!provider.capabilities.like.available) onNotice(provider.capabilities.like.reason?:CHECKING_ACCOUNT_NOTICE) else scope.launch {
                                     provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);collections.setOnlineFavorite(providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:"Could not save like")})
                                 }
                                 "Remove from queue" -> playback.removeQueueItem(state.index)

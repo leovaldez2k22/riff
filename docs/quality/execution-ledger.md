@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -785,6 +785,90 @@ Device state: emulator shut down with adb emu kill, adb server stopped, Gradle d
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
 Commit: 7c64be5 on local branch codex/riff-quality-m0 (not pushed).
 Next exact action: Q10. It is inside the 9 October authorization (Q03-Q18) but the user's instruction covered Q09 only; wait for "start Q10".
+
+## Q10
+### Q10 completion (12 October 2026)
+Status: PASS locally and on the disposable emulator for the deterministic contracts. Every check against YouTube Music itself is BLOCKED (below); no fixture result stands in for one.
+Source: 9ef6a831524619d71a93114b6203953d015f0c91 dirty, digest prefix a93aa0f28824 (full value in the manifests). Evidence root: artifacts/quality/9ef6a831524619d71a93114b6203953d015f0c91-dirty-a93aa0f28824/
+User instruction on 12 October 2026: "Start q10" (standing rule: complete every aspect of the phase). Q05R, Q10A, Q12A and Q15A were not started and remain unauthorized. Q11 has not been started.
+
+Implemented (new: ProviderContracts.kt; changed: YouTubeMusicProvider.kt, ProviderCatalog.kt, PlaylistEditing.kt, SessionHealth.kt, OriginalAudioPolicy.kt, ImmersiveCollection.kt, NowPlaying.kt, CatalogScreens.kt):
+- Interfaces: ProviderSession, ProviderCatalogReader, ProviderMutations, with the existing StreamResolver as the fourth. YouTubeMusicProvider implements them on the same pinned library (innertubex 0.7.2). No second implementation exists; call sites still hold the concrete class except addTrackToPlaylist, which takes the interfaces.
+- Changes: MutationOutcome is Acknowledged, Rejected or Unknown. A playlist edit is acknowledged only by STATUS_SUCCEEDED with no error. A like or save is acknowledged only by a JSON object with responseContext and no error; before, a blank body or {} was taken as saved. HTTP 4xx other than 408 is Rejected; 408, 5xx, a timeout or a dropped connection is Unknown; a request that could not connect is Rejected and reported with the reason it never left.
+- Unknown playlist edit: the whole playlist is read. Present: done. Absent: not saved, may be tried again. Unreadable, or truncated without the edit in the part read: MutationUnconfirmed, the edit is remembered for the account generation, and the next attempt at the same edit reads first and sends only if still absent. Events: provider_edit_unknown, provider_edit_settled applied=true|false.
+- Unknown like: read from the watch queue, which decides; unreadable is MutationUnconfirmed. Unknown save: reported unconfirmed and safe to repeat. Sort preference: unchanged (sent once, the provider's own command and parameters, only for its own playlist).
+- Batches: PlaylistBatchResult keeps completed, failures and unconfirmed per playlist; the summary counts each; a retry goes only to the failures. addTrackToPlaylist reads the playlist first and refuses a read-only one and one too large to read whole.
+- Collections: 2,000 tracks and 64 pages. A token seen before, two pages in a row with no new entry, or the page limit ends the read. The list is returned with CatalogPage.truncation (Limit or RepeatedPage) instead of an error (Limit) or as if whole (repeated token). The collection screen shows the label and disables Play, Shuffle, Download all and Sort; a row tap plays from what is loaded. Search "Load more" uses the same once-only rule (PageTokens); Up next never returns the token it was asked with.
+- Failures: an error object inside HTTP 200 is a failure (ProviderEnvelopeException keeps only the code and a status word). classifyProviderFailure: Offline, Timeout, Auth, RateLimited, NotFound, Refused, Provider, Unknown, each with a fixed sentence. Nothing is called a region restriction; no answer Riff reads says so.
+- Parsers: fields of the wrong type are treated as missing (JsonElement.textOrNull) in ProviderCatalog.kt, the provider's own parsers and OriginalAudioPolicy.kt. Before, a string where an object was expected threw and failed the page.
+- Capabilities: Capability is Available, Loading or Unavailable(why). ProviderCapabilities (browse, stream, library, like, saveCollection, editPlaylists, feedback) from session state, account scope and resolver; CollectionCapabilities (playAll, downloadAll, sort, save, removeEntries, checkMembership) from the page. The like buttons and the collection screen read them.
+- Docs: docs/quality/provider-compatibility.md (new: dependency, assumptions, wording, change protocol, cache table, fixture matrix, live result, triage, limits), deterministic-harness.md, CHANGELOG.
+
+Verification:
+- Debug (q10-debug-01/manifest.json): PASS_LOCAL. 736 JVM tests / 84 suites, zero failures, errors or skips (Q09: 655 / 79). Lint 0 errors, 84 warnings, 5 hints; no issue added or removed against q09-debug-01. APK SHA-256 36b81dd1a019ba635b449880127b57cb5868c09c6953fc2eeabe9ef8bcf26f08.
+- New JVM tests (81): ProviderFixtureTest (25), ProviderContractTest (24), ProviderMutationTest (18), ProviderCapabilitiesTest (11), CollectionTruncationUiTest (3). No existing test was changed.
+- ProviderContractTest and ProviderMutationTest run YouTubeMusicProvider itself on the pinned library with the HTTP transport replaced (ProviderWorld in ProviderContractSupport.kt): each request the library builds is recorded and answered by the test. No request leaves the process; the session fields are synthetic.
+- Fixtures: 30 JSON files and index.json in app/src/test/resources/quality/provider/, written by scripts/quality/generate_provider_fixtures.py. They are invented, not recorded. A test checks their digests and scans them for credentials, account values, signed addresses and ids that are not synthetic.
+- Emulator, bound (q10-debug-fixture-01/manifest.json, log q10-instrumentation-01.log, install-01.log): PASS_LOCAL, all five gates PASS. 46 tests, 326.546 s, the same classes as Q09; Q10 adds no emulator test. Test APK SHA-256 534ce32f6b692d39b062a1fc8034f3bf0304ac721a68ab10c4e7fea6e5383060. riff_q02_fixture, API 31, network disabled and confirmed unreachable, signed out.
+- Emulator, not bound (q10-two-player-instrumentation-01.log, install-02.log): CrossfadeDeviceTest and SongFadeDeviceTest, 15 tests, OK, 212.671 s, on a freshly started emulator.
+- Release (q10-release-01/manifest.json): PASS_LOCAL. junit {"suites": 84, "tests": 736, "failures": 0, "errors": 0, "skipped": 0}; lint {"Warning": 84, "Hint": 5}; no issue added or removed against q09-release-01. APK SHA-256 4f8e6a35290ce8a782b7d1738af3b335402bbe875ac27a9a39633b75e5301c76. Shrunk unsigned release 26.57 MiB (Q09: 26.56). No device run of the release artifact.
+- Shrunk release, solver seam (solver-seam-release-01.txt): PASS, unchanged.
+- Stress (stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only. The daemon it used kept the log open after BUILD SUCCESSFUL; the exit line was written when the daemon was stopped.
+- The evidence was taken before this ledger entry was written; the entry is the only change after it.
+
+Failed attempts before the evidence runs (none preserved as files; all were in working runs):
+- ProviderFixtureTest, first run, 25 tests, 2 failures. One was the intended observation: a string where a text object was expected threw IllegalArgumentException in catalogText, failing the page; the parsers were then changed and the test passes. The other was the sanitation scan refusing serviceTrackingParams in a fixture; the generator was changed to leave it out.
+- ProviderContractTest and ProviderMutationTest, first run, 2 failures, both in the tests: the library sends a search page token in the address, not the body, so the harness now records both; and a large-playlist case used a first page with no editable header.
+- ProviderContractTest, second run, 1 failure: an HTTP 401 also sets off a session check, so the request count for that case now counts only requests for the collection. It had passed once and failed once, which is how it was found.
+- CollectionTruncationUiTest, first run: one test set the screen content twice. Split into one test for each kind of truncation.
+- An offline playlist edit said "It may be read-only". Found while writing the mutation tests; it now gives the offline sentence.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| 1. Separate interfaces; pinned integration kept | PASS | ProviderContracts.kt; innertubex 0.7.2 unchanged; solver seam PASS |
+| 2. Fixtures for each search kind, Home shelf, album, playlist continuation, owned and read-only playlist, sort menu, account menu, video pairing, lyrics, error envelope | PASS (invented fixtures) | ProviderFixtureTest; matrix in provider-compatibility.md |
+| 3. No credentials, account ids or signed URLs | PASS | noFixtureHoldsACredentialAnAccountValueOrASignedAddress |
+| 4. Unknown renderers, missing and wrong-type fields, empty arrays, errors inside 200, repeated tokens, cyclic pagination | PASS (JVM) | unknown-renderers.json and emptyAndBareAnswersParseToNothing; ProviderContractTest for the envelope, the repeated token, pages going round under new tokens and the page limit |
+| 5. 2,000 cap and seen tokens; truncation labelled; whole-collection actions disabled | PASS (JVM, Robolectric) | Cap, exactly 2,000, a last page running past it; CollectionTruncationUiTest for the label and the three disabled buttons. Sort being disabled is covered by ProviderCapabilitiesTest, not on screen |
+| 6. Opaque sort parameters, strict allowlists, no inferred dates or votes | PASS (JVM) | Sort command and parameters sent byte for byte; a menu entry that is not a sort dropped; playlist and video id allowlists send nothing |
+| 7. Acknowledgment and captured generation; unknown outcome reconciled before retry; no blind retry | PASS (JVM) | ProviderMutationTest: eight kinds of unreadable answer, each sent once; unreadable playlist then present (nothing sent) and then absent (read, then sent once); account change mid-request |
+| 8. Batch keeps per-destination results; retry only the unresolved | PASS (JVM) | aBatchKeepsOneResultForEachPlaylistAndARetrySendsOnlyTheUnresolved. The picker screen itself is not driven by a test |
+| 9. ProviderCapabilities drives actions | PASS for like and the collection screen | ProviderCapabilitiesTest. Other screens still check signedIn directly (below) |
+| 10. Cache expiry and invalidation documented; a stale in-flight result cannot repopulate | PASS (JVM) | Table in provider-compatibility.md; aLoadInFlightWhenItsPageIsInvalidatedCannotPutItsResultBack and the existing PageMemoryCacheTest |
+| 11. provider-compatibility.md maintained | PASS | New file. "Last live result: none in this package" |
+| 12. Failure wording by evidence, otherwise generic | PASS (JVM) | failuresAreClassifiedByWhatWasSeenAndOtherwiseSaidToBeUnknown; no region wording |
+| Dedicated-account live checks | BLOCKED | Below |
+
+Decisions (mine, not the user's):
+- Fixtures are generated from the shapes the parsers read, not captured. No network or account was available, and a capture would need an account. This is stated in the doc, the test header and the changelog.
+- A like needs responseContext in the answer. This is an assumption about the provider that has not been checked live. If it is wrong the like is read back and still ends correctly, at the cost of one request.
+- HTTP 4xx (except 408) on a change is taken as refused and not applied.
+- A truncated collection is shown and partly usable rather than refused. Row taps play from what is loaded.
+- Two pages in a row with no new entry end a collection read. A collection whose pages legitimately repeat entries for two pages running would be cut short and labelled.
+- An unconfirmed edit is remembered in memory only.
+- Region is not classified.
+
+Known limits:
+- The read-back trusts the provider to show a new edit at once. If it is slow, an edit can be reported as not saved and then appear; trying again would add the song twice. Not measured.
+- After a restart an unconfirmed edit is not remembered. The read before every add still prevents a second copy; a remove is sent again.
+- Library, search "Add to playlist", feedback and download entry points still test signedIn themselves and do not read ProviderCapabilities. Their behaviour is unchanged from Q09.
+- Radio, podcast and live-station answers have no fixtures.
+- "Not interested" is taken as sent on any answer below HTTP 400.
+
+Not covered by any test:
+- The playlist picker screen and the sort menu being disabled on a truncated collection, on screen.
+- The provider_edit_* and provider_like_unknown events being written.
+- lyricsFor with plain lyrics only, and the mobile timed-lyrics request body.
+
+BLOCKED:
+- Everything against YouTube Music, on a dedicated test account. Rerun, recording date, build and pass or fail for each in provider-compatibility.md under "Live result": (1) search, each of the six kinds, and Load more; (2) Home and its second page; (3) an album, a playlist over 100 songs, a playlist over 2,000 (label, disabled buttons); (4) an owned playlist and someone else's; (5) play a song and switch to its official video; (6) like and unlike, and whether the answer body carries responseContext; (7) on a disposable playlist: add, remove, change the sort, and how soon a read shows each; (8) save and remove an album; (9) a read and a change with the session expired. Items 6 to 8 change account data and need explicit approval as well as the account.
+- The release APK on a device.
+- Carried from Q04 to Q09: as listed in the Q08, Q08A and Q09 entries.
+
+Device state: emulator shut down with adb emu kill, adb server stopped, Gradle daemons stopped before and after the stress build. Nothing new was left on the emulator by Q10; the bound classes create and remove the same fixture data as in Q09.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q11. It is inside the 9 October authorization (Q03-Q18) but the user's instruction covered Q10 only; wait for "start Q11".
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.

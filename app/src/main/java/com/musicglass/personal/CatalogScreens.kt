@@ -86,14 +86,16 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     }
     var cards by remember { mutableStateOf<List<ProviderHomeCard>>(emptyList()) }
     var next by remember { mutableStateOf<String?>(null) }
+    // A page token is followed once in one listing, so a provider that sends one again cannot keep Load more alive.
+    var pageTokens by remember { mutableStateOf(PageTokens()) }
     var loading by remember { mutableStateOf(false) };var error by remember { mutableStateOf<String?>(null) }
     var retry by remember { mutableIntStateOf(0) }
     LaunchedEffect(model.searchQuery,model.searchFilter,provider.authRevision,retry) {
-        cards=emptyList();next=null;error=null
+        cards=emptyList();next=null;error=null;pageTokens=PageTokens()
         if(model.searchQuery.isBlank()) { loading=false;return@LaunchedEffect }
         loading=true;delay(450)
         provider.discover(model.searchQuery,filter=model.searchFilter).fold(
-            onSuccess={ cards=it.cards;next=it.next;history.record(model.searchQuery) },onFailure={ error=it.message })
+            onSuccess={ cards=it.cards;next=pageTokens.next(it.next);history.record(model.searchQuery) },onFailure={ error=it.message })
         loading=false
     }
     fun open(card:ProviderHomeCard) {history.record(model.searchQuery);keyboard?.hide();openCatalogCard(model,card) {scope.launch {playRealTrack(provider,playback,it,onNotice,video=model.searchFilter=="Videos")}}}
@@ -133,7 +135,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
             loading=true;scope.launch {
                 val result=provider.discover(query,token,filter)
                 if(query==model.searchQuery && filter==model.searchFilter && revision==provider.authRevision) {
-                    result.fold(onSuccess={ cards=(cards+it.cards).distinctBy { c->c.key() };next=it.next?.takeUnless { n->n==token } },onFailure={ onNotice(it.message?:"Could not load more") })
+                    result.fold(onSuccess={ cards=(cards+it.cards).distinctBy { c->c.key() };next=pageTokens.next(it.next) },onFailure={ onNotice(it.message?:"Could not load more") })
                     loading=false
                 }
             }

@@ -1,0 +1,303 @@
+{
+ "responseContext": {},
+ "contents": {
+  "twoColumnBrowseResultsRenderer": {
+   "tabs": [
+    {
+     "tabRenderer": {
+      "content": {
+       "sectionListRenderer": {
+        "contents": [
+         {
+          "musicFutureHeroRenderer": {
+           "headline": {
+            "runs": [
+             {
+              "text": "Something new"
+             }
+            ]
+           },
+           "items": [
+            {
+             "musicFutureCardRenderer": {
+              "title": "No endpoint here"
+             }
+            }
+           ]
+          }
+         },
+         null,
+         7,
+         "text",
+         []
+        ]
+       }
+      }
+     }
+    }
+   ],
+   "secondaryContents": {
+    "sectionListRenderer": {
+     "contents": [
+      {
+       "musicPlaylistShelfRenderer": {
+        "playlistId": "PLfixturePublic000000001",
+        "contents": [
+         {
+          "musicFutureRowRenderer": {
+           "title": {
+            "runs": [
+             {
+              "text": "Unknown row"
+             }
+            ]
+           }
+          }
+         },
+         {
+          "musicResponsiveListItemRenderer": {}
+         },
+         {
+          "musicResponsiveListItemRenderer": {
+           "flexColumns": "not a list",
+           "navigationEndpoint": 7,
+           "playlistItemData": []
+          }
+         },
+         {
+          "musicResponsiveListItemRenderer": {
+           "flexColumns": [
+            {
+             "musicResponsiveListItemFlexColumnRenderer": {
+              "text": {
+               "runs": "not a list"
+              }
+             }
+            }
+           ],
+           "playlistItemData": {
+            "videoId": "fxsong00041"
+           }
+          }
+         },
+         {
+          "musicResponsiveListItemRenderer": {
+           "flexColumns": [
+            {
+             "musicResponsiveListItemFlexColumnRenderer": {
+              "text": {
+               "runs": [
+                7,
+                null,
+                {
+                 "text": {
+                  "nested": true
+                 }
+                }
+               ]
+              }
+             }
+            }
+           ],
+           "playlistItemData": {
+            "videoId": "fxsong00042"
+           }
+          }
+         },
+         {
+          "musicResponsiveListItemRenderer": {
+           "flexColumns": [
+            {
+             "musicResponsiveListItemFlexColumnRenderer": {
+              "text": {
+               "runs": [
+                {
+                 "text": "Title with an identifier of the wrong length",
+                 "navigationEndpoint": {
+                  "watchEndpoint": {
+                   "videoId": "short",
+                   "watchEndpointMusicSupportedConfigs": {
+                    "watchEndpointMusicConfig": {
+                     "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "musicResponsiveListItemRenderer": {
+           "flexColumns": [
+            {
+             "musicResponsiveListItemFlexColumnRenderer": {
+              "text": {
+               "runs": [
+                {
+                 "text": "Title with no identifier at all"
+                }
+               ]
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "musicResponsiveListItemRenderer": {
+           "flexColumns": [
+            {
+             "musicResponsiveListItemFlexColumnRenderer": {
+              "text": {
+               "runs": [
+                {
+                 "text": "Simple text of the wrong type",
+                 "navigationEndpoint": {
+                  "watchEndpoint": {
+                   "videoId": "fxsong00043",
+                   "watchEndpointMusicSupportedConfigs": {
+                    "watchEndpointMusicConfig": {
+                     "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              }
+             }
+            }
+           ],
+           "title": {
+            "simpleText": {
+             "not": "text"
+            }
+           },
+           "playlistItemData": {
+            "videoId": {
+             "not": "text"
+            },
+            "playlistSetVideoId": 12
+           }
+          }
+         },
+         {
+          "musicResponsiveListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://lh3.googleusercontent.com/fixture-song-4=w120-h120",
+                "width": 120,
+                "height": 120
+               }
+              ]
+             }
+            }
+           },
+           "flexColumns": [
+            {
+             "musicResponsiveListItemFlexColumnRenderer": {
+              "text": {
+               "runs": [
+                {
+                 "text": "Fixture Song 4",
+                 "navigationEndpoint": {
+                  "watchEndpoint": {
+                   "videoId": "fxsong00004",
+                   "watchEndpointMusicSupportedConfigs": {
+                    "watchEndpointMusicConfig": {
+                     "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemFlexColumnRenderer": {
+              "text": {
+               "runs": [
+                {
+                 "text": "Song"
+                },
+                {
+                 "text": " \u2022 "
+                },
+                {
+                 "text": "Fixture Artist",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "UCfixtureArtist00000001",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                    }
+                   }
+                  }
+                 }
+                },
+                {
+                 "text": " \u2022 "
+                },
+                {
+                 "text": "Fixture Album",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "MPREb_fixtureAlbum01",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                    }
+                   }
+                  }
+                 }
+                },
+                {
+                 "text": " \u2022 "
+                },
+                {
+                 "text": "3:04"
+                }
+               ]
+              }
+             }
+            }
+           ],
+           "playlistItemData": {
+            "videoId": "fxsong00004",
+            "playlistSetVideoId": "fixture-public-set-4"
+           }
+          }
+         }
+        ],
+        "continuations": [
+         {
+          "nextContinuationData": {
+           "continuation": {
+            "not": "text"
+           }
+          }
+         },
+         {
+          "nextContinuationData": {}
+         },
+         null
+        ]
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}

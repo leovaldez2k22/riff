@@ -10,6 +10,8 @@ Q02 is authorized independently of Q03. These fixtures use synthetic identities 
 
 `OfflineDownloadEngine` uses injected download conditions, capacity, calls, resolution, retry waits and timestamps. Since Q09 the audio rebuild (`AudioAssembler`) and the source of a download's lyrics are injected as well, so a JVM test can run the engine from request to a committed bundle; see [downloads](downloads.md). Custom-runtime providers and SABR HTTP engines use the injected transport; temporary providers/engines close after downloads. Engine-construction failures release the download gate. Provider-specific lyrics and SABR protocol handling retain their current implementation. `MusicPlaybackGateway`, the service scope/sleep timer and crossfader accept runtime dispatchers/clocks/waits at their existing boundaries. This phase does not move all ownership or replace every Android/media clock; broader ownership changes belong to Q11.
 
+Since Q10 `ProviderWorld` (`ProviderContractSupport.kt`) runs the real `YouTubeMusicProvider` on the pinned library with its HTTP transport replaced: each request is recorded and answered by the test from invented fixtures. See `provider-compatibility.md`.
+
 Required `PlaybackGateway` commands are abstract. The verification queue fake implements reorder and explicitly throws unsupported for transport commands; it owns no transport to close. The computed current-position helper remains.
 
 ## Synthetic fixtures

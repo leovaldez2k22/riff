@@ -10,10 +10,10 @@ internal fun originalAudioPlayerResponse(raw:String):String {
     val data=root["streamingData"] as? JsonObject ?: return raw
     val arrays=listOf("adaptiveFormats","formats")
     val formats=arrays.flatMap {(data[it] as? JsonArray).orEmpty()}.filterIsInstance<JsonObject>()
-    fun audio(f:JsonObject)=f["mimeType"]?.jsonPrimitive?.contentOrNull?.startsWith("audio/")==true || f["audioQuality"]!=null || f["audioTrack"]!=null
+    fun audio(f:JsonObject)=f["mimeType"]?.textOrNull?.startsWith("audio/")==true || f["audioQuality"]!=null || f["audioTrack"]!=null
     fun tags(f:JsonObject):String {
-        val tag=f["xtags"]?.jsonPrimitive?.contentOrNull.orEmpty()
-        val url=f["url"]?.jsonPrimitive?.contentOrNull.orEmpty()
+        val tag=f["xtags"]?.textOrNull.orEmpty()
+        val url=f["url"]?.textOrNull.orEmpty()
         val encoded=Regex("[?&]xtags=([^&]+)").find(url)?.groupValues?.get(1).orEmpty()
         return runCatching {URLDecoder.decode("$tag:$encoded","UTF-8")}.getOrDefault(tag).lowercase()
     }

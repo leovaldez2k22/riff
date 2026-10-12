@@ -6,16 +6,20 @@ internal enum class CatalogKind(val label: String) { Song("Song"), Album("Album"
 internal data class CatalogPage(val cards: List<ProviderHomeCard>, val next: String? = null,
     val title: String = "", val subtitle: String = "", val artworkUrl: String? = null,
     val shelves: List<ProviderHomeSection> = emptyList(), val description: String = "",
-    val collectionNext:String?=null,val albumTracks: List<ProviderHomeCard> = emptyList(),val artistName:String="",val artistId:String?=null,val editable:Boolean=false,val sortEndpoints:Map<CollectionSort,CollectionSortEndpoint> = emptyMap()) {
+    val collectionNext:String?=null,val albumTracks: List<ProviderHomeCard> = emptyList(),val artistName:String="",val artistId:String?=null,val editable:Boolean=false,val sortEndpoints:Map<CollectionSort,CollectionSortEndpoint> = emptyMap(),
+    /** Set when [albumTracks] is not the whole collection. Null on a single page, which makes no claim either way. */
+    val truncation:CollectionTruncation?=null) {
     val selectedSort:CollectionSort? get()=sortEndpoints.entries.firstOrNull {it.value.selected}?.key
 }
 internal fun ProviderHomeCard.key() = videoId ?: browseId ?: "$title:$subtitle"
 internal fun ProviderHomeCard.track(): ProviderTrack? = videoId?.takeIf { kind in setOf(CatalogKind.Song,CatalogKind.Episode,CatalogKind.Live) }?.let {
     ProviderTrack(it,title,playerArtistLabel(subtitle),artworkUrl,artistId,albumId,album,kind == CatalogKind.Live,kind == CatalogKind.Song)
 }
+/** The text of a primitive, or null for anything else. A field of the wrong type is a missing field, not a crash. */
+internal val JsonElement.textOrNull:String? get()=(this as? JsonPrimitive)?.contentOrNull
 internal fun catalogText(node: JsonElement?): String = when(node) {
-    is JsonObject -> node["simpleText"]?.jsonPrimitive?.contentOrNull
-        ?: (node["runs"] as? JsonArray)?.joinToString("") { it.jsonObject["text"]?.jsonPrimitive?.contentOrNull.orEmpty() }.orEmpty()
+    is JsonObject -> node["simpleText"]?.textOrNull
+        ?: (node["runs"] as? JsonArray)?.joinToString("") { (it as? JsonObject)?.get("text")?.textOrNull.orEmpty() }.orEmpty()
     is JsonPrimitive -> node.contentOrNull.orEmpty()
     else -> ""
 }
@@ -31,7 +35,7 @@ internal fun catalogRenderer(node: JsonElement?, key: String): JsonObject? = whe
 }
 internal fun catalogContinuation(node: JsonElement): String? {
     val next = catalogRenderer(node,"nextRadioContinuationData") ?: catalogRenderer(node,"nextContinuationData") ?: catalogRenderer(node,"continuationCommand")
-    return next?.get("continuation")?.jsonPrimitive?.contentOrNull ?: next?.get("token")?.jsonPrimitive?.contentOrNull
+    return next?.get("continuation")?.textOrNull ?: next?.get("token")?.textOrNull
 }
 internal fun catalogKind(page: String?, browse: String?, subtitle: String, live: Boolean): CatalogKind = when {
     live -> CatalogKind.Live
@@ -49,9 +53,9 @@ internal fun parseCatalogCards(root: JsonElement): List<ProviderHomeCard> {
             is JsonObject -> {
                 val lockup = node["lockupViewModel"] as? JsonObject
                 if(lockup != null) {
-                    val id = lockup["contentId"]?.jsonPrimitive?.contentOrNull
+                    val id = lockup["contentId"]?.textOrNull
                     val meta = catalogRenderer(lockup["metadata"],"lockupMetadataViewModel")
-                    val title = (meta?.get("title") as? JsonObject)?.get("content")?.jsonPrimitive?.contentOrNull.orEmpty()
+                    val title = (meta?.get("title") as? JsonObject)?.get("content")?.textOrNull.orEmpty()
                     val image = lockup["contentImage"]
                     val live = image.toString().contains("THUMBNAIL_OVERLAY_BADGE_STYLE_LIVE")
                         || catalogValue(image,"text") == "LIVE"
@@ -85,14 +89,14 @@ internal fun parseCatalogCards(root: JsonElement): List<ProviderHomeCard> {
                     if (title.isNotBlank() && (video != null || browse != null)) {
                         val bylines = listOf(item["longBylineText"], item["shortBylineText"], item["ownerText"], subtitleNode, column(1), column(2))
                         val artistRun = bylines.firstNotNullOfOrNull(::catalogArtistRun)
-                        val albumRun = (subtitleNode as? JsonObject)?.get("runs")?.jsonArray?.firstOrNull {
+                        val albumRun = (subtitleNode as? JsonObject)?.get("runs")?.let {it as? JsonArray}?.firstOrNull {
                             catalogValue(it,"browseId")?.startsWith("MPRE") == true }
-                        val artistName = catalogText(artistRun).ifBlank { (artistRun as? JsonObject)?.get("text")?.jsonPrimitive?.contentOrNull.orEmpty() }
+                        val artistName = catalogText(artistRun).ifBlank { (artistRun as? JsonObject)?.get("text")?.textOrNull.orEmpty() }
                         val art = providerThumbnail(item["thumbnail"]) ?: providerThumbnail(item["thumbnailRenderer"]) ?: providerThumbnail(item["thumbnails"])
                         val card = ProviderHomeCard(title, if (video != null) artistName.ifBlank { bylines.firstNotNullOfOrNull { playerArtistLabel(catalogText(it)).takeIf(String::isNotBlank) }.orEmpty() } else subtitle,
                             art ?: video?.let(::providerArtworkUrl), video,browse,kind,
                             catalogValue(artistRun,"browseId"),catalogValue(albumRun,"browseId"),
-                            (albumRun as? JsonObject)?.get("text")?.jsonPrimitive?.contentOrNull.orEmpty(),
+                            (albumRun as? JsonObject)?.get("text")?.textOrNull.orEmpty(),
                             catalogValue(item,"musicVideoType") in setOf("MUSIC_VIDEO_TYPE_OMV","MUSIC_VIDEO_TYPE_UGC"),
                             catalogValue(item,"musicVideoType")=="MUSIC_VIDEO_TYPE_OMV",
                             catalogValue(item["playlistItemData"],"playlistSetVideoId")?:catalogValue(item,"setVideoId"),playlistEntryAddedAt(item),
@@ -144,7 +148,7 @@ internal fun catalogPage(root: JsonElement): CatalogPage {
         providerThumbnail(header?.get("thumbnail")) ?: providerThumbnail(header?.get("foregroundThumbnail")),shelves,
         catalogText(catalogRenderer(root,"musicDescriptionShelfRenderer")?.get("description")).ifBlank {catalogText(header?.get("description"))},
         collectionShelf(root)?.let(::catalogContinuation),orderedCollectionTracks(root),
-        catalogText(header?.get("straplineText")).ifBlank {catalogText(header?.get("strapline"))}.ifBlank {artistRun?.get("text")?.jsonPrimitive?.contentOrNull.orEmpty()},
+        catalogText(header?.get("straplineText")).ifBlank {catalogText(header?.get("strapline"))}.ifBlank {artistRun?.get("text")?.textOrNull.orEmpty()},
         catalogValue(header?.get("straplineText"),"browseId")?:catalogValue(artistRun,"browseId"),
         catalogRenderer(root,"musicEditablePlaylistDetailHeaderRenderer")!=null || catalogValue(root,"isEditable")=="true" || catalogRenderer(root,"playlistEditEndpoint")!=null,collectionSortEndpoints(root))
 }

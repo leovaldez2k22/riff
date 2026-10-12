@@ -1,0 +1,21 @@
+{
+ "responseContext": {},
+ "status": "STATUS_SUCCEEDED",
+ "actions": [
+  {
+   "addToToastAction": {
+    "item": {
+     "notificationTextRenderer": {
+      "successResponseText": {
+       "runs": [
+        {
+         "text": "Saved"
+        }
+       ]
+      }
+     }
+    }
+   }
+  }
+ ]
+}

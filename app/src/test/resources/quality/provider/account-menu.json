@@ -1,0 +1,43 @@
+{
+ "responseContext": {},
+ "actions": [
+  {
+   "openPopupAction": {
+    "popup": {
+     "multiPageMenuRenderer": {
+      "header": {
+       "activeAccountHeaderRenderer": {
+        "accountName": {
+         "runs": [
+          {
+           "text": "Fixture Listener"
+          }
+         ]
+        },
+        "email": {
+         "simpleText": "listener@example.invalid"
+        },
+        "channelHandle": {
+         "runs": [
+          {
+           "text": "@fixture-listener"
+          }
+         ]
+        },
+        "accountPhoto": {
+         "thumbnails": [
+          {
+           "url": "https://yt3.ggpht.com/fixture-avatar=s108",
+           "width": 108,
+           "height": 108
+          }
+         ]
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ ]
+}

@@ -61,6 +61,17 @@ Merged into `main` and verified 6 October 2026. The local tested APK retains ver
 - Both crossfade volumes use a smooth monotonic clock. Decoder startup and buffering no longer compress the fade, timestamp jumps cannot jump either gain, and an early outgoing end cannot snap the incoming volume to full. The outgoing copy attaches the same loudness processing as the main player when its audio session becomes ready.
 
 Newest first. Release candidates before 0.9.0-rc16 were recorded only in the README; their text is kept here unchanged. Detailed implementation and verification records are in `docs/`.
+- A playlist or album with more than 2,000 songs now opens showing the first 2,000, with a line saying so. Before, it failed to open. **Play**, **Shuffle**, **Download all songs** and sorting are disabled on a list that is not the whole collection; tapping a song still plays from what is shown.
+- A list that YouTube Music stops sending part-way is labelled as possibly incomplete. Before, it was shown as if it were whole.
+- Changed: adding a song to a playlist, or removing one, is reported as done only when YouTube Music says so. If no answer arrives, Riff reads the playlist to find out; if that also fails it says **YouTube Music did not confirm this change. Riff will check before trying again**, and checks before sending anything again, so a song is not added twice.
+- Changed: a like or a library save answered with an empty reply is no longer treated as saved. A like is checked against YouTube Music; a save is reported as not confirmed.
+- Adding a song to several playlists reports how many were saved, how many failed and how many were not confirmed. Retrying sends only to the ones that did not succeed.
+- A song cannot be added to a playlist too large for Riff to read whole, because it could not check whether the song is already there.
+- Changed: failure messages for browsing and search. Riff now says when YouTube Music is limiting requests, refused a request, is having trouble, or does not have the item. It does not say why an item is unavailable, because YouTube Music does not tell it.
+- An error that YouTube Music sends inside an otherwise successful reply is now shown as an error. Before, it could appear as an empty page.
+- Like, save and playlist actions say **Checking your account** while the session is being verified, instead of saying you are signed out.
+- A change in the shape of YouTube Music's replies now leaves out the rows Riff cannot read instead of failing the whole page.
+- Not checked against YouTube Music in this build: all of the above was tested with invented replies and no account. See `docs/quality/provider-compatibility.md`.
 
 ## 0.9.0-rc20
 

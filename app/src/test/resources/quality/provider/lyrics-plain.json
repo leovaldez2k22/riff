@@ -1,0 +1,27 @@
+{
+ "responseContext": {},
+ "contents": {
+  "sectionListRenderer": {
+   "contents": [
+    {
+     "musicDescriptionShelfRenderer": {
+      "description": {
+       "runs": [
+        {
+         "text": "First fixture line\nSecond fixture line"
+        }
+       ]
+      },
+      "footer": {
+       "runs": [
+        {
+         "text": "Source: Fixture"
+        }
+       ]
+      }
+     }
+    }
+   ]
+  }
+ }
+}

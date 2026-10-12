@@ -23,18 +23,42 @@ internal fun playlistEditAccepted(body:String):Boolean=runCatching {
 internal suspend fun <T> sessionSafeMutation(block:suspend ()->T):Result<T> = supervisorScope {
     try {Result.success(async(Dispatchers.IO) {block()}.await())}
     catch(error:CancellationException) {ensureActive();Result.failure(IllegalStateException("YouTube Music refreshed its session. Retry the remaining selections."))}
+    catch(error:MutationUnconfirmed) {Result.failure(error)}
     catch(error:Exception) {Result.failure(IllegalStateException(error.message?.takeIf {!it.contains("http",true)}?:"YouTube Music could not update this playlist"))}
 }
 
-internal data class PlaylistBatchResult(val completed:Set<String>,val failures:Map<String,String>)
+/**
+ * One result for each destination. [unconfirmed] are among [failures]: sent, with no answer that could be
+ * read back. They stay selected like any other failure; the next attempt reads the playlist before sending.
+ */
+internal data class PlaylistBatchResult(val completed:Set<String>,val failures:Map<String,String>,val unconfirmed:Set<String> = emptySet()) {
+    fun summary():String = "${completed.size} saved; ${failures.size} could not be updated. "+
+        (if(unconfirmed.isNotEmpty()) "${unconfirmed.size} not confirmed by YouTube Music. " else "")+
+        failures.values.first().trimEnd('.')+". Retry the remaining selections."
+}
 internal suspend fun addToSelectedPlaylists(ids:Set<String>,add:suspend (String)->Result<Unit>):PlaylistBatchResult {
-    val completed=linkedSetOf<String>();val failures=linkedMapOf<String,String>()
+    val completed=linkedSetOf<String>();val failures=linkedMapOf<String,String>();val unconfirmed=linkedSetOf<String>()
     ids.forEach {id->add(id).fold(onSuccess={completed+=id},onFailure={error->
         if(error is kotlinx.coroutines.CancellationException) throw error
         failures[id]=error.message?:"Could not update playlist"
+        if(error is MutationUnconfirmed) unconfirmed+=id
     })}
-    return PlaylistBatchResult(completed,failures)
+    return PlaylistBatchResult(completed,failures,unconfirmed)
 }
+/**
+ * Adds [track] to one playlist: read it whole, refuse a read-only or partly loaded one, leave a song that
+ * is already there alone, and only then send the edit.
+ */
+internal suspend fun addTrackToPlaylist(reader:ProviderCatalogReader,mutations:ProviderMutations,id:String,name:String,track:ProviderTrack):Result<Unit> =
+    reader.completeCollection(id).fold(onSuccess={page->
+        when {
+            !page.editable -> Result.failure(IllegalStateException("$name is read-only"))
+            page.albumTracks.any {it.videoId==track.videoId} -> Result.success(Unit)
+            // Past the part that is loaded the song may already be there, and adding it again would add it twice.
+            page.truncation!=null -> Result.failure(IllegalStateException("$name is too large for Riff to check for this song"))
+            else -> mutations.addPlaylistSong(id,track.videoId)
+        }
+    },onFailure={Result.failure(it)})
 @Composable internal fun PlaylistPicker(track:ProviderTrack,onDismiss:()->Unit,onNotice:(String)->Unit) {
     val provider=YouTubeMusicProvider.shared(LocalContext.current)
     val scope=rememberCoroutineScope()
@@ -66,18 +90,13 @@ internal suspend fun addToSelectedPlaylists(ids:Set<String>,add:suspend (String)
             scope.launch {
                 val result=addToSelectedPlaylists(requested) {id->
                     progress=pages.firstOrNull {it.browseId==id}?.title.orEmpty()
-                    if(provider.authRevision!=revision) Result.failure(IllegalStateException("Account changed")) else {
-                        provider.completeCollection(id).fold(onSuccess={page->
-                            if(!page.editable) Result.failure(IllegalStateException("$progress is read-only"))
-                            else if(page.albumTracks.any {it.videoId==track.videoId}) Result.success(Unit)
-                            else provider.addPlaylistSong(id,track.videoId)
-                        },onFailure={Result.failure(it)})
-                    }
+                    if(provider.authRevision!=revision) Result.failure(IllegalStateException("Account changed"))
+                    else addTrackToPlaylist(provider,provider,id,progress,track)
                 }
                 selected=selected-result.completed;busy=false
                 if(result.completed.isNotEmpty()) provider.refreshLibraryIndex()
                 if(result.failures.isEmpty()) {uiHaptic(HapticCue.Confirm);onNotice("Song saved in ${result.completed.size} playlists");onDismiss()}
-                else {uiHaptic(HapticCue.Reject);error="${result.completed.size} saved; ${result.failures.size} could not be updated. "+result.failures.values.first()+". Retry the remaining selections."}
+                else {uiHaptic(HapticCue.Reject);error=result.summary()}
             }
         }) {Text(if(busy) "Saving…" else "Add to ${selected.size} playlists")}},
         dismissButton={TextButton(enabled=!busy,onClick=onDismiss) {Text("Cancel")}})
