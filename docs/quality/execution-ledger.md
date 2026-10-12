@@ -1048,6 +1048,7 @@ BLOCKED or not done:
 
 Device state: emulator shut down with adb emu kill after each run, adb server stopped, Gradle daemons stopped before and after the stress build. The emulator's network is off. On the emulator the app made one stream resolution, signed out; nothing was written to an account because there is none. No physical device, no real account, no publication, no push, no user-data deletion.
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Commit: be72164 on local branch codex/riff-quality-m0 (not pushed), after 3f83586.
 Next exact action: Q12. It is inside the 9 October authorization (Q03-Q18) but no instruction has named it; wait for "start Q12".
 
 ## Plan v1.1 additions (11 October 2026)
