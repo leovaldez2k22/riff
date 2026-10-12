@@ -1362,6 +1362,7 @@ BLOCKED, with rerun steps (the commands are in docs/quality/performance.md, "BLO
 
 Device state: emulator shut down with adb emu kill after the runs, Gradle daemons stopped before and after the stress build. The emulator's network stayed off throughout. The disposable emulator holds the debug app, its test APK, the benchmark variant and the benchmark test APK; adbd was restarted as root on it once, for the profile collection. No physical device, no real account, no provider request.
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Commit: 4029b5a on local branch codex/riff-quality-m0 (not pushed), after 43599f1, 543a48c, b150e30 and 91fe78b.
 Next exact action: Q15. It is inside the 9 October authorization (Q03-Q18) but no instruction has named it; wait for "start Q15". Finding 2 needs the user's decision whenever it suits; it does not hold Q15 up.
 
 ## Plan v1.1 additions (11 October 2026)
