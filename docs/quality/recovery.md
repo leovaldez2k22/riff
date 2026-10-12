@@ -22,7 +22,7 @@ Every playback failure is sorted into one class. The first rule that matches win
 | 10 | RejectedStream | Any other SABR failure, or HTTP 4xx | Refreshes the stream once on 403 or 410, then excludes the rejected profile |
 | 11 | ProviderUnavailable | Anything else: HTTP 5xx, an unexpected answer | Looks the stream up again |
 
-A provider song played from its downloaded files is its own source: any failure to read them is a storage failure ("Download incomplete or unavailable"), not a provider failure. A file from the phone's library that the decoder rejects is UnsupportedMedia.
+A provider song played from its downloaded files is its own source: any failure to read them is a storage failure ("Download incomplete or unavailable"), not a provider failure. This holds however the song was queued: an entry queued from the catalog and opened from its download is a download for as long as it is served from those files (Q09; see [downloads](downloads.md)). A file from the phone's library that the decoder rejects is UnsupportedMedia.
 
 Without a validated connection, nothing the provider appears to have said is trusted: a 403 from a captive portal is Offline.
 

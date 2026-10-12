@@ -18,9 +18,38 @@ import java.io.IOException
 import java.nio.ByteBuffer
 import kotlin.math.abs
 
+/** Rebuilds received audio into a seekable file without re-encoding. Throws when the audio is not whole. */
+internal fun interface AudioAssembler {
+    suspend fun assemble(source:File,output:File,expectedDurationMs:Long,check:()->Unit)
+}
+
+/**
+ * One run over the songs waiting in the active account (Q09). For each: resolve, transfer to a
+ * temporary file, rebuild and check, commit with a marker, then artwork and lyrics. The transfer
+ * always starts from the first byte with a fresh stream; nothing is appended to an earlier attempt.
+ */
 @OptIn(ExperimentalSabrApi::class)
 internal object OfflineDownloadEngine {
     private val gate=Mutex()
+    /** Not failures of the download: they say who must stop. Never swallowed by a step's own error handling. */
+    private sealed class Control(reason:String):RuntimeException(reason)
+    /** The whole run ends: the account changed, or Smart Downloads may no longer run. The song in hand waits again. */
+    private class RunStopped(val reason:String):Control(reason)
+    /** This song was taken from its transfer: removed or paused. The run goes on with the next song. */
+    private class Superseded:Control("superseded")
+    /** A failure that a fresh stream cannot cure, so it is not tried again in this run. */
+    private class Stop(val failure:DownloadFailure):IOException(failure.wire)
+    private class Rejected(code:Int):IOException("Audio transfer rejected ($code)")
+    private class Unusable(cause:Throwable):IOException("Audio could not be rebuilt",cause)
+
+    private fun classify(error:Throwable):DownloadFailure=when(error) {
+        is Stop -> error.failure
+        is Rejected -> DownloadFailure.Rejected
+        is Unusable -> DownloadFailure.Damaged
+        is IOException,is IllegalStateException -> DownloadFailure.Incomplete
+        else -> DownloadFailure.Other
+    }
+
     suspend fun run(context:Context,automatic:Boolean,
         dependencies:RuntimeDependencies=AppContainer.get(context).runtime,progress:(String)->Unit):Boolean=withContext(dependencies.dispatchers.io) {
         val store=OfflineMusicStore.get(context)
@@ -36,99 +65,141 @@ internal object OfflineDownloadEngine {
             val resolver:StreamResolver=dependencies.resolver?:provider
             val engine=dependencies.providerTransport().also {engineResource=it}
             val http=HttpClient(engine).also {clientResource=it}
+            val events=PlaybackEventLog(context)
+            // Finished downloads whose files are gone say so before anything new is fetched.
+            store.verifyComplete(scope).let {if(it>0) events.append("download_integrity damaged=$it")}
             if(automatic && store.smartEnabled && !store.playbackBusy) plan(context,store,scope,dependencies,provider)
-            val jobs=store.rows(scope).filter {it.state in setOf("queued","failed") && (if(automatic) !it.pinned else it.pinned)}.sortedByDescending {it.priority}
+            fun space()=dependencies.storageCapacity(store.root)
+            var pass=0
+            // Songs queued while a run is going are taken up by that run. Failed songs are tried once per run, in its first pass.
+            while(true) {
+            val first=pass++==0
+            val jobs=store.rows(scope).filter {(it.status==DownloadState.Queued || first && it.status==DownloadState.Failed && it.failures<DOWNLOAD_AUTOMATIC_RETRIES) &&
+                (if(automatic) !it.pinned else it.pinned)}.sortedByDescending {it.priority}
+            if(jobs.isEmpty()) break
+            var stopped=false
             for(job in jobs) {
                 ensureActive()
-                if(!process.sessions.owns(owner) || scope!=store.currentScope) break
+                if(!process.sessions.owns(owner) || scope!=store.currentScope) {stopped=true;break}
                 if(automatic && (!store.smartEnabled || store.playbackBusy)) return@withContext false
                 val id=job.track.videoId
-                if(store.song(scope,id)?.state !in setOf("queued","failed")) continue
-                val dir=store.directory(scope,id).apply {mkdirs()};val raw=File(dir,"audio.part");val assembled=File(dir,"assembled.part")
+                // The row's generation is this transfer's ticket. Every later write shows it.
+                val generation=store.beginDownload(scope,id)
+                if(generation==null) {store.discardUnlisted(scope,id);continue}
+                val dir=store.directory(scope,id).apply {mkdirs()}
+                val raw=File(dir,BundleValidator.SOURCE_PART);val assembled=File(dir,BundleValidator.ASSEMBLED_PART)
                 var nextConditionsCheck=0L
                 fun checkState() {
-                    if(!process.sessions.owns(owner) || scope!=store.currentScope || store.song(scope,id)?.state !in setOf("downloading","assets")) throw CancellationException("Download cancelled")
-                    if(automatic && (!store.smartEnabled || store.playbackBusy)) throw CancellationException("Automatic download paused")
+                    if(!process.sessions.owns(owner) || scope!=store.currentScope) throw RunStopped("owner")
+                    if(!store.holds(scope,id,generation)) throw Superseded()
+                    if(automatic && (!store.smartEnabled || store.playbackBusy)) throw RunStopped("automatic_paused")
                     val now=dependencies.clocks.monotonicMillis()
                     if(automatic && now>=nextConditionsCheck) {
                         nextConditionsCheck=now+1000
-                        if(!automaticConditionsAllowed(context,store,dependencies)) throw CancellationException("Download conditions changed")
+                        if(!automaticConditionsAllowed(context,store,dependencies)) throw RunStopped("conditions")
                     }
                 }
+                fun advance(vararg fields:Pair<String,Any>) {if(!store.updateDownload(scope,id,generation,*fields)) throw Superseded()}
                 var phase="resolve"
                 try {
-                    if(!store.beginDownload(scope,id)) {store.discardUnlisted(scope,id);continue}
                     checkState();progress("Downloading ${job.track.title}")
                     if(store.audio(scope,id)==null) {
                         var stream=resolver.resolve(StreamRequest(id,download=true,quality=com.metrolist.innertubex.extraction.AudioQuality.HIGH)).getOrThrow()
-                        val expected=stream.contentLength?:((stream.durationMs.takeIf {it>0}?:job.durationMs)*maxOf(stream.bitrate,320_000)/8000)
-                        val stats=dependencies.storageCapacity(store.root)
-                        if(!downloadFits(store.usedBytes(),expected,store.budgetBytes,stats.availableBytes,stats.totalBytes)) throw IOException("Storage limit reached. Free space or increase the download budget.")
-                        require(stream.mimeType?.contains("mpegurl",true)!=true) {"No complete downloadable audio is available"}
-                        val quality="${if(stream.bitrate>0) "${stream.bitrate/1000} kbps \u00B7 " else ""}${stream.mimeType?.substringBefore(';')?:"audio"} \u00B7 Highest available"
-                        store.update(scope,id,"quality" to quality,"total" to (stream.contentLength?:0L),"duration" to (stream.durationMs.takeIf {it>0}?:job.durationMs))
-                        // A failed/expired transfer gets a fresh exact-ID URL. SABR restarts safely instead of appending duplicate initialization.
-                        var downloaded=false
+                        if(stream.mimeType?.contains("mpegurl",true)==true) throw Stop(DownloadFailure.Unavailable)
                         val rejected=linkedSetOf<String>()
                         for(attempt in 0..2) {
-                            checkState();ensureActive();raw.delete();store.update(scope,id,"bytes" to 0L)
+                            checkState();ensureActive();raw.delete();assembled.delete()
+                            val duration=stream.durationMs.takeIf {it>0}?:job.durationMs
+                            val expected=stream.contentLength?.takeIf {it>0}?:(duration*maxOf(stream.bitrate,320_000)/8000)
+                            // What it will occupy when done counts against the budget; the source and the rebuilt copy must both fit while it is made.
+                            when(space().let {NetworkStoragePolicy.admit(store.usedBytes(scope),expected,store.budgetBytes,it.availableBytes,it.totalBytes)}) {
+                                NetworkStoragePolicy.Verdict.Fits -> {}
+                                NetworkStoragePolicy.Verdict.OverBudget -> throw Stop(DownloadFailure.Budget)
+                                NetworkStoragePolicy.Verdict.DeviceFull -> throw Stop(DownloadFailure.Storage)
+                                NetworkStoragePolicy.Verdict.Invalid -> throw Stop(DownloadFailure.Unavailable)
+                            }
+                            val quality="${if(stream.bitrate>0) "${stream.bitrate/1000} kbps · " else ""}${stream.mimeType?.substringBefore(';')?:"audio"} · Highest available"
+                            advance("state" to DownloadState.Transferring.db,"quality" to quality,"total" to (stream.contentLength?:0L),"duration" to duration,"bytes" to 0L)
                             try {
-                                var bytes=0L;var lastProgress=0L
+                                var bytes=0L;var lastProgress=0L;var lastSpaceCheck=0L
                                 phase="transfer"
                                 raw.outputStream().use {out->
+                                    fun received(data:ByteArray,offset:Int,count:Int) {
+                                        // A write that fails here is the device running out of room, not the provider.
+                                        try {out.write(data,offset,count)} catch(e:IOException) {throw Stop(DownloadFailure.Storage)}
+                                        bytes+=count
+                                        if(bytes>NetworkStoragePolicy.SONG_LIMIT) throw Stop(DownloadFailure.Unavailable)
+                                        if(bytes-lastProgress>256_000) {advance("bytes" to bytes);lastProgress=bytes}
+                                        if(bytes-lastSpaceCheck>1_048_576) {
+                                            lastSpaceCheck=bytes
+                                            if(!space().let {NetworkStoragePolicy.transferMayContinue(bytes,expected,it.availableBytes,it.totalBytes)}) throw Stop(DownloadFailure.Storage)
+                                        }
+                                    }
                                     if(stream.sabrBootstrap!=null) {
                                         var nextRange=0L
                                         SabrAudioStream(http,stream.sabrBootstrap!!).chunks().collect {chunk->
                                             checkState();ensureActive();check(chunk.startRange==nextRange) {"Non-contiguous audio transfer"}
-                                            out.write(chunk.data);nextRange=chunk.endRangeExclusive;bytes=nextRange
-                                            if(bytes-lastProgress>256_000) {store.update(scope,id,"bytes" to bytes);lastProgress=bytes}
-                                            if(bytes>512L*1024*1024) throw IOException("Song exceeds the per-file limit")
+                                            received(chunk.data,0,chunk.data.size);nextRange=chunk.endRangeExclusive
+                                            check(bytes==nextRange) {"Audio range does not match its data"}
                                         }
                                     } else {
-                                        val length=stream.contentLength?.takeIf {it>0} ?: throw IOException("Provider did not supply a complete audio length")
+                                        val length=stream.contentLength?.takeIf {it>0} ?: throw Stop(DownloadFailure.Unavailable)
                                         while(bytes<length) {
                                             checkState();ensureActive()
                                             val end=if(stream.boundedRange) minOf(bytes+1_048_576-1,length-1) else length-1
                                             val url=if(stream.boundedRange) stream.url.toHttpUrl().newBuilder().setQueryParameter("range","$bytes-$end").build() else stream.url.toHttpUrl()
                                             val request=Request.Builder().url(url).apply {stream.headers.forEach {(k,v)->header(k,v)};if(bytes>0 && !stream.boundedRange) header("Range","bytes=$bytes-")}.build()
                                             dependencies.httpCalls.newCall(request).execute().use {response->
-                                                if(!response.isSuccessful) throw IOException("Audio transfer rejected (${response.code})")
-                                                val wanted=end-bytes+1;var received=0L
+                                                if(!response.isSuccessful) throw Rejected(response.code)
+                                                val wanted=end-bytes+1;var got=0L
                                                 response.body.byteStream().use {input->val buffer=ByteArray(64*1024);while(true) {
                                                     ensureActive();checkState();val n=input.read(buffer);if(n<0) break
-                                                    received+=n;if(received>wanted) throw IOException("Unexpected audio range")
-                                                    out.write(buffer,0,n);bytes+=n
-                                                    if(bytes-lastProgress>256_000) {store.update(scope,id,"bytes" to bytes);lastProgress=bytes}
+                                                    got+=n;if(got>wanted) throw IOException("Unexpected audio range")
+                                                    received(buffer,0,n)
                                                 }}
-                                                if(received!=wanted) throw IOException("Incomplete audio transfer")
+                                                if(got!=wanted) throw IOException("Incomplete audio transfer")
                                             }
                                         }
                                     }
-                                    out.fd.sync()
+                                    try {out.fd.sync()} catch(e:IOException) {throw Stop(DownloadFailure.Storage)}
                                 }
                                 stream.contentLength?.takeIf {it>0}?.let {if(raw.length()!=it) throw IOException("Incomplete audio length")}
                                 phase="validate"
-                                remux(raw,assembled,stream.durationMs.takeIf {it>0}?:job.durationMs,::checkState)
+                                advance("state" to DownloadState.Validating.db,"bytes" to raw.length())
+                                if(!space().let {NetworkStoragePolicy.rebuildMayStart(raw.length(),it.availableBytes,it.totalBytes)}) throw Stop(DownloadFailure.Storage)
+                                try {dependencies.assembler.assemble(raw,assembled,duration,::checkState)}
+                                catch(e:CancellationException) {throw e} catch(e:Control) {throw e}
+                                catch(e:Exception) {
+                                    // A rebuild that stops because the device filled up is a storage failure, not bad audio.
+                                    if(space().availableBytes<raw.length()) throw Stop(DownloadFailure.Storage)
+                                    throw Unusable(e)
+                                }
                                 checkState();ensureActive()
-                                val audio=File(dir,"audio.media");check(assembled.renameTo(audio)) {"Could not commit audio"};raw.delete()
-                                // Before the bundle is marked complete, so a complete bundle never gains or loses its value later.
-                                BundleLoudness.write(dir,stream.loudnessDb)
-                                File(dir,"ready").writeText(audio.length().toString());store.update(scope,id,"bytes" to audio.length(),"total" to audio.length(),"downloaded_at" to dependencies.clocks.wallTimeMillis());downloaded=true;break
-                            } catch(e:CancellationException) {throw e} catch(e:Exception) {
+                                phase="commit"
+                                // Under the store's lock, so a removal cannot delete the folder between the check and the rename.
+                                val audio=try {store.commitAudio(scope,id,generation) {BundleValidator.commit(dir,assembled,stream.loudnessDb)}}
+                                    catch(e:IOException) {throw Stop(DownloadFailure.Commit)}
+                                if(audio==null) throw Superseded()
+                                raw.delete()
+                                advance("bytes" to audio.length(),"total" to audio.length(),"downloaded_at" to dependencies.clocks.wallTimeMillis())
+                                break
+                            } catch(e:CancellationException) {throw e} catch(e:Control) {throw e} catch(e:Stop) {throw e} catch(e:Exception) {
                                 raw.delete();assembled.delete();if(dependencies.resolver==null) provider.invalidateStream(id)
                                 if(attempt==2) throw e
+                                events.append("download_retry phase=$phase attempt=${attempt+1} failure=${classify(e).wire}")
                                 stream.profileId?.let {rejected.add(it)}
-                                dependencies.wait((attempt+1)*1000L);stream=resolver.resolve(StreamRequest(id,excludedProfiles=rejected.toSet(),download=true,quality=com.metrolist.innertubex.extraction.AudioQuality.HIGH)).getOrThrow()
-                                store.update(scope,id,"quality" to "${if(stream.bitrate>0) "${stream.bitrate/1000} kbps \u00B7 " else ""}${stream.mimeType?.substringBefore(';')?:"audio"} \u00B7 Highest available","duration" to (stream.durationMs.takeIf {it>0}?:job.durationMs))
+                                advance("state" to DownloadState.Resolving.db,"bytes" to 0L);phase="resolve"
+                                dependencies.wait((attempt+1)*1000L);checkState()
+                                stream=resolver.resolve(StreamRequest(id,excludedProfiles=rejected.toSet(),download=true,quality=com.metrolist.innertubex.extraction.AudioQuality.HIGH)).getOrThrow()
+                                if(stream.mimeType?.contains("mpegurl",true)==true) throw Stop(DownloadFailure.Unavailable)
                             }
                         }
-                        check(downloaded)
                     }
+                    // From here the song is playable. Artwork and lyrics have their own states and cannot undo that.
                     phase="assets"
-                    if(!store.updateDownload(scope,id,"state" to "assets")) throw CancellationException("Download removed")
+                    advance("state" to DownloadState.Assets.db)
                     val duration=store.song(scope,id)?.durationMs?:job.durationMs
-                    val art=store.artwork(scope,id)
-                    if(art==null) {
+                    if(store.artwork(scope,id)==null) {
                         try {
                             val url=validProviderArtworkUrl(job.track.artworkUrl)?.let(::highQualityArtworkUrl)?:throw IOException("No artwork")
                             val temp=File(dir,"artwork.part")
@@ -137,32 +208,48 @@ internal object OfflineDownloadEngine {
                                 val bytes=java.io.ByteArrayOutputStream();r.body.byteStream().use {input->val buffer=ByteArray(8192);while(true) {ensureActive();checkState();val count=input.read(buffer);if(count<0) break;if(bytes.size()+count>8_000_000) throw IOException("Artwork too large");bytes.write(buffer,0,count)}}
                                 val data=bytes.toByteArray();if(android.graphics.BitmapFactory.decodeByteArray(data,0,data.size)==null) throw IOException("Invalid artwork");temp.writeBytes(data)
                             }
-                            checkState();check(temp.renameTo(File(dir,"artwork")));store.markArtwork(scope,id,true);store.update(scope,id,"artwork" to "available")
-                        } catch(e:CancellationException) {throw e} catch(_:Exception) {store.update(scope,id,"artwork" to "failed")}
+                            checkState();check(temp.renameTo(File(dir,"artwork")));store.markArtwork(scope,id,true);advance("artwork" to "available")
+                        } catch(e:CancellationException) {throw e} catch(e:Control) {throw e}
+                        catch(_:Exception) {File(dir,"artwork.part").delete();advance("artwork" to "failed")}
                     }
                     if(store.lyrics(scope,id)==null) {
-                        val lyrics=LyricsRepository.get(context)
                         try {
                             var best:LyricsDocument?=null
-                            val finished=withTimeoutOrNull(50_000) {lyrics.lyrics(LyricsTrack("yt:$id",job.track.title,job.track.artist,job.track.album,duration)) {provider.lyricsFor(id,duration)}.collect {best=it};true}==true
+                            val track=LyricsTrack("yt:$id",job.track.title,job.track.artist,job.track.album,duration)
+                            val source=dependencies.downloadLyrics?.invoke(track)?:LyricsRepository.get(context).lyrics(track) {provider.lyricsFor(id,duration)}
+                            val finished=withTimeoutOrNull(50_000) {source.collect {best=it};true}==true
                             checkState()
-                            if(best!=null) {val temp=File(dir,"lyrics.part");temp.writeText(encodeLyricsDocument(best!!).toString());check(temp.renameTo(File(dir,"lyrics.json")));store.update(scope,id,"lyrics" to if(best!!.instrumental) "instrumental" else "available")}
-                            else store.update(scope,id,"lyrics" to if(finished) "unavailable" else "failed")
-                        } catch(e:CancellationException) {throw e}
-                        catch(_:Exception) {store.update(scope,id,"lyrics" to "failed")}
+                            if(best!=null) {val temp=File(dir,"lyrics.part");temp.writeText(encodeLyricsDocument(best!!).toString());check(temp.renameTo(File(dir,"lyrics.json")));advance("lyrics" to if(best!!.instrumental) "instrumental" else "available")}
+                            else advance("lyrics" to if(finished) "unavailable" else "failed")
+                        } catch(e:CancellationException) {throw e} catch(e:Control) {throw e}
+                        catch(_:Exception) {File(dir,"lyrics.part").delete();advance("lyrics" to "failed")}
                     }
-                    checkState();store.updateDownload(scope,id,"state" to "complete","error" to "")
+                    checkState();advance("state" to DownloadState.Complete.db,"error" to "","failures" to 0)
                 } catch(e:CancellationException) {
-                    store.updateDownload(scope,id,"state" to "queued")
-                    raw.delete();assembled.delete();store.discardUnlisted(scope,id);throw e
+                    // The job or the service was stopped. The song waits; what was committed stays.
+                    store.updateDownload(scope,id,generation,"state" to DownloadState.Queued.db)
+                    BundleValidator.sweep(dir);store.discardUnlisted(scope,id);throw e
+                } catch(e:Superseded) {
+                    // Removed or paused. Whoever took the row decides its state; only this transfer's unfinished files go.
+                    BundleValidator.sweep(dir);store.discardUnlisted(scope,id);continue
+                } catch(e:RunStopped) {
+                    store.updateDownload(scope,id,generation,"state" to DownloadState.Queued.db)
+                    BundleValidator.sweep(dir);events.append("download_stopped reason=${e.reason} phase=$phase")
+                    return@withContext false
                 } catch(error:Exception) {
                     // An account switch can fail a request in flight. That is not a failed download: it waits for its owner.
-                    if(!process.sessions.owns(owner) || scope!=store.currentScope) {store.updateDownload(scope,id,"state" to "queued");raw.delete();assembled.delete();break}
-                    // A bulk removal may delete a file during IO. Never resurrect its row as failed.
-                    if(store.song(scope,id)?.state !in setOf("downloading","assets")) {raw.delete();assembled.delete();store.discardUnlisted(scope,id);continue}
-                    PlaybackEventLog(context).append("download_failed phase=$phase kind=${error::class.simpleName}")
-                    raw.delete();assembled.delete();store.updateDownload(scope,id,"state" to if(store.audio(scope,id)!=null) "complete" else "failed","error" to "Download incomplete. Check storage and connection, then retry.")
+                    if(!process.sessions.owns(owner) || scope!=store.currentScope) {store.updateDownload(scope,id,generation,"state" to DownloadState.Queued.db);BundleValidator.sweep(dir);stopped=true;break}
+                    // A removal may delete a file during IO. Never resurrect its row as failed.
+                    if(!store.holds(scope,id,generation)) {BundleValidator.sweep(dir);store.discardUnlisted(scope,id);continue}
+                    val failure=classify(error)
+                    events.append("download_failed phase=$phase kind=${error::class.simpleName} failure=${failure.wire}")
+                    BundleValidator.sweep(dir)
+                    // Audio that was committed is a finished download even if a later step threw.
+                    if(store.audio(scope,id)!=null) store.updateDownload(scope,id,generation,"state" to DownloadState.Complete.db,"error" to "","failures" to 0)
+                    else store.failDownload(scope,id,generation,failure)
                 }
+            }
+            if(stopped) break
             }
             true
         } finally {
@@ -174,40 +261,48 @@ internal object OfflineDownloadEngine {
         }
     }
     internal fun automaticConditionsAllowed(context:Context,store:OfflineMusicStore,
-        dependencies:RuntimeDependencies=AppContainer.get(context).runtime):Boolean {
-        val network=dependencies.networkConditions()
-        return dependencies.batteryPercent() !in 0..19 && smartDownloadNetworkAllowed(store.allowMobileData,
-            network.wifi,network.unmetered,network.validated)
-    }
+        dependencies:RuntimeDependencies=AppContainer.get(context).runtime):Boolean =
+        NetworkStoragePolicy.automaticAllowed(store.allowMobileData,dependencies.networkConditions(),dependencies.batteryPercent())
     private fun plan(context:Context,store:OfflineMusicStore,scope:String,dependencies:RuntimeDependencies,provider:YouTubeMusicProvider) {
         if(!store.smartEnabled) return
         val rows=store.rows(scope);val likes=provider.songLikes;val favorites=LocalCollections(context,provider.accountScopeKey()).onlineFavorites.map {it.videoId}.toSet()
+        // A song the user removed is excluded and is not chosen again until the user downloads it by hand.
         val chosen=smartCandidates(rows.filterNot {it.excluded}.map {SmartCandidate(it.track.videoId,it.lastPlayed,it.plays,it.listenedMs,it.durationMs,likes[it.track.videoId]==true || it.track.videoId in favorites,it.track.isLive,it.track.isMusic)},dependencies.clocks.wallTimeMillis())
         val ids=chosen.map {it.id}.toSet()
+        // The selection rolls: what it no longer holds goes. A song the user pinned is never part of that.
         rows.filter {!it.pinned && it.state!="metadata" && it.track.videoId !in ids}.forEach {store.remove(scope,it.track.videoId,exclude=false)}
-        val stats=dependencies.storageCapacity(store.root);var estimated=store.usedBytes();var available=stats.availableBytes
+        val stats=dependencies.storageCapacity(store.root);var estimated=store.usedBytes(scope);var available=stats.availableBytes
         for((index,candidate) in chosen.withIndex()) {
             val row=rows.first {it.track.videoId==candidate.id};if(row.pinned || store.audio(scope,candidate.id)!=null) continue
+            // It failed in as many runs as are tried; choosing it again would only repeat that.
+            if(row.status==DownloadState.Failed && row.failures>=DOWNLOAD_AUTOMATIC_RETRIES) continue
             val estimate=candidate.durationMs*320_000/8000
-            if(downloadFits(estimated,estimate,store.budgetBytes,available,stats.totalBytes)) {store.enqueue(row.track,false);store.update(scope,candidate.id,"priority" to (250-index));estimated+=estimate;available-=estimate}
+            if(NetworkStoragePolicy.admit(estimated,estimate,store.budgetBytes,available,stats.totalBytes)==NetworkStoragePolicy.Verdict.Fits) {
+                if(row.status?.pending!=true && row.status!=DownloadState.Failed) store.enqueue(row.track,false)
+                store.update(scope,candidate.id,"priority" to (250-index));estimated+=estimate;available-=estimate
+            }
         }
     }
-    /** Rebuild container indexing without re-encoding: retain the selected source audio quality and make offline seeking reliable. */
-    private suspend fun remux(input:File,output:File,expectedDuration:Long,checkState:()->Unit) {
+}
+
+/** Rebuild container indexing without re-encoding: retain the selected source audio quality and make offline seeking reliable. */
+internal object AndroidAudioAssembler:AudioAssembler {
+    override suspend fun assemble(source:File,output:File,expectedDurationMs:Long,check:()->Unit) {
         val extractor=MediaExtractor();var muxer:MediaMuxer?=null
         try {
-            extractor.setDataSource(input.absolutePath)
+            extractor.setDataSource(source.absolutePath)
             val track=(0 until extractor.trackCount).firstOrNull {extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/")==true}?:throw IOException("No valid audio")
             val format=extractor.getTrackFormat(track);extractor.selectTrack(track)
             val mime=format.getString(MediaFormat.KEY_MIME).orEmpty()
             output.delete();muxer=MediaMuxer(output.absolutePath,if(mime.contains("opus") || mime.contains("vorbis")) MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM else MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
             val target=muxer.addTrack(format);muxer.start();val buffer=ByteBuffer.allocate(2*1024*1024);val info=MediaCodec.BufferInfo();var endUs=0L;var samples=0
             while(true) {
-                currentCoroutineContext().ensureActive();checkState();buffer.clear();val size=extractor.readSampleData(buffer,0);if(size<0) break
+                currentCoroutineContext().ensureActive();check();buffer.clear();val size=extractor.readSampleData(buffer,0);if(size<0) break
                 val time=extractor.sampleTime;info.set(0,size,time,if(extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC!=0) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0)
                 muxer.writeSampleData(target,buffer,info);endUs=maxOf(endUs,time);samples++;extractor.advance()
             }
-            if(samples==0 || expectedDuration<=0 || abs(endUs/1000-expectedDuration)>maxOf(3000,expectedDuration/20)) throw IOException("Incomplete song duration")
+            // Duration consistency: what was received must run as long as the provider said, within 3 s or 5 percent.
+            if(samples==0 || expectedDurationMs<=0 || abs(endUs/1000-expectedDurationMs)>maxOf(3000,expectedDurationMs/20)) throw IOException("Incomplete song duration")
             muxer.stop()
         } finally {extractor.release();muxer?.release()}
     }

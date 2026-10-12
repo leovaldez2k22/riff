@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -698,6 +698,92 @@ Device state: emulator shut down with adb emu kill, adb server stopped, Gradle d
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
 Commit: 18080c7 on local branch codex/riff-quality-m0 (not pushed).
 Next exact action: Q09. It is inside the 9 October authorization (Q03-Q18) but the user's instruction covered Q08 and Q08A only; wait for "start Q09".
+
+## Q09
+### Q09 completion (12 October 2026)
+Status: PASS locally and on the disposable emulator. A real process kill on a phone, Android 14 and 15 background limits, the SABR transfer path and a real provider download are BLOCKED or not covered (below).
+Source: 4be57575ca5b794bd521c9ff04275517d4d6c232 dirty, digest prefix e5ba47bf700a (full value in the manifests). Evidence root: artifacts/quality/4be57575ca5b794bd521c9ff04275517d4d6c232-dirty-e5ba47bf700a/
+User instruction on 12 October 2026: "Start q09" (standing rule: complete every aspect of the phase). Q05R, Q10A, Q12A and Q15A were not started and remain unauthorized. Q10 has not been started.
+
+Implemented (new: DownloadState.kt, NetworkStoragePolicy.kt, BundleValidator.kt; changed: OfflineMusicStore.kt, OfflineDownloadEngine.kt, OfflineDownloadService.kt, MusicPlaybackService.kt, DownloadsScreen.kt, LibraryShortcuts.kt, AppContainer.kt):
+- States: metadata, queued, resolving, transferring, validating, assets, complete, paused, failed, cancelled. "downloading" from earlier builds reads as transferring. A string no build writes is not guessed at: the row is kept, shown as "Needs downloading again" and repaired at the next start.
+- Generation per row (database version 4 adds generation and failures; the older table is upgraded in place). A run takes the generation when it begins a song; every later write and the commit name it. Remove, pause, the startup check and marking a download damaged raise it, so a late result cannot write to a row it no longer holds.
+- Order of a transfer: source to audio.part and flushed; rebuilt to assembled.part and checked (audio present, duration within 3 s or 5 percent of what the provider declared); flushed; renamed to audio.media; loudness written; ready.part written with the audio length, flushed and renamed to ready; row to assets; artwork and lyrics each through a .part file; row to complete. Audio readiness is the success; artwork and lyrics have their own states and cannot undo it.
+- Startup check (reconcile): in-flight rows lose their unfinished files and wait again, keeping audio that was committed with its marker; an interrupted removal is finished; waiting, paused and failed rows keep their state; no row is deleted. One download_reconcile line with counts. Finished rows are checked when the Downloads screen loads and at the start of each run.
+- Space: admitted against the budget (audio plus 9 MB for assets) and against the device (two copies plus 9 MB above a reserve of 1 GB or a tenth of storage, with Unlimited too). Checked again about every megabyte and before the rebuild.
+- Failures: a fixed set of ten messages; nothing from a response, an address or an account is stored. Inside a run a failed transfer is tried at most twice more, each with a newly resolved stream and the refused profiles excluded. A failed song is tried by later runs at most three runs in all, then waits for the user.
+- Bulk requests keep complete, running and paused songs and count each new song once. Removal and Delete downloads cancel the transfers for those rows and are limited to one account. Smart Downloads pauses only its own choices, respects removals and never removes pins. An account switch stops the run and leaves the song in hand queued under its own account.
+- Scheduling: idempotent. A job that is already waiting or running with the same conditions is left alone. Before, every request, account event or settings change rescheduled the job, which stops it, and with it the transfer in progress. A refused foreground service (started from the background, or out of allowance) is caught and logged and the job carries on; onTimeout does the same.
+- Labels and actions say what happens: "Paused - starts again from the beginning" (with a middle dot in the app), "Restart download", "Retry missing assets". Nothing is called Resume.
+- Playing: a download is opened only if its marker matches and its first bytes are a WebM or MP4 container; otherwise it is marked failed, its marker withdrawn, and the song streams. A player failure on a download is a download failure however the song was queued: "Download incomplete or unavailable" with Redownload and Remove, no automatic retry, no provider request. Found while writing the emulator test and fixed: a song queued from the catalog and served from its download was classed as a provider failure and the same file was reopened up to the recovery budget.
+- RuntimeDependencies gains the audio rebuild (AudioAssembler) and the source of a download's lyrics, so the engine can be run end to end in a JVM test.
+- Docs: docs/quality/downloads.md (new), recovery.md, deterministic-harness.md, CHANGELOG.
+
+Verification:
+- Debug (q09-debug-01/manifest.json): PASS_LOCAL. 655 JVM tests / 79 suites, zero failures, errors or skips (Q08A: 583 / 75). Lint 0 errors, 84 warnings, 5 hints; no issue added or removed against q08a-debug-01. APK SHA-256 94e963fda14ef3e0e7c9f6eff61e7e46a9d3b80d292d19798257ccbce1ec9ece.
+- New JVM tests (72): DownloadPolicyTest (17), DownloadReconcileTest (14), DownloadEngineTest (36), DownloadSchedulingTest (5). DownloadControlsTest now also checks that clearing the playback cache leaves a finished download sound. DownloadBatchTest, AccountScopeMergeTest and LocalDataControllerTest were changed for the new signatures and state names.
+- Emulator, bound (q09-debug-fixture-01/manifest.json, log q09-instrumentation-01.log, install-01.log): PASS_LOCAL, all five gates PASS. 46 tests, 304.359 s: the 40 of Q08A plus 6 DownloadLifecycleDeviceTest. Test APK SHA-256 f0711bb17929b6829895ac89d3f26d1033b38a9e47a7a782a19b76961d949be7. riff_q02_fixture, API 31, network disabled and confirmed unreachable, signed out. The crossfade classes ran first, soon after boot.
+- Emulator, not bound (q09-two-player-instrumentation-01.log, install-02.log): CrossfadeDeviceTest and SongFadeDeviceTest, 15 tests, OK, 208.796 s, on a freshly started emulator.
+- Release (q09-release-01/manifest.json): PASS_LOCAL. junit {"suites": 79, "tests": 655, "failures": 0, "errors": 0, "skipped": 0}; lint {"Warning": 84, "Hint": 5}; no issue added or removed against q08a-release-01. APK SHA-256 c6cfef4922d8d956f907be69abb5edd615f36e03bb9325d2d20e259802dc315a. Shrunk unsigned release 26.56 MiB (Q08A: 26.51). No device run of the release artifact.
+- Shrunk release, solver seam (solver-seam-release-01.txt): PASS, unchanged.
+- Stress (stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only.
+- The evidence was taken before this ledger entry was written; the entry is the only change after it.
+
+How a stop of the app is tested: in the JVM tests an Error is thrown from a scripted part (resolver, audio response, free-space reading, rebuild, clock, artwork response). The engine catches Exception and its own control types, not Error, so none of its handlers run, as none would if the process died. The store is then opened afresh. This reproduces the state on disk and in the database; it is not a process kill on a device.
+
+Failed attempts before the evidence runs (none preserved as files; all were in working runs):
+- DownloadReconcileTest: fixture ids were 12 characters, not 11, so every row was skipped as not a video id. Test change only.
+- DownloadEngineTest, first runs: wrong expectations about profile numbering, retry counts within a run and the value a run returns with nothing to do; a removal made while the source file was open could not delete it on the build machine's file system, so that case removes and asks again from inside the resolver instead. Robolectric's image decoder accepts any bytes, so the case of artwork that is not an image is tested on the emulator.
+- DownloadLifecycleDeviceTest, first emulator run: 6 tests, 2 failures. One expected the label "Download missing" where the row is failed and the label is "Download failed"; test change. The other was real: a download cut short after a valid start failed in the player with ERROR_CODE_IO_UNSPECIFIED caused by EOFException, which the service did not count as damage, so the row stayed complete. A download that ends before its own index says it should is now marked damaged. Second run: 1 failure, a wrong assertion that no player error is held while a song waits for a connection (one is, by the Q07 design). Third run: 6 of 6.
+- NormalizationDeviceTest built its downloads from WAV, which the new container check refuses at play time. It now uses the same AAC-in-MP4 fixture as the download test (DownloadFixtures.kt, encoded on the emulator from the generated tones). 9 of 9 after the change.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| DLD01: stop in each phase; restart leaves each song queued or complete, never falsely complete | PASS (JVM) | Six stop points in DownloadEngineTest from resolve to the last asset, each followed by a fresh store and a second run that completes; DownloadReconcileTest for each stored state. Not a device process kill |
+| DLD02: bad range, 403, truncated, full disk | PASS (JVM; emulator for truncated and wrong duration with the real muxer) | 403 mid-transfer recovers with a new stream; always refused ends failed after three attempts; wrong range, no length, wrong length, manifest, corrupt audio; full before, during, before rebuild, during rebuild, at commit. Nothing playable and no .part file is left in any of them |
+| DLD03: offline restart and seek with no provider requests | PASS (emulator, network off) | A download rebuilt by Android's muxer plays, seeks to 21 s and back, moves to the next download and plays again from an empty player: no stream lookup event, no recovery event, resolver and audio request counts unchanged. The app process was not restarted in that test; the JVM test restarts the store and shows no further request |
+| DLD04: clearing the playback cache keeps downloads | PASS (JVM) | DownloadControlsTest: bundle sound and row complete after the cache is cleared |
+| DLD05: Smart Downloads policy changes | PASS (JVM) | Network changing to mobile mid-transfer, battery below 20 percent, playback starting, Smart Downloads switched off: the song in hand returns to the queue with no files. Requests by hand ignore these |
+| DLD06: bulk duplicates and manual pins | PASS (JVM) | Duplicates in one request are fetched once; complete and running songs are kept; pins survive Smart Downloads cleanup and switching it off |
+| Delete-all during assets | PASS (JVM) | The run stops at its next step; rows return to metadata; no files |
+| Account switch pauses transfers | PASS (JVM, with the existing AccountSwitchDeviceTest unchanged on the emulator) | |
+| Scoped deletion | PASS (JVM) | Another account's rows and files untouched |
+| Idempotent scheduling; foreground-service refusal | PASS (Robolectric) | Same JobInfo object after five repeats; a refusal leaves the song queued with the job scheduled. Not run on Android 14 or 15 |
+| Invalid bundle offers a way to download again | PASS (JVM; emulator) | Refused before decoding (container) and after a player failure (cut short), each once, with the row failed and the marker withdrawn; downloading again plays |
+| Complete fixtures play with zero provider calls | PASS (emulator) | As DLD03 |
+
+Decisions (mine, not the user's):
+- No resume of a partial transfer. A stream address is short-lived and tied to its request, and a partial source cannot be validated; restarting with a fresh stream is what the plan's "fresh-stream restart" asks for. The labels say so.
+- Two copies plus assets must fit above the reserve before a transfer starts. This is stricter than before and refuses some downloads that would previously have started and failed during the rebuild.
+- Three runs of automatic retry for a failed song, then it waits for the user.
+- The check before playing reads twelve bytes. Reading the whole file on every play was judged too slow; deeper damage is caught when the player fails on it.
+- A player failure on a download marks it damaged only when the files fail the check, the container cannot be parsed, the file is missing or it ends early. A decoder that fails to start is not taken as proof that the file is bad.
+- Space, budget and no-audio failures fail the song at once without the in-run retries.
+- Pause in the notification pauses every download asked for by hand in the active account, not only the one in hand.
+
+Known limits:
+- A song that cannot finish inside one background job (about eight minutes) starts again in the next. It finishes with the app open or the foreground service allowed.
+- The periodic Smart Downloads job is best effort; Android decides when it runs.
+- Deeper damage in a finished download is found only when it is played.
+- The row message for a download found damaged is general; it does not say which file.
+
+Not covered by any test:
+- The SABR transfer path (no fixture produces a SABR stream). Its contiguity checks are in the engine and unexercised.
+- WebM/Opus through the real muxer. The emulator fixture is AAC in MP4.
+- The Redownload and Remove actions end to end from the failure row (carried from Q07).
+- The Downloads screen was not looked at on a screen with the new labels; the label function is tested.
+
+BLOCKED:
+- A process kill and a power loss during a transfer on a phone. Rerun: start a large download, force-stop the app (and separately reboot) during Downloading, Checking audio and Saving artwork and lyrics; reopen; expect Waiting to download or Downloaded, never Downloaded without audio, and a download_reconcile line in the copied diagnostics. Needs explicit approval for installation.
+- Android 14 and 15: start a download, background the app, queue another from a notification or widget path; expect download_service_refused or download_foreground_refused and the song finishing through the job. On Android 15, the daily limit (download_foreground_timeout). Needs hardware or an emulator image at those levels; only API 31 is present in the toolchain.
+- A real provider download: one song over Wi-Fi, one over mobile data with Smart Downloads set to Wi-Fi only, one with the phone nearly full. Needs the network, the provider and approval.
+- The release APK on a device.
+- Carried from Q04 to Q08A: as listed in the Q08 and Q08A entries.
+
+Device state: emulator shut down with adb emu kill, adb server stopped, Gradle daemons stopped once before the stress build. On the emulator only: fixture downloads fixtureD001 to fixtureD007 and fixtureN001 to fixtureN012 were created in and removed from the signed-out download folder and its table, fixture tones were added to and removed from the media library, and audio and crossfade settings were set and cleared. No physical device, real account, provider request, publication, push or user-data deletion. Deleted build outputs were regenerable files under app/build.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q10. It is inside the 9 October authorization (Q03-Q18) but the user's instruction covered Q09 only; wait for "start Q10".
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.

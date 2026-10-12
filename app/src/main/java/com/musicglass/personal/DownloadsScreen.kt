@@ -38,8 +38,7 @@ internal suspend fun requestSongDownload(context:Context,track:ProviderTrack,onN
     try {
         if(!OfflineMusicStore.get(context).canSave) {uiHaptic(HapticCue.Reject);onNotice(VERIFY_TO_SAVE_NOTICE);return}
         withContext(Dispatchers.IO) {OfflineMusicStore.get(context).enqueue(track)}
-        context.startForegroundService(Intent(context,OfflineDownloadService::class.java))
-        OfflineDownloadScheduler.resumeManualLater(context);uiHaptic(HapticCue.Confirm);onNotice("Downloading highest available audio, artwork and lyrics")
+        DownloadCoordinator.start(context);uiHaptic(HapticCue.Confirm);onNotice("Downloading highest available audio, artwork and lyrics")
     } catch(e:CancellationException) {throw e} catch(_:Exception) {uiHaptic(HapticCue.Reject);onNotice("Could not start download. Retry from Downloads.")}
 }
 @Composable internal fun DownloadSongAction(track:ProviderTrack,onNotice:(String)->Unit={},onDismiss:()->Unit={}) {
@@ -57,8 +56,7 @@ internal suspend fun requestCollectionDownload(context:Context,tracks:List<Provi
         if(!OfflineMusicStore.get(context).canSave) {uiHaptic(HapticCue.Reject);onNotice(VERIFY_TO_SAVE_NOTICE);return}
         val count=withContext(Dispatchers.IO) {OfflineMusicStore.get(context).enqueueSongs(tracks)}
         if(count==0) {onNotice("No downloadable songs in this collection");return}
-        context.startForegroundService(Intent(context,OfflineDownloadService::class.java))
-        OfflineDownloadScheduler.resumeManualLater(context);uiHaptic(HapticCue.Confirm)
+        DownloadCoordinator.start(context);uiHaptic(HapticCue.Confirm)
         onNotice("$count ${if(count==1) "song" else "songs"} queued for download")
     } catch(e:CancellationException) {throw e} catch(_:Exception) {uiHaptic(HapticCue.Reject);onNotice("Could not start playlist download. Retry from Downloads.")}
 }
@@ -142,7 +140,9 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
     LaunchedEffect(revision,provider.authRevision) {
         val scopeKey=store.currentScope
         val result=withContext(Dispatchers.IO) {
-            val songs=store.rows(scopeKey).filter {it.state!="metadata" && it.state!="cancelled"}
+            // A finished download whose files have gone is shown as needing a new download, not as downloaded.
+            store.verifyComplete(scopeKey)
+            val songs=store.rows(scopeKey).filter {it.status!=DownloadState.Metadata && it.status!=DownloadState.Cancelled}
                 .sortedWith(compareByDescending<OfflineSong> {it.downloadedAt}.thenBy {it.track.title.lowercase(java.util.Locale.ROOT)}.thenBy {it.track.videoId})
             songs.map {song->DownloadDisplay(song,store.audio(scopeKey,song.track.videoId)!=null,
                 store.artwork(scopeKey,song.track.videoId)?.toURI()?.toString()?:song.track.artworkUrl)} to store.usedBytes(scopeKey)
@@ -205,7 +205,7 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
         }
         itemsIndexed(visible,key={_,entry->entry.song.track.videoId}) {index,entry->
             val song=entry.song;var menu by remember(song.track.videoId) {mutableStateOf(false)}
-            val active=song.state in setOf("queued","downloading","assets")
+            val active=song.status?.pending==true
             Column(Modifier.padding(horizontal=20.dp).testTag("download_${song.track.videoId}")) {
                 HorizontalDivider(color=White.copy(alpha=.1f))
                 Row(Modifier.fillMaxWidth().heightIn(min=60.dp).clickable {if(entry.ready) play(song.track.videoId) else {uiHaptic();detailsId=song.track.videoId}}
@@ -215,7 +215,7 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
                     Column(Modifier.weight(1f).padding(vertical=8.dp)) {
                         Text(song.track.title,color=White,fontSize=16.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                         Text(playerArtistLabel(song.track.artist),color=White.copy(alpha=.6f),fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
-                        if(active || !entry.ready) Text(downloadStatus(song),color=if(song.state=="failed") Pink else White.copy(alpha=.6f),fontSize=11.sp,maxLines=1)
+                        if(active || !entry.ready) Text(downloadStatus(song,entry.ready),color=if(song.status==DownloadState.Failed) Pink else White.copy(alpha=.6f),fontSize=11.sp,maxLines=1)
                     }
                     if(entry.ready && !active && song.durationMs>0) Text("${song.durationMs/60000}:${((song.durationMs/1000)%60).toString().padStart(2,'0')}",color=White.copy(alpha=.55f),fontSize=12.sp)
                     Box {
@@ -223,15 +223,15 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
                         SongActionMenu(menu,{menu=false}) {
                             AddToPlaylistAction(song.track,{menu=false}) {playlistTrack=it}
                             SongActionItem("Download details",onClick={menu=false;detailsId=song.track.videoId})
-                            if(song.state in setOf("failed","paused") || song.artworkState=="failed" || song.lyricsState=="failed")
-                                SongActionItem(if(entry.ready) "Retry missing assets" else "Resume download",onClick={menu=false;scope.launch {requestSongDownload(context,song.track,onNotice)}})
+                            if(song.status==DownloadState.Failed || song.status==DownloadState.Paused || song.status==null || song.artworkState=="failed" || song.lyricsState=="failed")
+                                SongActionItem(downloadRetryLabel(entry.ready),onClick={menu=false;scope.launch {requestSongDownload(context,song.track,onNotice)}})
                             if(!song.pinned && entry.ready) SongActionItem("Keep downloaded",onClick={menu=false;scope.launch {requestSongDownload(context,song.track,onNotice)}})
-                            if(active) SongActionItem("Pause download",onClick={menu=false;scope.launch {withContext(Dispatchers.IO) {store.update(song.scope,song.track.videoId,"state" to "paused")}}})
+                            if(active) SongActionItem("Pause download",onClick={menu=false;scope.launch {withContext(Dispatchers.IO) {store.pause(song.scope,song.track.videoId)}}})
                             SongActionItem("Remove download",onClick={menu=false;scope.launch {withContext(Dispatchers.IO) {store.remove(song.scope,song.track.videoId)};onNotice("Download removed")}})
                         }
                     }
                 }
-                if(song.state=="downloading") {
+                if(song.status==DownloadState.Transferring) {
                     if(song.total>0) LinearProgressIndicator(progress={(song.bytes.toFloat()/song.total).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth().height(2.dp))
                     else LinearProgressIndicator(modifier=Modifier.fillMaxWidth().height(2.dp))
                 }
@@ -243,7 +243,7 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
         val song=details.song
         Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
             Text(playerArtistLabel(song.track.artist),color=Muted)
-            Text(if(details.ready) "Ready offline \u00B7 ${storageLabel(song.bytes)}" else downloadStatus(song),color=White)
+            Text(if(details.ready) "Ready offline \u00B7 ${storageLabel(song.bytes)}" else downloadStatus(song,false),color=White)
             if(song.quality.isNotBlank()) Text(song.quality.replace("audio/webm","WebM").replace("audio/mp4","AAC"),color=Muted,fontSize=13.sp)
             Text(if(song.pinned) "Kept on this phone" else "Managed by Smart Downloads",color=Muted,fontSize=13.sp)
             Text("Artwork: ${assetStatus(song.artworkState)}",color=Muted,fontSize=13.sp)
@@ -252,8 +252,20 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
         }
     },confirmButton={TextButton({uiHaptic();detailsId=null}) {Text("Done",color=Pink)}},containerColor=Raised)
 }
-private fun downloadStatus(song:OfflineSong)=when(song.state) {
-    "queued"->"Waiting to download";"downloading"->if(song.total>0) "Downloading ${(song.bytes*100/song.total).coerceIn(0,100)}%" else "Downloading\u2026"
-    "assets"->"Saving artwork and lyrics";"paused"->"Paused";"failed"->"Download failed";"complete"->"Downloaded";else->"Not downloaded"
+/** [ready] is whether the audio itself is on the phone and playable; artwork and lyrics may still be wanted. */
+internal fun downloadStatus(song:OfflineSong,ready:Boolean)=when(song.status) {
+    DownloadState.Queued->if(ready) "Waiting to save artwork and lyrics" else "Waiting to download"
+    DownloadState.Resolving->if(ready) "Saving artwork and lyrics" else "Preparing download"
+    DownloadState.Transferring->if(song.total>0) "Downloading ${(song.bytes*100/song.total).coerceIn(0,100)}%" else "Downloading\u2026"
+    DownloadState.Validating->"Checking audio"
+    DownloadState.Assets->"Saving artwork and lyrics"
+    // A transfer never continues from where it stopped: it begins again with a fresh stream.
+    DownloadState.Paused->if(ready) "Paused" else "Paused \u00B7 starts again from the beginning"
+    DownloadState.Failed->if(ready) "Artwork or lyrics missing" else "Download failed"
+    DownloadState.Complete->if(ready) "Downloaded" else "Download missing"
+    DownloadState.Metadata,DownloadState.Cancelled->"Not downloaded"
+    null->"Needs downloading again"
 }
+/** Honest about what the action does: audio is fetched again from the start; only missing artwork or lyrics are added to audio that is there. */
+internal fun downloadRetryLabel(ready:Boolean)=if(ready) "Retry missing assets" else "Restart download"
 private fun assetStatus(state:String)=when(state) {"available"->"Saved";"instrumental"->"Instrumental";"unavailable"->"Not available";"failed"->"Retry needed";else->"Pending"}

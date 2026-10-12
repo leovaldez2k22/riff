@@ -28,11 +28,11 @@ class DownloadBatchTest {
         val store=store();val scope="batch"
         val ready=track("download001");val active=track("download002");val fresh=track("download003")
         store.enqueue(ready,scope=scope);bundle(store,scope,ready.videoId)
-        store.enqueue(active,scope=scope);assertTrue(store.beginDownload(scope,active.videoId))
+        store.enqueue(active,scope=scope);assertNotNull(store.beginDownload(scope,active.videoId))
         val count=store.enqueueSongs(listOf(ready,active,fresh,fresh,track("download004").copy(isLive=true),track("download005").copy(isMusic=false)),scope)
         assertEquals(3,count);assertEquals(3,store.rows(scope).size)
         assertEquals("complete",store.song(scope,ready.videoId)?.state)
-        assertEquals("downloading",store.song(scope,active.videoId)?.state)
+        assertEquals("resolving",store.song(scope,active.videoId)?.state)
         assertEquals("queued",store.song(scope,fresh.videoId)?.state)
         assertNotNull(store.audio(scope,ready.videoId));assertTrue(store.rows(scope).all {it.pinned})
     }
@@ -40,14 +40,14 @@ class DownloadBatchTest {
         val store=store();val scope="delete"
         store.enqueue(track("delete00001"),scope=scope);bundle(store,scope,"delete00001")
         store.update(scope,"delete00001","lastPlayed" to 500L,"plays" to 3)
-        store.enqueue(track("delete00002"),scope=scope);assertTrue(store.beginDownload(scope,"delete00002"))
+        store.enqueue(track("delete00002"),scope=scope);val ticket=store.beginDownload(scope,"delete00002")!!
         store.enqueue(track("delete00001"),scope="other");bundle(store,"other","delete00001")
         store.removeAll(scope)
         assertTrue(store.rows(scope).all {it.state=="metadata" && it.excluded && !it.pinned && it.bytes==0L})
         assertFalse(store.directory(scope,"delete00001").exists())
-        assertFalse(store.beginDownload(scope,"delete00002"))
-        assertFalse(store.updateDownload(scope,"delete00002","state" to "assets"))
-        assertFalse(store.updateDownload(scope,"delete00001","state" to "complete"))
+        assertNull(store.beginDownload(scope,"delete00002"))
+        assertFalse(store.updateDownload(scope,"delete00002",ticket,"state" to "assets"))
+        assertFalse(store.updateDownload(scope,"delete00001",0,"state" to "complete"))
         assertEquals(500L,store.song(scope,"delete00001")?.lastPlayed);assertEquals(3,store.song(scope,"delete00001")?.plays)
         assertNotNull(store.audio("other","delete00001"))
     }

@@ -49,9 +49,9 @@ internal data class DownloadSummary(val ready: Int, val active: Int, val covers:
     LaunchedEffect(revision) {
         downloads = withContext(Dispatchers.IO) {
             val scope = store.currentScope
-            val rows = store.rows(scope).filter { it.state != "metadata" && it.state != "cancelled" }
+            val rows = store.rows(scope).filter { it.status != DownloadState.Metadata && it.status != DownloadState.Cancelled }
             val ready = rows.filter { store.audio(scope, it.track.videoId) != null }
-            DownloadSummary(ready.size, rows.count { it.state in setOf("queued", "downloading", "assets") },
+            DownloadSummary(ready.size, rows.count { it.status?.pending == true },
                 ready.sortedByDescending { it.downloadedAt }.take(4).mapNotNull {
                     store.artwork(scope, it.track.videoId)?.toURI()?.toString() ?: it.track.artworkUrl })
         }

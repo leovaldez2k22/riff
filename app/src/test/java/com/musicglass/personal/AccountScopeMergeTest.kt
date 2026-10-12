@@ -72,10 +72,10 @@ class AccountScopeMergeTest {
     @Test fun songTheTargetIsTransferringIsLeftForALaterPass() {
         val store = store()
         store.enqueue(track("merge000005"), scope = "alias"); bundle(store, "alias", "merge000005")
-        store.enqueue(track("merge000005"), scope = "primary"); assertTrue(store.beginDownload("primary", "merge000005"))
+        store.enqueue(track("merge000005"), scope = "primary"); assertNotNull(store.beginDownload("primary", "merge000005"))
         assertEquals(1, store.mergeScope("alias", "primary"))
         assertNotNull(store.audio("alias", "merge000005"))
-        assertEquals("downloading", store.song("primary", "merge000005")?.state)
+        assertEquals("resolving", store.song("primary", "merge000005")?.state)
     }
 
     @Test fun rerunAfterAnInterruptionAdoptsTheMovedFolder() {

@@ -13,8 +13,8 @@ import org.junit.runner.RunWith
 import java.io.File
 
 /**
- * Q08A: Normalize volume through the real playback service. Downloads are built here from generated tones with
- * a scripted loudness value next to them; nothing comes from the provider. Emulator only, signed out. What is
+ * Q08A: Normalize volume through the real playback service. Downloads are built here from generated tones,
+ * encoded as a download is stored, with a scripted loudness value next to them; nothing comes from the provider. Emulator only, signed out. What is
  * read is the gain the service says it applied; the emulator has no audio output to listen to.
  */
 @RunWith(AndroidJUnit4::class)
@@ -51,11 +51,8 @@ class NormalizationDeviceTest {
     /** A complete download as the download engine leaves it: audio, the ready mark and, when given, the value. */
     private fun download(n:Int,loudness:String?,asset:String="tone-a.wav"):String {
         val store=OfflineMusicStore.get(device.target)
-        val dir=store.directory(store.currentScope,id(n)).also {it.deleteRecursively();assertTrue(it.mkdirs());bundles+=it}
-        val audio=File(dir,"audio.media")
-        device.instrumentation.context.assets.open("quality/audio/$asset").use {input->audio.outputStream().use {input.copyTo(it)}}
-        if(loudness!=null) File(dir,"loudness").writeText(loudness)
-        File(dir,"ready").writeText(audio.length().toString())
+        val dir=store.directory(store.currentScope,id(n)).also {bundles+=it}
+        DownloadFixtures.bundle(device.instrumentation,dir,asset,loudness)
         assertNotNull("The store sees a finished download",store.audio(store.currentScope,id(n)))
         return id(n)
     }

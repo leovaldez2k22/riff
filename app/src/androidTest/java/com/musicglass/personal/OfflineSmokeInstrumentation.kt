@@ -576,7 +576,7 @@ class OfflineSmokeInstrumentation:Instrumentation() {
                 val original=checkNotNull(store.song(account,id));val file=checkNotNull(store.audio(account,id));val bytes=file.length()
                 check(original.downloadedAt>0) {"Existing bundle download date was not migrated"}
                 try {
-                    store.update(account,id,"state" to "downloading");store.recover()
+                    store.update(account,id,"state" to "downloading");store.reconcile()
                     check(store.song(account,id)?.state=="queued")
                     store.update(account,id,"state" to "complete");store.enqueue(original.track)
                     check(store.song(account,id)?.state=="queued") {"Complete bundle could not retry missing assets"}

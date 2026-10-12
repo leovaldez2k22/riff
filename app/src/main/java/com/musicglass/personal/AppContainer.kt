@@ -68,6 +68,10 @@ internal data class RuntimeDependencies(
     /** Points the extractor at the solver process. A failure here leaves online resolution refused, never in-process. */
     val installSolverBridge: (com.metrolist.innertubex.extraction.InnerTubeExtractor, CipherBackend) -> Unit =
         { extractor, backend -> CipherBridgeInstaller.install(extractor, backend) },
+    /** Rebuilds and checks downloaded audio. Android's extractor and muxer in the app. */
+    val assembler: AudioAssembler = AndroidAudioAssembler,
+    /** Where a download's lyrics come from. Null means the app's lyrics sources. */
+    val downloadLyrics: ((LyricsTrack) -> kotlinx.coroutines.flow.Flow<LyricsDocument>)? = null,
 ) {
     companion object {
         fun android(context: Context): RuntimeDependencies {

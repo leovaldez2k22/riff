@@ -158,7 +158,7 @@ class LocalDataControllerTest {
         // Work queued before the deletion cannot bring any of it back.
         assertEquals(StoreOutcome.Stale, snapshots.save(preparedQueueSave, PlaybackSnapshot(listOf(SavedQueueItem("yt:fixtureA001", "Song", "Artist")), 0, 0)))
         assertNull(snapshots.load(a))
-        assertFalse(store.beginDownload(a, "fixtureD001")); assertFalse(store.updateDownload(a, "fixtureD001", "state" to "complete"))
+        assertNull(store.beginDownload(a, "fixtureD001")); assertFalse(store.updateDownload(a, "fixtureD001", 0, "state" to "complete"))
         store.update(a, "fixtureD001", "artwork" to "available")
         assertTrue(store.rows(a).isEmpty())
         // A transfer that had the folder open finds its song gone and removes what it wrote.

@@ -12,19 +12,36 @@ import org.json.JSONObject
 
 internal data class OfflineSong(val scope:String,val track:ProviderTrack,val state:String,val pinned:Boolean,
     val bytes:Long,val total:Long,val error:String,val durationMs:Long,val quality:String,val artworkState:String,val lyricsState:String,
-    val lastPlayed:Long,val plays:Int,val listenedMs:Long,val priority:Int=0,val excluded:Boolean=false,val downloadedAt:Long=0)
+    val lastPlayed:Long,val plays:Int,val listenedMs:Long,val priority:Int=0,val excluded:Boolean=false,val downloadedAt:Long=0,
+    /** Raised whenever someone other than the transfer takes the row away from it: remove, pause, a restart of the app. */
+    val generation:Long=0,
+    /** Runs that ended in failure since the user last asked for this song. */
+    val failures:Int=0) {
+    /** Null for a state no build writes. Such a row is listed, never played from, and repaired at the next start. */
+    val status:DownloadState? get()=DownloadState.decode(state)
+}
+/** What the start-up check changed. Counts only. */
+internal data class ReconcileReport(val requeued:Int=0,val removalsFinished:Int=0,val unrecognised:Int=0,val filesSwept:Int=0)
 /** Bundle files are permanent app-private storage. URLs, cookies and tokens are never persisted. */
 internal class OfflineMusicStore private constructor(private val context:Context) {
     companion object {
         @Volatile private var instance:OfflineMusicStore?=null
         fun get(context:Context)=instance ?: synchronized(this) {instance ?: OfflineMusicStore(context.applicationContext).also {instance=it}}
         private val VIDEO_ID=Regex("[A-Za-z0-9_-]{11}")
+        /** A row whose files are gone: what is left is the name and the listening totals. */
+        private val CLEARED=arrayOf<Pair<String,Any>>("state" to DownloadState.Metadata.db,"downloaded_at" to 0L,"bytes" to 0L,"total" to 0L,
+            "quality" to "","artwork" to "pending","lyrics" to "pending","error" to "","failures" to 0)
     }
-    private val db=object:SQLiteOpenHelper(context,"offline-music.db",null,3) {
-        override fun onCreate(db:SQLiteDatabase) {db.execSQL("CREATE TABLE songs(scope TEXT NOT NULL,id TEXT NOT NULL,track TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'metadata',pinned INTEGER NOT NULL DEFAULT 0,bytes INTEGER NOT NULL DEFAULT 0,total INTEGER NOT NULL DEFAULT 0,error TEXT NOT NULL DEFAULT '',duration INTEGER NOT NULL DEFAULT 0,quality TEXT NOT NULL DEFAULT '',artwork TEXT NOT NULL DEFAULT 'pending',lyrics TEXT NOT NULL DEFAULT 'pending',lastPlayed INTEGER NOT NULL DEFAULT 0,plays INTEGER NOT NULL DEFAULT 0,listened INTEGER NOT NULL DEFAULT 0,priority INTEGER NOT NULL DEFAULT 0,excluded INTEGER NOT NULL DEFAULT 0,downloaded_at INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(scope,id))")}
+    private val db=object:SQLiteOpenHelper(context,"offline-music.db",null,4) {
+        override fun onCreate(db:SQLiteDatabase) {db.execSQL("CREATE TABLE songs(scope TEXT NOT NULL,id TEXT NOT NULL,track TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'metadata',pinned INTEGER NOT NULL DEFAULT 0,bytes INTEGER NOT NULL DEFAULT 0,total INTEGER NOT NULL DEFAULT 0,error TEXT NOT NULL DEFAULT '',duration INTEGER NOT NULL DEFAULT 0,quality TEXT NOT NULL DEFAULT '',artwork TEXT NOT NULL DEFAULT 'pending',lyrics TEXT NOT NULL DEFAULT 'pending',lastPlayed INTEGER NOT NULL DEFAULT 0,plays INTEGER NOT NULL DEFAULT 0,listened INTEGER NOT NULL DEFAULT 0,priority INTEGER NOT NULL DEFAULT 0,excluded INTEGER NOT NULL DEFAULT 0,downloaded_at INTEGER NOT NULL DEFAULT 0,generation INTEGER NOT NULL DEFAULT 0,failures INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(scope,id))")}
         override fun onUpgrade(db:SQLiteDatabase,old:Int,new:Int) {
             if(old<2) db.execSQL("ALTER TABLE songs ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0")
             if(old<3) db.execSQL("ALTER TABLE songs ADD COLUMN downloaded_at INTEGER NOT NULL DEFAULT 0")
+            // Q09. Rows are kept as they are; both columns start at zero.
+            if(old<4) {
+                db.execSQL("ALTER TABLE songs ADD COLUMN generation INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE songs ADD COLUMN failures INTEGER NOT NULL DEFAULT 0")
+            }
         }
     }.apply {setWriteAheadLoggingEnabled(true)}
     private val prefs=context.getSharedPreferences("offline_settings",Context.MODE_PRIVATE)
@@ -37,7 +54,12 @@ internal class OfflineMusicStore private constructor(private val context:Context
     /** Every scope that owns rows; used to recognise an account's existing data without reading it. */
     @Synchronized fun scopes():Set<String> = db.readableDatabase.rawQuery("SELECT DISTINCT scope FROM songs",null).use {c->buildSet {while(c.moveToNext()) add(c.getString(0))}}
     @Volatile var playbackBusy=false
-    init {recover()}
+    /** What the check at start-up found; for the event log and tests. */
+    val startupReport:ReconcileReport
+    init {
+        startupReport=reconcile()
+        if(startupReport!=ReconcileReport()) PlaybackEventLog(context).append("download_reconcile requeued=${startupReport.requeued} removals=${startupReport.removalsFinished} unrecognised=${startupReport.unrecognised} swept=${startupReport.filesSwept}")
+    }
     fun setSmart(enabled:Boolean) {prefs.edit().putBoolean("smart_enabled",enabled).apply();changed();if(!enabled) cancelAutomatic(currentScope);OfflineDownloadScheduler.schedule(context,immediate=enabled)}
     fun setAllowMobileData(enabled:Boolean) {prefs.edit().putBoolean("allow_mobile_data",enabled).apply();changed();OfflineDownloadScheduler.schedule(context,immediate=smartEnabled)}
     fun setBudget(bytes:Long) {prefs.edit().putLong("budget_bytes",bytes).apply();changed();OfflineDownloadScheduler.schedule(context)}
@@ -59,7 +81,7 @@ internal class OfflineMusicStore private constructor(private val context:Context
         fun num(k:String)=c.getLong(c.getColumnIndexOrThrow(k))
         while(c.moveToNext()) {val j=JSONObject(str("track"));val id=str("id")
             fun opt(k:String)=j.optString(k).takeUnless {it.isBlank() || it=="null"}
-            add(OfflineSong(scope,ProviderTrack(id,j.optString("title"),j.optString("artist"),opt("art"),opt("artistId"),opt("albumId"),j.optString("album"),j.optBoolean("live"),j.optBoolean("music",true)),str("state"),num("pinned")!=0L,num("bytes"),num("total"),str("error"),num("duration"),str("quality"),str("artwork"),str("lyrics"),num("lastPlayed"),num("plays").toInt(),num("listened"),num("priority").toInt(),num("excluded")!=0L,num("downloaded_at")))
+            add(OfflineSong(scope,ProviderTrack(id,j.optString("title"),j.optString("artist"),opt("art"),opt("artistId"),opt("albumId"),j.optString("album"),j.optBoolean("live"),j.optBoolean("music",true)),str("state"),num("pinned")!=0L,num("bytes"),num("total"),str("error"),num("duration"),str("quality"),str("artwork"),str("lyrics"),num("lastPlayed"),num("plays").toInt(),num("listened"),num("priority").toInt(),num("excluded")!=0L,num("downloaded_at"),num("generation"),num("failures").toInt()))
         }
     }}
     fun song(scope:String,id:String)=rows(scope,id).firstOrNull()
@@ -71,32 +93,79 @@ internal class OfflineMusicStore private constructor(private val context:Context
         if(scope==UNVERIFIED_SCOPE_KEY) return
         remember(track,scope);val old=song(scope,track.videoId)
         require(!track.isLive && track.isMusic) {"Only songs can be downloaded"}
-        update(scope,track.videoId,"pinned" to if(pinned || old?.pinned==true) 1 else 0,"state" to "queued","excluded" to 0,"error" to "")
+        val pin=if(pinned || old?.pinned==true) 1 else 0
+        // Already waiting or with a transfer: it keeps its place. Asking again must not restart it.
+        if(old?.status?.pending==true) update(scope,track.videoId,"pinned" to pin,"excluded" to 0)
+        else update(scope,track.videoId,"pinned" to pin,"state" to DownloadState.Queued.db,"excluded" to 0,"error" to "","failures" to 0)
     }
     @Synchronized fun enqueueSongs(tracks:List<ProviderTrack>,scope:String=currentScope):Int {
         if(scope==UNVERIFIED_SCOPE_KEY) return 0
         val songs=tracks.filter {!it.isLive && it.isMusic && it.videoId.matches(VIDEO_ID)}.distinctBy {it.videoId}
         songs.forEach {track->
             val old=song(scope,track.videoId)
-            if(old?.state=="complete" && audio(scope,track.videoId)!=null) update(scope,track.videoId,"pinned" to 1,"excluded" to 0)
-            else if(old?.state in setOf("queued","downloading","assets")) update(scope,track.videoId,"pinned" to 1,"excluded" to 0)
+            // A finished download is kept as it is, a waiting or running one keeps its place; both become pinned.
+            if(old?.status==DownloadState.Complete && audio(scope,track.videoId)!=null) update(scope,track.videoId,"pinned" to 1,"excluded" to 0)
             else enqueue(track,scope=scope)
         }
         return songs.size
     }
-    @Synchronized fun beginDownload(scope:String,id:String):Boolean {
-        if(song(scope,id)?.state !in setOf("queued","failed")) return false
-        update(scope,id,"state" to "downloading","error" to "")
-        return true
+    /**
+     * A transfer takes the row. Returns the row's generation, which the transfer shows with every later
+     * write, or null when the row is not waiting (removed, paused, finished, or already taken).
+     */
+    @Synchronized fun beginDownload(scope:String,id:String):Long? {
+        val row=song(scope,id)?:return null
+        if(row.status!=DownloadState.Queued && row.status!=DownloadState.Failed) return null
+        update(scope,id,"state" to DownloadState.Resolving.db,"error" to "")
+        return row.generation
     }
-    @Synchronized fun updateDownload(scope:String,id:String,vararg fields:Pair<String,Any>):Boolean {
-        if(song(scope,id)?.state !in setOf("downloading","assets")) return false
+    /** True while the transfer that was given [generation] still has the row. */
+    @Synchronized fun holds(scope:String,id:String,generation:Long):Boolean =
+        song(scope,id)?.let {it.generation==generation && it.status?.inFlight==true}==true
+    /** A write by the transfer that holds the row. Refused, and nothing written, once the row was taken from it. */
+    @Synchronized fun updateDownload(scope:String,id:String,generation:Long,vararg fields:Pair<String,Any>):Boolean {
+        if(!holds(scope,id,generation)) return false
         update(scope,id,*fields)
         return true
     }
-    fun audio(scope:String,id:String):File? {
-        val dir=directory(scope,id);return runCatching {File(dir,"audio.media").takeIf {it.isFile && it.length()>0 && File(dir,"ready").let {ready->ready.isFile && (ready.readText().trim()=="1" || ready.readText().trim().toLongOrNull()==it.length())}}}.getOrNull()
+    /** The transfer gives the row up as failed. [failures] counts runs, so a song that cannot be had is not tried for ever. */
+    @Synchronized fun failDownload(scope:String,id:String,generation:Long,failure:DownloadFailure):Boolean {
+        val row=song(scope,id)?:return false
+        return updateDownload(scope,id,generation,"state" to DownloadState.Failed.db,"error" to failure.message,"failures" to row.failures+1)
     }
+    /** Runs [commit] only while the transfer still has the row, and under this store's lock: a removal cannot fall between the two. */
+    @Synchronized fun <T> commitAudio(scope:String,id:String,generation:Long,commit:()->T):T? = if(holds(scope,id,generation)) commit() else null
+    private fun supersede(scope:String,id:String) {
+        db.writableDatabase.execSQL("UPDATE songs SET generation=generation+1 WHERE scope=? AND id=?",arrayOf(scope,id))
+    }
+    /** Pauses one song. Only that song's transfer stops; the rest of the queue goes on. */
+    @Synchronized fun pause(scope:String,id:String):Boolean {
+        if(song(scope,id)?.status?.pending!=true) return false
+        supersede(scope,id);update(scope,id,"state" to DownloadState.Paused.db)
+        return true
+    }
+    /** Pauses every download the user asked for by hand in [scope]. Smart Downloads are not touched. */
+    @Synchronized fun pauseManual(scope:String=currentScope):Int =
+        rows(scope).count {it.pinned && pause(scope,it.track.videoId)}
+    /** The audio if its marker vouches for it. A row without such files is never playable, whatever its state says. */
+    fun audio(scope:String,id:String):File?=BundleValidator.audio(directory(scope,id))
+    /**
+     * A finished download turned out to be unusable. Its marker is withdrawn so it is not offered again, and
+     * the row says so and can be downloaded again. Does nothing while a transfer has the row.
+     */
+    @Synchronized fun markDamaged(scope:String,id:String):Boolean {
+        if(!id.matches(VIDEO_ID)) return false
+        val row=song(scope,id)?:return false
+        if(row.status?.inFlight==true) return false
+        BundleValidator.revoke(directory(scope,id))
+        if(row.status==DownloadState.Metadata || row.status==DownloadState.Cancelled) return true
+        supersede(scope,id)
+        update(scope,id,"state" to DownloadState.Failed.db,"error" to DownloadFailure.Integrity.message,"bytes" to 0L)
+        return true
+    }
+    /** Finds finished downloads whose files are gone or no longer match their marker. Returns how many. Off the main thread. */
+    @Synchronized fun verifyComplete(scope:String):Int =
+        rows(scope).count {it.status==DownloadState.Complete && audio(scope,it.track.videoId)==null && markDamaged(scope,it.track.videoId)}
     fun artwork(scope:String,id:String)=File(directory(scope,id),"artwork").takeIf {it.isFile && it.length()>0}
     /** The provider's loudness value saved with the download, so it normalizes without asking the provider. Null for older bundles. */
     fun loudness(scope:String,id:String):Double?=BundleLoudness.read(directory(scope,id))
@@ -134,10 +203,12 @@ internal class OfflineMusicStore private constructor(private val context:Context
         decodeLyricsDocument(kotlinx.serialization.json.Json.parseToJsonElement(f.readText()) as kotlinx.serialization.json.JsonObject)
     }.getOrNull()
     @Synchronized fun remove(scope:String,id:String,exclude:Boolean=true) {
-        update(scope,id,"state" to "cancelled","pinned" to 0,"excluded" to if(exclude) 1 else 0)
+        // The row first: a transfer in flight finds it taken at its next check and stops. If the files cannot
+        // all be removed the row stays "cancelled" and the removal is finished at the next start.
+        update(scope,id,"state" to DownloadState.Cancelled.db,"pinned" to 0,"excluded" to if(exclude) 1 else 0);supersede(scope,id)
         val dir=directory(scope,id);check(dir.canonicalPath.startsWith(root.canonicalPath+File.separator));check(dir.deleteRecursively()) {"Could not remove download files"}
         markArtwork(scope,id,false)
-        update(scope,id,"state" to "metadata","downloaded_at" to 0L,"bytes" to 0L,"total" to 0L,"quality" to "","artwork" to "pending","lyrics" to "pending")
+        update(scope,id,*CLEARED)
     }
     @Synchronized fun removeAll(scope:String=currentScope) {
         // Preserve listening metadata and exclude removed songs from automatic re-downloads.
@@ -215,7 +286,7 @@ internal class OfflineMusicStore private constructor(private val context:Context
         for(row in rows(from)) {
             val id=row.track.videoId;val source=directory(from,id);val target=directory(to,id);val existing=song(to,id)
             val sourceReady=audio(from,id)!=null;val targetReady=audio(to,id)!=null
-            if(existing?.state in setOf("downloading","assets") || (sourceReady && targetReady)) {remaining++;continue}
+            if(existing?.status?.inFlight==true || (sourceReady && targetReady)) {remaining++;continue}
             // Files move before the row: an interruption leaves an unlisted folder that the next pass adopts.
             if(sourceReady || (!targetReady && existing==null)) {
                 if(source.exists()) {
@@ -245,9 +316,40 @@ internal class OfflineMusicStore private constructor(private val context:Context
         }
         changed();return remaining
     }
-    @Synchronized fun cancelAutomatic(scope:String) {rows(scope).filter {!it.pinned && it.state in setOf("queued","downloading","assets")}.forEach {update(scope,it.track.videoId,"state" to "paused")}}
-    @Synchronized fun recover() {
-        db.writableDatabase.execSQL("UPDATE songs SET state='queued' WHERE state IN ('downloading','assets')")
+    /** Smart Downloads was switched off: its waiting and running songs pause. Songs the user asked for by hand are not touched. */
+    @Synchronized fun cancelAutomatic(scope:String) {rows(scope).filter {!it.pinned}.forEach {pause(scope,it.track.videoId)}}
+    /**
+     * Run once when the store opens, before any transfer. Whatever point the app stopped at, every row ends
+     * in a state that is true of its files:
+     * - a transfer was in flight: its unfinished files go and the song waits again. Audio that was already
+     *   committed with its marker is kept, and the next run only fetches what is missing;
+     * - a removal had begun: it is finished;
+     * - a state no build writes: complete if the files are sound, otherwise failed with a way to download again.
+     * No row is deleted. Finished downloads are not opened here; see [verifyComplete].
+     */
+    @Synchronized fun reconcile():ReconcileReport {
+        var requeued=0;var removals=0;var unrecognised=0;var swept=0
+        val open=db.readableDatabase.query("songs",arrayOf("scope","id","state"),"state NOT IN ('metadata','complete')",null,null,null,null).use {c->
+            buildList {while(c.moveToNext()) add(Triple(c.getString(0),c.getString(1),c.getString(2)))}}
+        for((scope,id,state) in open) {
+            if(!id.matches(VIDEO_ID)) continue
+            val dir=directory(scope,id)
+            when(val status=DownloadState.decode(state)) {
+                DownloadState.Cancelled -> if(dir.canonicalPath.startsWith(root.canonicalPath+File.separator) && (!dir.exists() || dir.deleteRecursively())) {
+                    update(scope,id,*CLEARED);removals++
+                }
+                DownloadState.Queued,DownloadState.Paused,DownloadState.Failed -> swept+=BundleValidator.sweep(dir)
+                null -> {
+                    swept+=BundleValidator.sweep(dir);unrecognised++
+                    if(BundleValidator.audio(dir)!=null) update(scope,id,"state" to DownloadState.Complete.db,"error" to "")
+                    else update(scope,id,"state" to DownloadState.Failed.db,"error" to DownloadFailure.Unrecognised.message)
+                }
+                else -> if(status.inFlight) {
+                    swept+=BundleValidator.sweep(dir);supersede(scope,id);requeued++
+                    update(scope,id,"state" to DownloadState.Queued.db)
+                }
+            }
+        }
         // Existing rc11 bundles keep their original file commit date during the schema upgrade.
         db.readableDatabase.query("songs",arrayOf("scope","id"),"downloaded_at=0",null,null,null,null).use {cursor->
             while(cursor.moveToNext()) {
@@ -258,6 +360,7 @@ internal class OfflineMusicStore private constructor(private val context:Context
             }
         }
         changed()
+        return ReconcileReport(requeued,removals,unrecognised,swept)
     }
     @Synchronized fun listened(track:ProviderTrack,duration:Long,millis:Long,newPlay:Boolean) {
         if(track.isLive || !track.isMusic || !context.getSharedPreferences("music_collections",Context.MODE_PRIVATE).getBoolean("history_enabled",true)) return

@@ -206,13 +206,20 @@ class MusicPlaybackService : MediaSessionService() {
                         events.append("stream_resolve_start entry=${entry.take(8)}")
                         try {
                         val track=trackFromItem(item)
-                        val local=offline.audio(offline.currentScope,track.videoId)
+                        var local=offline.audio(offline.currentScope,track.videoId)
+                        // The marker vouches for the length; the first bytes must also be a container a download is written in.
+                        // A download that fails this is never handed to the decoder: it is marked for downloading again and the song streams.
+                        if(local!=null) BundleValidator.problem(local.parentFile!!)?.let {problem->
+                            events.append("download_invalid reason=${problem.wire}");offline.markDamaged(offline.currentScope,track.videoId);local=null
+                        }
                         if(local!=null && !track.isLive) {
+                            downloadServed.add(entry)
                             learnLoudness(item,BundleLoudness.read(local.parentFile))
                             val art=offline.artwork(offline.currentScope,track.videoId)?.let(Uri::fromFile)
                             val resolved=item.buildUpon().setUri(Uri.fromFile(local)).setCustomCacheKey(null).setMediaMetadata(item.mediaMetadata.buildUpon().apply {if(art!=null) setArtworkUri(art)}.build()).build()
                             return@DeferredProviderSource createMediaSource(resolved)
                         }
+                        downloadServed.remove(entry)
                         val start=android.os.SystemClock.elapsedRealtime()
                         val stream=withTimeout(if(track.isLive) 60_000 else 30_000) {provider.resolve(track.videoId,track.isLive,video=track.isLive).getOrThrow()}
                         events.append("selected_stream_ready ms=${android.os.SystemClock.elapsedRealtime()-start}")
@@ -729,15 +736,18 @@ class MusicPlaybackService : MediaSessionService() {
             .also {resolvedStreams[it]=stream;learnLoudness(it,stream.loudnessDb)}
     }
     private fun cancelRadio() {
-        recoveryReplacement=null;resolvedStreams.clear()
+        recoveryReplacement=null;resolvedStreams.clear();downloadServed.clear()
         recovery.clear();autoEntries.clear()
         queueGeneration++;queueJob?.cancel();queueJob=null;radioSeed=null;radioContinuation=null;queueCandidates.clear()
         session?.player?.setPlaylistMetadata(MediaMetadata.EMPTY)
     }
     private var networkCallback:android.net.ConnectivityManager.NetworkCallback?=null
+    /** Queue entries whose audio was last opened from a download rather than from the provider. */
+    private val downloadServed=java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private fun faultSource(item:MediaItem)=when {
         !item.mediaId.startsWith("yt:") -> FaultSource.Device
-        item.localConfiguration?.uri?.scheme=="file" -> FaultSource.Download
+        // A failure of a download is a failure of its files: asking the provider again would only open the same files.
+        item.localConfiguration?.uri?.scheme=="file" || item.entryId() in downloadServed -> FaultSource.Download
         item.mediaMetadata.extras?.getBoolean("live")==true -> FaultSource.Live
         else -> FaultSource.Provider
     }
@@ -746,9 +756,28 @@ class MusicPlaybackService : MediaSessionService() {
         val causes=generateSequence(error as Throwable?) {it.cause}.take(16).toList()
         val http=causes.filterIsInstance<androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException>().firstOrNull()
         val retryAfter=http?.headerFields?.entries?.firstOrNull {it.key.equals("Retry-After",true)}?.value?.firstOrNull()?.trim()?.toLongOrNull()?.times(1000)
+        if(faultSource(item)==FaultSource.Download) noteDownloadFault(item,errorCodeName,causes.any {it is java.io.EOFException})
         return classifyFault(errorCodeName,causes,faultSource(item),runtime.networkConditions().validated,
             provider.sessionState==SessionState.Expired,http?.responseCode,retryAfter,
             resolvedStreams[item]?.profileId ?: item.mediaMetadata.extras?.getString("profileId"))
+    }
+    /**
+     * A download failed to play. If its files are gone, do not match their marker, the container could not be
+     * read, or the file ended before its own index said it would, the download is marked as needing a new download,
+     * so the next attempt does not open the same file again.
+     */
+    private fun noteDownloadFault(item:MediaItem,errorCodeName:String,endedEarly:Boolean) {
+        val named=item.localConfiguration?.uri?.takeIf {it.scheme=="file"}?.path?.let {java.io.File(it).parentFile}
+        val id=item.mediaId.removePrefix("yt:");val scope=offline.currentScope
+        serviceScope.launch(runtime.dispatchers.io) {
+            val dir=runCatching {offline.directory(scope,id)}.getOrNull()?:return@launch
+            // Only this account's own download folder; a file from anywhere else is not a download.
+            if(named!=null && !runCatching {named.canonicalFile==dir.canonicalFile}.getOrDefault(false)) return@launch
+            val problem=BundleValidator.problem(dir)
+            val unreadable=endedEarly || errorCodeName.contains("PARSING_CONTAINER") || errorCodeName.contains("FILE_NOT_FOUND")
+            if(problem==null && !unreadable) return@launch
+            events.append("download_invalid reason=${problem?.wire?:"unreadable"}");offline.markDamaged(scope,id)
+        }
     }
     /** Play was asked for while the selected entry is in a failed state. */
     private fun retryPlayback(player:Player) {
