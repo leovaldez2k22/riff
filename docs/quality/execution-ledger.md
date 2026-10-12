@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q10A PASS locally with open items (see the Q10A section, which follows Q11); Q12 PASS locally with open items, device walk-through BLOCKED (see the Q12 section); Q13-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q10A PASS locally with open items (see the Q10A section, which follows Q11); Q12 PASS locally with open items, device walk-through BLOCKED (see the Q12 section); Q13 PASS locally with open items, TalkBack and keyboard walk-throughs BLOCKED (see the Q13 section); Q14-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -1148,6 +1148,113 @@ Device state: emulator shut down with adb emu kill after each run, adb server st
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
 Commit: 2d4b94d on local branch codex/riff-quality-m0 (not pushed), after 6124fec.
 Next exact action: Q13. It is inside the 9 October authorization (Q03-Q18) but no instruction has named it; wait for "start Q13".
+
+## Q13
+### Q13 completion (12 October 2026)
+Status: PASS locally with open items. The TalkBack walk-through of UX01-UX10 and the keyboard walk-through that the acceptance asks for are BLOCKED (no phone; installation on one is not authorized) and were not done. No accessibility audit or certification was done and none is claimed. Everything else in the package was done or is listed below as not done.
+Source: df087b4269222c1e567b3bad80b244b7f7a76d14 dirty (the two user files named at the end are the only uncommitted changes), digest prefix 8b75e6ac1cce (full value in the manifests). Evidence root: artifacts/quality/df087b4269222c1e567b3bad80b244b7f7a76d14-dirty-8b75e6ac1cce/
+Commits: a523a8c (behaviour: queue actions, contrast over artwork, touch targets), 161ab9c (text moved to string resources, pseudo-locale sweep, strings static check), df087b4 (lint warnings the two had added). The behaviour change and the mechanical move of text are separate commits.
+User instruction on 12 October 2026: "start q13". Q13 is inside the 9 October authorization (Q03-Q18).
+
+Findings that led to changes (each found by the new sweep or the contrast arithmetic, not by a person with a phone):
+- On a 360 x 640 dp screen at large text the player's controls were squeezed below 48 dp; the control column now keeps its height and the player scrolls.
+- 48% of a bright artwork colour was too light for Pink text (errors, the playing mark); faint 55% white text on a magenta tone was 4.32:1.
+- White text and icons were drawn straight over artwork or a photograph in five places (player close button and heading, back heading over a hero, a collection's and Downloads' title block, speed-dial titles, Home over a mood photograph). Over a white picture none of them could be read.
+- The queue could only be reordered by dragging; a row said nothing about its position; the drag handle was a second, unlabelled stop.
+- The like button changed its name with its state instead of keeping one name and saying the state.
+- Four haptic constants exist only from API 34; below that the view ignored them, so the threshold cue did nothing on API 31-33.
+- RemoteCipherClient.onServiceConnected assumed a non-null binder (found when a refused bind landed in an unrelated test).
+- After the text was moved to resources, the pseudo-locale pass found five texts still written in code ("3 of 6", "1:05 of 3:20", the lyrics timing steps and value, the On device tile); a reading of what was left found six more sentences.
+
+Implemented, by plan item:
+- 1 Text. app/src/main/res/values/strings.xml holds 733 strings and 44 plurals, English only. No translation was written. Strings.kt: string(), quantity(), AppStrings, and RiffApplication, a new Application class named in the manifest, which installs the application's resources before anything else runs. 54 source files were rewritten by a script (723 literals, 16 constants turned into getters, 41 hand-made plurals turned into plurals resources) and about 40 sites by hand. Enums that carry a label (OutputKind, CollectionSort, ProblemKind, DownloadFailure, QueueRowAction, FailureAction, CatalogKind, CollectionTruncation, ProviderFault, WidgetPreset) hold the resource id and read the text when asked. Words the code compares (tabs, filters, menu actions, 64 of them) stay literals; KeyLabels.kt maps each to its text and keyLabel() is called where one is shown. Debug builds include the en-XA and ar-XB pseudo-locales. app/build.gradle.kts puts res/values on the JVM test classpath so tests without Android read the same file.
+- 2 Touch targets. Fixed where the sweep found them; the drag handle is 48 dp.
+- 3 Contrast. RiffContrast in DesignTokens.kt (targets 4.5 and 3.0; scrims 0.58 under white text, 0.74 under muted text, 0.46 under a white icon; tone under words 0.9); readableArtworkTone darkens until Pink reaches 4.5:1; scrimPatch, scrimLabel and wordsOverPicture modifiers; speed-dial and mood scrims deepened. Method and figures are in docs/quality/accessibility.md.
+- 4 Labels and state. Queue row position and state; like button; tabs; seek and volume were done in Q12.
+- 5 Queue without dragging. Move up, Move down, Play next and Remove as custom accessibility actions on each row, offered only where they change something.
+- 6, 7 Text sizes, windows, direction. AccessibilitySweepTest and two siblings: 15 screens x font scale 1.0, 1.3, 1.6, 2.0 x LTR and RTL on 360 x 640 dp, 640 x 360 dp and 840 x 900 dp. PseudoLocaleSweepTest: the same screens with every string a third longer and marked.
+- 8 Reduced motion. Already honoured the app setting and the system animator scale; now tested.
+- 9 Haptics. hapticConstant() with a fallback for each API 34 constant; gating by app setting, system setting and foreground tested.
+- 10, 11 TalkBack focus and keyboard. Enter and Space on a tab and a filter chip are tested. The rest needs a device (below).
+- Static check. scripts/quality/static_checks.py has a new rule, strings: a quoted literal with a word in it handed straight to Text, a content or state description, a notification title or text, or a notice is a finding. One reviewed entry (the provider's name on a History chip).
+- Docs: docs/quality/accessibility.md (new), architecture.md, CHANGELOG.md.
+
+Verification:
+- Debug (q13-debug-01/manifest.json): PASS_LOCAL. 927 JVM tests / 102 suites, zero failures, errors or skips (Q12: 843 / 95). Lint 0 errors, 80 warnings, 3 hints; against q12-debug-01 nothing added and one removed (InlinedApi in UiHaptics.kt), lint-diff-debug-01.txt. APK SHA-256 df19b7f33a9a684468e29108d5ab7a21c7e2a4049425eacae310beba98077f76.
+- New JVM tests, 84: AccessibilitySweepTest, AccessibilitySweepLandscapeTest and AccessibilitySweepLargeWindowTest (15 each), PseudoLocaleSweepTest (15), AccessibilitySemanticsTest (12), ContrastTest (8), StringResourcesTest (4).
+- No existing test was changed, removed or loosened in any of the three commits. The 843 earlier tests assert on English text in several hundred places and passed unchanged after the move to resources; that is the main evidence that the move changed no wording.
+- StringResourcesTest holds the text read from the file by plain JVM tests to what Android returns, for every string and plural.
+- Pictures (q13-screens/, 90 PNG files, copied from app/build/reports/q13-screens after the debug run): each swept screen at 100% and 200% text in both directions, and with the longer text. I looked at two of them (the player at 200% right-to-left, Settings with the longer text). They are not compared with a baseline.
+- Script tests (quality-script-tests-01.txt): 77 tests OK, of which 5 are new (StringsRule).
+- Emulator, bound (q13-debug-fixture-01/manifest.json, log q13-instrumentation-04.log, install-02.log): PASS_LOCAL, all five gates PASS. 46 tests, 311.589 s, network off (ping_exit=2). Test APK SHA-256 e86d1a856afbd2f831bded1ea202832e9447bf349a817e31b5dd996ee0ec463c. The built app APK matched the manifest hash before install. This was the fourth attempt; see "Failed evidence attempts".
+- Emulator, not bound (q13-two-player-01.log, install-03.log): CrossfadeDeviceTest and SongFadeDeviceTest, 15 tests, OK, 211.152 s, on a freshly started emulator, first attempt.
+- Release (q13-release-01/manifest.json): PASS_LOCAL. 927 tests / 102 suites, zero failures; lint 80 warnings, 3 hints; against q12-release-01 nothing added, one removed (lint-diff-release-01.txt). APK SHA-256 5223dd389ea2a9e25c4dc73a74b1029405c013e758dee4ee24e1e9082dd380d1.
+- Shrunk release, solver seam (solver-seam-release-01.txt): PASS, unchanged.
+- Static checks (static-checks-01.txt): 153 files, 24 reviewed sites, 658 raw measures in 34 screen files, 0 findings.
+- Stress (stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only.
+- The evidence was taken after commit df087b4 and before this ledger entry was written; the entry is the only change after it.
+
+Failed evidence attempts (logs kept under attempts/):
+- q13-instrumentation-01-failed.log: 46 run, 1 failed. DownloadLifecycleDeviceTest.aDownloadThatBeginsRightButCannotBePlayedFailsAsADownloadAndIsNotRetried timed out after 30 s waiting for the failure.
+- q13-instrumentation-02-failed.log and -03-failed.log (fresh emulator): 46 run, 1 failed each. CrossfadeFixtureDeviceTest.aOneSecondBlendIsGradualAndPutsTheLevelBack: "The two decoders did not align in four attempts". The download test passed in both.
+- What I established about the first: run alone it failed five times in a row with the Q13 build. With the Q12 app and test APKs from the Q12 evidence folder, on the same emulator session, it passed once and failed once in the same way. Polling the media session showed the truncated file playing at normal speed to 14.46 s of 14.59 s buffered and then standing there in the ready state; the error the test waits for came 11 s later in the run that passed and not within 30 s in the others. So it fails with the Q12 build too and is not introduced by Q13. I did not find why the stall varies. The machine had 2.4 GB of 16 GB free with other programs of the user's running; I stopped the Gradle daemon before the fourth attempt, which passed. That is one pass after the change, not proof the daemon was the cause.
+- Neither test was changed. Both depend on audio timing on an emulator started with -no-audio; the first has a 30 s limit that playback of the 15 s file plus the stall can exceed. This is an open weakness of those two tests, not a result about the app.
+- An earlier debug collector run on 161ab9c (artifacts/quality/161ab9cad11e620423c509dd3a1fafc5e169103d-dirty-98ecbcc29324/q13-debug-01) was PASS_LOCAL but showed five lint warnings more than Q12 (InlinedApi x3 from the haptic fallback, PluralsCandidate x2 from two new strings). They were fixed in df087b4 and the collector was run again; that folder is superseded and is not evidence for this entry.
+
+Failed attempts during development:
+- The sweep harness: 96 parameterized cases ran out of memory (now one test per screen that loops); legacy graphics measured text wrongly, so chips looked 35 dp wide (native graphics now); a live flip of direction never went idle on Library (the screen is rebuilt per direction, as it is in the app when the language changes); a text field inside a dialog never goes idle under Robolectric, so the sleep timer dialog is not in the sweep.
+- ContrastTest: my first model of the ambient backdrop was wrong and was replaced by a grid of points; a colour is kept in 8 bits a channel, so shares are compared with a tolerance of 0.01.
+- BackHeading gained a parameter in a position that broke positional callers; moved to the end.
+- The generated strings.xml had the attribute and the text swapped in 702 entries (a wrong argument order in my script); repaired by a second script and parsed to check.
+- I read a stale log from an earlier run with the same name ("96 tests completed, 35 failed") as the result of a run that was still going. The run had in fact failed to compile, for a different reason. Logs are now removed before a run starts.
+- A shell here-document turned doubled backslashes into single ones in two test files and one real newline into a string literal, again. Repaired from script files.
+- captureToImage never returns under Robolectric (as in Q12); the view is drawn into a bitmap directly.
+- I rewrote static_checks_reviewed.json through a JSON dump, which reformatted every entry; restored from a copy and added the one entry as text.
+- One compound shell command was refused by a safety check of the tool (it contained no deletion). I ran the parts separately without the part that was flagged.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| TalkBack UX01-UX10 recording or checklist | BLOCKED | No phone; not attempted; ten steps in docs/quality/accessibility.md |
+| Keyboard walk-through | BLOCKED | Not attempted; five steps in docs/quality/accessibility.md. Enter and Space on a tab and a chip are tested on the JVM |
+| Automated semantics | PASS (JVM) | AccessibilitySemanticsTest, PlayerControlSemanticsTest, the three sweeps |
+| Large-text and RTL screenshots | PASS on this machine, as pictures to look at | q13-screens/, 90 files; no baseline comparison |
+| Strings externalized, pseudo-localized expansion, no fabricated translations | PASS (JVM) with the limits below | StringResourcesTest, PseudoLocaleSweepTest, the strings static rule |
+| Touch targets 48 dp or non-overlapping equivalent, measured | PASS (JVM) for the 15 swept screens | the three sweeps |
+| Contrast 4.5:1 and 3:1 over bright, dark and busy pictures; method and colours recorded | PASS by arithmetic | ContrastTest; docs/quality/accessibility.md |
+| Queue: Move up, Move down, Play next without drag | PASS (JVM) | AccessibilitySemanticsTest |
+| Font scales, 360 dp, landscape, large window | PASS (JVM) | the three sweeps |
+| Keyboard open | NOT DONE | Needs a device |
+| Reduced motion; haptics | PASS (JVM) | AccessibilitySemanticsTest |
+| Routine progress never announced continuously | NOT VERIFIED | Needs TalkBack; no test asserts it |
+
+Decisions (mine, not the user's):
+- The scrims and the darker tone are visible changes made from arithmetic, not from a design decision by the user or from looking at a phone. Screens with bright artwork are darker than before. Each is one constant in RiffContrast.
+- Words the code compares stay English literals in the code and are translated only where shown, rather than changing every comparison to an enum.
+- A new Application class (RiffApplication) exists only to install the resources early. It runs in the solver process too.
+- The fallback that reads strings.xml from the classpath (DefaultStrings in Strings.kt) is compiled into the app although only JVM tests reach it.
+- Radio station names and genres, provider names and lyrics provider names are treated as names and are not in strings.xml.
+- Two counts in one sentence ("1 saved; 2 could not be updated.") stay one string, marked for lint, rather than two plurals joined in code.
+- The sleep timer dialog is left out of the sweep rather than restructured to suit the test.
+
+Not covered by any test:
+- Anything a screen reader says or the order it says it in; focus after a dialog or the player closes; announcements of progress.
+- Tab order, Back and Escape, focus traps, the on-screen keyboard.
+- The glass bars and chips over moving content with High-contrast controls off.
+- Home, Lyrics, Privacy and data, Export and import, History, Radio and Podcasts in the sweep and in the pseudo-locale pass. Their text was moved by the same script and is held by the static rule and their own English tests.
+- A real right-to-left language or any real translation; en-XA and ar-XB on a device.
+- Sentences still assembled from parts in an English order (listed in accessibility.md).
+- The widgets and the notification in another language.
+- The pictures on any system other than this Windows machine.
+
+BLOCKED or not done:
+- TalkBack and keyboard walk-throughs (docs/quality/accessibility.md). Rerun: connect a phone or use an emulator with TalkBack and a keyboard, get approval to install the debug build, sign in with a test account that holds nothing personal, follow the steps with a screen recording, record device, Android version and build identity.
+- The two timing-dependent device tests named above were not made robust; that is outside this package and is recorded here so it is not lost.
+- Carried from Q04 to Q12: as listed in those entries.
+
+Device state: emulator shut down with adb emu kill after each run, adb server stopped, Gradle daemons stopped before and after the stress build. The emulator's network stayed off throughout. During the investigation the Q12 app and test APKs were installed on the disposable emulator; it was then restarted and the Q13 APKs installed again before the bound run (install-02.log). No physical device, no real account, no provider request.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q14. It is inside the 9 October authorization (Q03-Q18) but no instruction has named it; wait for "start Q14".
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
