@@ -97,8 +97,8 @@ internal fun RiffApp() {
     val hapticView=androidx.compose.ui.platform.LocalView.current
     val hapticOwner=LocalLifecycleOwner.current
     DisposableEffect(hapticView,hapticOwner,accessibility) {
-        UiHaptics.bind(hapticView,hapticOwner.lifecycle,accessibility)
-        onDispose {UiHaptics.unbind(hapticView)}
+        UiHaptics.bind(hapticView,hapticOwner.lifecycle,accessibility); PerfTrace.bind(hapticView)
+        onDispose {UiHaptics.unbind(hapticView); PerfTrace.unbind(hapticView)}
     }
     val motion = rememberMotionPolicy(accessibility.reduceMotion)
     val ambient = rememberAmbientPalette(motion)
@@ -127,7 +127,9 @@ internal fun RiffApp() {
                 playback.state.title, playback.state.artist, playback.state.artworkUrl,
                 isLive=playback.state.live,isMusic=playback.state.music))
     }
+    LaunchedEffect(playback.state.playing) { PerfTrace.shown("play_toggle"); if (playback.state.playing) PerfTrace.shown("first_audio") }
     LaunchedEffect(playback.state.mediaId) {
+        PerfTrace.shown("skip")
         model.miniVisible = playback.state.mediaId.isNotBlank()
         if (!model.miniVisible) model.sheet = ""
     }

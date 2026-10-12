@@ -234,9 +234,9 @@ class MusicPlaybackService : MediaSessionService() {
                     return queueCommand(replaces=!args.containsKey("enqueueNext") && !args.containsKey("replacePosition"),
                         onSuperseded={java.io.File(cacheDir,name).delete()},prepare={
                         withContext(queueDecoder) {val file=java.io.File(cacheDir,name)
-                            try {if(file.length() in 1..MAX_SNAPSHOT_BYTES) decodePlaybackSnapshot(file.readText()) else null}
+                            try {PerfTrace.block("queue_io_decode") {if(file.length() in 1..MAX_SNAPSHOT_BYTES) decodePlaybackSnapshot(file.readText()) else null}}
                             catch(_:Exception) {null} finally {file.delete()}}
-                    }) {ticket,saved->queue.playCatalogQueue(player,args,saved,ticket) {staleSession(args)}}
+                    }) {ticket,saved->PerfTrace.block("queue_main") {queue.playCatalogQueue(player,args,saved,ticket) {staleSession(args)}}}
                 }
                 if (customCommand.customAction == PLAY_LOCAL_AUDIO) {
                     if (checkSelfPermission(audioLibraryPermission()) !=

@@ -19,3 +19,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Riff"
 include(":app")
+include(":benchmark")

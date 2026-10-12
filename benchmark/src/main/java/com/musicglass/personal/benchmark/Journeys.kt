@@ -1,0 +1,138 @@
+package com.musicglass.personal.benchmark
+
+import androidx.benchmark.macro.MacrobenchmarkScope
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiObject2
+import androidx.test.uiautomator.Until
+
+/** The app under measurement. The Baseline Profile plugin passes the id of the variant it built. */
+internal val TARGET: String
+    get() = InstrumentationRegistry.getArguments().getString("targetAppId") ?: "com.musicglass.personal.benchmark"
+
+/** The protocol's count, unless -PriffBenchmarkIterations asks for fewer to check that a journey runs. */
+internal fun iterations(protocol: Int): Int =
+    InstrumentationRegistry.getArguments().getString("riff.iterations")?.toIntOrNull()?.coerceIn(1, protocol) ?: protocol
+
+private const val WAIT_MS = 15_000L
+
+/** Songs in the invented playlist the account owns, over its three pages. */
+internal const val PLAYLIST_SONGS = 4
+
+/**
+ * The app as a fresh install that has been opened once: its data cleared, so that no page, download or switch
+ * is left from another journey, then one start to do the work only a first start does. Every benchmark and
+ * check begins here, which is what makes two runs comparable.
+ */
+internal fun cleanSlate() {
+    val device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+    check("Success" in device.executeShellCommand("pm clear $TARGET")) { "Could not clear $TARGET" }
+    device.executeShellCommand("am start -W -n $TARGET/com.musicglass.personal.MainActivity")
+    check(device.wait(Until.hasObject(By.text("Speed dial")), 30_000)) { "The first start did not reach Home" }
+    device.executeShellCommand("am force-stop $TARGET")
+}
+
+/** A switch of the app's fixture feed (BenchmarkFeed in :app). Only the shell may set one. */
+internal fun MacrobenchmarkScope.feed(method: String, value: String) {
+    val answer = device.executeShellCommand("content call --uri content://$TARGET.benchmark-feed --method $method --arg $value")
+    check("set=" in answer) { "The fixture feed did not take $method=$value: $answer" }
+}
+
+/** Every switch back to what a plain start expects. */
+internal fun MacrobenchmarkScope.plainFeed() {
+    feed("strict", "off"); feed("latency", "0"); feed("rate", "0"); feed("tracks", "0")
+}
+
+/** The node the app tagged [tag]; the journey fails with the tag's name if it does not appear. */
+internal fun MacrobenchmarkScope.shown(tag: String): UiObject2 =
+    checkNotNull(device.wait(Until.findObject(By.res(tag)), WAIT_MS)) { "\"$tag\" did not appear" }
+
+internal fun MacrobenchmarkScope.tap(tag: String) {
+    shown(tag).click()
+    device.waitForIdle()
+}
+
+internal fun MacrobenchmarkScope.gone(tag: String) =
+    check(device.wait(Until.gone(By.res(tag)), WAIT_MS)) { "\"$tag\" stayed on screen" }
+
+/** Home with the invented shelves on it: the first usable shell. */
+internal fun MacrobenchmarkScope.home() {
+    shown("navigation")
+    checkNotNull(device.wait(Until.findObject(By.text("Speed dial")), WAIT_MS)) { "Home did not show the fixture feed" }
+}
+
+internal fun MacrobenchmarkScope.coldHome() {
+    killProcess()
+    startActivityAndWait()
+    home()
+}
+
+/** Library, then the invented playlist the account owns, with its Play button ready. */
+internal fun MacrobenchmarkScope.openPlaylist() {
+    tap("tab_library")
+    // Library keeps the screen it was left on: the playlist may already be open.
+    val row = java.util.regex.Pattern.compile("catalog_playlist_VLPLfixtureOwned.*")
+    check(device.wait(Until.hasObject(By.res(java.util.regex.Pattern.compile("playlist_detail|$row"))), WAIT_MS)) { "The fixture playlist is not in Library" }
+    if (!device.hasObject(By.res("playlist_detail"))) device.findObject(By.res(row)).click()
+    shown("playlist_detail")
+    check(device.wait(Until.hasObject(By.res("album_play").enabled(true)), WAIT_MS)) { "The playlist did not finish loading" }
+}
+
+/** Play on the open playlist, and wait until the mini player says it is playing. */
+internal fun MacrobenchmarkScope.playPlaylist() {
+    tap("album_play")
+    shown("mini_player")
+    playing()
+}
+
+/** Library, then Downloads, once its heading counts [songs] finished downloads. */
+internal fun MacrobenchmarkScope.openDownloads(songs: Int = PLAYLIST_SONGS, waitMs: Long = WAIT_MS) {
+    tap("tab_library"); tap("library_downloads"); shown("downloads_detail")
+    // Looked for inside the Downloads screen only: while it slides in, Library's tile is still there, and its
+    // count includes downloads that have not finished.
+    val heading = By.text(java.util.regex.Pattern.compile("$songs songs\\b.*"))
+    val deadline = android.os.SystemClock.uptimeMillis() + waitMs
+    while (device.findObject(By.res("downloads_detail"))?.hasObject(heading) != true) {
+        check(android.os.SystemClock.uptimeMillis() < deadline) { "Downloads did not reach $songs songs" }
+        android.os.SystemClock.sleep(250)
+    }
+    check(device.wait(Until.hasObject(By.res("downloads_play").enabled(true)), WAIT_MS)) { "Downloads cannot be played" }
+}
+
+/** The invented playlist kept on the device as complete bundles: asked for, then waited for in Downloads. */
+internal fun MacrobenchmarkScope.downloadPlaylist() {
+    openPlaylist()
+    tap("collection_download_all")
+    device.pressBack()
+    openDownloads(waitMs = 300_000)
+}
+
+/** Play in Downloads, and wait until the mini player says it is playing. */
+internal fun MacrobenchmarkScope.playDownloads() {
+    tap("downloads_play")
+    shown("mini_player")
+    playing()
+}
+
+/** The transport button offers Pause, which it does only while the player reports that it is playing. */
+internal fun MacrobenchmarkScope.playing() =
+    check(device.wait(Until.hasObject(By.desc("Pause")), WAIT_MS)) { "Playback did not start" }
+
+internal fun MacrobenchmarkScope.paused() =
+    check(device.wait(Until.hasObject(By.desc("Play")), WAIT_MS)) { "Playback did not pause" }
+
+internal fun MacrobenchmarkScope.openPlayer() { tap("mini_player"); shown("playback_toggle") }
+internal fun MacrobenchmarkScope.closePlayer() { tap("player_close"); shown("navigation") }
+internal fun MacrobenchmarkScope.openQueue() { tap("player_queue_bottom"); shown("queue_list") }
+internal fun MacrobenchmarkScope.closeQueue() { tap("queue_back"); gone("queue_list") }
+
+/** One down and up pass over the scrolling content of the screen tagged [tag]. */
+internal fun MacrobenchmarkScope.scrollScreen(tag: String = "scene") {
+    shown(tag)
+    // The middle of the screen: clear of the system gesture areas, the navigation bar and the mini player.
+    val x = device.displayWidth / 2; val high = device.displayHeight * 3 / 10; val low = device.displayHeight * 7 / 10
+    device.swipe(x, low, x, high, 12)
+    device.waitForIdle()
+    device.swipe(x, high, x, low, 12)
+    device.waitForIdle()
+}

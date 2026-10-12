@@ -229,6 +229,7 @@ internal class MusicPlaybackGateway(context: Context,
         if (updated.copy(positionMs = state.positionMs) != state) state = updated
     }
     override fun toggle() = withPlayer {
+        PerfTrace.began("play_toggle")
         if(state.embedded) {
             val control=embeddedControl
             if(control!=null) control(!embeddedPlaying) else onLivePlay?.invoke(ProviderTrack(state.mediaId.removePrefix("yt:"),state.title,state.artist,state.artworkUrl,isLive=true))
@@ -248,7 +249,7 @@ internal class MusicPlaybackGateway(context: Context,
     override fun setSleepTimer(minutes:Int) = withPlayer {it.sendCustomCommand(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY),Bundle().apply {putInt("minutes",minutes)})}
     override fun pause() { transport(false); withPlayer { it.pause();if(state.embedded) embeddedControl?.invoke(false) } }
     override fun resume() { transport(true); withPlayer { start(it) } }
-    override fun next() { transport(true); withPlayer { commandError = null; it.seekToNextMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
+    override fun next() { PerfTrace.began("skip"); transport(true); withPlayer { commandError = null; it.seekToNextMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
     override fun previous() { transport(true); withPlayer { commandError = null; it.seekToPreviousMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
     override fun currentPositionMs(): Long = controller?.currentPosition?.coerceAtLeast(0) ?: positionMs
     override fun seekTo(positionMs: Long) = withPlayer {
@@ -320,15 +321,16 @@ internal class MusicPlaybackGateway(context: Context,
         val pressed=transportSequence
         // A stream swap is meant for the entry selected now, not for whichever is selected when it lands.
         val entry=state.playback.queueItemId.takeIf {replacePosition!=null}
+        if(replaces) {PerfTrace.began("queue_prepare");if(autoplay) PerfTrace.began("first_audio")}
         catalogScope.launch {
             val file=java.io.File(appContext.cacheDir,"queue-request-${java.util.UUID.randomUUID()}.json")
             try {
-                kotlinx.coroutines.withContext(requestLane) {
+                kotlinx.coroutines.withContext(requestLane) { PerfTrace.block("queue_io_encode") {
                     val items=tracks.map {t->SavedQueueItem("yt:${t.videoId}",t.title.take(180),t.artist.take(180),t.artworkUrl,t.album.take(180),t.artistId,t.albumId,t.isLive,music=t.isMusic)}
                     // Checked before anything is sent: the service refuses a larger request.
-                    val payload=encodePlaybackSnapshotBounded(PlaybackSnapshot(items,index,0,shuffle,collectionTitle=title.take(180)))?:return@withContext false
+                    val payload=encodePlaybackSnapshotBounded(PlaybackSnapshot(items,index,0,shuffle,collectionTitle=title.take(180)))?:return@block false
                     file.writeText(payload);true
-                }.let {fits->if(!fits) {commandError=PlaybackFailure(PlaybackFailureKind.CollectionTooLarge);refresh();return@launch}}
+                } }.let {fits->if(!fits) {commandError=PlaybackFailure(PlaybackFailureKind.CollectionTooLarge);refresh();return@launch}}
                 if(generation!=replaceSequence) {file.delete();return@launch}
                 // Pause pressed while the queue was being prepared: load it, but do not start it.
                 val play=if(transportSequence!=pressed) autoplay && transportPlay else autoplay
@@ -336,7 +338,7 @@ internal class MusicPlaybackGateway(context: Context,
                     commandError=null
                     val args=Bundle().apply {putString("queueFile",file.name);putBoolean("autoplay",play);entry?.takeIf {it.isNotEmpty()}?.let {putString("expectedEntry",it)};putBoolean("automatic",automatic);putLong("sessionGeneration",owner.generation);putString("sessionNonce",owner.nonce);replacePosition?.let {putLong("replacePosition",it)};enqueueNext?.let {putBoolean("enqueueNext",it)}}
                     val command=player.sendCustomCommand(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY),args)
-                    command.addListener({try {if(command.get().resultCode !in setOf(SessionResult.RESULT_SUCCESS,SessionError.INFO_CANCELLED)) commandError=PlaybackFailure(PlaybackFailureKind.CollectionRejected);refresh()}
+                    command.addListener({if(replaces) PerfTrace.ended("queue_prepare");try {if(command.get().resultCode !in setOf(SessionResult.RESULT_SUCCESS,SessionError.INFO_CANCELLED)) commandError=PlaybackFailure(PlaybackFailureKind.CollectionRejected);refresh()}
                         catch(_:Exception){commandError=PlaybackFailure(PlaybackFailureKind.CollectionRejected);refresh()}
                         finally {file.delete()}},appContext.mainExecutor)
                 }

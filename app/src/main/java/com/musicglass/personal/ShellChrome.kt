@@ -93,7 +93,7 @@ internal fun ChromeBar(model: ShellModel, compact: Boolean, playback: PlaybackGa
                             }, onDragEnd = onMiniRelease,
                             onDragCancel = onMiniRelease)
                     }) {
-                MiniPlayerContents(playback, onOpen = { model.sheet = "mini" },
+                MiniPlayerContents(playback, onOpen = { PerfTrace.action("player_open"); model.sheet = "mini" },
                     onElementBounds = {name,bounds->if(miniProgress<.001f) onMiniElementBounds(name,bounds)})
             }
         }

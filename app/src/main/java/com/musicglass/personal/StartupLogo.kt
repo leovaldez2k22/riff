@@ -82,6 +82,8 @@ private fun startupSmoothStep(from: Float, to: Float, value: Float): Float {
         reveal.animateTo(1f,tween(StartupDurationMs-WaveArrivalMs,easing=LinearEasing))
         visible=false
     }}
+    // Q14: the shell is not usable while the logo covers it, so the start is not complete until it has gone.
+    androidx.activity.compose.ReportDrawnWhen {!visible}
     Box(Modifier.fillMaxSize().preferredFrameRate(LocalUiRefreshRate.current)) {
         if(appReady) Box(Modifier.fillMaxSize().onGloballyPositioned {contentLaidOut=true}) {content()}
         if(visible) Box(Modifier.fillMaxSize().graphicsLayer {alpha=((1f-reveal.value)/.22f).coerceIn(0f,1f);compositingStrategy=CompositingStrategy.ModulateAlpha}.background(Color(0xFF080A12)),contentAlignment=Alignment.Center) {

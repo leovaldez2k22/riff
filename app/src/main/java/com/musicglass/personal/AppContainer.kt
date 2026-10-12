@@ -163,9 +163,14 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
 
     companion object {
         @Volatile private var process: AppContainer? = null
+        /**
+         * What the process builds its runtime from. Only the benchmark build types replace it (src/benchmarkFeed),
+         * from a content provider that runs before anything asks for the container; a release has no such code.
+         */
+        @Volatile var runtimeFor: (Context) -> RuntimeDependencies = { RuntimeDependencies.android(it) }
         fun existing():AppContainer?=process
         fun get(context: Context): AppContainer = process ?: synchronized(this) {
-            process ?: AppContainer(context.applicationContext).also { process = it }
+            process ?: context.applicationContext.let { AppContainer(it, runtimeFor(it)) }.also { process = it }
         }
     }
 }

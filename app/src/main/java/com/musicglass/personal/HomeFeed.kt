@@ -91,6 +91,8 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
     LaunchedEffect(provider.authRevision, epoch, refresh) {
         if (provider.signedIn) provider.profile()
     }
+    // Q14: the start is complete when Home shows its shelves, or says why it cannot.
+    androidx.activity.compose.ReportDrawnWhen { feedReady || error != null }
     fun open(card: ProviderHomeCard) { openCatalogCard(model,card) { track ->
         scope.launch { playRealTrack(provider,playback,track,onNotice) }
     } }

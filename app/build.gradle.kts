@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.baselineprofile)
 }
 
 android {
@@ -34,6 +35,10 @@ android {
     }
 
     sourceSets.getByName("debug").java.srcDir("src/verification/java")
+    // Q14: the two build types the Baseline Profile plugin derives from release, benchmarkRelease (shrunk, not
+    // debuggable, measured) and nonMinifiedRelease (the profile is collected from it), get the fixture feed of
+    // src/benchmarkFeed and their own package id, so that neither can install over Riff or reach a provider.
+    // Release itself has neither the source set nor the id. Both are set in finalizeDsl below.
     sourceSets.getByName("test").java.srcDir("src/testSupport/java")
     sourceSets.getByName("androidTest").java.srcDir("src/testSupport/java")
     sourceSets.getByName("test").resources.srcDir("src/androidTest/assets")
@@ -128,6 +133,38 @@ kotlin {
     }
 }
 
+// The plugin makes its build types when the DSL is finalized and gives each a copy of release's source
+// directories. With AGP 8.13 that copy arrives as a provider the Kotlin plugin cannot read as a directory
+// ("Could not stat file ...\provider(?)"), so the directories are set here, after the plugin has run. The
+// package id is set here for the same reason: the plugin's copy of release would undo an earlier value.
+androidComponents {
+    finalizeDsl { extension ->
+        for (derived in listOf("benchmarkRelease", "nonMinifiedRelease"))
+            extension.buildTypes.getByName(derived).applicationIdSuffix = ".benchmark"
+        for (derived in listOf("benchmarkRelease", "nonMinifiedRelease")) extension.sourceSets.getByName(derived).apply {
+            java.setSrcDirs(listOf("src/benchmarkFeed/java")); kotlin.setSrcDirs(emptyList<String>())
+            res.setSrcDirs(listOf("src/benchmarkFeed/res")); assets.setSrcDirs(listOf("src/test/resources/quality/provider"))
+            manifest.srcFile("src/benchmarkFeed/AndroidManifest.xml")
+        }
+        for (derived in listOf("benchmarkLite", "nonMinifiedLite")) extension.sourceSets.getByName(derived).apply {
+            java.setSrcDirs(emptyList<String>()); kotlin.setSrcDirs(emptyList<String>())
+        }
+    }
+}
+
+// Q14: the profile is generated on request (:app:generateReleaseBaselineProfile) and kept as source under
+// src/release/generated/baselineProfiles; an ordinary build only packages what is there.
+baselineProfile {
+    saveInSrc = true
+    automaticGenerationDuringBuild = false
+    // The fixture feed is in the build the profile is collected from and not in a release.
+    filter {
+        include("**")
+        exclude("com.musicglass.personal.BenchmarkFeed*")
+        exclude("com.musicglass.personal.ToneServer*")
+    }
+}
+
 dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
@@ -147,6 +184,9 @@ dependencies {
     implementation(libs.ktor.serialization.json)
     debugImplementation(libs.compose.tooling)
     implementation("com.google.mlkit:translate:17.0.3")
+    // Q14: installs the Baseline Profile packaged with a release; the profile comes from :benchmark.
+    implementation(libs.profileinstaller)
+    baselineProfile(project(":benchmark"))
     implementation("com.google.mlkit:language-id:17.0.6")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.17")
