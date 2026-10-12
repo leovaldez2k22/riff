@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q10A PASS locally with open items (see the Q10A section, which follows Q11); Q12 PASS locally with open items, device walk-through BLOCKED (see the Q12 section); Q13 PASS locally with open items, TalkBack and keyboard walk-throughs BLOCKED (see the Q13 section); Q14-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q10A PASS locally with open items (see the Q10A section, which follows Q11); Q12 PASS locally with open items, device walk-through BLOCKED (see the Q12 section); Q13 PASS locally with open items, TalkBack and keyboard walk-throughs BLOCKED (see the Q13 section); Q14 PASS locally for tooling, Baseline Profile and APK checks, every physical-tier budget BLOCKED and one open finding awaiting a product decision (see the Q14 section); Q15-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -1256,6 +1256,113 @@ Device state: emulator shut down with adb emu kill after each run, adb server st
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
 Commit: 08cea9d on local branch codex/riff-quality-m0 (not pushed), after a523a8c, 161ab9c and df087b4.
 Next exact action: Q14. It is inside the 9 October authorization (Q03-Q18) but no instruction has named it; wait for "start Q14".
+
+## Q14
+### Q14 completion (12 October 2026)
+Status: PASS locally for the tooling, the shipped Baseline Profile, the release APK check and the main-thread check on API 31, with open items. Every timing, frame, battery and soak budget on Tier R and Tier L is BLOCKED (no phone; installation on one is not authorized) and none was measured. No budget credit is claimed for any of them. One budget (cold start, Tier R) is expected to fail as the app stands and waits for a product decision (finding 2). Nothing here is a claim that the app is fast.
+Source: 91fe78b0979b3b172aa3f85e7d6cd306ae232c29 dirty (the two user files named at the end are the only uncommitted changes), digest prefix c75e38b47e46 (full value in the manifests). Evidence root: artifacts/quality/91fe78b0979b3b172aa3f85e7d6cd306ae232c29-dirty-c75e38b47e46/
+Commits: 43599f1 (behaviour: the crash fix and its test), 543a48c (benchmark module, fixture-fed benchmark build types, trace marks), b150e30 (Baseline Profile, check_performance.py), 91fe78b (documents). The one behavioural change is its own commit.
+User instruction on 12 October 2026: "start q14". Q14 is inside the 9 October authorization (Q03-Q18).
+
+Findings:
+- 1, fixed. Opening the full player ended the app on Android 12 and 13: the output row called MediaRoute2Info.getType, which exists from API 34, and on API 31 and 32 the call was always made (NoSuchMethodError). Found by the player journey on the API 31 emulator. routeDeviceType in AudioOutputControls.kt asks only from API 34; AudioRouteTypeTest (4 tests). Lint's NewApi check had not reported the call.
+- 2, open, needs a decision by the user. The startup logo runs 1,150 ms and the first composition waits for its first 740 ms, so the shell cannot be usable sooner than about 1.15 s after the first frame; the Tier R budget is 1.2 s from process start. This is arithmetic from StartupLogo.kt, not a measurement. Choices: shorten or drop the logo on a cold start; compose the shell under the logo; or a product-level waiver that redefines the budget. Nothing was changed and no credit is taken. I cannot waive it.
+- 3, recorded. 24 reads of preference files on the main thread during a cold start. They are outside the "warmed journey" budget and inside the cold-start number.
+
+Implemented, by plan item:
+- Benchmark module. :benchmark (com.android.test, namespace com.musicglass.personal.macrobenchmark): StartupBenchmark (20 cold launches, with and without the profile), FrameBenchmark (Home scroll with and without the profile, collection scroll, player and queue; 5 warmed loops), ActionBenchmark (six player and queue actions x 30, queue of 2,000 x 10, first audio from a local bundle x 20, first audio at 100 ms and 5 Mbit/s x 20, unthrottled x 20), BaselineProfileGenerator, and three untimed checks: JourneyCheck, MainThreadAudit, MemoryCheck. Two custom metrics: SectionMetric (duration of a named app section) and MissedDeadlineMetric (share of frames the frame timeline marks late).
+- Versions, checked against developer.android.com on 12 October 2026: androidx.benchmark 1.5.0 (library and baselineprofile plugin), UI Automator 2.4.0, androidx.profileinstaller 1.4.1. No other dependency was changed.
+- The measured build. benchmarkRelease (shrunk, not debuggable, profileable) and nonMinifiedRelease, both with package id com.musicglass.personal.benchmark and the source set app/src/benchmarkFeed: provider answers from the invented fixture pages, one generated tone for every song, generated artwork, a synthetic session, all from 127.0.0.1 in the app's own process. None of it is in debug, release or Lite builds; check_performance.py apk fails a release APK that holds any of it.
+- Trace marks. PerfTrace.kt and eleven sections (player and queue open and close, play toggle, skip, queue prepare with IO and main phases apart, first audio); reportFullyDrawn when Home shows its shelves and the logo has gone. AppContainer.runtimeFor is the one seam the benchmark builds replace.
+- Rule 8, Baseline Profile. app/src/release/generated/baselineProfiles/baseline-prof.txt, 31,341 rules, committed as source, collected by BaselineProfileGenerator from nonMinifiedRelease on the API 31 emulator (31,406 collected; 65 rules for the feed's own classes dropped).
+- scripts/quality/check_performance.py: apk (size, profile packaged, feed absent, profile covers the journey classes), summary (n, p50, p95, budget, verdict; an emulator's rows read NOT EVIDENCE, too few samples INSUFFICIENT), adopt. 21 tests.
+- Docs: docs/quality/performance.md (new: protocol, budgets, findings, rules checked against the code, BLOCKED table with commands), architecture.md, CHANGELOG.md, README.md.
+- Rules 1-7: checked against the code and tabled in performance.md. No optimization was made on a guess. Not audited: effect caching and narrow state reads, release of offscreen video and tail players (they need frame and memory profiles from a phone). A Performance Auto/Full/Reduced setting was not added; nothing measured asks for it yet.
+
+Verification:
+- Debug (q14-debug-01/manifest.json): PASS_LOCAL. 931 JVM tests / 103 suites, zero failures, errors or skips (Q13: 927 / 102; the four new ones are AudioRouteTypeTest). Lint 0 errors, 81 warnings, 3 hints; against q13-debug-01 one added and none removed (lint-diff-debug-01.txt): GradleDependency on the existing androidx.test.ext:junit line, which I did not touch. It appears because the online resolution below put newer version lists in the Gradle cache. Not upgraded (no unrelated dependency upgrades). APK SHA-256 562a7ccbb82569b554165024215fb079d63a9372d9fcb2fa2db0929f72e756a0.
+- Emulator, bound (q14-debug-fixture-01/manifest.json, log q14-instrumentation-01.log, install-01.log): PASS_LOCAL, all five gates PASS. 46 tests, 318.662 s, first attempt, network off (ping_exit=2). Test APK SHA-256 e407b4b05a04e54c2d26a2fdeb1a0ce9a1c9f11ccfb57c8c4af01b4a5322dac2. The built app APK matched the manifest hash before install.
+- Emulator, not bound (q14-two-player-01.log, install-02.log): CrossfadeDeviceTest and SongFadeDeviceTest, 15 tests, OK, 211.355 s, on a freshly started emulator, first attempt.
+- Benchmark variants built from the committed source (benchmark-apks-01.sha256): benchmarkRelease app e5fa06f3a9c483cbb798e9075c23a624c5b00e0aef986bb6ad1b6ca25972a6e5, nonMinifiedRelease app d798e6fcd83d8828bc1817810068b91cff61901da071132068598fc81907e378, benchmark test APK c604853577018acf8312f8abbd519c77f6136f11568b3e199058a80f3a90f900.
+- JourneyCheck (q14-journey-check-01.log): 6 tests OK, 177.623 s. Every step the benchmarks take, untimed, on API 31.
+- MainThreadAudit (q14-main-thread-audit-01.log, nonMinifiedRelease): OK, 36.077 s, zero violations after the warm marker. The whole log (q14-main-thread-audit-01-strictmode.log) holds 35 reports from the start and the first pass: 27 disk reads, 4 disk writes, 2 custom, 1 leaked closable, 1 SQLite object leak; none is a network violation. Evidence for API 31 behaviour, not for speed.
+- MemoryCheck (q14-memory-check-01.log): OK. PSS 119,767 kB before and 123,642 kB after ten journeys (3,875 kB; 20,480 kB allowed); over three blocks 119,767, 123,642, 137,617, 126,799 kB. The reading is noisier than the allowance (an earlier foreground reading grew 24.3 MB); it is not a verdict on the budget, which the soaks decide.
+- Release (q14-release-01/manifest.json): PASS_LOCAL. 931 tests / 103 suites, zero failures, errors or skips; lint 81 warnings, 3 hints; against q13-release-01 the same one added, none removed (lint-diff-release-01.txt). APK SHA-256 7abed3399f0ab848ebe153af23ec990da61078a72e3e52dd8ddf1c351d4951c3.
+- Release APK (release-apk-check-01.txt): all five checks ok. 28,194,806 bytes = 26.89 MiB; assets/dexopt/baseline.prof 11,410 bytes and baseline.profm 1,637 bytes packaged; no feed class, provider, config or fixture page; the committed profile has rules for all journey classes.
+- Shrunk release, solver seam (solver-seam-release-01.txt): PASS, unchanged.
+- Static checks (static-checks-01.txt): 154 files, 24 reviewed sites, 658 raw measures in 34 screen files, 0 findings.
+- Script tests (quality-script-tests-01.txt): 98 tests OK, of which 21 are new (check_performance).
+- Stress (stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only.
+- The evidence was taken after commit 91fe78b and before this ledger entry was written; the entry is the only change after it.
+
+What never ran:
+- StartupBenchmark, FrameBenchmark and ActionBenchmark. The API 31 emulator image's system tracer (traced_probes) dies with SIGILL when tracing starts, and Macrobenchmark stops with "did not detect tracing on after 5000 ms". So SectionMetric, MissedDeadlineMetric and the summary parser are compiled and unit-tested but have never met a real trace or a real result file. The first phone run is their first real test.
+- The profile comparison (with and without, by compilation mode), for the same reason.
+- Emulator timings read from the system log during development (first frame 0.55-0.80 s, fully drawn 2.2-2.6 s over six starts) are recorded in performance.md as not evidence.
+
+Departures from the rules, each recorded because it happened:
+- One online Gradle resolution, during development, to fetch androidx.benchmark 1.5.0, the baselineprofile plugin, UI Automator 2.4.0 and their dependencies into the project's Gradle cache. Every evidence run was --offline. AGP's test-runner artifacts (com.android.tools.utp 31.13.2) were not fetched, so connectedAndroidTest and generateReleaseBaselineProfile cannot run offline here.
+- The Baseline Profile was therefore collected by starting the generator with am instrument, pulling the file with adb, and writing it into place with check_performance.py adopt, which applies the same filter as the plugin's. The collection is the official BaselineProfileRule; the orchestration is mine. It took adb root on the disposable emulator (API 31 needs it), 820 s.
+- The benchmark variants (com.musicglass.personal.benchmark) and the benchmark test APK were installed on the disposable emulator only. That is the same emulator practice as earlier packages under a new package id; nothing was installed on a phone.
+
+Failed attempts during development:
+- The .benchmark id suffix set in the build type block was overwritten when the plugin copied release; it is set in finalizeDsl. The test module's namespace collided with the app id and was renamed.
+- The invented playlist showed as truncated with Play disabled until continuation tokens were mapped to the fixture pages.
+- Journeys: the play state is on a child node; a scroll by object went stale and became a swipe; play after a scroll failed and play now comes first; a race between Library and an already open playlist; the Downloads heading matched a Library tile during the transition.
+- Downloads in the fed build: the runtime's HTTP client refused loopback; a WAV was refused at commit because a bundle must be MP4 or WebM, so the tone is encoded to AAC in MP4 on the device; cached pages leaked from one run to the next until every run started from a cleared app; a seeded cookie was lost when the process was stopped at once, until it was flushed.
+- The offline build resolved desktop variants for the tested APK configuration; made non-transitive.
+- A shell here-document halved backslashes again, in check_performance.py, its test and two regular expressions in MemoryCheck. Repaired from script files.
+- MemoryCheck's first form read PSS in the foreground and failed its own allowance on noise; it now reads after ten seconds in the background.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| :benchmark module, release-equivalent nondebuggable variant, distinct package, fixture injection absent from production | PASS locally | builds; release-apk-check-01.txt; JourneyCheck |
+| Versions pinned and checked against official documents | PASS | performance.md |
+| Cold start p95 1.2 s R / 2.0 s L | BLOCKED; expected to fail on R (finding 2) | none |
+| Player and queue actions p95 150 / 250 ms | BLOCKED | none |
+| Missed-deadline frames, 60 Hz and high refresh | BLOCKED | none |
+| 2,000-entry queue p95 2 / 4 s, IO and main apart | BLOCKED | none; the phases are marked apart in the code |
+| Local bundle first audio p95 500 / 800 ms | BLOCKED | none |
+| Controlled online first audio p95 3 / 5 s | BLOCKED | none |
+| Release APK at most 40 MiB | PASS | release-apk-check-01.txt |
+| No app-owned network on the main thread | PASS on API 31 emulator | MainThreadAudit and its log |
+| No avoidable main-thread disk in a warmed journey | PASS on API 31 emulator | MainThreadAudit |
+| Retained memory growth | NOT DECIDED | MemoryCheck passes but is too noisy to count; soaks BLOCKED |
+| Battery, three 2-hour runs | BLOCKED | none |
+| Soaks, 4 h live and 2 h offline | BLOCKED | none; the live soak also needs an account |
+| API matrix 31 / 33 / 36 | API 31 function only; 33 and 36 BLOCKED | emulator runs above |
+| Baseline Profile generated from :benchmark, committed, packaged | PASS | baseline-prof.txt; release-apk-check-01.txt |
+| Profile with/without comparison | BLOCKED | no device that can trace |
+| No sustained-120 fps claim from display scheduling | PASS (no such claim is made anywhere) | performance.md |
+| Optimization rules 1-7 | Partly: two not audited (above) | performance.md |
+
+Decisions (mine, not the user's):
+- A second Gradle module. It is the plan's own requirement and the one exception to the single-module decision; it holds tests only.
+- The fixture feed lives in an app source set that only the two benchmark build types compile, and the app gained one replaceable function (AppContainer.runtimeFor) and PerfTrace calls in production code. A PerfTrace call is one check when nothing is tracing.
+- "First usable shell" is defined as Home showing its shelves with the startup logo gone. A looser definition would pass more easily; I did not choose it.
+- first_audio ends when the player reports playing and a frame shows it, which is slightly later than the first sample and never earlier.
+- The online first-audio benchmark uses 20 starts, like the local one; the plan gives the network but no count.
+- profileinstaller is now a direct dependency of the app (it was already there transitively).
+- The androidx.test.ext:junit line that lint now flags was left alone.
+
+Not covered by any test:
+- Any number on a phone. Any trace-based metric on any device.
+- API 33 and API 36 in any form.
+- Whether the Baseline Profile helps, and whether it is still current after later changes (the apk check only holds the journey classes in it).
+- The Lite flavour's benchmark build types (they compile with no feed and were not run).
+- The notification's and mood photograph's requests in the fed build; the benchmarks must be run in aeroplane mode so none leaves the phone.
+
+BLOCKED, with rerun steps (the commands are in docs/quality/performance.md, "BLOCKED, and how to unblock each"):
+- Tier R and Tier L budgets: connect the phone, get approval to install com.musicglass.personal.benchmark and the benchmark test APK (they cannot replace or read the main app), aeroplane mode, animations on, charged and cool; run JourneyCheck, then the Macrobenchmark rule, pull the result JSON and traces, run check_performance.py summary --tier R or L with the refresh rate in force; keep model, API level, fingerprint and revision.
+- API matrix: a device or an emulator image for 33 and 36 whose tracer works.
+- Profile comparison: StartupBenchmark and FrameBenchmark.homeScroll with and without, on any device that can trace.
+- Battery and soaks: Tier R phone, a trustworthy discharge measurement, and for the live soak an account that this work may use. Not scripted. They stay BLOCKED rather than pass on a meaningless run.
+- Carried from Q04 to Q13: as listed in those entries, including the two timing-dependent device tests (both passed first time here).
+
+Device state: emulator shut down with adb emu kill after the runs, Gradle daemons stopped before and after the stress build. The emulator's network stayed off throughout. The disposable emulator holds the debug app, its test APK, the benchmark variant and the benchmark test APK; adbd was restarted as root on it once, for the profile collection. No physical device, no real account, no provider request.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q15. It is inside the 9 October authorization (Q03-Q18) but no instruction has named it; wait for "start Q15". Finding 2 needs the user's decision whenever it suits; it does not hold Q15 up.
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
