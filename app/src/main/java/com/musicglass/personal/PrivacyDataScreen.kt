@@ -207,7 +207,7 @@ internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult): St
         }
         if (!earlier.empty) item {
             SettingsSection("From earlier versions") {
-                SettingsLinkRow("Earlier data", null, Icons.Rounded.History, "settings_earlier_data") { model.push("earlier_data") }
+                SettingsLinkRow("Earlier data", null, Icons.Rounded.History, "settings_earlier_data") { model.push(Route.Settings(SettingsSection.EarlierData)) }
             }
         }
     }

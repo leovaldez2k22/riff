@@ -44,7 +44,7 @@ import kotlinx.coroutines.withContext
         item {BackHeading("Back",model::back);ScreenTitle("Settings")}
         item {
             Surface(Modifier.fillMaxWidth().padding(vertical=8.dp).testTag("settings_account")
-                .clickable(onClick=hapticClick {model.push("account")}),shape=RoundedCornerShape(24.dp),
+                .clickable(onClick=hapticClick {model.push(Route.Account)}),shape=RoundedCornerShape(24.dp),
                 color=White.copy(alpha=.06f)) {
                 Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically) {
                     val image=provider.accountProfile?.artworkUrl
@@ -136,11 +136,11 @@ import kotlinx.coroutines.withContext
         item {SettingsSection("Downloads") {DownloadSettings(model,onNotice)}}
         item {SettingsSection("Widgets") {WidgetSettings(onNotice)}}
         item {SettingsSection("Library") {
-            SettingsLinkRow("Privacy and data",null,Icons.Rounded.Lock,"settings_privacy_data") {model.push("privacy_data")}
+            SettingsLinkRow("Privacy and data",null,Icons.Rounded.Lock,"settings_privacy_data") {model.push(Route.Settings(SettingsSection.PrivacyData))}
             SettingsDivider()
             val hidden=remember(context) {NotInterestedStore.get(context)}
             SettingsLinkRow("Not interested",hidden.entries.size.takeIf {it>0}?.toString(),Icons.Rounded.Block,"settings_not_interested") {
-                model.push("not_interested")
+                model.push(Route.Settings(SettingsSection.NotInterested))
             }
         }}
         item {SettingsSection("About") {

@@ -234,7 +234,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     ScreenList(model,bottom) {
         item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top) {
             Box(Modifier.weight(1f)) {ScreenTitle("Library","Your YouTube Music collection")}
-            IconButton({uiHaptic();model.push("listening_history")},modifier=Modifier.testTag("library_history")) {
+            IconButton({uiHaptic();model.push(Route.ListeningHistory)},modifier=Modifier.testTag("library_history")) {
                 Icon(Icons.Rounded.History,"Listening history",tint=White)
             }
         }}
@@ -243,7 +243,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
                 GlassCategoryChip(if(filter=="Favorites") "Liked songs" else filter,key="library:$filter",selected=kind==filter,tag="library_filter_${filter.lowercase()}") {model.libraryFilter=filter}}
         }}
         item {LibraryShortcutTiles(model)}
-        if(!provider.signedIn) item {ToolLink("Sign in to YouTube Music"){model.push("account")}}
+        if(!provider.signedIn) item {ToolLink("Sign in to YouTube Music"){model.push(Route.Account)}}
         if(loading) item {Text("Loading your library\u2026",color=Muted)}
         error?.let {item {Text(it,color=Pink);TextButton({ uiHaptic(); retry++}){Text("Retry")}}}
         items(cards,key={it.key()}) {card->CatalogCardRow(card,onEnqueue={next->scope.launch{enqueueRealTrack(provider,playback,card,next,onNotice)}}){open(card)}}

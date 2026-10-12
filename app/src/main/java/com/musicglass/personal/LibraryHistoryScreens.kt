@@ -128,7 +128,7 @@ import kotlinx.coroutines.withContext
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Raised).padding(12.dp).testTag("history_earlier"),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text(earlierDataSummary(earlier), color = White, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                TextButton({ uiHaptic(); model.push("earlier_data") }, modifier = Modifier.testTag("history_earlier_review")) { Text("Review", color = Pink) }
+                TextButton({ uiHaptic(); model.push(Route.Settings(SettingsSection.EarlierData)) }, modifier = Modifier.testTag("history_earlier_review")) { Text("Review", color = Pink) }
             }
         }
         if (!shown.isNullOrEmpty() || query.isNotBlank()) item {

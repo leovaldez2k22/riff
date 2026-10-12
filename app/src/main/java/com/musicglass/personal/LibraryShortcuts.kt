@@ -63,12 +63,12 @@ internal data class DownloadSummary(val ready: Int, val active: Int, val covers:
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         ShortcutTile("library:tile:downloads", "Downloads", downloads?.label ?: " ", Modifier.weight(1f).testTag("library_downloads"),
-            { model.push("downloads") }) { CoverCollage(downloads?.covers.orEmpty(), Icons.Rounded.DownloadDone) }
+            { model.push(Route.Downloads) }) { CoverCollage(downloads?.covers.orEmpty(), Icons.Rounded.DownloadDone) }
         ShortcutTile("library:tile:device", "On device", when {
             !permitted -> "Allow access"
             deviceCount == null -> " "
             else -> songCountLabel(deviceCount!!, "file")
-        }, Modifier.weight(1f).testTag("library_device"), { model.push("device") }) {
+        }, Modifier.weight(1f).testTag("library_device"), { model.push(Route.DeviceAudio) }) {
             Box(Modifier.fillMaxSize().background(Pink.copy(alpha = .18f)), contentAlignment = Alignment.Center) {
                 Icon(Icons.Rounded.PhoneAndroid, null, tint = Pink, modifier = Modifier.size(20.dp))
             }

@@ -99,7 +99,7 @@ internal suspend fun requestCollectionDownload(context:Context,tracks:List<Provi
         }
     }
     SettingsDivider()
-    SettingsLinkRow("Downloaded songs",icon=Icons.Rounded.DownloadDone,tag="settings_downloads") {model.push("downloads")}
+    SettingsLinkRow("Downloaded songs",icon=Icons.Rounded.DownloadDone,tag="settings_downloads") {model.push(Route.Downloads)}
     SettingsDivider()
     SettingsLinkRow("Clear playback cache",storageLabel(cacheBytes),Icons.Rounded.CleaningServices,"settings_clear_cache") {
         confirmClearCache=true

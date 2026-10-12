@@ -41,7 +41,7 @@ class CollectionTruncationUiTest {
     private fun cards(count:Int)=(1..count).map {ProviderHomeCard("Row $it","Fixture Artist",null,videoId=fixtureVideoId(it),setVideoId="row-set-$it")}
     private fun show(page:CatalogPage) {
         val provider=ProviderWorld(context).also {world=it}.provider
-        val model=ShellModel().apply {selectedPlaylistId="VLPLfixtureOwned0000000001"}
+        val model=ShellModel().apply {openCollection("VLPLfixtureOwned0000000001","Fixture list")}
         compose.setContent {ImmersiveCollectionDetail(model,0.dp,page,provider,gateway,{notices+=it})}
         compose.waitForIdle()
     }

@@ -5,9 +5,12 @@ import org.junit.Test
 class UiInteractionTest {
     @Test fun doubleTapResetsOnlyItsOwnTabAndRootState() {
         for(name in listOf("Home","Podcasts","Radio","Library","Search")) {
-            val model=ShellModel();model.stacks=mapOf(name to listOf("collection"),"Other" to listOf("account"))
+            // Q11: stacks hold typed routes for real roots, so the other stack belongs to another root rather than to "Other".
+            val other=if(name=="Home") "Library" else "Home"
+            val model=ShellModel();model.select(other);model.push(Route.Account);model.select(name);model.openCollection("MPREb_fixtureAlbum01","Album")
+            assertEquals(listOf("collection"),model.stacks[name])
             assertFalse(model.selectFromTap(name,1000));assertTrue(model.selectFromTap(name,1200))
-            assertTrue(model.stacks[name].orEmpty().isEmpty());assertEquals(listOf("account"),model.stacks["Other"])
+            assertTrue(model.stacks[name].orEmpty().isEmpty());assertEquals(listOf("account"),model.stacks[other])
             assertEquals(1,model.rootRevisions[name]);assertEquals(name,model.tab)
             assertEquals(if(name=="Search") 1 else 0,model.searchFocusRequest)
         }

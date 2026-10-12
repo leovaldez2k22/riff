@@ -115,7 +115,7 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Home", color = White, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                IconButton(onClick = { uiHaptic();  model.push("settings") },modifier = Modifier.testTag("home_settings")) {
+                IconButton(onClick = { uiHaptic();  model.push(Route.Settings()) },modifier = Modifier.testTag("home_settings")) {
                     if (profile?.artworkUrl != null) AsyncImage(profile?.artworkUrl, contentDescription = "Settings",
                         contentScale = ContentScale.Crop, modifier = Modifier.size(38.dp).clip(CircleShape))
                     else Icon(Icons.Filled.AccountCircle, contentDescription = "Settings", tint = White)
