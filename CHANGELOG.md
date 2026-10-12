@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.10.0-rc1 (code 22)
 
+- Fixed: opening the full player ended the app on Android 12 and 13. The output row asked the selected audio route for its type, which only Android 14 and later can answer.
+- The release now ships a Baseline Profile covering the start, a collection, the player and the queue. What it is worth has not been measured: no performance budget has been measured on a phone yet, and the cold-start budget is expected to be missed while the startup logo runs for 1.15 s (`docs/quality/performance.md`).
+- Adds a `:benchmark` module (Jetpack Macrobenchmark 1.5.0) and two benchmark build types with their own package id and a fixture feed. None of it is in a release build.
 - Accessibility: every queue row offers **Move up**, **Move down**, **Play next** and **Remove** to a screen reader or a switch, without dragging, and says its position. The like button says whether the song is liked. Essential controls take presses in at least 48 dp.
 - Changed: text and controls drawn over artwork or a photograph now sit on a darker scrim or a patch of their own (the player's close button and heading, a collection's title block, Home over a photograph, speed-dial titles), and a colour taken from very bright artwork is darkened further, so they stay readable over a white picture. Screens with bright artwork look darker than before.
 - At large text sizes on a short screen the player scrolls instead of squeezing its controls.

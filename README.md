@@ -46,6 +46,8 @@ $env:ANDROID_HOME = 'C:\path\to\Android\Sdk'
 
 On macOS/Linux, set `JAVA_HOME` and `ANDROID_HOME` and use `./gradlew`.
 
+Performance benchmarks and the Baseline Profile generator are in `:benchmark`; they run against a separate fixture-fed build (`com.musicglass.personal.benchmark`) and need a physical phone for results that count. See [performance](docs/quality/performance.md).
+
 Debug builds use a different signing key and cannot update an installed release in place. Release signing credentials stay outside Git. CI builds an unsigned release when signing credentials are absent. Never commit keys, passwords, cookies, or signed media URLs.
 
 See [CONTRIBUTING](CONTRIBUTING.md), the [CI workflow](.github/workflows/ci.yml), [release signing](docs/release-signing.md), and the [dependency license inventory](docs/dependency-license-inventory.md).

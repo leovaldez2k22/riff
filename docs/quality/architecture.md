@@ -82,6 +82,17 @@ sleep timer and history recording. The rest is in classes that take the player a
 - `runBlocking` exists at three reviewed places: the bounded final save when the service is destroyed, the
   player's loader thread in the SABR data source, and the solver process's Binder threads.
 
+## The benchmark module
+
+`:benchmark` (Q14) is a `com.android.test` module: Macrobenchmark tests and the Baseline Profile generator.
+It is the one module beside `:app`, it holds tests only, and it drives the app from outside its process, so it
+sees nothing internal. The app's side of it is three things. `PerfTrace` writes trace sections that cost one
+check when nothing is tracing. `AppContainer.runtimeFor` is the function that builds the runtime; only the
+benchmark build types replace it. `app/src/benchmarkFeed` is a source set that exists only in the
+`benchmarkRelease` and `nonMinifiedRelease` build types (package id `com.musicglass.personal.benchmark`) and
+feeds the app invented content from its own process. `scripts/quality/check_performance.py apk` fails a
+release APK that holds any of it. See `docs/quality/performance.md`.
+
 ## Static checks
 
     python scripts/quality/static_checks.py            # exit 1 on any finding
