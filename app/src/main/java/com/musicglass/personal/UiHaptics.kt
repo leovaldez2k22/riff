@@ -10,6 +10,22 @@ import kotlin.math.roundToInt
 
 internal enum class HapticCue { Selection, Click, Confirm, Reject, ToggleOn, ToggleOff, DragStart, DragEnd, Threshold }
 
+/**
+ * The platform constant for a cue. Four of them arrived in API 34; before that the view ignores them, so an
+ * older phone gets the nearest constant it does know instead of nothing.
+ */
+internal fun hapticConstant(cue: HapticCue, sdk: Int = Build.VERSION.SDK_INT): Int = when(cue) {
+    HapticCue.Confirm -> HapticFeedbackConstants.CONFIRM
+    HapticCue.Reject -> HapticFeedbackConstants.REJECT
+    HapticCue.DragStart -> if(sdk>=34) HapticFeedbackConstants.DRAG_START else HapticFeedbackConstants.LONG_PRESS
+    HapticCue.DragEnd -> HapticFeedbackConstants.GESTURE_END
+    HapticCue.Threshold -> if(sdk>=34) HapticFeedbackConstants.GESTURE_THRESHOLD_ACTIVATE else HapticFeedbackConstants.CLOCK_TICK
+    HapticCue.ToggleOn -> if(sdk>=34) HapticFeedbackConstants.TOGGLE_ON else HapticFeedbackConstants.CONTEXT_CLICK
+    HapticCue.ToggleOff -> if(sdk>=34) HapticFeedbackConstants.TOGGLE_OFF else HapticFeedbackConstants.CONTEXT_CLICK
+    HapticCue.Selection -> HapticFeedbackConstants.CLOCK_TICK
+    HapticCue.Click -> HapticFeedbackConstants.CONTEXT_CLICK
+}
+
 /** Android's semantic touch feedback respects system settings without a vibration permission. */
 internal object UiHaptics {
     private var view = WeakReference<View>(null)
@@ -25,18 +41,7 @@ internal object UiHaptics {
         if(settings?.hapticFeedback!=true || lifecycle?.currentState!=Lifecycle.State.RESUMED || !target.isAttachedToWindow || !target.isHapticFeedbackEnabled) return
         val now=SystemClock.uptimeMillis()
         if(lastMs!=Long.MIN_VALUE && now-lastMs<60) return
-        val effect=when(cue) {
-            HapticCue.Confirm -> HapticFeedbackConstants.CONFIRM
-            HapticCue.Reject -> HapticFeedbackConstants.REJECT
-            HapticCue.DragStart -> if(Build.VERSION.SDK_INT>=34) HapticFeedbackConstants.DRAG_START else HapticFeedbackConstants.LONG_PRESS
-            HapticCue.DragEnd -> HapticFeedbackConstants.GESTURE_END
-            HapticCue.Threshold -> HapticFeedbackConstants.GESTURE_THRESHOLD_ACTIVATE
-            HapticCue.ToggleOn -> if(Build.VERSION.SDK_INT>=34) HapticFeedbackConstants.TOGGLE_ON else HapticFeedbackConstants.CONTEXT_CLICK
-            HapticCue.ToggleOff -> if(Build.VERSION.SDK_INT>=34) HapticFeedbackConstants.TOGGLE_OFF else HapticFeedbackConstants.CONTEXT_CLICK
-            HapticCue.Selection -> HapticFeedbackConstants.CLOCK_TICK
-            HapticCue.Click -> HapticFeedbackConstants.CONTEXT_CLICK
-        }
-        if(target.performHapticFeedback(effect)) lastMs=now
+        if(target.performHapticFeedback(hapticConstant(cue))) lastMs=now
     }
 }
 internal fun uiHaptic(cue: HapticCue = HapticCue.Click) = UiHaptics.perform(cue)

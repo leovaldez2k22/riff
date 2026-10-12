@@ -320,18 +320,26 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 .padding(top = statusInset + 2.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically) {
+                // Each sits on its own patch of scrim: over white artwork neither could be seen (Q13).
                 IconButton(onClick = hapticClick(onClose),enabled=!queueOpen, modifier = Modifier.testTag("player_close")) {
-                    Icon(Icons.Rounded.Close, contentDescription = "Close player", tint = White)
+                    Box(Modifier.size(RiffSpace.scrimPatch).scrimPatch(RiffContrast.scrimForControl), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Close, contentDescription = "Close player", tint = White)
+                    }
                 }
-                Text("NOW PLAYING", color = White, fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp,
-                    modifier = Modifier.weight(1f), maxLines = 1)
+                Box(Modifier.weight(1f)) {
+                    Text("NOW PLAYING", color = White, fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, maxLines = 1,
+                        modifier = Modifier.scrimLabel(RiffContrast.scrimForText))
+                }
             }
         }
             }
             }
             }
-        Column(Modifier.fillMaxWidth().height(controlHeight).padding(horizontal = 20.dp, vertical = 8.dp),
+        // Where the page scrolls, the controls take the room they need: at a fixed height on a short screen the
+        // last rows were squeezed under the ones above them (Q13).
+        Column(Modifier.fillMaxWidth().then(if(allowScroll) Modifier.heightIn(min = controlHeight) else Modifier.height(controlHeight))
+            .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.SpaceBetween) {
         Row(Modifier.fillMaxWidth().graphicsLayer {alpha=if(queueOpen) 0f else 1f}.then(if(queueOpen) Modifier.clearAndSetSemantics {} else Modifier), verticalAlignment = Alignment.CenterVertically) {
             songTransition.SongContentFade(Modifier.weight(1f)) {song->
@@ -363,7 +371,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 } }
             }, enabled = state.source == "YouTube Music" && !likeBusy && !queueOpen, modifier = Modifier.size(40.dp)
                 .testTag("playback_favorite").semantics {
-                    contentDescription = if(favorite) "Remove YouTube Music like" else "Like on YouTube Music"
+                    contentDescription = "Like on YouTube Music"; stateDescription = if(favorite) "Liked" else "Not liked"
                 }) {
                 Crossfade(targetState = favorite,
                     animationSpec = GlassMotion.timed(GlassMotion.selectionMs, motion),

@@ -119,13 +119,17 @@ internal fun ToolLink(title: String, onClick: () -> Unit) {
 }
 
 @Composable
-internal fun BackHeading(title: String, onBack: () -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = hapticClick(onBack), modifier = Modifier.size(RiffSpace.touch).testTag("back")) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back to $title", tint = White)
+internal fun BackHeading(title: String, onBack: () -> Unit, overPicture: Boolean = false) {
+    Row(Modifier.fillMaxWidth()) {
+        // Over a picture the arrow and the word get their own patch of scrim; a white cover would hide them (Q13).
+        Row(if (overPicture) Modifier.scrimPatch(RiffContrast.scrimForText).padding(end = RiffSpace.block) else Modifier,
+            verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = hapticClick(onBack), modifier = Modifier.size(RiffSpace.touch).testTag("back")) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back to $title", tint = White)
+            }
+            Spacer(Modifier.width(RiffSpace.item))
+            Text(title, color = White, fontSize = RiffType.message, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Spacer(Modifier.width(RiffSpace.item))
-        Text(title, color = White, fontSize = RiffType.message, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

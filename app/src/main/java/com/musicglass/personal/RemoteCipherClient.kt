@@ -110,7 +110,10 @@ internal class RemoteCipherClient(context: Context, private val onEvent: (String
         if (!health.available()) throw SolverUnavailableException("Solver paused after repeated crashes")
         val ready = CompletableDeferred<IBinder>()
         val conn = object : ServiceConnection {
-            override fun onServiceConnected(name: ComponentName?, service: IBinder) {
+            // The platform declares the binder without saying it is never null, so one that is absent is a
+            // failed start like any other and not a crash on the main thread.
+            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                if (service == null) { ready.completeExceptionally(SolverUnavailableException("Solver refused to bind")); return }
                 val linked = runCatching { service.linkToDeath({ onSolverDeath(service) }, 0) }.isSuccess
                 if (linked) ready.complete(service) else ready.completeExceptionally(SolverUnavailableException("Solver died while starting"))
             }

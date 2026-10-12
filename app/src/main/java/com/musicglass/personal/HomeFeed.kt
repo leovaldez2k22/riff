@@ -60,6 +60,10 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
+/** Under a speed-dial tile's title. The title's top edge is 22 dp up; by there the black is deep enough for 4.5:1 (Q13). */
+internal const val SPEED_DIAL_SCRIM_DP = 42
+internal val speedDialScrim = arrayOf(0f to Color.Transparent, .45f to Color.Black.copy(alpha = .62f), 1f to Color.Black.copy(alpha = .9f))
+
 @Composable
 internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGateway,
     collections: LocalCollections, provider: YouTubeMusicProvider, onNotice: (String) -> Unit,
@@ -208,9 +212,8 @@ private fun HomeSpeedDial(cards: List<ProviderHomeCard>, onOpen: (ProviderHomeCa
                                 .background(White.copy(alpha = .08f))) {
                                 if (card != null) {
                                     HomeArtwork(card.artworkUrl,card.key(), Modifier.fillMaxSize())
-                                    Box(Modifier.fillMaxWidth().height(42.dp)
-                                        .background(Brush.verticalGradient(listOf(Color.Transparent,
-                                            Color.Black.copy(alpha = .9f))))
+                                    Box(Modifier.fillMaxWidth().height(SPEED_DIAL_SCRIM_DP.dp)
+                                        .background(Brush.verticalGradient(*speedDialScrim))
                                         .align(Alignment.BottomCenter))
                                     Text(card.title, color = White, fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold, maxLines = 1,

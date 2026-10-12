@@ -33,4 +33,15 @@ private val artworkColors=java.util.Collections.synchronizedMap(object:LinkedHas
     }
     return animateColorAsState(target,GlassMotion.timed(GlassMotion.artworkMs,LocalMotionPolicy.current),label="artwork palette")
 }
-internal fun Color.readableArtworkTone()=Color(red*.48f,green*.48f,blue*.48f)
+/**
+ * The colour a screen takes from its artwork: 48% of it, or less where that would be too light to read on.
+ * [Pink] is the hardest of the text colours to read (errors and the playing mark are set in it), so the tone
+ * is darkened until Pink reaches 4.5:1; [Muted] and [White] then clear it with room to spare (Q13).
+ */
+internal fun Color.readableArtworkTone():Color {
+    fun at(share:Float)=Color(red*share,green*share,blue*share)
+    if(contrastRatio(Pink,at(.48f))>=RiffContrast.text) return at(.48f)
+    var low=0f;var high=.48f
+    repeat(14) {val mid=(low+high)/2f;if(contrastRatio(Pink,at(mid))>=RiffContrast.text) low=mid else high=mid}
+    return at(low)
+}

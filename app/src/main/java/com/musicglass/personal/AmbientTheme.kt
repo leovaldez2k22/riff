@@ -55,7 +55,7 @@ internal val GlassTypography = Typography(
 internal data class AmbientPalette(val top: Color, val middle: Color, val accent: Color = top)
 
 // Twelve coordinated, low-luminance combinations. Glows blend before fading to AMOLED black.
-private val ambientPalettes = listOf(
+internal val ambientPalettes = listOf(
     AmbientPalette(Color(0xFF271044), Color(0xFF123653), Color(0xFF742A69)),
     AmbientPalette(Color(0xFF092F43), Color(0xFF30305B), Color(0xFF185B59)),
     AmbientPalette(Color(0xFF402047), Color(0xFF4C2D3E), Color(0xFF173A6A)),

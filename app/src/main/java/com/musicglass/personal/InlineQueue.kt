@@ -33,6 +33,15 @@ import coil3.compose.AsyncImage
 
 private class QueueCoordinates {var value:LayoutCoordinates?=null}
 
+/** What a queue row offers without dragging or swiping (Q13). A move that would change nothing is not offered. */
+internal enum class QueueRowAction(val label:String) {MoveUp("Move up"),MoveDown("Move down"),PlayNext("Play next"),Remove("Remove from queue")}
+internal fun queueRowActions(index:Int,current:Int,size:Int):List<QueueRowAction> = listOfNotNull(
+    QueueRowAction.MoveUp.takeIf {index>0},QueueRowAction.MoveDown.takeIf {index<size-1},
+    QueueRowAction.PlayNext.takeIf {index!=current && index!=current+1},QueueRowAction.Remove)
+/** Where a row lands so that it plays straight after the current one. */
+internal fun playNextTarget(index:Int,current:Int)=if(index<current) current else current+1
+internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==current) "Playing now, ${index+1} of $size" else "${index+1} of $size"
+
 @Composable internal fun InlineQueue(playback:PlaybackGateway,provider:YouTubeMusicProvider,
     onClose:()->Unit,onLike:()->Unit,onMore:()->Unit,artworkModifier:Modifier=Modifier,onMoreBounds:(IntRect)->Unit={}) {
     val state=playback.state
@@ -77,9 +86,10 @@ private class QueueCoordinates {var value:LayoutCoordinates?=null}
                 Text(playerArtistLabel(song.artist),color=White.copy(alpha=.6f),fontSize=12.sp,maxLines=1)
             }
             }
-            IconButton(onLike) {Icon(if(provider.songLikes[state.mediaId.removePrefix("yt:")]==true) Icons.Rounded.Star else Icons.Rounded.StarBorder,"Like on YouTube Music",tint=White)}
+            val liked=provider.songLikes[state.mediaId.removePrefix("yt:")]==true
+            IconButton(onLike,modifier=Modifier.testTag("queue_like").semantics {stateDescription=if(liked) "Liked" else "Not liked"}) {Icon(if(liked) Icons.Rounded.Star else Icons.Rounded.StarBorder,"Like on YouTube Music",tint=White)}
             IconButton(hapticClick(onMore),modifier=Modifier.testTag("queue_more").onGloballyPositioned {val r=it.boundsInWindow();onMoreBounds(IntRect(r.topLeft.round(),r.bottomRight.round()))}) {Icon(Icons.Rounded.MoreHoriz,"Song options",tint=White)}
-            IconButton(hapticClick(onClose),modifier=Modifier.size(36.dp).testTag("queue_back")) {Icon(Icons.Rounded.ExpandMore,"Close queue",tint=White)}
+            IconButton(hapticClick(onClose),modifier=Modifier.testTag("queue_back")) {Icon(Icons.Rounded.ExpandMore,"Close queue",tint=White)}
         }
         Row(Modifier.fillMaxWidth().height(46.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             FilterChip(state.shuffle,hapticClick(playback::toggleShuffle),label={Icon(Icons.Rounded.Shuffle,"Shuffle",modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f),shape=RoundedCornerShape(50))
@@ -89,7 +99,7 @@ private class QueueCoordinates {var value:LayoutCoordinates?=null}
         Row(Modifier.fillMaxWidth().padding(top=6.dp,bottom=4.dp),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Continue Playing",color=White,fontWeight=FontWeight.SemiBold,fontSize=15.sp)
-                Text(if(state.queueTitle.isNotBlank()) "From ${state.queueTitle}" else if(state.album.isNotBlank()) "From ${state.album}" else state.queueMessage.ifBlank {"From YouTube Music"},color=White.copy(alpha=.55f),fontSize=11.sp,maxLines=1)
+                Text(if(state.queueTitle.isNotBlank()) "From ${state.queueTitle}" else if(state.album.isNotBlank()) "From ${state.album}" else state.queueMessage.ifBlank {"From YouTube Music"},color=White.copy(alpha=.6f),fontSize=11.sp,maxLines=1)
             }
             TextButton({uiHaptic(HapticCue.Selection);history=!history}) {Text(if(history) "Up next" else "History",color=White,fontSize=11.sp)}
         }
@@ -109,21 +119,30 @@ private class QueueCoordinates {var value:LayoutCoordinates?=null}
                     .background(if(dragged) White.copy(alpha=.1f) else Color.Transparent,RoundedCornerShape(8.dp))
                     .pointerInput(item.mediaId,index) {detectHorizontalDragGestures(onHorizontalDrag={change,x->val before=swipe;swipe+=x;if(before>= -70.dp.toPx() && swipe< -70.dp.toPx()) uiHaptic(HapticCue.Threshold);change.consume()},onDragCancel={swipe=0f},onDragEnd={if(swipe< -70.dp.toPx()) {playback.removeQueueItem(latestIndex);uiHaptic(HapticCue.Confirm)};swipe=0f})}
                     .clickable { uiHaptic(); playback.seekQueueItem(index)}.semantics {
-                        customActions=listOf(CustomAccessibilityAction("Move up"){playback.moveQueueItem(index,index-1);uiHaptic(HapticCue.Selection);true},
-                            CustomAccessibilityAction("Move down"){playback.moveQueueItem(index,index+1);uiHaptic(HapticCue.Selection);true},
-                            CustomAccessibilityAction("Remove from queue"){playback.removeQueueItem(index);uiHaptic(HapticCue.Confirm);true})
+                        stateDescription=queuePositionLabel(index,state.index,state.queue.size)
+                        customActions=queueRowActions(index,state.index,state.queue.size).map {action->CustomAccessibilityAction(action.label) {
+                            when(action) {
+                                QueueRowAction.MoveUp->playback.moveQueueItem(index,index-1)
+                                QueueRowAction.MoveDown->playback.moveQueueItem(index,index+1)
+                                QueueRowAction.PlayNext->playback.moveQueueItem(index,playNextTarget(index,state.index))
+                                QueueRowAction.Remove->playback.removeQueueItem(index)
+                            }
+                            uiHaptic(if(action==QueueRowAction.Remove) HapticCue.Confirm else HapticCue.Selection);true
+                        }}
                     },verticalAlignment=Alignment.CenterVertically) {
                     AsyncImage(item.artworkUrl,null,contentScale=ContentScale.Crop,modifier=Modifier.size(38.dp).clip(RoundedCornerShape(6.dp)))
                     Column(Modifier.weight(1f).padding(horizontal=10.dp)) {
                         Text(item.title,color=White,fontSize=13.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
-                        Text(playerArtistLabel(item.artist),color=White.copy(alpha=.55f),fontSize=11.sp,maxLines=1)
+                        Text(playerArtistLabel(item.artist),color=White.copy(alpha=.6f),fontSize=11.sp,maxLines=1)
                     }
                     IconButton(onClick=hapticClick {playback.removeQueueItem(latestIndex)},
                         modifier=Modifier.size(48.dp).testTag("queue_remove_$index")) {
                         Icon(Icons.Rounded.RemoveCircleOutline,"Remove ${item.title} from queue",tint=White.copy(alpha=.65f),modifier=Modifier.size(22.dp))
                     }
-                    Icon(Icons.Rounded.DragHandle,"Reorder ${item.title}",tint=White.copy(alpha=.45f),modifier=Modifier.size(40.dp)
-                         .testTag("queue_drag_$index").onGloballyPositioned {handleCoordinates.value=it}.clickable {uiHaptic(HapticCue.Selection)}.pointerInput(key) {
+                    // Dragging is for touch only: a screen reader or a switch reorders with the row's own actions,
+                    // so the handle is not a second thing to land on.
+                    Icon(Icons.Rounded.DragHandle,null,tint=White.copy(alpha=.45f),modifier=Modifier.size(48.dp)
+                         .clearAndSetSemantics {testTag="queue_drag_$index"}.onGloballyPositioned {handleCoordinates.value=it}.clickable {uiHaptic(HapticCue.Selection)}.pointerInput(key) {
                             detectVerticalDragGestures(onDragStart={point->
                                 dragIndex=latestIndex;draggingKey=key
                                 val info=listState.layoutInfo.visibleItemsInfo.firstOrNull {it.key==key}
@@ -137,7 +156,7 @@ private class QueueCoordinates {var value:LayoutCoordinates?=null}
                             },onDragCancel={finishDrag()},onDragEnd={finishDrag()},onVerticalDrag={change,amount->
                                 change.consume();fingerInList(change.position)?.let {fingerY=it};reorder()
                             })
-                        })
+                        }.padding(4.dp))
                 }
             }
             if(visible.isEmpty()) item {Text(if(state.queueLoading) "Finding more music\u2026" else "You're at the end of this queue.",color=White.copy(alpha=.6f),fontSize=13.sp,modifier=Modifier.padding(12.dp))}

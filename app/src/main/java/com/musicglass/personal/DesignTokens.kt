@@ -1,8 +1,16 @@
 package com.musicglass.personal
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,6 +37,8 @@ internal object RiffSpace {
     /** A list row with artwork: one line of title and one of detail. */
     val listRow = 60.dp
     val listArtwork = 48.dp
+    /** The patch of scrim under an icon set over a picture. */
+    val scrimPatch = 36.dp
 }
 
 internal object RiffRadius {
@@ -56,6 +66,38 @@ internal object RiffType {
 @Composable
 internal fun RiffTheme(content: @Composable () -> Unit) =
     MaterialTheme(colorScheme = darkColorScheme(primary = Pink, onPrimary = Ink, background = Ink, surface = Raised), typography = GlassTypography, content = content)
+
+/**
+ * Q13: how much black goes over a picture before words or a control are set on it. Each figure is for the
+ * worst picture there is, a white one, so it holds for any artwork or photograph (ContrastTest works them out).
+ */
+internal object RiffContrast {
+    /** Ordinary text. */
+    const val text = 4.5
+    /** Large text (24 sp, or 19 sp bold) and anything that has to be seen to be used. */
+    const val control = 3.0
+    /** Under [White] words: 4.5:1 needs 0.551. */
+    const val scrimForText = .58f
+    /** Under [Muted] words: 4.5:1 needs 0.732. */
+    const val scrimForMutedText = .74f
+    /** Under a [White] icon: 3:1 needs 0.435. */
+    const val scrimForControl = .46f
+    /** How much of an artwork's tone goes under words set over the artwork itself. */
+    const val toneUnderWords = .9f
+}
+
+/** A patch of scrim under one icon or a few words set over a picture; [alpha] is one of [RiffContrast]'s. */
+internal fun Modifier.scrimPatch(alpha: Float): Modifier = background(Color.Black.copy(alpha = alpha), RoundedCornerShape(50))
+/** The same with room around the words. */
+internal fun Modifier.scrimLabel(alpha: Float): Modifier = scrimPatch(alpha).padding(horizontal = 10.dp, vertical = RiffSpace.tight)
+
+/** Behind words set over a picture: [tone] at [RiffContrast.toneUnderWords], eased in over the first 24 dp so that it has no edge. */
+internal fun Modifier.wordsOverPicture(tone: Color): Modifier = drawBehind {
+    val ramp = 24.dp.toPx().coerceAtMost(size.height)
+    val solid = tone.copy(alpha = RiffContrast.toneUnderWords)
+    drawRect(Brush.verticalGradient(listOf(Color.Transparent, solid), startY = 0f, endY = ramp), size = Size(size.width, ramp))
+    drawRect(solid, topLeft = Offset(0f, ramp), size = Size(size.width, size.height - ramp))
+}
 
 /**
  * Contrast of [foreground] on [background] as WCAG 2 defines it, from 1 to 21. Both colours opaque.

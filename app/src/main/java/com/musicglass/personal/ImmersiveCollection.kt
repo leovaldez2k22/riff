@@ -91,8 +91,8 @@ import kotlinx.coroutines.launch
             Box(Modifier.fillMaxWidth().height(height)) {
                 CatalogArtwork(data.artworkUrl,collectionId,Modifier.fillMaxSize().testTag("collection_artwork"))
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha=.18f),.46f to Color.Transparent,1f to tone)))
-                Box(Modifier.statusBarsPadding().padding(horizontal=16.dp)) {BackHeading("Back",model::back)}
-                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(24.dp),
+                Box(Modifier.statusBarsPadding().padding(horizontal=16.dp)) {BackHeading("Back",model::back,overPicture=true)}
+                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().wordsOverPicture(tone).padding(24.dp),
                     horizontalAlignment=if(artist) Alignment.Start else Alignment.CenterHorizontally) {
                     Text(data.title.ifBlank {collectionTitle},color=White,fontSize=if(artist) 34.sp else 28.sp,
                         fontWeight=FontWeight.SemiBold,maxLines=3,overflow=TextOverflow.Ellipsis)

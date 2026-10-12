@@ -20,6 +20,8 @@ internal fun orderedHomeShelves(shelves:List<ProviderHomeSection>):List<Provider
     return rest
 }
 
+internal val moodScrim=arrayOf(0f to Color.Black.copy(alpha=RiffContrast.scrimForMutedText),.3f to Color.Black.copy(alpha=RiffContrast.scrimForMutedText),1f to Color.Black)
+
 /** Real, daily refreshed photographs; the fade keeps the feed legible. */
 @Composable internal fun MoodBackdrop(mood:String) {
     val context=androidx.compose.ui.platform.LocalContext.current
@@ -30,7 +32,8 @@ internal fun orderedHomeShelves(shelves:List<ProviderHomeSection>):List<Provider
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         Box(Modifier.fillMaxWidth().fillMaxHeight(.56f)) {
             if(photo!=null) coil3.compose.AsyncImage(photo.file,null,contentScale=androidx.compose.ui.layout.ContentScale.Crop,modifier=Modifier.fillMaxSize())
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha=.52f),.3f to Color.Black.copy(alpha=.42f),1f to Color.Black)))
+            // Deep enough that Muted words read at 4.5:1 over a white photograph (Q13); it was 0.52 falling to 0.42.
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(*moodScrim)))
         }
     }
 }

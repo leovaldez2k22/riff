@@ -176,8 +176,8 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
                 } else AsyncImage(cover,null,contentScale=ContentScale.Crop,
                     modifier=Modifier.fillMaxSize().testTag("downloads_artwork"))
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha=.32f),.42f to Color.Transparent,1f to tone)))
-                Box(Modifier.statusBarsPadding().padding(horizontal=16.dp)) {BackHeading("Library",model::back)}
-                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+                Box(Modifier.statusBarsPadding().padding(horizontal=16.dp)) {BackHeading("Library",model::back,overPicture=true)}
+                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().wordsOverPicture(tone).padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally) {
                     Text("Downloads",color=White,fontSize=28.sp,fontWeight=FontWeight.SemiBold)
                     Text(if(!loaded) "Loading\u2026" else "${ready.size} ${if(ready.size==1) "song" else "songs"} \u00B7 ${storageLabel(used)}",
                         color=White.copy(alpha=.78f),fontSize=15.sp,modifier=Modifier.padding(top=6.dp))
@@ -223,7 +223,7 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
                         Text(playerArtistLabel(song.track.artist),color=White.copy(alpha=.6f),fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                         if(active || !entry.ready) Text(downloadStatus(song,entry.ready),color=if(song.status==DownloadState.Failed) Pink else White.copy(alpha=.6f),fontSize=11.sp,maxLines=1)
                     }
-                    if(entry.ready && !active && song.durationMs>0) Text("${song.durationMs/60000}:${((song.durationMs/1000)%60).toString().padStart(2,'0')}",color=White.copy(alpha=.55f),fontSize=12.sp)
+                    if(entry.ready && !active && song.durationMs>0) Text("${song.durationMs/60000}:${((song.durationMs/1000)%60).toString().padStart(2,'0')}",color=White.copy(alpha=.6f),fontSize=12.sp)
                     Box {
                         IconButton({uiHaptic();menu=true},modifier=Modifier.testTag("download_menu_${song.track.videoId}")) {Icon(Icons.Rounded.MoreVert,"Download options",tint=White.copy(alpha=.65f))}
                         SongActionMenu(menu,{menu=false}) {
