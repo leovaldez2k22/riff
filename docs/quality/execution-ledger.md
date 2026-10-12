@@ -959,6 +959,7 @@ BLOCKED:
 
 Device state: emulator shut down with adb emu kill after each run, adb server stopped, Gradle daemons stopped before and after the stress build. Nothing new was left on the emulator by Q11; the bound classes create and remove the same fixture data as in Q10.
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Commit: 8d45eb3 on local branch codex/riff-quality-m0 (not pushed), after 4f26ad2, a0445cd, b5e6aca, 62dcaee and e44ce24.
 Next exact action: Q12. It is inside the 9 October authorization (Q03-Q18) but the user's instruction covered Q11 only; wait for "start Q12".
 
 ## Plan v1.1 additions (11 October 2026)
