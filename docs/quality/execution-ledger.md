@@ -1146,6 +1146,7 @@ BLOCKED or not done:
 
 Device state: emulator shut down with adb emu kill after each run, adb server stopped, Gradle daemons stopped before and after the stress build. The emulator's network stayed off throughout. No physical device, no real account, no provider request: every provider answer in the new tests is scripted, and artwork loading is replaced in the picture tests.
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Commit: 2d4b94d on local branch codex/riff-quality-m0 (not pushed), after 6124fec.
 Next exact action: Q13. It is inside the 9 October authorization (Q03-Q18) but no instruction has named it; wait for "start Q13".
 
 ## Plan v1.1 additions (11 October 2026)
