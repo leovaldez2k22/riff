@@ -1254,6 +1254,7 @@ BLOCKED or not done:
 
 Device state: emulator shut down with adb emu kill after each run, adb server stopped, Gradle daemons stopped before and after the stress build. The emulator's network stayed off throughout. During the investigation the Q12 app and test APKs were installed on the disposable emulator; it was then restarted and the Q13 APKs installed again before the bound run (install-02.log). No physical device, no real account, no provider request.
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Commit: 08cea9d on local branch codex/riff-quality-m0 (not pushed), after a523a8c, 161ab9c and df087b4.
 Next exact action: Q14. It is inside the 9 October authorization (Q03-Q18) but no instruction has named it; wait for "start Q14".
 
 ## Plan v1.1 additions (11 October 2026)
