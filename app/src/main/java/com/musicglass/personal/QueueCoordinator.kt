@@ -68,6 +68,7 @@ internal fun providerStreamRequest(args: Bundle): ProviderStreamRequest? {
  * the playback service; everything here runs on the main thread except the stream maps, which loader threads read.
  * It does not decide retries (RecoveryCoordinator) or store anything (PlaybackPersistence).
  */
+@androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 internal class QueueCoordinator(private val context: Context, private val scope: CoroutineScope, private val provider: YouTubeMusicProvider,
     private val sessions: SessionCoordinator, private val offline: OfflineMusicStore, private val events: PlaybackEventLog,
     private val order: PlaybackCommandOrder, private val audio: AudioTransitionCoordinator, private val persistence: () -> PlaybackPersistence,
