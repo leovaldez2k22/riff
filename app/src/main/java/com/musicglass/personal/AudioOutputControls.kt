@@ -60,6 +60,24 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
+/**
+ * The audio device type of the selected system route, or -1 when it cannot be told. MediaRoute2Info.getType
+ * arrived in API 34: an older phone has no such method, and asking for it ends the app (found on API 31, Q14).
+ */
+@android.annotation.SuppressLint("InlinedApi") // the constants are plain numbers; only the call needs API 34
+internal fun routeDeviceType(sdk: Int, hasRoute: Boolean, routeType: () -> Int): Int = when {
+    !hasRoute -> AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+    sdk < 34 -> -1
+    else -> when(routeType()) {
+        android.media.MediaRoute2Info.TYPE_BUILTIN_SPEAKER->AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+        android.media.MediaRoute2Info.TYPE_WIRED_HEADSET->AudioDeviceInfo.TYPE_WIRED_HEADSET
+        android.media.MediaRoute2Info.TYPE_WIRED_HEADPHONES->AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+        android.media.MediaRoute2Info.TYPE_BLUETOOTH_A2DP->AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+        android.media.MediaRoute2Info.TYPE_BLE_HEADSET->AudioDeviceInfo.TYPE_BLE_HEADSET
+        else->-1
+    }
+}
+
 /** Uses the system music stream and the platform's own phone/Bluetooth output picker. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -81,14 +99,7 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
             val routed = if(Build.VERSION.SDK_INT>=33) runCatching {audio.getAudioDevicesForAttributes(mediaAttributes)}.getOrDefault(emptyList()) else emptyList()
             val route=router.systemController.selectedRoutes.firstOrNull()
             val device=routed.firstOrNull()
-            val type=device?.type ?: when(route?.type) {
-                android.media.MediaRoute2Info.TYPE_BUILTIN_SPEAKER->AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
-                android.media.MediaRoute2Info.TYPE_WIRED_HEADSET->AudioDeviceInfo.TYPE_WIRED_HEADSET
-                android.media.MediaRoute2Info.TYPE_WIRED_HEADPHONES->AudioDeviceInfo.TYPE_WIRED_HEADPHONES
-                android.media.MediaRoute2Info.TYPE_BLUETOOTH_A2DP->AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
-                android.media.MediaRoute2Info.TYPE_BLE_HEADSET->AudioDeviceInfo.TYPE_BLE_HEADSET
-                else->if(route==null) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else -1
-            }
+            val type=device?.type ?: routeDeviceType(Build.VERSION.SDK_INT,route!=null) {route!!.type}
             routeName=if(type in setOf(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,AudioDeviceInfo.TYPE_BUILTIN_EARPIECE)) string(R.string.this_phone)
                 else device?.productName?.toString()?.takeIf(String::isNotBlank) ?:route?.name?.toString()?:string(R.string.audio_output)
             routeKind=outputKind(type,routeName)
