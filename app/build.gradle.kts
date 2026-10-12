@@ -106,6 +106,11 @@ android {
             all {
                 it.jvmArgs("--add-opens=java.base/java.io=ALL-UNNAMED",
                     "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
+                // Q10A: the live provider canary sends real requests, so it is not part of any ordinary test run.
+                // scripts/quality/provider_canary.py asks for it with -PriffCanaryOut=<file>.
+                val canaryOut = providers.gradleProperty("riffCanaryOut").orNull
+                if (canaryOut == null) it.exclude("**/ProviderCanaryLive*")
+                else { it.systemProperty("riff.canary.out", canaryOut); it.outputs.upToDateWhen { false } }
             }
         }
     }

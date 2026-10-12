@@ -1,0 +1,67 @@
+# Provider canary (plan Q10A): is YouTube Music still answering the way the pinned integration expects?
+# Once a day and on request. Never on a pull request or a push. No account and no secret: signed out, it asks
+# for one search and one collection page. The stream phase needs the Android solver and is not run here; see
+# docs/quality/provider-compatibility.md. A hosted runner is often refused by the provider: that is recorded
+# as Blocked and is not a failure. The run fails only on a break seen twice in a row, or when the canary itself
+# is at fault. It changes no code, bumps no dependency and publishes nothing.
+name: Provider canary
+
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provider-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-37.0 build-tools;36.0.0 platform-tools'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ hashFiles('app/build.gradle.kts') }}
+          restore-keys: robolectric-
+
+      # Earlier results, so that a break is flagged only when it is seen twice in a row.
+      - uses: actions/cache/restore@v6
+        with:
+          path: artifacts/quality/canary
+          key: provider-canary-state-${{ github.run_id }}
+          restore-keys: provider-canary-state-
+
+      - name: Canary
+        run: python3 scripts/quality/provider_canary.py --run-jvm --trigger "${{ github.event_name == 'schedule' && 'schedule' || 'manual' }}"
+
+      - uses: actions/cache/save@v6
+        if: always()
+        with:
+          path: artifacts/quality/canary
+          key: provider-canary-state-${{ github.run_id }}
+
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: provider-canary
+          path: artifacts/quality/canary/
+          retention-days: 30

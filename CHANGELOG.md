@@ -53,6 +53,7 @@
 - Fixed: work that was cancelled (leaving a screen, switching account) could carry on briefly and report a failure instead of stopping.
 - Changed: asking Riff to play an audio file that cannot be read now reports the failure after the request is queued, instead of checking the file on the main thread first.
 - Removed code that no screen could reach: an older queue panel, unused saved-track toggles and unused motion constants.
+- No change to the app: an account-free check, made to run once a day, asks YouTube Music for one search, one album and the start of one song, to notice when the provider changes. It runs outside the app, from the project's own tooling. See [docs/quality/provider-compatibility.md](docs/quality/provider-compatibility.md).
 
 ### Historical October 6 update
 

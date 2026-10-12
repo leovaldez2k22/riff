@@ -1,4 +1,4 @@
-# Provider compatibility (Q10)
+# Provider compatibility (Q10, Q10A)
 
 Riff reads YouTube Music through one pinned library and its own parsers. This file records what that depends on, what is tested without the provider, what has and has not been checked against the provider, and what to do when the provider changes.
 
@@ -117,6 +117,8 @@ JVM and Robolectric, no network, no account.
 - `ProviderMutationTest` (18): each outcome for add, remove, like, save and sort, including the unconfirmed add that is found present, found absent, and unreadable; allowlists; a batch and its retry.
 - `ProviderCapabilitiesTest` (11): every session state and scope; a whole, loading, truncated and read-only collection.
 - `CollectionTruncationUiTest` (3): the label is on screen and the whole-collection buttons are disabled.
+- `ProviderCanaryTest` (13): what the canary calls a healthy, malformed, rejected, blocked and unreachable provider, with every answer scripted; the stream phase with the resolver and the audio host scripted; that a result holds no address or id.
+- `scripts/quality/test_provider_canary.py` (18): what may be stored, the class of a whole run, the two-strike rule, the once-a-day limit, exit codes, and that the workflow has no pull-request trigger, no secret and no write permission.
 
 ### Fixtures
 
@@ -167,10 +169,96 @@ To be run on a dedicated test account when one is authorized, and recorded here 
 5. Collections end early with "stopped sending new songs": the continuation form has changed.
 6. Check whether a newer version of the pinned library addresses it. Change the version only together with a rerun of the tests and the live checks.
 
+## Canary (Q10A)
+
+The fixtures prove the parsers against answers written in the past. The canary asks the provider itself, so a change on the provider's side is seen before users report it. It needs no account, no credential and no secret, and it changes nothing at the provider.
+
+What it sends, signed out, in one run:
+
+| Phase | Where it runs | Requests |
+|---|---|---|
+| `search` | JVM (`ProviderCanaryLive`), the real provider class on the pinned library | one search for a long-lived public song |
+| `collection` | JVM, same run | one page of one long-lived public album; a second album only if the first no longer exists |
+| `stream` | A device or an emulator (`ProviderCanaryDeviceTest`), because resolving a stream needs the solver process, which exists only on Android | one resolution of one long-lived public song and the first 2,048 bytes of its audio; a second song only if the first is reported unavailable |
+
+The targets are in `ProviderCanary.kt` (`CANARY_SEARCH`, `CANARY_COLLECTIONS`) and `ProviderCanaryModel.kt` (`CANARY_TRACKS`). At most two targets are tried in a phase.
+
+Each phase ends as one class:
+
+| Class | Meaning | Is it the app? |
+|---|---|---|
+| Healthy | The answer arrived and held what the parser expects | |
+| ParserBreak | An answer arrived and could not be used: no rows, an unreadable body, a request the provider no longer accepts (400, 404) | Probably |
+| ResolutionBreak | No stream could be resolved, or the audio host refused the resolved address (403), or sent no bytes | Probably |
+| Blocked | 401, 403 or 429, a refusal inside HTTP 200, or every target song reported unavailable | No. Hosted runners are often refused |
+| Outage | No answer, a timeout, or a 5xx | No |
+| HarnessFault | The canary failed: build failure, no output, output with anything unexpected in it, a stale target list, no solver, or the app signed in (then nothing is sent) | No. Repair the canary |
+
+A run takes the class that claims least about the app: any HarnessFault, then Outage, then Blocked, hide a break seen in the same run, because a refused or unreachable provider can make another phase look broken. A break is **flagged only when two results in a row that could tell (Healthy or a break) are breaks**. Results that could not tell, between the two, neither count nor reset. A flag is an error annotation, the run's summary and exit code 1. Nothing else happens: the canary edits no code, changes no dependency and publishes nothing.
+
+What is stored, in `artifacts/quality/canary/history.jsonl` and `latest.md` (not committed): the time to the minute, the trigger, the lanes, the pinned library version, and for each phase a class, a reason word from a fixed list, milliseconds and a request count. No body, address, header, cookie or id. Output from the harness with any other field or word in it is refused whole and recorded as `unsanitary_output`.
+
+A canary result satisfies no release gate and is not the live check under "Live result".
+
+### Running it
+
+    python scripts/quality/provider_canary.py --run-jvm --trigger manual      # search and collection, now
+    python scripts/quality/provider_canary.py --status                        # the last result again
+    python -m unittest discover -s scripts/quality -p "test_provider_canary.py"
+
+It needs the JDK and Android SDK the build needs, and a network connection. Exit 0: recorded. Exit 1: confirmed break. Exit 2: the canary is at fault.
+
+With the stream phase, on an emulator or a spare phone that has the debug build and its test APK installed, a connection, and **no account signed in**:
+
+    adb shell am instrument -w -r -e class com.musicglass.personal.ProviderCanaryDeviceTest -e riffCanary stream com.musicglass.personal.test/androidx.test.runner.AndroidJUnitRunner > stream.log
+    python scripts/quality/provider_canary.py --run-jvm --stream-log stream.log --stream-lane emulator
+
+Without `-e riffCanary stream` the device test is skipped and sends nothing.
+
+Schedule: `.github/workflows/provider-canary.yml` runs the two JVM phases once a day and on manual dispatch, never on a pull request or a push, with read-only permission and no secret. With `--trigger schedule` the script itself refuses a second scheduled run within 20 hours. The stream phase is not in that workflow: there is no emulator lane until Q16. Until then it is run by hand as above, or from a local scheduler with the same two commands; each record says which lane was used (`streamLane`: `none`, `emulator` or `device`).
+
+### Results so far
+
+| Date (UTC) | Trigger | Where | search | collection | stream |
+|---|---|---|---|---|---|
+| 12 October 2026 06:48 | manual | build machine, JVM | Healthy, 1 request, 2.5 s | Healthy, 1 request, 1.2 s | not run |
+| 12 October 2026 06:52 | manual | disposable emulator (API 31), signed out, debug build | not run | not run | Healthy, 1 resolution and 2,048 bytes, 33.8 s including the solver's first start |
+
+Both with innertubex 0.7.2. These two are the first results and the only ones: the scheduled workflow has not run, because the branch has not been pushed. Before them, while the targets were being chosen, two searches were sent by hand from the same machine to find the two album ids.
+
+## When the canary reports a break
+
+This is written to be followed without any other context. You need the repository, the build toolchain, and for steps 6 and 8 a YouTube Music account made for testing. Never use a personal account.
+
+1. **Read the result.** `python scripts/quality/provider_canary.py --status`, or the summary of the failed workflow run. Note the class, the phase and the reason word.
+2. **Triage by class.**
+   - Blocked or Outage: do nothing to the app. If it lasts more than three days on the hosted runner, run the canary from another network by hand; if that is Healthy, the runner is blocked and the canary is only useful run locally.
+   - HarnessFault: fix the canary, not the app. `targets_stale`: replace the album ids in `CANARY_COLLECTIONS`. `build_failed`: the project does not build; that is the ordinary CI's failure. `solver_unavailable`: the solver process did not start on that device. `signed_in`: sign out of the app on that device, or use another one.
+   - ParserBreak, phase `search` or `collection`: go to step 3.
+   - ResolutionBreak, phase `stream`: go to step 4.
+3. **A catalog break.** Run the app's debug build and look at the same thing (search for a song; open an album). Missing rows with no error mean a renderer changed; an error on every search means the request is no longer accepted. Check first whether a newer version of the pinned library says it addresses it (its release notes). Then go to step 5.
+4. **A stream break.** In the debug build play any song and copy diagnostics from About. `stream_prepare_failed` or no `stream_resolved` line: resolution. `stream_resolved` followed by a playback error: the audio host refuses the address, which usually means the solver's answer is no longer right. Check the pinned library's newer versions and the player configuration source named in `ProviderStreamResolver.kt` (`AppPlayerConfigRepository.sourceUrl`). Then go to step 5.
+5. **Reproduce it in a test before changing anything.** For a catalog break, capture one answer on the test account, remove everything listed under "Fixtures" as never stored, reduce it to the fields the parser reads, add that shape to `scripts/quality/generate_provider_fixtures.py`, and write the test that fails. Never commit a captured answer as it came.
+6. **Fix in an isolated change.** Either a parser change, or a new exact version of the pinned library in `gradle/libs.versions.toml`, never both in one commit and nothing unrelated with either. A version change also needs the entry in "Dependency" above and in `docs/dependency-license-inventory.md`.
+7. **Rerun.** All of these must pass:
+   - `python scripts/quality/collect_results.py --variant debug` and `--variant release` (the whole JVM suite, lint, both builds);
+   - `python scripts/quality/check_solver_seam.py --mapping app/build/outputs/mapping/release/mapping.txt` (the solver seam in the shrunk release);
+   - `python -m unittest discover -s scripts/quality -p "test_*.py"`;
+   - the canary by hand, which should now be Healthy in the phase that broke.
+8. **Prepare a fast-track candidate.** This is a reduced, disclosed gate set for one fix, not a full release:
+   - Verified on the exact artifact: G02 (the deterministic suite), G07 (no secret or test entry in the artifact), G08 (lint with zero errors), G10 (unique version, signature, size, source, upgrade over the last release), G12 (device state restored, evidence complete, nothing published or changed without authorization), the G04 cases the fix touches (for a stream fix: playback, recovery and download of a streamed song), and a live check of the fixed thing on the authorized test account, recorded under "Live result" with the date and build.
+   - Every other gate is listed in the release notes as **carried over from the last full candidate and not verified again**.
+   - A canary result is not one of these checks.
+   - If any required item fails or is blocked, no candidate is prepared. Nobody running this waives one.
+9. **Stop.** Preparing the artifact is not publication. Publishing, pushing and installing each need the owner's explicit authorization, exactly as for the interim release (plan Q05R).
+
 ## Known limits
 
 - The read-back after an unanswered edit trusts the provider to show a new edit at once. This has not been measured.
 - An unconfirmed edit is remembered in memory for the account generation. After the app is restarted it is not remembered; the check made before every add (the playlist is read and a song already there is not added) still applies, but a remove is sent again, which is harmless if the entry is already gone.
 - Radio, podcast and live-station answers have no fixtures here.
+- The canary's classes are read from status numbers and fixed sentences. A provider that refuses a runner by sending an ordinary-looking empty answer is seen as a ParserBreak; the two-strike rule and a run from another network are the guard against that, not the classifier.
+- The canary uses three songs and two albums. It does not see a change that affects only other kinds of answer (artists, playlists with continuations, lyrics, the signed-in library).
+- The stream phase is not scheduled anywhere yet.
 - A collection of more than 2,000 tracks cannot be played, shuffled, downloaded or sorted as a whole.
 - "Not interested" is reported as sent on any answer below HTTP 400; its body is not read.
