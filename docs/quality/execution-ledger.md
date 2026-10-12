@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q12-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q10A PASS locally with open items (see the Q10A section, which follows Q11); Q12-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -962,13 +962,101 @@ Not part of this package and left untouched: scripts/download_favourites.py and 
 Commit: 8d45eb3 on local branch codex/riff-quality-m0 (not pushed), after 4f26ad2, a0445cd, b5e6aca, 62dcaee and e44ce24.
 Next exact action: Q12. It is inside the 9 October authorization (Q03-Q18) but the user's instruction covered Q11 only; wait for "start Q12".
 
+## Q10A
+### Q10A completion (12 October 2026)
+Status: PASS locally, with two live canary results. The scheduled workflow has not run (the branch is not pushed), and the fast-track candidate procedure is written and not exercised (below).
+Source: 3f83586860fd9f92d5b035ba53ff97a069ab7df5 dirty (the two user files named at the end are the only uncommitted changes), digest prefix 43e6a3762425 (full value in the manifests). Evidence root: artifacts/quality/3f83586860fd9f92d5b035ba53ff97a069ab7df5-dirty-43e6a3762425/
+User instruction on 12 October 2026: "do q08a and q10a". This is the authorization for Q10A, which the 9 October authorization (Q03-Q18) did not cover. Q08A was already complete (its section above, commit 18080c7); nothing was left to implement. Its tests ran again here and in Q11 and pass: LoudnessNormalizationTest (20, JVM) and NormalizationDeviceTest (9, emulator, among the 46). Its BLOCKED items (a live loudness value, listening on a phone) are unchanged: they need a phone or an installation that has not been approved. Q05R, Q12A and Q15A remain unauthorized. Q12 has not been started.
+Order: Q10A was done after Q11, although the plan puts it before. It depends only on Q10, and was written against the provider classes as Q11 left them.
+
+Implemented (no file under app/src/main changed; the app is byte-for-byte the same code as at Q11):
+- 1 Account-free canary. ProviderCanary.kt and ProviderCanaryLive.kt (test source set): the real provider class on the pinned library, signed out, with only the status number of each request noted; one search for a long-lived public song and one page of a long-lived public album. ProviderCanaryModel.kt (testSupport, shared with device tests): the classes, the classifiers, and StreamCanary, which resolves one long-lived public song and reads its first 2,048 bytes. ProviderCanaryDeviceTest.kt (androidTest) runs StreamCanary in the app. No credential, no account, no change sent. If the app is signed in the stream phase sends nothing and reports a harness fault.
+- 2 Schedule. .github/workflows/provider-canary.yml: cron once a day and workflow_dispatch; no pull_request and no push trigger; contents: read; no secret. provider_canary.py refuses a second scheduled run within 20 hours. A run is 2 requests on the JVM (3 if the first album is gone) and 2 on a device (4 if the first song is unavailable).
+- 3 Lanes. Search and collection run on the JVM. Stream resolution needs the solver process (ProviderStreamResolver fails closed without it), so that phase runs on an emulator or device and each record names the lane (streamLane: none, emulator, device). There is no emulator lane in CI until Q16; until then the stream phase is run by hand or from a local scheduler. This run used: JVM on the build machine, and the disposable emulator.
+- 4 Classes: Healthy, ParserBreak, ResolutionBreak, Blocked, Outage, HarnessFault. 401, 403, 429, a refusal inside HTTP 200 and "every target unavailable" are Blocked; no answer, a timeout and 5xx are Outage. In one run any HarnessFault, then Outage, then Blocked hides a break in another phase. A break is flagged only when the newest result and the conclusive result before it are both breaks; results that could not tell neither count nor reset.
+- 5 Flag: an error annotation, the step summary (GITHUB_STEP_SUMMARY) and exit code 1. The script has no code path that edits a file outside its state folder, runs git, or publishes.
+- 6 Stored: time to the minute, trigger, lanes, library version, and per phase a class, a reason word from a fixed list of 22, milliseconds and a request count. Harness output with any other key or value is refused whole (unsanitary_output). A record is scanned again before it is written.
+- 7 Runbook: "When the canary reports a break" in docs/quality/provider-compatibility.md, nine steps from reading the result to stopping before publication, with the commands.
+- 8 Fast-track gate set, in step 8 of the runbook: G02, G07, G08, G10, G12, the affected G04 cases and a live check on an authorized test account; every other gate listed as carried over and not verified again; Q05R publication rules.
+- 9 Each summary and each record says it satisfies no gate ("gate": "none"); the doc says so in two places.
+- Gradle: ProviderCanaryLive is excluded from testDebugUnitTest unless -PriffCanaryOut is given, so no ordinary test run, and no evidence run, sends a request.
+
+Live canary results (the only ones; history copied to canary-history-01.jsonl, device log canary-stream-instrumentation-01.log):
+- 12 October 2026 06:48 UTC, manual, JVM: search Healthy (1 request, 2524 ms), collection Healthy (1 request, 1224 ms).
+- 12 October 2026 06:52 UTC, manual, disposable emulator, signed out, debug build of this source before the docs were added: stream Healthy (1 resolution, 2,048 bytes read, 33829 ms including the solver's first start).
+- Before those, to choose the album ids, two searches were sent from a temporary test that was then deleted. All requests in this package: 4 searches or album pages and 1 stream resolution with one 2,048-byte read. No account, no cookie.
+- The emulator's Wi-Fi and data were switched on for the stream run only and off again straight after; ping_exit=2 was confirmed before it was shut down. Without -e riffCanary stream the device test is skipped (canary-stream-skipped-01.log).
+
+Verification:
+- Debug (q10a-debug-01/manifest.json): PASS_LOCAL. 801 JVM tests / 90 suites, zero failures, errors or skips (Q11: 788 / 89). Lint 0 errors, 81 warnings, 3 hints; no issue added or removed against q11-debug-01. APK SHA-256 0299d60d8f74af38150fbcb4397702a53f9c556021462528a82df790c2ade309.
+- New JVM tests: ProviderCanaryTest (13), every provider answer scripted. No existing test was changed. ProviderCanaryLive is not among the 801.
+- Script tests (quality-script-tests-01.txt): 65 tests OK, of which 18 are new in test_provider_canary.py.
+- Emulator, bound (q10a-debug-fixture-01/manifest.json, log q10a-instrumentation-01.log, install-01.log): PASS_LOCAL, all five gates PASS. 46 tests, 327.872 s, network off. Test APK SHA-256 162cc6cb697c286fcd4334663c091b926f2c974a0ea1effdd5de879d314f8544.
+- Emulator, not bound (q10a-two-player-instrumentation-02.log, install-03.log): CrossfadeDeviceTest and SongFadeDeviceTest, 15 tests, OK, 216.319 s, on a freshly started emulator.
+- Release (q10a-release-01/manifest.json): PASS_LOCAL. junit {"suites": 90, "tests": 801, "failures": 0, "errors": 0, "skipped": 0}; lint {"Warning": 81, "Hint": 3}; no issue added or removed against q11-release-01. APK SHA-256 bcfd89b4ba3ec0654f4d390091a08cbdd929e3e95940006379237e2b93d06fd1.
+- Shrunk release, solver seam (solver-seam-release-01.txt): PASS, unchanged.
+- Static checks (static-checks-01.txt): 149 files, 23 reviewed sites, 0 findings.
+- Stress (stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only.
+- The evidence was taken before this ledger entry was written; the entry is the only change after it.
+
+Failed attempts:
+- attempts/q10a-two-player-instrumentation-01.log (with attempts/install-02.log): 15 tests, 1 failure, CrossfadeDeviceTest.threeSecondCrossfadeBlendsBothRenderers, "short-fade timed out at audible handoff". The log shows the two players drifting to 118 ms apart, a corrective seek, then 160 to 270 ms apart, and the blend skipped with tail_not_aligned. It was a freshly started emulator, so the Q08 explanation (an emulator that has been running a while) does not cover it; the cause is not established. The same two classes passed 15 of 15 on the next fresh start and in Q11 earlier today. Q10A changed nothing under app/src/main. It is recorded as an unexplained intermittent failure of this emulator test, not as a pass.
+- ProviderCanaryTest, first run, 13 tests, 1 failure, in the test: a body that is not JSON is read by the provider class as a page with no rows, so the canary says ParserBreak/empty, not unreadable. The expectation was corrected; the class is the same.
+- ProviderCanaryTest, second run, 1 failure, in the test: the unknown-renderers fixture also holds rows the parser knows, so it is Healthy. The empty-search fixture is used for "no rows".
+- The first Gradle run of the temporary discovery test finished, but the shell that started it did not return for ten minutes. The build log showed BUILD SUCCESSFUL; the result was read from the test report.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| OPS01: healthy, broken and blocked provider classified correctly | PASS (JVM, scripted) | ProviderCanaryTest: healthy; malformed and empty answers and a rejected request are ParserBreak; 401, 403, 429 and a refusal inside 200 are Blocked; no answer, timeout and 503 are Outage; the stream cases likewise |
+| OPS01: a block or an outage is never reported as app breakage | PASS (JVM and script tests) | Class rules above; test_a_block_or_an_outage_is_never_reported_as_a_break_however_often_it_repeats; a block in one phase hides a break in another |
+| Two-strike rule | PASS (script tests) | test_two_strikes (13 sequences) and the run-level tests |
+| Sanitized output | PASS (JVM and script tests) | A result with a signed address behind it holds none of it; ten kinds of unexpected field or value refused; the store refuses an address or a long token |
+| Runs at most daily, on request, never on pull requests | PASS for the script and the workflow text | The 20-hour rule is tested; the workflow file is checked by two tests. The workflow itself has never run |
+| No secret needed | PASS | Both live runs used none; the workflow names none |
+| Runbook executable without this conversation | PASS by review, not by a second person | Every step names a command or a file that exists; the names were checked against the tree. Nobody else has followed it |
+| Canary never satisfies a gate | PASS | Stated in each summary and record and in the doc |
+| The flag never edits, bumps or publishes | PASS by construction | Nothing in the script or the workflow does; the workflow has read-only permission |
+
+Decisions (mine, not the user's):
+- The targets are three very well-known songs and the albums of two of them. The album ids were found by search today; the song ids are the public video ids of those songs.
+- At most two targets a phase. A stale album list is the canary's fault (targets_stale), not a break.
+- Every target song unavailable is Blocked, not a break: for songs this well known a refusal of the runner is far more likely than a break that affects only them.
+- An audio host answering 403 to a freshly resolved address is a ResolutionBreak. It can also be a refusal of the runner; the two-strike rule is the guard.
+- Results that could not tell do not reset the count between two breaks. A provider that breaks and then blocks the runner for a day should still be flagged on the next break.
+- HarnessFault exits 2 at once, with a warning and not an error: it is visible, and it is not called a break.
+- The canary state is kept in the workflow cache, not committed. If the cache is lost the count starts again, which delays a flag by one run.
+- The live test lives in the unit-test source set and is excluded by Gradle unless asked for, rather than in a new module (ADR-Q01).
+- One live run of each lane was made in this package, by hand, to prove the harness against the provider. I read "do q10a" as covering that: it is the package's own subject, account-free and read-only.
+
+Known limits:
+- A provider that refuses a runner with an ordinary-looking empty answer is seen as ParserBreak. Two strikes and a run from another network are the guard.
+- Three songs and two albums: a change to artists, long playlists, lyrics or the signed-in library is not seen.
+- The stream phase is scheduled nowhere.
+- Hosted runners may be blocked every day, in which case the scheduled canary reports Blocked for ever and is useful only when run locally. Not known until it runs.
+- The workflow's cache and artifact steps have not run; a mistake in them would show as a missing history, that is, a delayed flag.
+
+Not covered by any test:
+- The workflow on GitHub.
+- ProviderCanaryLive's own file writing, except by the one live run.
+- A real break: no ParserBreak or ResolutionBreak has been seen from the provider, only scripted ones.
+
+BLOCKED or not done:
+- The scheduled workflow: needs the branch pushed, which is not authorized. Rerun: after a push, dispatch "Provider canary" by hand once, read its summary, and check that a second dispatch restores the first result from the cache (the history in the uploaded artifact has two lines).
+- The fast-track candidate: needs a real break, a dedicated test account for the live check, and authorization to prepare a candidate. The procedure is step 8 of the runbook.
+- Carried from Q04 to Q11: as listed in those entries.
+
+Device state: emulator shut down with adb emu kill after each run, adb server stopped, Gradle daemons stopped before and after the stress build. The emulator's network is off. On the emulator the app made one stream resolution, signed out; nothing was written to an account because there is none. No physical device, no real account, no publication, no push, no user-data deletion.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q12. It is inside the 9 October authorization (Q03-Q18) but no instruction has named it; wait for "start Q12".
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
 - Q05A local export/import. Dependencies: Q03, Q04, Q05. Authorized by the user on 11 October 2026 ("start Q05A"). Status: PASS locally with open items (see the Q05A section).
 - Q05R interim release R1. Dependencies: Q00-Q05 PASS.
 - Q08A loudness normalization. Dependencies: Q08. Authorized by the user on 11 October 2026 ("start q08 followed by q08a"). Status: PASS locally with open items (see the Q08A section).
-- Q10A provider canary and response runbook. Dependencies: Q10.
+- Q10A provider canary and response runbook. Dependencies: Q10. Authorized by the user on 12 October 2026 ("do q08a and q10a"). Status: PASS locally with open items (see the Q10A section).
 - Q12A update notice. Dependencies: Q01, Q12.
 - Q15A exit-reason diagnostics. Dependencies: Q15.
 Changed inside existing packages: Q14 now includes a Baseline Profile (optimization rule 8).
