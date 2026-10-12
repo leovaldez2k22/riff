@@ -26,6 +26,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
+/** The collection the screen being drawn was opened for. Null outside a collection screen. */
+internal val LocalCollectionRoute = androidx.compose.runtime.compositionLocalOf<Route.Collection?> { null }
+
 @Composable
 internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean,
     playback: PlaybackGateway, collections: LocalCollections, provider: YouTubeMusicProvider,
@@ -55,14 +58,14 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
         AmbientBackdrop(ambient)
         // Dismissing hides the expired-session banner until the account or session changes.
         var expiredBannerDismissed by remember(provider.authRevision, provider.sessionState) { mutableStateOf(false) }
-        AnimatedContent(targetState = model.tab to model.route,
+        AnimatedContent(targetState = model.screen,
             transitionSpec = {
                 if (motion.reduced) EnterTransition.None togetherWith ExitTransition.None
                 else {
-                    val detailChange = initialState.first == targetState.first
+                    // Deeper slides in from the end, back slides the other way; a change of root only fades.
                     val direction = when {
-                        !detailChange -> 0
-                        targetState.second.isNotEmpty() -> 1
+                        initialState.tab != targetState.tab -> 0
+                        targetState.depth >= initialState.depth && targetState.depth > 0 -> 1
                         else -> -1
                     }
                     (fadeIn(GlassMotion.timed(GlassMotion.screenMs, motion)) +
@@ -74,8 +77,14 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
                                 -it * direction / 12
                             })
                 }
-            }, label = "scene navigation", modifier = Modifier.fillMaxSize()) { (tab, route) ->
-        holder.SaveableStateProvider("$tab/$route") {
+            }, label = "scene navigation", modifier = Modifier.fillMaxSize()) { screen ->
+        val tab = screen.tab; val route = screen.wire
+        // Declared before the state holder below, so it is disposed after the holder has saved: a screen
+        // that was closed, not just covered, has what it remembered dropped once it has left.
+        DisposableEffect(screen.key) { onDispose { if (screen.key !in model.screenKeys) holder.removeState(screen.key) } }
+        holder.SaveableStateProvider(screen.key) {
+        // A screen draws the collection it was opened for, also while it slides away under the next one.
+        androidx.compose.runtime.CompositionLocalProvider(LocalCollectionRoute provides screen.collection) {
         androidx.compose.runtime.key(if(route.isEmpty()) model.rootRevisions[tab]?:0 else 0) {
         // The typed route this name stands for; a collection carries its id in the model.
         when (Route.plain(route)) {
@@ -102,6 +111,7 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
                 if ((tab == "Home" || tab == "Library") && provider.sessionState == SessionState.Expired && !expiredBannerDismissed)
                     SessionExpiredBanner(onSignIn = { model.push(Route.Account) }, onDismiss = { expiredBannerDismissed = true })
             }
+        }
         }
         }
         }

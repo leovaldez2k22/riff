@@ -73,6 +73,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -139,9 +140,12 @@ private fun TransportButton(icon: ImageVector, label: String, onClick: () -> Uni
     }
 }
 
+/** Why the position bar does not move for a live stream: there is nothing behind or ahead to move to. */
+internal const val LIVE_SEEK_EXPLANATION = "Live radio can't be rewound"
+
 /** Position ticks only recompose this small subtree; the thumb follows a drag exactly. */
 @Composable
-private fun SeekControl(playback: PlaybackGateway, mediaId: String, durationMs: Long) {
+internal fun SeekControl(playback: PlaybackGateway, mediaId: String, durationMs: Long) {
     var dragging by remember(mediaId) { mutableStateOf(false) }
     var preview by remember(mediaId) { mutableFloatStateOf(0f) }
     val live=playback.state.live
@@ -153,10 +157,14 @@ private fun SeekControl(playback: PlaybackGateway, mediaId: String, durationMs: 
             onValueChange={dragging=true;preview=it},onValueChangeFinished={
                 if(dragging) playback.seekTo(preview.toLong());dragging=false
             },valueRange=0f..duration.toFloat(),enabled=durationMs>0 && !playback.state.live,
-            modifier=Modifier.fillMaxWidth().testTag("playback_seek"))
+            // Said as a time, not as a percentage; a live stream says why it cannot be moved.
+            modifier=Modifier.fillMaxWidth().testTag("playback_seek").semantics {
+                contentDescription="Position"
+                stateDescription=if(live) LIVE_SEEK_EXPLANATION else "${clock(position.toLong())} of ${clock(duration)}"
+            })
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(if(playback.state.live) "LIVE" else clock(position.toLong()), color = if(playback.state.live) Pink else Muted, fontSize = 12.sp)
-            Text(if(playback.state.live) "Live radio" else "−${clock((duration - position.toLong()).coerceAtLeast(0))}",
+            Text(if(playback.state.live) LIVE_SEEK_EXPLANATION else "−${clock((duration - position.toLong()).coerceAtLeast(0))}",
                 color = Muted, fontSize = 12.sp)
         }
     }

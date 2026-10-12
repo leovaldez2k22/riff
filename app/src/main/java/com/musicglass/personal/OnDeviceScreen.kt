@@ -123,11 +123,11 @@ internal fun OnDeviceScreen(model: ShellModel, bottom: androidx.compose.ui.unit.
             item { OutlinedTextField(query, onValueChange = { query = it },
                 singleLine = true, label = { Text("Search on-device audio") },
                 modifier = Modifier.fillMaxWidth().testTag("device_search")) }
-            if (loading) item { Text("Reading audio metadata\u2026", color = Muted) }
-            loadError?.let { error -> item { Text(error, color = Pink) } }
-            if (!loading && loadError == null && results.isEmpty()) item {
-                Text(if (tracks.isEmpty()) "No music files were found on this phone."
-                    else "No audio files match this search.", color = Muted)
+            if (loading && tracks.isEmpty()) item(key = "state:loading") { ListSkeleton("Reading audio files") }
+            loadError?.let { error -> item(key = "state:problem") { ContentProblem(error, onRetry = { refreshKey++ }) } }
+            if (!loading && loadError == null && results.isEmpty()) item(key = "state:empty") {
+                ContentEmpty(if (tracks.isEmpty()) "No music files were found on this phone."
+                    else "No audio files match this search.")
             }
             items(results, key = { tracks[it].id }) { position ->
                 val track = tracks[position]

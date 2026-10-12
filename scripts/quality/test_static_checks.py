@@ -8,8 +8,8 @@ from static_checks import Findings, check, strip_comments
 SUSPENDING = {"await", "withContext", "delay", "fetchPage"}
 
 
-def run(source, reviewed=None, name="Sample.kt"):
-    findings = Findings(reviewed or {})
+def run(source, reviewed=None, name="Sample.kt", measures=None):
+    findings = Findings(reviewed or {}, measures)
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / name
         path.write_text(source, encoding="utf-8")
@@ -93,6 +93,33 @@ class ScreenRules(unittest.TestCase):
 
     def test_an_oversized_file_needs_a_reason(self):
         self.assertEqual(["size"], rules(run("val a = 1\n" * (static_checks.SIZE_CEILING + 1))))
+
+
+class MeasuresRule(unittest.TestCase):
+    SCREEN = "@Composable fun S() { Box(Modifier.padding(12.dp).size(RiffSpace.touch)) { Text(title, fontSize = 14.sp) } }"
+
+    def test_a_screen_with_its_recorded_count_passes(self):
+        self.assertEqual([], rules(run(self.SCREEN, measures={"Sample.kt": 2})))
+
+    def test_a_screen_that_gains_a_raw_measure_fails(self):
+        self.assertEqual(["measures"], rules(run(self.SCREEN, measures={"Sample.kt": 1})))
+
+    def test_a_new_screen_may_have_none(self):
+        self.assertEqual(["measures"], rules(run(self.SCREEN, measures={})))
+        self.assertEqual([], rules(run("@Composable fun S() { Box(Modifier.size(RiffSpace.touch)) }", measures={})))
+
+    def test_a_count_that_is_too_high_must_be_lowered(self):
+        self.assertEqual(["measures"], rules(run(self.SCREEN, measures={"Sample.kt": 3})))
+
+    def test_only_screens_are_counted_and_the_tokens_file_is_not(self):
+        self.assertEqual([], rules(run("val gap = 12.dp", measures={})))
+        self.assertEqual([], rules(run("@Composable fun S() {}; val gap = 12.dp", name="DesignTokens.kt", measures={})))
+
+    def test_measures_in_comments_and_names_are_not_counted(self):
+        self.assertEqual([], rules(run("@Composable fun S() { val x = size12.dp; val y = a.b2.dp } // 12.dp", measures={})))
+
+    def test_the_rule_is_off_without_a_list(self):
+        self.assertEqual([], rules(run(self.SCREEN)))
 
 
 class Stripping(unittest.TestCase):

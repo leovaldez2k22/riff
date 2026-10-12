@@ -111,6 +111,8 @@ android {
                 val canaryOut = providers.gradleProperty("riffCanaryOut").orNull
                 if (canaryOut == null) it.exclude("**/ProviderCanaryLive*")
                 else { it.systemProperty("riff.canary.out", canaryOut); it.outputs.upToDateWhen { false } }
+                // Q12: ScreenBaselineTest compares with the kept pictures; -PriffRecordScreens writes them instead.
+                if (providers.gradleProperty("riffRecordScreens").isPresent) { it.systemProperty("riff.screens.record", "true"); it.outputs.upToDateWhen { false } }
             }
         }
     }

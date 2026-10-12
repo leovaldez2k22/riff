@@ -158,6 +158,17 @@ internal data class ShellSavedState(
     }
 }
 
+/**
+ * One screen of the shell: a root ([depth] 0, no route) or the route [depth] screens above it. Two
+ * collections opened one from the other are two screens with two keys, so each keeps its own scroll
+ * position and Back returns to the first where it was left.
+ */
+internal data class ShellScreen(val tab: String, val depth: Int, val route: Route?) {
+    val wire: String get() = route?.wire.orEmpty()
+    val collection: Route.Collection? get() = route as? Route.Collection
+    val key: String get() = "$tab/$depth/" + if (route is Route.Collection) "collection:${route.id}" else wire
+}
+
 /** Where the user is in the shell, and the few things about a root that outlive leaving it. */
 internal class ShellModel {
     private var root by mutableStateOf(RootTab.Home)
@@ -174,6 +185,15 @@ internal class ShellModel {
     val current: Route? get() = routes[root]?.lastOrNull()
     /** [current] by its saved name, empty at a root. */
     val route: String get() = current?.wire.orEmpty()
+    /** The screen showing: its root, how deep it is, and which collection it is. What a screen remembers is kept under its key. */
+    val screen: ShellScreen get() = routes[root].orEmpty().let { stack -> ShellScreen(root.name, stack.size, stack.lastOrNull()) }
+    /** The key of every screen that is open under any root, and of every root. */
+    val screenKeys: Set<String> get() = RootTab.entries.flatMapTo(HashSet()) { tab ->
+        val stack = routes[tab].orEmpty()
+        (0..stack.size).map { depth -> ShellScreen(tab.name, depth, stack.getOrNull(depth - 1)).key }
+    }
+    /** The last search shown, kept in memory so that coming back to Search shows it again where it was. Never saved. */
+    var searchSnapshot: SearchSnapshot? = null
     /** The collection on screen, or the one last left, which is still drawn while its screen animates away. */
     private val shownCollection: Route.Collection? get() = routes[root]?.lastOrNull { it is Route.Collection } as? Route.Collection ?: lastCollection
     val selectedPlaylistId: String get() = shownCollection?.id.orEmpty()

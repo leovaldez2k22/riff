@@ -72,6 +72,8 @@ internal suspend fun requestCollectionDownload(context:Context,tracks:List<Provi
     var cacheBytes by remember {mutableLongStateOf(0)}
     var confirmClearCache by remember {mutableStateOf(false)}
     var clearingCache by remember {mutableStateOf(false)}
+    // A failure is said in the dialog that asked, and stays there until it is tried again or closed.
+    var cacheFailure by remember {mutableStateOf<String?>(null)}
     LaunchedEffect(revision) {
         enabled=store.smartEnabled;mobile=store.allowMobileData
         if(!dragging) budgetIndex=downloadBudgetIndex(store.budgetBytes).toFloat()
@@ -105,14 +107,15 @@ internal suspend fun requestCollectionDownload(context:Context,tracks:List<Provi
     SettingsLinkRow("Clear playback cache",storageLabel(cacheBytes),Icons.Rounded.CleaningServices,"settings_clear_cache") {
         confirmClearCache=true
     }
-    if(confirmClearCache) FrostedAlertDialog(onDismissRequest={if(!clearingCache) confirmClearCache=false},
-        title={Text("Clear playback cache?")},text={Text("Remove cached streaming audio (${storageLabel(cacheBytes)})? Downloaded songs will be kept.")},
-        confirmButton={TextButton(enabled=!clearingCache,onClick={clearingCache=true;scope.launch {
+    if(confirmClearCache) FrostedAlertDialog(onDismissRequest={if(!clearingCache) {confirmClearCache=false;cacheFailure=null}},
+        title={Text("Clear playback cache?")},text={Text(cacheFailure?:"Remove cached streaming audio (${storageLabel(cacheBytes)})? Downloaded songs will be kept.",
+            modifier=Modifier.testTag(if(cacheFailure==null) "clear_cache_prompt" else "clear_cache_failure"))},
+        confirmButton={TextButton(enabled=!clearingCache,onClick={clearingCache=true;cacheFailure=null;scope.launch {
             try {withContext(Dispatchers.IO) {MusicDiskCache.clear(context)};cacheBytes=0;confirmClearCache=false;uiHaptic(HapticCue.Confirm);onNotice("Playback cache cleared; downloads kept")}
-            catch(e:CancellationException) {throw e} catch(_:Exception) {onNotice("Could not clear playback cache. Try again.")}
+            catch(e:CancellationException) {throw e} catch(_:Exception) {cacheFailure="The playback cache could not be cleared. Nothing was removed from your downloads."}
             finally {clearingCache=false}
-        }},modifier=Modifier.testTag("confirm_clear_cache")) {Text("Clear")}},
-        dismissButton={TextButton(enabled=!clearingCache,onClick={confirmClearCache=false}) {Text("Cancel")}})
+        }},modifier=Modifier.testTag("confirm_clear_cache")) {Text(if(cacheFailure==null) "Clear cache" else "Try again",color=Pink)}},
+        dismissButton={TextButton(enabled=!clearingCache,onClick={confirmClearCache=false;cacheFailure=null}) {Text(if(cacheFailure==null) "Cancel" else "Close")}})
 }
 
 private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val artwork:String?)
@@ -130,14 +133,16 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
     var detailsId by rememberSaveable {mutableStateOf<String?>(null)}
     var deleteScope by remember {mutableStateOf<String?>(null)}
     var deleting by remember {mutableStateOf(false)}
-    deleteScope?.let {account->FrostedAlertDialog(onDismissRequest={if(!deleting) deleteScope=null},title={Text("Delete all downloads?")},
-        text={Text("Remove all downloaded songs, artwork and lyrics from this account on this phone, and cancel its pending downloads?")},
-        confirmButton={TextButton(enabled=!deleting,onClick={deleting=true;scope.launch {
+    var deleteFailure by remember {mutableStateOf<String?>(null)}
+    deleteScope?.let {account->FrostedAlertDialog(onDismissRequest={if(!deleting) {deleteScope=null;deleteFailure=null}},title={Text("Delete all downloads?")},
+        text={Text(deleteFailure?:"Remove all downloaded songs, artwork and lyrics from this account on this phone, and cancel its pending downloads?",
+            modifier=Modifier.testTag(if(deleteFailure==null) "delete_downloads_prompt" else "delete_downloads_failure"))},
+        confirmButton={TextButton(enabled=!deleting,onClick={deleting=true;deleteFailure=null;scope.launch {
             try {withContext(Dispatchers.IO) {store.removeAll(account)};deleteScope=null;uiHaptic(HapticCue.Confirm);onNotice("All downloads deleted")}
-            catch(e:CancellationException) {throw e} catch(_:Exception) {onNotice("Could not delete all downloads. Try again.")}
+            catch(e:CancellationException) {throw e} catch(_:Exception) {deleteFailure="Not every download could be deleted. Some may remain; try again."}
             finally {deleting=false}
-        }},modifier=Modifier.testTag("confirm_delete_downloads")) {Text("Delete all",color=Pink)}},
-        dismissButton={TextButton(enabled=!deleting,onClick={deleteScope=null}) {Text("Cancel")}})}
+        }},modifier=Modifier.testTag("confirm_delete_downloads")) {Text(if(deleteFailure==null) "Delete all downloads" else "Try again",color=Pink)}},
+        dismissButton={TextButton(enabled=!deleting,onClick={deleteScope=null;deleteFailure=null}) {Text(if(deleteFailure==null) "Cancel" else "Close")}})}
     LaunchedEffect(revision,provider.authRevision) {
         val scopeKey=store.currentScope
         val result=withContext(Dispatchers.IO) {

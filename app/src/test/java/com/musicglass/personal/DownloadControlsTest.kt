@@ -47,6 +47,9 @@ class DownloadControlsTest {
         compose.setContent {MaterialTheme {Column {DownloadSettings(ShellModel()) {notice=it}}}}
         compose.onNodeWithTag("settings_clear_cache").performClick()
         compose.onNodeWithText("Clear playback cache?").assertIsDisplayed()
+        // Q12: the button names what it does, and the prompt says what is kept.
+        compose.onNodeWithTag("confirm_clear_cache").assertTextEquals("Clear cache")
+        compose.onNodeWithTag("clear_cache_prompt").assertTextContains("Downloaded songs will be kept",substring=true)
         assertTrue(cache.isCached(key,0,4));assertEquals("",notice)
         compose.onNodeWithText("Cancel").performClick()
         compose.onNodeWithText("Clear playback cache?").assertDoesNotExist();assertTrue(cache.isCached(key,0,4))

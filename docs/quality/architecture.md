@@ -57,7 +57,13 @@ sleep timer and history recording. The rest is in classes that take the player a
   intent, a bounded stack per tab, and `ShellSavedState` with the format name `riff-shell/2`. The positional
   list written by earlier builds is still read; a route this build does not have, or one whose arguments do
   not validate, is dropped.
-- `ShellScene.kt`: the screen host. It maps a route to a screen and nothing else.
+- `ShellScene.kt`: the screen host. It maps a route to a screen and nothing else. Each open screen has a key
+  (`ShellScreen.key`: root, depth, and a collection's id) under which its scroll position and other
+  remembered state are saved; a closed screen's state is dropped. A collection screen reads its own
+  collection from `LocalCollectionRoute`, not from whichever screen is on top.
+- `ContentState.kt` and `ShelfSkeleton.kt`: what a screen shows in place of content. Loading, empty and
+  failed are three components and a failure is never drawn as an empty list. `DesignTokens.kt`: spacing,
+  radius, type sizes and the theme. See `core-journeys.md`.
 - `PlayerPresentation.kt` and `ShellChrome.kt`: the mini and full player, the bars and the sheet.
 - The playback position and the player's drag position change every frame. They are read through lambdas,
   `derivedStateOf` or `snapshotFlow`, so a drag or a tick redraws the player and not the screens under it.
@@ -83,7 +89,11 @@ sleep timer and history recording. The rest is in classes that take the player a
     python -m unittest discover -s scripts/quality -p "test_*.py"
 
 The script needs only Python and reads `app/src/main/java`. Rules: `cancellation`, `blocking`, `direction`,
-`lifecycle`, `position`, `size` (700 lines). They are described at the top of the script.
+`lifecycle`, `position`, `size` (700 lines), `measures`. They are described at the top of the script.
+
+`measures` (Q12) counts the raw `dp` and `sp` values each screen file writes instead of taking them from
+`DesignTokens.kt`. `static_checks_measures.json` holds the count per file; a file may not exceed it, a new
+screen file may have none, and a count that is too high must be lowered (`--write-measures`).
 
 `scripts/quality/static_checks_reviewed.json` lists the sites that were read and accepted, each with a file,
 a fragment of the line and a reason. There is no way to switch off a rule or a file. An entry that no longer

@@ -17,11 +17,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
-import coil3.compose.AsyncImage
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -40,6 +38,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
+/** One search and what it had shown. Held in memory by the shell; never saved and never shown for another account. */
+internal class SearchSnapshot(val query:String,val filter:String,val authRevision:Int,val cards:List<ProviderHomeCard>,val next:String?,val tokens:PageTokens)
+
 internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (ProviderTrack)->Unit) {
     if(card.browseId != null && card.kind !in setOf(CatalogKind.Song,CatalogKind.Live,CatalogKind.Episode)) {
         model.openCollection(card.browseId,card.title)
@@ -57,7 +58,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
             modifier=Modifier.size(48.dp).clip(if(card.kind==CatalogKind.Artist) CircleShape else RoundedCornerShape(12.dp)).background(Raised))
         Column(Modifier.weight(1f).padding(start=12.dp)) {
             Text(card.title,color=White,fontSize=14.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
-            Text("${card.kind.label}${card.subtitle.takeIf(String::isNotBlank)?.let { " \u00B7 $it" }.orEmpty()}",color=Muted,fontSize=12.sp,maxLines=2)
+            Text("${card.kind.label}${card.subtitle.takeIf(String::isNotBlank)?.let { " \u00B7 $it" }.orEmpty()}",color=Muted,fontSize=RiffType.detail,maxLines=2,overflow=TextOverflow.Ellipsis)
         }
         if(onEnqueue!=null && card.track()!=null) Box {
             IconButton({ uiHaptic(); menu=true},modifier=Modifier.testTag("catalog_menu_${card.key()}")) {Icon(Icons.Rounded.MoreHoriz,"Song options",tint=Muted)}
@@ -84,18 +85,24 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     val micPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {granted->
         if(granted) voice.start {model.searchQuery=it} else voice.permissionDenied()
     }
-    var cards by remember { mutableStateOf<List<ProviderHomeCard>>(emptyList()) }
-    var next by remember { mutableStateOf<String?>(null) }
+    // Coming back to Search (from an album, from another tab) shows the same results at once, where they were.
+    val kept=remember {model.searchSnapshot?.takeIf {it.query==model.searchQuery && it.filter==model.searchFilter && it.authRevision==provider.authRevision}}
+    var cards by remember { mutableStateOf(kept?.cards.orEmpty()) }
+    var next by remember { mutableStateOf(kept?.next) }
     // A page token is followed once in one listing, so a provider that sends one again cannot keep Load more alive.
-    var pageTokens by remember { mutableStateOf(PageTokens()) }
+    var pageTokens by remember { mutableStateOf(kept?.tokens?:PageTokens()) }
+    fun keep() {model.searchSnapshot=SearchSnapshot(model.searchQuery,model.searchFilter,provider.authRevision,cards,next,pageTokens)}
     var loading by remember { mutableStateOf(false) };var error by remember { mutableStateOf<String?>(null) }
+    // A page that could not be added stays said on screen, next to the button that tries it again.
+    var moreError by remember { mutableStateOf<String?>(null) }
     var retry by remember { mutableIntStateOf(0) }
     LaunchedEffect(model.searchQuery,model.searchFilter,provider.authRevision,retry) {
-        cards=emptyList();next=null;error=null;pageTokens=PageTokens()
+        if(retry==0 && model.searchSnapshot?.let {it.query==model.searchQuery && it.filter==model.searchFilter && it.authRevision==provider.authRevision && it.cards===cards}==true) return@LaunchedEffect
+        cards=emptyList();next=null;error=null;moreError=null;pageTokens=PageTokens()
         if(model.searchQuery.isBlank()) { loading=false;return@LaunchedEffect }
         loading=true;delay(450)
         provider.discover(model.searchQuery,filter=model.searchFilter).fold(
-            onSuccess={ cards=it.cards;next=pageTokens.next(it.next);history.record(model.searchQuery) },onFailure={ error=it.message })
+            onSuccess={ cards=it.cards;next=pageTokens.next(it.next);history.record(model.searchQuery);keep() },onFailure={ error=it.message })
         loading=false
     }
     fun open(card:ProviderHomeCard) {history.record(model.searchQuery);keyboard?.hide();openCatalogCard(model,card) {scope.launch {playRealTrack(provider,playback,it,onNotice,video=model.searchFilter=="Videos")}}}
@@ -126,16 +133,17 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         }
         voice.message?.let {item {Text(it,color=Muted,fontSize=12.sp)}}
         item {FilterChip(model.searchSort=="Title",{ uiHaptic(HapticCue.Selection); model.searchSort=if(model.searchSort=="Title") "Relevance" else "Title"},label={Text("Sort: ${model.searchSort}")})}
-        if(loading) item { Text("Searching\u2026",color=Muted) }
-        error?.let { item { Text(it,color=Pink);TextButton({ uiHaptic();  retry++ }) { Text("Retry") } } }
-        if(!loading && error==null && cards.isEmpty()) item { Text(if(model.searchQuery.isBlank()) "Find your next listen." else "No matching results.",color=Muted) }
+        if(loading && cards.isEmpty()) item(key="state:loading") { ListSkeleton("Searching") }
+        error?.let { item(key="state:problem") { ContentProblem(it,onRetry={retry++},onSignIn={model.push(Route.Account)}) } }
+        if(!loading && error==null && cards.isEmpty()) item(key="state:empty") { ContentEmpty(if(model.searchQuery.isBlank()) "Find your next listen." else "No matching results.") }
         items(if(model.searchSort=="Title") cards.sortedBy {it.title.lowercase()} else cards,key={it.key()}) { card -> CatalogCardRow(card,onEnqueue={next->scope.launch{enqueueRealTrack(provider,playback,card,next,onNotice)}}) { open(card) } }
+        moreError?.let { item(key="state:more") { Text(it,color=White,fontSize=RiffType.body,modifier=Modifier.testTag("load_more_problem")) } }
         if(next!=null) item { Button({ uiHaptic(); 
             val token=next?:return@Button;val query=model.searchQuery;val filter=model.searchFilter;val revision=provider.authRevision
-            loading=true;scope.launch {
+            loading=true;moreError=null;scope.launch {
                 val result=provider.discover(query,token,filter)
                 if(query==model.searchQuery && filter==model.searchFilter && revision==provider.authRevision) {
-                    result.fold(onSuccess={ cards=(cards+it.cards).distinctBy { c->c.key() };next=pageTokens.next(it.next) },onFailure={ onNotice(it.message?:"Could not load more") })
+                    result.fold(onSuccess={ cards=(cards+it.cards).distinctBy { c->c.key() };next=pageTokens.next(it.next);keep() },onFailure={ moreError=it.message?:"Could not load more" })
                     loading=false
                 }
             }
@@ -144,11 +152,13 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
 }
 @Composable internal fun CatalogDetailScreen(model:ShellModel,bottom:Dp,provider:YouTubeMusicProvider,
     playback:PlaybackGateway,onNotice:(String)->Unit) {
-    val scope=rememberCoroutineScope();val id=model.selectedPlaylistId
+    val shownRoute=LocalCollectionRoute.current
+    val scope=rememberCoroutineScope();val id=shownRoute?.id?:model.selectedPlaylistId;val routeTitle=shownRoute?.title?:model.selectedCollectionTitle
     var page by remember(id) { mutableStateOf(provider.cachedCollection(id)) };var loading by remember(id) { mutableStateOf(true) }
     var error by remember(id) { mutableStateOf<String?>(null) };var retry by remember(id) { mutableIntStateOf(0) }
+    var moreError by remember(id) { mutableStateOf<String?>(null) }
     LaunchedEffect(id,provider.authRevision,provider.libraryRevision,retry) {
-        loading=true;error=null
+        loading=true;error=null;moreError=null
         (if(id.startsWith("VL") || id.startsWith("MPRE")) provider.completeCollection(id) else provider.browseCatalog(id)).fold(onSuccess={page=it},onFailure={error=it.message});loading=false
     }
     val shown=page?:provider.partialCollection(id)
@@ -158,22 +168,24 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     fun open(card:ProviderHomeCard)=openCatalogCard(model,card) { scope.launch { playRealTrack(provider,playback,it,onNotice) } }
     ScreenList(model,bottom) {
         item { BackHeading("Back",model::back) }
-        page?.artworkUrl?.let { art -> item { AsyncImage(art,null,contentScale=ContentScale.Crop,
-            modifier=Modifier.fillMaxWidth().height(240.dp).clip(RoundedCornerShape(24.dp)).testTag("collection_artwork")) } }
-        item { ScreenTitle(page?.title?.ifBlank { model.selectedCollectionTitle }?:model.selectedCollectionTitle,
+        page?.artworkUrl?.let { art -> item { CatalogArtwork(art,id,
+            modifier=Modifier.fillMaxWidth().height(240.dp).clip(RoundedCornerShape(RiffRadius.hero)).testTag("collection_artwork")) } }
+        item { ScreenTitle(page?.title?.ifBlank { routeTitle }?:routeTitle,
             page?.subtitle?.takeIf(String::isNotBlank)?.take(600)) }
-        if(loading) item { Text("Loading\u2026",color=Muted) }
-        error?.let { item { Text(it,color=Pink);TextButton({ uiHaptic(); retry++}) {Text("Retry")} } }
+        if(loading && page==null) item(key="state:loading") { ListSkeleton("Loading") }
+        error?.let { item(key="state:problem") { ContentProblem(it,onRetry={retry++},onSignIn={model.push(Route.Account)}) } }
         val data=page
+        if(!loading && error==null && data!=null && data.cards.isEmpty() && data.shelves.isEmpty()) item(key="state:empty") { ContentEmpty("Nothing here yet.") }
         if(data!=null) {
             if(data.shelves.size>1) data.shelves.forEachIndexed { i,shelf -> item(key="shelf:$i") {
                 HomeCardShelf(shelf.title,shelf.cards,150.dp,onOpen=::open)
             } } else items(data.cards,key={it.key()}) {card->CatalogCardRow(card,onEnqueue={next->scope.launch{enqueueRealTrack(provider,playback,card,next,onNotice)}}) {open(card)}}
+            moreError?.let { item(key="state:more") { Text(it,color=White,fontSize=RiffType.body,modifier=Modifier.testTag("load_more_problem")) } }
             if(data.next!=null) item { Button({ uiHaptic(); 
-                val token=data.next;val revision=provider.authRevision;loading=true
+                val token=data.next;val revision=provider.authRevision;loading=true;moreError=null
                 scope.launch { val result=provider.browseCatalog(id,token)
-                    if(model.selectedPlaylistId==id && revision==provider.authRevision) {
-                        result.fold(onSuccess={ page=data.copy(cards=(data.cards+it.cards).distinctBy {c->c.key()},next=it.next?.takeUnless {n->n==token},shelves=emptyList()) },onFailure={onNotice(it.message?:"Could not load more")});loading=false
+                    if(revision==provider.authRevision) {
+                        result.fold(onSuccess={ page=data.copy(cards=(data.cards+it.cards).distinctBy {c->c.key()},next=it.next?.takeUnless {n->n==token},shelves=emptyList()) },onFailure={moreError=it.message?:"Could not load more"});loading=false
                     }
                 }
             },enabled=!loading) {Text("Load more")} }
@@ -204,10 +216,10 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
                 GlassCategoryChip(g,key="podcast:$g",selected=genre==g,tag="podcast_genre_${g.lowercase().replace(' ','_')}") {model.podcastGenre=g}}
         }}
 
-        if(loading) item {Text("Loading\u2026",color=Muted)}
-        error?.let {item {Text(it,color=Pink)}}
+        if(loading && shelves.isEmpty()) item(key="state:loading") {ListSkeleton("Loading $title")}
+        error?.let {item(key="state:problem") {ContentProblem(it,onRetry={retry++},onSignIn={model.push(Route.Account)})}}
         shelves.forEachIndexed {i,shelf->item(key="explore:$i"){HomeCardShelf(shelf.title,shelf.cards,180.dp,maxCards=if(title=="Radio") Int.MAX_VALUE else 12,onOpen=::open)}}
-        if(!loading && shelves.isEmpty()) item {Text(if(title=="Radio") "Stations appear when their channels are live." else "No recommended shows available yet.",color=Muted)}
+        if(!loading && error==null && shelves.isEmpty()) item(key="state:empty") {ContentEmpty(if(title=="Radio") "Stations appear when their channels are live." else "No recommended shows available yet.")}
         item {ToolLink(if(title=="Radio") "Find more live stations" else "Find a podcast") {
             model.searchQuery=if(title=="Radio") "live radio" else "podcasts";model.searchFilter=if(title=="Radio") "All" else "Podcasts";model.select("Search")
         }}
@@ -218,8 +230,9 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     val scope=rememberCoroutineScope();val kind=model.libraryFilter
     var cards by remember(kind) {mutableStateOf(provider.cachedLibrary(if(kind=="Favorites") "Songs" else kind)?.cards.orEmpty())};var next by remember(kind){mutableStateOf<String?>(null)}
     var loading by remember(kind){mutableStateOf(false)};var error by remember(kind){mutableStateOf<String?>(null)};var retry by remember(kind){mutableIntStateOf(0)}
+    var moreError by remember(kind){mutableStateOf<String?>(null)}
     LaunchedEffect(kind,provider.authRevision,provider.libraryRevision,retry) {
-        next=null;error=null
+        next=null;error=null;moreError=null
         if(provider.signedIn && kind !in setOf("History","On device")) {
             loading=provider.cachedLibrary(kind)==null
             val result=provider.libraryCatalog(if(kind=="Favorites") "Songs" else kind)
@@ -244,21 +257,22 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         }}
         item {LibraryShortcutTiles(model)}
         if(!provider.signedIn) item {ToolLink("Sign in to YouTube Music"){model.push(Route.Account)}}
-        if(loading) item {Text("Loading your library\u2026",color=Muted)}
-        error?.let {item {Text(it,color=Pink);TextButton({ uiHaptic(); retry++}){Text("Retry")}}}
+        if(loading && cards.isEmpty()) item(key="state:loading") {ListSkeleton("Loading your library")}
+        error?.let {item(key="state:problem") {ContentProblem(it,onRetry={retry++},onSignIn={model.push(Route.Account)})}}
         items(cards,key={it.key()}) {card->CatalogCardRow(card,onEnqueue={next->scope.launch{enqueueRealTrack(provider,playback,card,next,onNotice)}}){open(card)}}
+        moreError?.let {item(key="state:more") {Text(it,color=White,fontSize=RiffType.body,modifier=Modifier.testTag("load_more_problem"))}}
         if(next!=null) item {Button({ uiHaptic(); 
-            val token=next?:return@Button;val revision=provider.authRevision;loading=true
+            val token=next?:return@Button;val revision=provider.authRevision;loading=true;moreError=null
             scope.launch {
                 val result=if(kind=="Favorites") provider.likedSongsPage(token).map{CatalogPage(it.tracks.map(ProviderTrack::homeCard),it.nextToken)}
                     else provider.libraryCatalog(kind,token)
-                if(model.libraryFilter==kind && revision==provider.authRevision) {result.fold(onSuccess={cards=(cards+it.cards).distinctBy {c->c.key()};next=it.next?.takeUnless {n->n==token}},onFailure={onNotice(it.message?:"Could not load library")});loading=false}
+                if(model.libraryFilter==kind && revision==provider.authRevision) {result.fold(onSuccess={cards=(cards+it.cards).distinctBy {c->c.key()};next=it.next?.takeUnless {n->n==token}},onFailure={moreError=it.message?:"Could not load more"});loading=false}
             }
         },enabled=!loading,modifier=Modifier.testTag("library_load_more")){Text("Load more")}}
         val local=when(kind){"History"->collections.onlineHistory;"Favorites"->collections.onlineFavorites;"Playlists"->collections.onlinePlaylist;else->emptyList()}
         if(local.isNotEmpty()) item {Text(if(kind=="History") "Listening history" else "Saved on this phone",color=Muted)}
         items(local.filterNot {track->cards.any {it.videoId==track.videoId}},key={"local:${it.videoId}"}) {track->ProviderSongRow(track,{scope.launch{playRealTrack(provider,playback,track,onNotice)}})}
-        if(!loading && error==null && cards.isEmpty() && local.isEmpty() && provider.signedIn) item {Text("Nothing in this collection yet.",color=Muted)}
+        if(!loading && error==null && cards.isEmpty() && local.isEmpty() && provider.signedIn) item(key="state:empty") {ContentEmpty("Nothing in this collection yet.")}
     }
 }
 internal suspend fun enqueueRealTrack(provider:YouTubeMusicProvider,playback:PlaybackGateway,

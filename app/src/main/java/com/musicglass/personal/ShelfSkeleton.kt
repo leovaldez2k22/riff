@@ -44,10 +44,7 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 internal fun HomeFeedSkeleton(modifier: Modifier = Modifier) {
-    val reduced = LocalMotionPolicy.current.reduced
-    val pulse: State<Float> = if (reduced) remember { mutableFloatStateOf(0.09f) } else
-        rememberInfiniteTransition(label = "skeleton").animateFloat(0.06f, 0.12f,
-            infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse), label = "skeleton-alpha")
+    val pulse = rememberSkeletonPulse()
     Column(modifier.fillMaxWidth().testTag("home_skeleton").clearAndSetSemantics {
         contentDescription = "Loading Home"; liveRegion = LiveRegionMode.Polite
     }, verticalArrangement = Arrangement.spacedBy(28.dp)) {
@@ -84,6 +81,35 @@ internal fun HomeFeedSkeleton(modifier: Modifier = Modifier) {
                             SkeletonBlock(pulse, Modifier.width(80.dp).height(10.dp), 5.dp)
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/** One shared pulse for a whole placeholder; a fixed value under reduced motion. */
+@Composable
+private fun rememberSkeletonPulse(): State<Float> = if (LocalMotionPolicy.current.reduced) remember { mutableFloatStateOf(0.09f) } else
+    rememberInfiniteTransition(label = "skeleton").animateFloat(0.06f, 0.12f,
+        infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse), label = "skeleton-alpha")
+
+/**
+ * Placeholder rows while a list loads (Q12). Each is the size of a real list row, so the first rows of
+ * content arrive where the placeholders were. Announced once as [label]; the blocks are hidden from
+ * accessibility services.
+ */
+@Composable
+internal fun ListSkeleton(label: String, modifier: Modifier = Modifier, rows: Int = 6) {
+    val pulse = rememberSkeletonPulse()
+    Column(modifier.fillMaxWidth().testTag("list_skeleton").clearAndSetSemantics {
+        contentDescription = label; liveRegion = LiveRegionMode.Polite
+    }, verticalArrangement = Arrangement.spacedBy(RiffSpace.item)) {
+        repeat(rows) {
+            Row(Modifier.fillMaxWidth().height(RiffSpace.listRow), verticalAlignment = Alignment.CenterVertically) {
+                SkeletonBlock(pulse, Modifier.size(RiffSpace.listArtwork), RiffRadius.artwork)
+                Column(Modifier.padding(start = RiffSpace.rowGap), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SkeletonBlock(pulse, Modifier.width(170.dp).height(12.dp), 6.dp)
+                    SkeletonBlock(pulse, Modifier.width(110.dp).height(10.dp), 5.dp)
                 }
             }
         }

@@ -208,19 +208,33 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
             }
         }
     }
-    if (timingDialog) FrostedAlertDialog(onDismissRequest = { timingDialog = false },
+    if (timingDialog) LyricsTimingDialog(offsetMs, { offsetMs = it }) { timingDialog = false }
+}
+
+internal const val LYRICS_OFFSET_STEP_MS = 100L
+internal const val LYRICS_OFFSET_LIMIT_MS = 5000L
+/** The offset as it is shown: signed, in seconds. */
+internal fun lyricsOffsetLabel(offsetMs: Long) = "${if (offsetMs >= 0) "+" else ""}${offsetMs / 1000f}s"
+/** One step later or earlier, kept inside the limit. */
+internal fun lyricsOffsetStep(offsetMs: Long, later: Boolean) =
+    (offsetMs + if (later) LYRICS_OFFSET_STEP_MS else -LYRICS_OFFSET_STEP_MS).coerceIn(-LYRICS_OFFSET_LIMIT_MS, LYRICS_OFFSET_LIMIT_MS)
+
+/** Moves the highlight earlier or later for this recording. Reset returns to the default, which is not zero. */
+@Composable
+internal fun LyricsTimingDialog(offsetMs: Long, onOffset: (Long) -> Unit, onDismiss: () -> Unit) {
+    FrostedAlertDialog(onDismissRequest = onDismiss,
         title = { Text("Lyrics timing") },text = {
             Column {
                 Text("Adjust the highlight if this recording is slightly out of sync.")
                 Row(Modifier.fillMaxWidth(),verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = { uiHaptic();  offsetMs = (offsetMs-100).coerceAtLeast(-5000) },modifier = Modifier.testTag("lyrics_offset_minus")) { Text("− 0.1s") }
-                    Text("${if (offsetMs >= 0) "+" else ""}${offsetMs/1000f}s")
-                    TextButton(onClick = { uiHaptic();  offsetMs = (offsetMs+100).coerceAtMost(5000) },modifier = Modifier.testTag("lyrics_offset_plus")) { Text("+ 0.1s") }
+                    TextButton(onClick = { uiHaptic(); onOffset(lyricsOffsetStep(offsetMs, later = false)) },modifier = Modifier.testTag("lyrics_offset_minus")) { Text("\u2212 0.1s") }
+                    Text(lyricsOffsetLabel(offsetMs),modifier = Modifier.testTag("lyrics_offset_value"))
+                    TextButton(onClick = { uiHaptic(); onOffset(lyricsOffsetStep(offsetMs, later = true)) },modifier = Modifier.testTag("lyrics_offset_plus")) { Text("+ 0.1s") }
                 }
-                TextButton(onClick = { uiHaptic();  offsetMs = DEFAULT_LYRICS_OFFSET_MS }) { Text("Reset") }
+                TextButton(onClick = { uiHaptic(); onOffset(DEFAULT_LYRICS_OFFSET_MS) },modifier = Modifier.testTag("lyrics_offset_reset")) { Text("Reset") }
             }
-        },confirmButton = { TextButton(onClick = { uiHaptic();  timingDialog = false }) { Text("Done") } })
+        },confirmButton = { TextButton(onClick = { uiHaptic(); onDismiss() }) { Text("Done") } })
 }
 
 @Composable

@@ -24,13 +24,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.input.key.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -193,8 +191,7 @@ internal fun RiffApp() {
         LocalSongCrossfade provides SongCrossfadeState.active,
         androidx.compose.foundation.LocalOverscrollFactory provides StretchOverscrollFactory,LocalAccessibilitySettings provides accessibility,
         LocalMotionPolicy provides motion,LocalCardPeek provides cardPeek) {
-    MaterialTheme(colorScheme = darkColorScheme(primary = Pink, background = Ink, surface = Raised),
-        typography = GlassTypography) {
+    RiffTheme {
         SharedTransitionLayout {
         CompositionLocalProvider(LocalLyricsSharedScope provides this) {
         Box(Modifier.fillMaxSize().preferredFrameRate(LocalUiRefreshRate.current).background(Ink)

@@ -80,6 +80,14 @@ Newest first. Release candidates before 0.9.0-rc16 were recorded only in the REA
 - Like, save and playlist actions say **Checking your account** while the session is being verified, instead of saying you are signed out.
 - A change in the shape of YouTube Music's replies now leaves out the rows Riff cannot read instead of failing the whole page.
 - Not checked against YouTube Music in this build: all of the above was tested with invented replies and no account. See `docs/quality/provider-compatibility.md`.
+- Opening an album or artist from inside another collection and pressing Back returns to the first one where you left it. Before, it went back to the top.
+- Coming back to Search from an album shows the same results at once, at the same place, without searching again.
+- A list that fails to load says what went wrong with **Retry**, or **Sign in** when the session has expired, and the message stays until you act. A list that is only loading shows placeholders of fixed size, and one that is empty says so. Before, all three were a line of text.
+- A next page that fails to load keeps the rows you have and says so beside **Load more**.
+- The position and volume bars tell a screen reader their value ("1:05 of 3:20", "40 percent") and can be set by one. Live radio says **Live radio can't be rewound**.
+- Changed: confirmation buttons name what they do (**Clear cache**, **Delete all downloads**). If clearing or deleting fails, the dialog stays open and says so with **Try again**.
+- Changed: filled buttons have black text on pink. The previous dark purple was hard to read.
+- Explore has **Retry** when it cannot load.
 
 ## 0.9.0-rc20
 

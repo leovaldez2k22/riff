@@ -51,6 +51,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
@@ -97,11 +98,14 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(if (volume == 0) Icons.Rounded.VolumeOff else Icons.Rounded.VolumeDown,
-                contentDescription = "Volume", tint = White, modifier = Modifier.size(20.dp))
+                contentDescription = null, tint = White, modifier = Modifier.size(20.dp))
             CapsuleSlider(value = volume.toFloat().coerceIn(0f,maxVolume.toFloat()),
                 onValueChange={ next -> volume=next.roundToInt().coerceIn(0,maxVolume)
                     audio.setStreamVolume(AudioManager.STREAM_MUSIC,volume,0) },valueRange=0f..maxVolume.toFloat(),haptics=SliderHaptics.Volume,
-                modifier=Modifier.weight(1f).padding(horizontal=8.dp).testTag("player_volume"))
+                modifier=Modifier.weight(1f).padding(horizontal=8.dp).testTag("player_volume").semantics {
+                    contentDescription="Volume"
+                    stateDescription=if(volume==0) "Muted" else "${volume*100/maxVolume.coerceAtLeast(1)} percent"
+                })
             Icon(Icons.Rounded.VolumeUp, contentDescription = null, tint = White,
                 modifier = Modifier.size(23.dp))
         }

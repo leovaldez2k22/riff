@@ -3,6 +3,7 @@
 
     python scripts/quality/static_checks.py            check, exit 1 on any finding
     python scripts/quality/static_checks.py --list     also print every site a reviewed entry covers
+    python scripts/quality/static_checks.py --write-measures   record the present count of raw measures per screen file
 
 Rules
   cancellation   A catch of Exception or Throwable, or a runCatching, around work that can suspend can swallow
@@ -19,6 +20,10 @@ Rules
   position       The playback position and the player's drag position change every frame. Each place a screen
                  file reads one is reviewed, so a new read in a screen's own composition is noticed.
   size           A source file over the ceiling needs an entry saying why it is one thing.
+  measures       Q12: a screen takes spacing, radius and type sizes from DesignTokens.kt. The raw measures
+                 (12.dp, 14.sp) each screen file still writes are counted in static_checks_measures.json. A
+                 file may not have more than its count, and a file not listed may have none. A file that has
+                 fewer must have its count lowered, so the number only goes down.
 
 The reviewed lists are in static_checks_reviewed.json next to this file. An entry names a file and a
 fragment of the line, with a reason; it never suppresses a whole file or a whole rule. An entry that no
@@ -40,6 +45,9 @@ INFRASTRUCTURE = ("LibraryStateDb(", "SQLiteDatabase", "SQLiteOpenHelper", "writ
                   "ProviderCatalogRepository(", "ProviderLibraryRepository(")
 POSITION_READS = (re.compile(r"\.positionMs\b(?!\s*=[^=])"), re.compile(r"\.position\.value\b"))
 SIZE_CEILING = 700
+MEASURES = Path(__file__).with_name("static_checks_measures.json")
+RAW_MEASURE = re.compile(r"(?<![\w.])\d+(?:\.\d+)?f?\.(?:dp|sp)\b")
+TOKEN_FILE = "DesignTokens.kt"
 
 SUSPENDING_LIBRARY = {"await", "awaitAll", "withContext", "withTimeout", "withTimeoutOrNull", "delay", "join", "joinAll", "receive",
                       "receiveCatching", "send", "collect", "collectLatest", "first", "firstOrNull", "withLock", "yield", "coroutineScope",
@@ -125,8 +133,11 @@ def line_of(code, offset):
 
 
 class Findings:
-    def __init__(self, reviewed):
+    def __init__(self, reviewed, measures=None):
         self.reviewed = reviewed
+        # None: the measures rule is off. Otherwise the allowed count of raw measures per screen file.
+        self.measures = measures
+        self.counted = {}
         self.used = set()
         self.items = []
         self.covered = []
@@ -186,13 +197,23 @@ def check(path, findings, suspending):
                 findings.site("lifecycle", path, n, lines[n - 1], "collect with collectAsStateWithLifecycle so a stopped screen stops collecting")
             if any(pattern.search(line) for pattern in POSITION_READS):
                 findings.site("position", path, n, lines[n - 1], "a per-frame value is read here")
+        if findings.measures is not None and path.name != TOKEN_FILE:
+            count = len(RAW_MEASURE.findall(code))
+            allowed = findings.measures.get(path.name, 0)
+            if count:
+                findings.counted[path.name] = count
+            if count > allowed:
+                findings.site("measures", path, 1, path.name, "%d raw measures, %d allowed: take the new one from DesignTokens.kt" % (count, allowed))
+            elif count < allowed:
+                findings.site("measures", path, 1, path.name, "%d raw measures, %d allowed: lower the count in %s" % (count, allowed, MEASURES.name))
     if len(lines) > SIZE_CEILING:
         findings.site("size", path, 1, path.name, "%d lines, over %d" % (len(lines), SIZE_CEILING))
 
 
 def main():
     reviewed = json.loads(REVIEWED.read_text(encoding="utf-8")) if REVIEWED.exists() else {}
-    findings = Findings(reviewed)
+    measures = json.loads(MEASURES.read_text(encoding="utf-8")) if MEASURES.exists() else {}
+    findings = Findings(reviewed, {name: count for name, count in measures.items() if not name.startswith("_")})
     files = sorted(SOURCES.rglob("*.kt"))
     declared = set()
     for path in files:
@@ -201,12 +222,20 @@ def main():
     for path in files:
         check(path, findings, suspending)
     findings.stale()
+    if "--write-measures" in sys.argv:
+        note = {"_note": "Raw dp and sp measures still written in each screen file. See the measures rule in static_checks.py. Counts only go down."}
+        MEASURES.write_text(json.dumps({**note, **dict(sorted(findings.counted.items()))}, indent=1) + "\n", encoding="utf-8")
+        print("measures: %d files, %d raw measures recorded" % (len(findings.counted), sum(findings.counted.values())))
+        return 0
+    for name in sorted(set(findings.measures) - {path.name for path in files}):
+        findings.items.append("measures  %s is listed in %s but is not a source file; remove it" % (name, MEASURES.name))
     if "--list" in sys.argv:
         for rule, name, line, reason in findings.covered:
             print("%s  %s:%d  %s" % (rule, name, line, reason))
     for item in findings.items:
         print(item)
-    print("static checks: %d files, %d reviewed sites, %d findings" % (len(files), len(findings.covered), len(findings.items)))
+    print("static checks: %d files, %d reviewed sites, %d raw measures in %d screen files, %d findings"
+          % (len(files), len(findings.covered), sum(findings.counted.values()), len(findings.counted), len(findings.items)))
     return 1 if findings.items else 0
 
 

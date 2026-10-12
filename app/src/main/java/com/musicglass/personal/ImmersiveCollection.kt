@@ -26,8 +26,11 @@ import kotlinx.coroutines.launch
 @Composable internal fun ImmersiveCollectionDetail(model:ShellModel,bottom:Dp,data:CatalogPage,
     provider:YouTubeMusicProvider,playback:PlaybackGateway,onNotice:(String)->Unit,complete:Boolean=true,
     loadingError:String?=null,onRetry:()->Unit={}) {
-    val artist=model.selectedPlaylistId.startsWith("UC")
-    val playlist=model.selectedPlaylistId.startsWith("VL")
+    // This screen's own collection; the model's is whichever screen is on top.
+    val shown=LocalCollectionRoute.current
+    val collectionId=shown?.id?:model.selectedPlaylistId;val collectionTitle=shown?.title?:model.selectedCollectionTitle
+    val artist=collectionId.startsWith("UC")
+    val playlist=collectionId.startsWith("VL")
     val scope=rememberCoroutineScope();val tone=rememberArtworkColor(data.artworkUrl).readableArtworkTone()
     val context=LocalContext.current
     val height=(LocalConfiguration.current.screenHeightDp*(if(artist) .5f else .57f)).dp
@@ -36,18 +39,18 @@ import kotlinx.coroutines.launch
     var removing by remember {mutableStateOf<ProviderHomeCard?>(null)}
     var removeBusy by remember {mutableStateOf(false)}
     removing?.let {card->AlertDialog(onDismissRequest={if(!removeBusy) removing=null},title={Text("Remove from playlist?")},text={Text(card.title)},
-        confirmButton={TextButton(enabled=!removeBusy,onClick={removeBusy=true;scope.launch {provider.removePlaylistSong(model.selectedPlaylistId,card).fold(onSuccess={uiHaptic(HapticCue.Confirm);removing=null;onNotice("Removed from playlist");provider.refreshLibraryIndex()},onFailure={onNotice(it.message?:"Could not remove song")});removeBusy=false}}) {Text("Remove")}},
+        confirmButton={TextButton(enabled=!removeBusy,onClick={removeBusy=true;scope.launch {provider.removePlaylistSong(collectionId,card).fold(onSuccess={uiHaptic(HapticCue.Confirm);removing=null;onNotice("Removed from playlist");provider.refreshLibraryIndex()},onFailure={onNotice(it.message?:"Could not remove song")});removeBusy=false}}) {Text("Remove")}},
         dismissButton={TextButton(enabled=!removeBusy,onClick={removing=null}) {Text("Cancel")}})}
-    var expanded by remember(model.selectedPlaylistId) {mutableStateOf(false)}
+    var expanded by remember(collectionId) {mutableStateOf(false)}
     var sortedPage by remember(data) {mutableStateOf<CatalogPage?>(null)}
     var remoteSort by remember(data) {mutableStateOf<CollectionSort?>(data.selectedSort)}
-    var sorting by remember(model.selectedPlaylistId) {mutableStateOf(false)}
+    var sorting by remember(collectionId) {mutableStateOf(false)}
     val source=sortedPage?:data
     // What can be offered for this list as it stands: the session, whether it is editable, and whether it is the whole collection.
     val caps=collectionCapabilities(source,complete,playlist,provider.capabilities)
     val songs=if(source.albumTracks.isNotEmpty()) source.albumTracks else source.cards.filter {it.kind in setOf(CatalogKind.Song,CatalogKind.Episode)}
-    var query by rememberSaveable(model.selectedPlaylistId) {mutableStateOf("")}
-    var sortName by rememberSaveable(model.selectedPlaylistId) {mutableStateOf((data.selectedSort?:CollectionSort.Original).name)}
+    var query by rememberSaveable(collectionId) {mutableStateOf("")}
+    var sortName by rememberSaveable(collectionId) {mutableStateOf((data.selectedSort?:CollectionSort.Original).name)}
     val sort=CollectionSort.valueOf(sortName)
     LaunchedEffect(data) {
         data.selectedSort?.let {sortName=it.name;remoteSort=it} ?: run {
@@ -56,12 +59,12 @@ import kotlinx.coroutines.launch
     }
     val ordered=remember(songs,sort,remoteSort) {collectionView(songs,"",if(remoteSort==sort) CollectionSort.Original else sort,{it.title},{it.subtitle},{it.addedAt},{it.album})}
     val visible=remember(songs,query,sort,remoteSort) {collectionView(songs,query,if(remoteSort==sort) CollectionSort.Original else sort,{it.title},{it.subtitle},{it.addedAt},{it.album})}
-    val tracks=songs.mapNotNull {it.track()}.map {it.copy(albumId=if(playlist) it.albumId else model.selectedPlaylistId,album=if(playlist) it.album else data.title,
+    val tracks=songs.mapNotNull {it.track()}.map {it.copy(albumId=if(playlist) it.albumId else collectionId,album=if(playlist) it.album else data.title,
         artworkUrl=if(artist || playlist) it.artworkUrl else data.artworkUrl?:it.artworkUrl,artist=it.artist.ifBlank {if(playlist) "" else data.artistName},artistId=it.artistId?:data.artistId.takeUnless {playlist})}
     // While later pages are still loading, hold the request so the queue gets the whole collection.
-    var pendingPlay by remember(model.selectedPlaylistId) {mutableStateOf<Pair<Int?,Boolean>?>(null)}
-    var pendingDownload by remember(model.selectedPlaylistId) {mutableStateOf(false)}
-    var downloading by remember(model.selectedPlaylistId) {mutableStateOf(false)}
+    var pendingPlay by remember(collectionId) {mutableStateOf<Pair<Int?,Boolean>?>(null)}
+    var pendingDownload by remember(collectionId) {mutableStateOf(false)}
+    var downloading by remember(collectionId) {mutableStateOf(false)}
     LaunchedEffect(complete,pendingDownload) {
         if(!complete || !pendingDownload) return@LaunchedEffect
         try {requestCollectionDownload(context,tracks,onNotice)}
@@ -86,12 +89,12 @@ import kotlinx.coroutines.launch
         contentPadding=PaddingValues(bottom=bottom)) {
         item {
             Box(Modifier.fillMaxWidth().height(height)) {
-                CatalogArtwork(data.artworkUrl,model.selectedPlaylistId,Modifier.fillMaxSize().testTag("collection_artwork"))
+                CatalogArtwork(data.artworkUrl,collectionId,Modifier.fillMaxSize().testTag("collection_artwork"))
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha=.18f),.46f to Color.Transparent,1f to tone)))
                 Box(Modifier.statusBarsPadding().padding(horizontal=16.dp)) {BackHeading("Back",model::back)}
                 Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(24.dp),
                     horizontalAlignment=if(artist) Alignment.Start else Alignment.CenterHorizontally) {
-                    Text(data.title.ifBlank {model.selectedCollectionTitle},color=White,fontSize=if(artist) 34.sp else 28.sp,
+                    Text(data.title.ifBlank {collectionTitle},color=White,fontSize=if(artist) 34.sp else 28.sp,
                         fontWeight=FontWeight.SemiBold,maxLines=3,overflow=TextOverflow.Ellipsis)
                     if(!artist && data.artistName.isNotBlank()) Text(data.artistName,color=White.copy(alpha=.8f),fontSize=22.sp,
                         modifier=Modifier.padding(top=6.dp).then(if(data.artistId!=null) Modifier.clickable { uiHaptic(); model.openCollection(data.artistId,data.artistName)} else Modifier))
@@ -110,7 +113,7 @@ import kotlinx.coroutines.launch
                     Icon(Icons.Rounded.PlayArrow,null);Spacer(Modifier.width(8.dp));Text("Play",fontSize=22.sp,fontWeight=FontWeight.SemiBold)
                 }
                 FilledTonalIconButton({if(!caps.save.available) onNotice(caps.save.reason?:CHECKING_ACCOUNT_NOTICE) else scope.launch {
-                    provider.saveAlbum(model.selectedPlaylistId).fold(onSuccess={uiHaptic(HapticCue.Confirm);onNotice(if(playlist) "Playlist saved to YouTube Music" else "Album saved to YouTube Music")},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:"Could not save collection")})
+                    provider.saveAlbum(collectionId).fold(onSuccess={uiHaptic(HapticCue.Confirm);onNotice(if(playlist) "Playlist saved to YouTube Music" else "Album saved to YouTube Music")},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:"Could not save collection")})
                 }},modifier=Modifier.size(52.dp).testTag("album_save"),colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=White.copy(alpha=.12f))) {
                     Icon(Icons.Rounded.Add,if(playlist) "Save playlist" else "Save album",tint=White)
                 }
@@ -144,7 +147,7 @@ import kotlinx.coroutines.launch
             if(endpoint!=null) {
                 sorting=true
                 scope.launch {
-                    try {provider.sortedCollection(model.selectedPlaylistId,endpoint).fold(onSuccess={
+                    try {provider.sortedCollection(collectionId,endpoint).fold(onSuccess={
                         sortedPage=it;remoteSort=option;sortName=option.name
                     },onFailure={onNotice(it.message?:"Could not sort playlist")})} finally {sorting=false}
                 }
