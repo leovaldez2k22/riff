@@ -138,7 +138,7 @@ internal class ProviderSessionManager(context: Context, internal val dependencie
         val current = manager.getCookie("https://music.youtube.com") ?: return@synchronized
         if (signedIn && !simulatedExpiry) innerTube.replaceSession(cookie = current, visitorData = visitorData,
             dataSyncId = dataSyncId, authUser = authUser, useLoginForBrowse = true)
-        playbackEvents.append("cookies_rotated names=${changed.joinToString(",") { it.first }}")
+        playbackEvents.append("cookies_rotated count=${changed.size}")
     }
     internal var musicPairingRequests=0
         private set

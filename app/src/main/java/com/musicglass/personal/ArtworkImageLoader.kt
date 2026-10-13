@@ -2,7 +2,6 @@ package com.musicglass.personal
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
 import coil3.EventListener
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
@@ -55,7 +54,7 @@ internal fun configureArtworkLoader(context: Context) {
                             .joinToString(">") { it.javaClass.simpleName }
                         val status = (result.throwable as? HttpException)?.response?.code
                         // Never log artwork URLs, request headers, account data, or exception messages.
-                        Log.w("RiffArtwork", "load_failed host=$host causes=$causes http=$status")
+                        diagnosticLogcat("RiffArtwork", "load_failed host=${hostClass(host)} causes=$causes http=${status ?: 0}", warning = true)
                     }
                 }
             }

@@ -31,6 +31,12 @@ internal class PlaybackSources(private val context: Context, private val scope: 
     /** Entries whose stream is being looked up now. Written from the playback thread. */
     private val resolving = ConcurrentHashMap.newKeySet<String>()
     fun isResolving(entry: String) = entry in resolving
+    /** The last entries looked up, numbered in the order first seen, so the log can tell a repeat from a new one. */
+    private val lookups = LinkedHashMap<String, Int>()
+    private var lookupCount = 0
+    private fun lookupNumber(entry: String): Int = synchronized(lookups) {
+        lookups.getOrPut(entry) { ++lookupCount }.also { if (lookups.size > 64) lookups.remove(lookups.keys.first()) }
+    }
 
     override fun createMediaSource(item: MediaItem): MediaSource {
         if (item.localConfiguration?.uri?.scheme == "catalog") {
@@ -38,7 +44,8 @@ internal class PlaybackSources(private val context: Context, private val scope: 
                 // Only the selected entry and the one the player preloads reach this point; the rest of the queue is not looked up.
                 val entry = item.entryId()
                 resolving.add(entry); scope.launch { resolvingChanged() }
-                events.append("stream_resolve_start entry=${entry.take(8)}")
+                // Which entry is not kept, only whether it is one seen before: a small number, new for each new entry.
+                events.append("stream_resolve_start lookup=${lookupNumber(entry)}")
                 try {
                     val track = queue.trackFromItem(item)
                     var local = offline.audio(offline.currentScope, track.videoId)

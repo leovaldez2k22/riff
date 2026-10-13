@@ -1,6 +1,5 @@
 package com.musicglass.personal
 
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -403,7 +402,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
             }
             if (authRevision != revision || !signedIn) return@withContext Result.failure(
                 IllegalStateException(string(R.string.account_changed_while_loading_profile)))
-            Log.i("RiffProfile", "loaded name=${!profile?.name.isNullOrBlank()} photo=${profile?.artworkUrl != null}")
+            diagnosticLogcat("RiffProfile", "loaded name=${!profile?.name.isNullOrBlank()} photo=${profile?.artworkUrl != null}")
             accountProfile = profile
             Result.success(profile)
         } catch (error: CancellationException) { throw error }
@@ -496,7 +495,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                 mixedSongTracks.isNotEmpty()
             val tracks = if (useMixedSongs) mixedSongTracks else filteredTracks
             if (nextToken == null && tracks.isEmpty() && countKey(root, "musicShelfRenderer") == 0) {
-                Log.i("RiffSearch", "no_song_rows filtered_shelves=0 mixed_shelves=$mixedShelves mixed_rows=$mixedRows mixed_song_rows=${mixedSongTracks.size} songs_chip=$liveChipFound dynamic_retry=$liveFilterTried")
+                diagnosticLogcat("RiffSearch", "no_song_rows filtered_shelves=0 mixed_shelves=$mixedShelves mixed_rows=$mixedRows mixed_song_rows=${mixedSongTracks.size} songs_chip=$liveChipFound dynamic_retry=$liveFilterTried")
                 Result.failure(IllegalStateException(string(R.string.song_catalog_unavailable_on_this_device)))
             } else {
                 val page = ProviderSearchPage(tracks,

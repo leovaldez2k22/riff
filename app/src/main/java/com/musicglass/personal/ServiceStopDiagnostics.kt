@@ -76,7 +76,8 @@ internal fun logNewProcessExits(context: Context, events: PlaybackEventLog): Pro
     }.getOrElse { events.append("process_exit_unavailable ${it.javaClass.simpleName}"); return null }
     val fresh = newProcessExits(exits, lastSeen)
     if (fresh.isEmpty()) return null
-    fresh.forEach { events.append(describeExit(it)) }
+    // The system's description is free text; the ring does not keep it.
+    fresh.forEach { events.append(describeExit(it.copy(description = null))) }
     prefs.edit().putLong(EXIT_SEEN, fresh.last().timestamp).apply()
     val noticeWorthy = crashNoticeExit(fresh, context.packageName, System.currentTimeMillis())
     if (noticeWorthy != null) { events.append("crash_notice_raised"); CrashNotice.raise(context) }

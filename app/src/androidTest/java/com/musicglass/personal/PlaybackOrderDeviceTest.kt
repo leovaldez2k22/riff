@@ -239,7 +239,7 @@ class PlaybackOrderDeviceTest {
         val started=System.currentTimeMillis()
         fun lookups()=PlaybackEventLog(device.target).recent().mapNotNull {line->
             val stamp=line.substringBefore(' ').toLongOrNull()?:return@mapNotNull null
-            line.substringAfter("stream_resolve_start entry=","").takeIf {it.isNotEmpty() && stamp>=started}
+            line.substringAfter("stream_resolve_start lookup=","").takeIf {it.isNotEmpty() && stamp>=started}
         }
         assertEquals(SessionResult.RESULT_SUCCESS,device.send(PLAY_CATALOG_QUEUE,device.queueArgs((1..30).map {fixture(it) to "Song $it"})))
         device.await("the queue") {device.ids().size==30}

@@ -144,7 +144,7 @@ internal class AndroidStreamTokenProvider(
                     val gvs = mint(runtime, videoId)
                     check(System.currentTimeMillis() < expiresAt) { "Token integrity expired" }
                     onEvent(
-                        "token minted stage=visitor+video elapsedMs=${(System.nanoTime() - started) / 1_000_000} count=${if (cachedPlayer) 1 else 2}",
+                        "token_minted stage=visitor+video elapsedMs=${(System.nanoTime() - started) / 1_000_000} count=${if (cachedPlayer) 1 else 2}",
                     )
                     PoTokenResult(checkNotNull(playerToken), gvs, visitorData)
                 } catch (error: CancellationException) {
@@ -153,7 +153,7 @@ internal class AndroidStreamTokenProvider(
                 } catch (error: Exception) {
                     reset()
                     onEvent(
-                        "token failed stage=$stage elapsedMs=${(System.nanoTime() - started) / 1_000_000} type=${error::class.simpleName}",
+                        "token_failed stage=$stage elapsedMs=${(System.nanoTime() - started) / 1_000_000} type=${error::class.simpleName}",
                     )
                     // Never propagate third-party HTTP, JavaScript, CDP or interpreter exception content.
                     if (error is IllegalStateException && error.message?.startsWith("Chromium unavailable") == true) throw error
@@ -169,7 +169,7 @@ internal class AndroidStreamTokenProvider(
                 if (browser == null) {
                     try {
                         AndroidTokenRuntime(context).also { browser = it }.evaluate("'ready'")
-                        onEvent("token browser ready")
+                        onEvent("token_browser_ready")
                     } catch (error: CancellationException) {
                         withContext(NonCancellable) { reset() }
                         throw error
