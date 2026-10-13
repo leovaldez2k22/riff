@@ -162,6 +162,7 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
     }
 
     companion object {
+        // Lint (StaticFieldLeak): the context held is the application, which lives as long as the process (Q15 review).
         @Volatile private var process: AppContainer? = null
         /**
          * What the process builds its runtime from. Only the benchmark build types replace it (src/benchmarkFeed),

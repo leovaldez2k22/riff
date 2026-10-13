@@ -3,7 +3,6 @@ package com.musicglass.personal
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Bundle
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -169,7 +168,7 @@ class MusicPlaybackService : MediaSessionService() {
                     this@apply.currentMediaItem?.mediaId?.takeIf {it.startsWith("yt:")}?.removePrefix("yt:")?.let(provider::invalidateStream)
                     generateSequence(error as Throwable?) {it.cause}.filterIsInstance<androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException>().firstOrNull()?.let {failure ->
                         val uri=failure.dataSpec.uri
-                        events.append("http_rejected code=${failure.responseCode} host=${uri.host} kind=${if(uri.path?.contains(".m3u8")==true) "manifest" else "segment"}")
+                        events.append("http_rejected code=${failure.responseCode} host=${hostClass(uri.host)} kind=${if(uri.path?.contains(".m3u8")==true) "manifest" else "segment"}")
                     }
                     // Every retry is decided in one place (Q07).
                     this@apply.currentMediaItem?.let {item->recovery.failed(item.entryId(),faults.of(item,error.errorCodeName,error))}
@@ -183,7 +182,9 @@ class MusicPlaybackService : MediaSessionService() {
         session = MediaSession.Builder(this, player).setSessionActivity(sessionActivity)
             .setCallback(object : MediaSession.Callback {
             override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
-                if (controller.packageName != packageName) return super.onConnect(session, controller)
+                // Another app: transport and reading, not rewriting the queue, and none of the app's own commands.
+                if (!isOwnController(controller.packageName, controller.uid, packageName, android.os.Process.myUid()))
+                    return MediaSession.ConnectionResult.AcceptedResultBuilder(session).setAvailablePlayerCommands(foreignPlayerCommands()).build()
                 return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                     .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
                         .buildUpon().add(SessionCommand(PLAY_PROVIDER_STREAM, Bundle.EMPTY))
@@ -195,7 +196,7 @@ class MusicPlaybackService : MediaSessionService() {
             override fun onCustomCommand(session: MediaSession,
                 controller: MediaSession.ControllerInfo, customCommand: SessionCommand,
                 args: Bundle): ListenableFuture<SessionResult> {
-                if (controller.packageName != packageName || controller.uid != android.os.Process.myUid()) {
+                if (!isOwnController(controller.packageName, controller.uid, packageName, android.os.Process.myUid())) {
                     return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
                 }
                 if(customCommand.customAction==SET_SLEEP_TIMER) {
@@ -242,10 +243,8 @@ class MusicPlaybackService : MediaSessionService() {
                     if (checkSelfPermission(audioLibraryPermission()) !=
                         PackageManager.PERMISSION_GRANTED) return Futures.immediateFuture(
                         SessionResult(SessionError.ERROR_PERMISSION_DENIED))
-                    val uri = Uri.parse(args.getString("uri").orEmpty())
                     val id = args.getLong("id", -1L)
-                    if (id < 0 || uri.toString() !=
-                        "content://media/external/audio/media/$id") return Futures.immediateFuture(
+                    val uri = localAudioUri(args.getString("uri"), id) ?: return Futures.immediateFuture(
                         SessionResult(SessionError.ERROR_BAD_VALUE))
                     val item = MediaItem.Builder().setMediaId("local:$id").setUri(uri)
                         .setMediaMetadata(MediaMetadata.Builder()

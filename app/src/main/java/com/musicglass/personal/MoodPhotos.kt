@@ -131,6 +131,7 @@ internal class MoodPhotos private constructor(context:Context) {
         }
     }
     companion object {
+        // Lint (StaticFieldLeak): the context held is the application, which lives as long as the process (Q15 review).
         @Volatile private var instance:MoodPhotos?=null
         fun get(context:Context)=instance?:synchronized(this) {instance?:MoodPhotos(context).also {instance=it}}
         private const val JOB=15201

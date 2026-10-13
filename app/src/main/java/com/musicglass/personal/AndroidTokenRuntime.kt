@@ -21,7 +21,7 @@ internal class AndroidTokenRuntime(private val context: Context) : AutoCloseable
                 settings.allowFileAccess = false; settings.allowContentAccess = false
                 settings.blockNetworkLoads = true; settings.domStorageEnabled = false
                 settings.userAgentString = TOKEN_USER_AGENT
-                webViewClient = object : WebViewClient() {
+                webViewClient = object : StrictWebViewClient() {
                     override fun shouldInterceptRequest(v: WebView, r: WebResourceRequest) =
                         WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
                     override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = true

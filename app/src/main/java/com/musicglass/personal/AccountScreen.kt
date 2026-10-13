@@ -288,7 +288,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                             return true
                         }
                     }
-                    webViewClient = object : WebViewClient() {
+                    webViewClient = object : StrictWebViewClient() {
                         override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                             if (!attempt.accepts(token)) return
                             verification?.cancel()
@@ -337,7 +337,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                             if (!request.isForMainFrame && url == "about:blank") return false
                             val allowed = allowedSignInUrl(url)
                             if (!allowed && attempt.accepts(token)) {
-                                PlaybackEventLog(context).append("sign_in_blocked main=${request.isForMainFrame} scheme=${request.url.scheme} host=${request.url.host}")
+                                PlaybackEventLog(context).append("sign_in_blocked main=${request.isForMainFrame} scheme=${schemeClass(request.url.scheme)} host=${hostClass(request.url.host)}")
                                 if (request.isForMainFrame) {
                                     loading = false; stage = SignInStage.Failed
                                     message = string(R.string.google_s_page_tried_to_open_x, request.url.host ?: request.url.scheme)
@@ -404,9 +404,6 @@ internal fun SignInBrowserActions(verifying: Boolean, onContinue: () -> Unit,
     }
 }
 
-internal fun allowedSignInUrl(url: String): Boolean {
-    val uri = url.toUri()
-    val host = uri.host.orEmpty().lowercase()
-    return uri.scheme == "https" && listOf("youtube.com", "google.com", "googleusercontent.com", "gstatic.com")
-        .any { host == it || host.endsWith(".$it") }
-}
+internal val signInDomains = listOf("youtube.com", "google.com", "googleusercontent.com", "gstatic.com")
+
+internal fun allowedSignInUrl(url: String): Boolean = httpsAddressOn(url, signInDomains) != null

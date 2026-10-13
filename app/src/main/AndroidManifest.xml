@@ -42,6 +42,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Exported without a permission on purpose (lint ExportedService, Q15 review): the system, Bluetooth,
+             a car and an assistant bind to a media session service, and a permission would lock them out.
+             What a caller may do is decided per controller in MusicPlaybackService.onConnect: the app itself
+             gets its own commands; anyone else gets transport and no queue editing. -->
         <service
             android:name=".MusicPlaybackService"
             android:exported="true"

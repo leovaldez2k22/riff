@@ -25,6 +25,7 @@ internal data class ReconcileReport(val requeued:Int=0,val removalsFinished:Int=
 /** Bundle files are permanent app-private storage. URLs, cookies and tokens are never persisted. */
 internal class OfflineMusicStore private constructor(private val context:Context) {
     companion object {
+        // Lint (StaticFieldLeak): get() passes the application context, which lives as long as the process (Q15 review).
         @Volatile private var instance:OfflineMusicStore?=null
         fun get(context:Context)=instance ?: synchronized(this) {instance ?: OfflineMusicStore(context.applicationContext).also {instance=it}}
         private val VIDEO_ID=Regex("[A-Za-z0-9_-]{11}")

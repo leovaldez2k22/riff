@@ -20,22 +20,23 @@ import org.json.*
 @Composable internal fun InlineYouTubeVideo(playback:PlaybackGateway,id:String,modifier:Modifier=Modifier) {
     val context=LocalContext.current;val lifecycle=LocalLifecycleOwner.current.lifecycle
     val gateway=playback as? MusicPlaybackGateway
-    var error by remember(id) {mutableStateOf<String?>(null)}
+    // The identifier is written into the address below; anything else is not loaded.
+    var error by remember(id) {mutableStateOf<String?>(if(isVideoId(id)) null else string(R.string.could_not_load_youtube_check_your_connection))}
     val web=remember(id) {WebView(context).apply {
         layoutParams=ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
         setBackgroundColor(android.graphics.Color.BLACK)
         settings.javaScriptEnabled=true;settings.domStorageEnabled=true;settings.mediaPlaybackRequiresUserGesture=false
         settings.allowFileAccess=false;settings.allowContentAccess=false
         webChromeClient=WebChromeClient()
-        webViewClient=object:WebViewClient() {
+        webViewClient=object:StrictWebViewClient() {
             override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest):Boolean {
                 // Keep navigation inside the visible player; never launch a browser or another app.
-                return request.url.scheme!="https" || request.url.host?.let {it=="youtube.com" || it.endsWith(".youtube.com")}!=true
+                return httpsAddressOn(request.url.toString(),listOf("youtube.com"))==null
             }
             override fun onReceivedError(view:WebView,request:WebResourceRequest,failure:WebResourceError) {if(request.isForMainFrame) error=string(R.string.could_not_load_youtube_check_your_connection)}
         }
         val origin="https://${context.packageName}"
-        loadUrl("https://www.youtube.com/embed/$id?autoplay=1&playsinline=1&controls=0&origin=$origin",mapOf("Referer" to "$origin/"))
+        if(isVideoId(id)) loadUrl("https://www.youtube.com/embed/$id?autoplay=1&playsinline=1&controls=0&origin=$origin",mapOf("Referer" to "$origin/"))
     }}
     DisposableEffect(web,lifecycle,gateway) {
         fun pause() {web.evaluateJavascript("document.querySelectorAll('video').forEach(function(v){v.pause()})",null);gateway?.reportEmbedded(false)}

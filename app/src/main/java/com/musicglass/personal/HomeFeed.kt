@@ -109,8 +109,8 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
         val context=androidx.compose.ui.platform.LocalContext.current
         androidx.compose.material3.AlertDialog(onDismissRequest={photoCredits=false},title={Text(string(R.string.background_photo))},text={Column {
             Text(currentPhoto.author);Text(currentPhoto.license)
-            androidx.compose.material3.TextButton({context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(currentPhoto.page)))}) {Text(string(R.string.view_original_photo))}
-            if(currentPhoto.licenseUrl.isNotBlank()) androidx.compose.material3.TextButton({context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(currentPhoto.licenseUrl)))}) {Text(string(R.string.view_licence))}
+            androidx.compose.material3.TextButton({openWebPage(context,currentPhoto.page)}) {Text(string(R.string.view_original_photo))}
+            if(httpsAddress(currentPhoto.licenseUrl)!=null) androidx.compose.material3.TextButton({openWebPage(context,currentPhoto.licenseUrl)}) {Text(string(R.string.view_licence))}
         }},confirmButton={androidx.compose.material3.TextButton({photoCredits=false}) {Text(string(R.string.done))}})
     }
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()

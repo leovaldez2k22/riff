@@ -29,6 +29,7 @@ internal class LocalAudioRepository(private val context: Context) {
                 MediaStore.Audio.Media.DURATION,
             )
             val tracks = mutableListOf<LocalAudioTrack>()
+            // Lint (Recycle) does not follow the cursor into use {} below, which closes it on every path (Q15 review).
             val cursor = context.contentResolver.query(source, columns,
                 "${MediaStore.Audio.Media.IS_MUSIC} != 0", null,
                 "${MediaStore.Audio.Media.DATE_MODIFIED} DESC")
