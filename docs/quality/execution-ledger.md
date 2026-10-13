@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q10A PASS locally with open items (see the Q10A section, which follows Q11); Q12 PASS locally with open items, device walk-through BLOCKED (see the Q12 section); Q13 PASS locally with open items, TalkBack and keyboard walk-throughs BLOCKED (see the Q13 section); Q14 PASS locally for tooling, Baseline Profile and APK checks, every physical-tier budget BLOCKED and one open finding awaiting a product decision (see the Q14 section); Q15-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q10A PASS locally with open items (see the Q10A section, which follows Q11); Q12 PASS locally with open items, device walk-through BLOCKED (see the Q12 section); Q13 PASS locally with open items, TalkBack and keyboard walk-throughs BLOCKED (see the Q13 section); Q14 PASS locally for tooling, Baseline Profile and APK checks, every physical-tier budget BLOCKED and one open finding awaiting a product decision (see the Q14 section); Q15 PASS locally with open items, two of them medium (see the Q15 section); Q16-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -1364,6 +1364,101 @@ Device state: emulator shut down with adb emu kill after the runs, Gradle daemon
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
 Commit: 4029b5a on local branch codex/riff-quality-m0 (not pushed), after 43599f1, 543a48c, b150e30 and 91fe78b.
 Next exact action: Q15. It is inside the 9 October authorization (Q03-Q18) but no instruction has named it; wait for "start Q15". Finding 2 needs the user's decision whenever it suits; it does not hold Q15 up.
+
+## Q15
+### Q15 completion (13 October 2026)
+Status: PASS locally with open items. SEC01, SEC02 and SEC03 pass as JVM tests and the release-content check passes on the built APK. No high-severity issue is known to be open; two medium items are open (dependency verification is not enforced on CI; a foreign media controller was not tried on a device). This was one review of the code by the same hand that wrote the changes. It is not an audit, a penetration test or a certification, and nothing was tried on a phone.
+Source: 5aa172cb377e714519b2ea3c0df8b3618739df18 dirty (the two user files named at the end are the only uncommitted changes), digest prefix 83f32ef6db48 (full value in the manifests). Evidence root: artifacts/quality/5aa172cb377e714519b2ea3c0df8b3618739df18-dirty-83f32ef6db48/
+Commits: 4312497 (diagnostic ring reduction), 70e1949 (behaviour: media controllers, photo links, browser rules), 93136d8 (release content check, wrapper checksum, pinned actions, dependency checksums), 5aa172c (documents).
+User instruction on 13 October 2026: "Start q15". Q15 is inside the 9 October authorization (Q03-Q18).
+
+Findings that led to changes:
+- Medium, fixed. Any app that connected a media controller to the playback service was given Media3's default player commands in full, which include removing, moving and clearing queue entries. onConnect recognised the app itself by package name alone. Another app now gets transport and reading without COMMAND_CHANGE_MEDIA_ITEMS, COMMAND_SET_MEDIA_ITEM and COMMAND_SET_PLAYLIST_METADATA, and the app is itself only with its own package name and user id. The custom commands were already refused to others.
+- Medium, fixed. The photo credit dialog on Home handed the photograph's page and licence addresses to ACTION_VIEW as the photo service sent them (and as stored in a file). They could name any scheme. They now open only as a browsable HTTPS page, and a licence link that is not one is not shown.
+- Low, fixed. The diagnostic ring held media server host names, cookie names (not values), the first eight characters of a queue entry identifier and the system's free-text description of a process exit. None is kept now.
+- Low, fixed. The live video player wrote its video identifier into an address without checking its form.
+- Lint: UnsafeOptInUsageError on my own new function, found by lint during the work and fixed before the commits.
+
+Implemented, by plan item:
+- 1, 2 Typed events. DiagnosticEvent.kt: an event is a name and key=value fields; a field is kept only if its key is one of 96 listed and its value has the shape that key allows (number, true/false, or a short word, error-code name or class name; up to five class names joined by > for an error chain). Everything else becomes <redacted>; a text without a proper name is stored as rejected_event. Bounds: 1,000 characters read, 400 kept, 24 fields, 48 characters a value, 200 lines. PlaybackEventLog reduces every line before storing it and before logcat; a ring from an older version is reduced once on the first write. playbackDiagnosticsReport is the export scrubber: every line reduced again, the heading cut to one plain line. hostClass and schemeClass reduce a host and a scheme to a few words. The three direct logcat calls go through diagnosticLogcat.
+- 3 Tests. DiagnosticEventTest, 12 tests (below).
+- 4 Browsers. WebBoundaries.kt: httpsAddressOn and httpsAddress (HTTPS only; no user-info, no port but 443, no backslash or control character, plain host, at most 4,096 characters); StrictWebViewClient with a final onReceivedSslError that cancels, used by all three browsers; isVideoId; openWebPage. allowedSignInUrl uses the one rule. File access was already off in all three and there is no JavaScript bridge. Content access stays on in the sign-in browser (open item).
+- 5 Media session. Above. The service stays exported; the manifest says why.
+- 6 Local content. localAudioUri is the one rule (already applied in two places, now one function). A revoked permission already gave a recoverable failure; reviewed, not changed.
+- 7 Release content. scripts/quality/check_release_content.py reads the built APK with aapt2: backup and transfer excluded, cleartext off and no override, not debuggable, test-only or shell-profileable, exported components exactly the reviewed four, no exported or granting provider, permissions exactly the reviewed twelve, nothing from test, stress, fixture or benchmark builds, no key file, and the pinned certificate when signed. 17 tests. Added as a CI step.
+- 8 Signing. Unchanged: key outside Git and CI; build-release-candidate.ps1 still checks the pinned certificate. No general file export exists; the copied report has fixed content.
+- 9 Lint. The Cursor warning (Recycle), three StaticFieldLeak warnings and ExportedService each have an explanation where they are. Nothing is suppressed.
+- 10 Wrapper and dependencies. distributionSha256Sum for gradle-8.13-bin.zip, read from services.gradle.org and gradle.org/release-checksums (they agree); the committed wrapper jar hashes to the value the same pages give. gradle/verification-metadata.xml: SHA-256 for 616 components, generated from this machine's cache; strict locally, lenient on CI (open item). Dependency locking was not added.
+- 11 CI. Six actions pinned to the commits their releases pointed to on 13 October; contents: read on both workflows; no secret is used. The workflows were not run (nothing was pushed).
+- 12 docs/quality/security-review.md (new): boundaries, attack cases and results, open items by severity, what was not looked at. architecture.md, CHANGELOG.md.
+
+Verification:
+- Debug (q15-debug-01/manifest.json): PASS_LOCAL. 952 JVM tests / 105 suites, zero failures, errors or skips (Q14: 931 / 103). Lint 0 errors, 80 warnings, 3 hints; against q14-debug-01 two added (UseKtx in WebBoundaries.kt, twice: a style hint to use toUri) and three removed (UseKtx in HomeFeed.kt twice and MusicPlaybackService.kt once), lint-diff-debug-01.txt. APK SHA-256 ee239902726ccdd6d44785af411bc1dd4a5f8dfffae0684b55819fa0b4a88eae.
+- New JVM tests, 21: DiagnosticEventTest (12) and WebBoundariesTest (9). What they hold is tabled in security-review.md under "Attack cases and results".
+- Existing tests: no JVM test was changed. One device test was: PlaybackOrderDeviceTest reads "stream_resolve_start lookup=" where it read "entry=", because the field it counted distinct values of was replaced. What it asserts is the same.
+- Emulator, bound (q15-debug-fixture-01/manifest.json, log q15-instrumentation-01.log, install-01.log): PASS_LOCAL, all five gates PASS. 46 tests, 307.108 s, first attempt, network off (ping_exit=2). Test APK SHA-256 6639d02cfda6931952f515bdbcd16bf3bcda6e3e7287081f478b2b00a299a906. The built app APK matched the manifest hash before install.
+- The ring on the emulator after those 46 tests (device-ring-scan-01.txt): 200 lines, none with an address, an entry identifier, cookie names or a description, none outside the grammar, and none holding <redacted>. So on these journeys the reduction removed nothing the code meant to write.
+- Emulator, not bound (q15-two-player-01.log, install-02.log): CrossfadeDeviceTest and SongFadeDeviceTest, 15 tests, OK, 213.839 s, fresh emulator, first attempt.
+- Shrunk build on the emulator (q15-journey-check-01.log, benchmark-apks-01.sha256): the Q14 JourneyCheck against benchmarkRelease built from this source, 6 tests OK, 158.582 s. Regression only: the journeys open the full player and the queue through the app's own controller.
+- Release (q15-release-01/manifest.json): PASS_LOCAL. 952 tests / 105 suites, zero failures, errors or skips; lint 80 warnings, 3 hints; against q14-release-01 the same two added and three removed (lint-diff-release-01.txt). APK SHA-256 6533d649f081b6293c05ed3bf02d2f6bfaeb07054e2d26217e523d0e3c10cc97.
+- Release content (release-content-01.txt): exit 0. 18 checks ok; the certificate line reads "not checked: the APK is unsigned", which is not a pass for the certificate.
+- The check against a build that must fail (release-content-benchmark-01.txt): the same script on the benchmarkRelease APK exits 2 with 7 checks failed (network security override, shell-profileable, a fifth exported component, an exported provider, feed entries in the manifest, fixture files, a feed class). The check can fail.
+- Release APK size and profile (release-apk-check-01.txt): all five checks ok. 28,194,802 bytes = 26.89 MiB; baseline.prof 11,390 bytes and baseline.profm 1,650 bytes packaged. The profile was not regenerated for the new classes; the journey classes it must cover are still covered.
+- Shrunk release, solver seam (solver-seam-release-01.txt): PASS, unchanged.
+- Static checks (static-checks-01.txt): 156 files, 24 reviewed sites, 658 raw measures in 34 screen files, 0 findings.
+- Script tests (quality-script-tests-01.txt): 115 tests OK, of which 17 are new (check_release_content).
+- Stress (stress-build-01.log): :app:assembleStress :app:assembleStressAndroidTest -PriffTestBuildType=stress, exit 0. Compilation only.
+- Every Gradle run above was --offline and ran with dependency verification strict.
+- The evidence was taken after commit 5aa172c and before this ledger entry was written; the entry is the only change after it.
+
+Failed attempts and one unexplained failure:
+- AccessibilitySweepLargeWindowTest.downloads failed once, in a development run, with IndexOutOfBoundsException "Index 3, size 3" inside Compose's lazy list while measuring. It passed in the full run before it, in the debug collector run and in the release collector run, and the Q15 changes do not touch that screen. I did not find the cause. It may be a race in the test's setup or a real race in the Downloads list; it is recorded here so it is not lost.
+- My first run of the new tests: 4 of 42 failed, all mine. A chain of two class names was longer than the single-value limit (the limit now applies to each name); the source scan took a logcat tag for an event name; one test encoded a space as + and so tested a legitimate address; one looked for ".proceed(" and found OkHttp's.
+- check_release_content.py: a relative tool path failed on Windows; the tool's output is not valid in the console code page; "assets/quality/" matched the build identity file, which belongs in a release.
+- Generating the dependency checksums took five runs: I included testReleaseUnitTest, which this project does not support (180 Compose tests fail there for want of a debug manifest; the collector has never run it); then the one-off sweep failure above stopped a run; then lint stopped one on my own opt-in error.
+- A shell here-document halved the backslashes of a regular expression in a test again. Repaired with the edit tool.
+
+Acceptance:
+| Item | State | Evidence |
+|---|---|---|
+| SEC01 Host lookalike, intent, TLS: safe rejection, no arbitrary execution | PASS (JVM) | WebBoundariesTest |
+| SEC02 Foreign custom command denied, legitimate transport usable | PASS (JVM) for the rule and its wiring; not tried with a second app on a device | WebBoundariesTest |
+| SEC03 Adversarial diagnostics: no credentials, URLs or IDs stored or exported | PASS (JVM); the ring read back from the emulator agrees | DiagnosticEventTest; device-ring-scan-01.txt |
+| Release-content checks | PASS on the unsigned release APK; certificate not checked | release-content-01.txt |
+| No unresolved high-severity issue | None known | security-review.md, "Open, by severity" |
+| No secret in stored or exported event fixtures | PASS | the planted values in DiagnosticEventTest are invented |
+| Wrapper checksum from the official release | PASS | gradle-wrapper.properties; security-review.md |
+| Dependency verification or locking where supported | PARTIAL: recorded and strict locally, lenient on CI, not provenance | gradle/verification-metadata.xml |
+| CI actions pinned to reviewed commits, least privilege, no secrets to PR code | Pinned and read-only; the actions' code was not read; workflows not run | .github/workflows |
+| security-review.md | Done | docs/quality/security-review.md |
+
+Decisions (mine, not the user's):
+- The reduction is on shape and a list of keys, not a list of known secrets. Events stay written as text at their call sites and are parsed at the one place they are stored, rather than every call site being rewritten to build an object.
+- A field that is refused keeps its key and loses its value. The key of a refused field is itself text from the event, limited to a short plain form.
+- Three player commands are withheld from other apps. I chose them from Media3's list; the user did not. If Android Auto or an assistant turns out to need one, that is one array in WebBoundaries.kt.
+- Photo pages may be on any HTTPS host: the photo services link to many sites. Only the scheme and form are held.
+- Content access was left on in the sign-in browser rather than changed without a device to try it on.
+- Dependency verification is strict locally and lenient on CI, rather than left out until Linux checksums exist, or strict everywhere and CI broken.
+- The release-content check is a CI step now, although CI is Q16's package: it is one line and the check is this package's.
+
+Not covered by any test:
+- A second app as media controller on a device; Bluetooth, the lock screen, Android Auto and Assistant after the three commands were withheld.
+- The three browsers on a device: a real certificate error, a real hostile page, the picker.
+- A signed APK's certificate through the new script (the release script's own check is the existing one).
+- The workflows.
+- Whether the checksums in verification-metadata.xml are the publishers'.
+- Everything under "Not looked at in this package" in security-review.md: overlays on the sign-in screen, the clipboard, known vulnerabilities in dependencies, the provider library's own network code.
+
+BLOCKED or not done, with rerun steps:
+- Foreign controller on a device: needs approval to install a second, throwaway controller app on the emulator or a phone; connect a MediaController to the service, try removeMediaItem and play/pause, confirm the first does nothing and the second works; then pair Bluetooth or a car head unit on a phone and confirm transport.
+- Content access in the sign-in browser: needs a test account on a device; steps in security-review.md section 2.
+- Linux checksums: needs a Linux build with network access (a pushed CI run or a local Linux machine); steps in security-review.md, "Dependency verification".
+- Carried from Q04 to Q14: as listed in those entries. Q14's physical budgets and the startup-logo decision are unchanged.
+
+Network use in this package: one read of gradle.org and services.gradle.org for the two checksums and of GitHub's public API and release pages for six tags, through a web-fetch agent. Nothing was downloaded into the build and no Gradle run was online.
+Device state: emulator shut down with adb emu kill after each run, adb server stopped, Gradle daemons stopped before and after the stress build. The emulator's network stayed off throughout. It holds the debug app, its test APK, the benchmark variant and the benchmark test APK. No physical device, no real account, no provider request.
+Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q15A (exit-reason diagnostics) is next in the plan's order and is one of the packages that is not authorized; it needs explicit authorization. Q16 is inside the 9 October authorization; wait for "start Q16" or for authorization of Q15A.
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
