@@ -1458,6 +1458,7 @@ BLOCKED or not done, with rerun steps:
 Network use in this package: one read of gradle.org and services.gradle.org for the two checksums and of GitHub's public API and release pages for six tags, through a web-fetch agent. Nothing was downloaded into the build and no Gradle run was online.
 Device state: emulator shut down with adb emu kill after each run, adb server stopped, Gradle daemons stopped before and after the stress build. The emulator's network stayed off throughout. It holds the debug app, its test APK, the benchmark variant and the benchmark test APK. No physical device, no real account, no provider request.
 Not part of this package and left untouched: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Commit: c368a37 on local branch codex/riff-quality-m0 (not pushed), after 4312497, 70e1949, 93136d8 and 5aa172c.
 Next exact action: Q15A (exit-reason diagnostics) is next in the plan's order and is one of the packages that is not authorized; it needs explicit authorization. Q16 is inside the 9 October authorization; wait for "start Q16" or for authorization of Q15A.
 
 ## Plan v1.1 additions (11 October 2026)
