@@ -93,6 +93,16 @@ benchmark build types replace it. `app/src/benchmarkFeed` is a source set that e
 feeds the app invented content from its own process. `scripts/quality/check_performance.py apk` fails a
 release APK that holds any of it. See `docs/quality/performance.md`.
 
+## Boundaries with the outside (Q15)
+
+Three files hold the rules for what crosses the app's edge, as plain functions with tests of their own.
+`DiagnosticEvent.kt`: every line of the diagnostic ring, of logcat and of the copied report is reduced to a
+name, numbers and short words; write events as `name key=value`, and add a new key to the list there.
+`WebBoundaries.kt`: which addresses the embedded browsers may load and the user's browser may be sent to,
+the one `WebViewClient` base class (certificate errors end the load), who counts as the app's own media
+controller and what any other controller may do. `scripts/quality/check_release_content.py`: what a release
+APK may contain. See `docs/quality/security-review.md`.
+
 ## Static checks
 
     python scripts/quality/static_checks.py            # exit 1 on any finding

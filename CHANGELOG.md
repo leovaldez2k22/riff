@@ -2,6 +2,10 @@
 
 ## Unreleased — 0.10.0-rc1 (code 22)
 
+- Security: another app that connects to Riff's media session can still play, pause, seek and skip, but can no longer remove, move or replace queue entries.
+- Security: the photo credit links on Home open only HTTPS pages, in the browser. Before, the link text from the photo service was handed to Android as it came.
+- Privacy: the on-device diagnostic log keeps only event names, numbers and short words. Server host names, cookie names, the system's crash description and a queue entry identifier are no longer written, and a log left by an older version is cleaned on first use. "Copy playback diagnostics" cleans every line again.
+- Build: the Gradle wrapper download is checked against Gradle's published checksum, CI actions are pinned to commits, and a new check reads the release APK for backup, cleartext, exported components, permissions and leftover test code. See `docs/quality/security-review.md`, which also lists what is still open.
 - Fixed: opening the full player ended the app on Android 12 and 13. The output row asked the selected audio route for its type, which only Android 14 and later can answer.
 - The release now ships a Baseline Profile covering the start, a collection, the player and the queue. What it is worth has not been measured: no performance budget has been measured on a phone yet, and the cold-start budget is expected to be missed while the startup logo runs for 1.15 s (`docs/quality/performance.md`).
 - Adds a `:benchmark` module (Jetpack Macrobenchmark 1.5.0) and two benchmark build types with their own package id and a fixture feed. None of it is in a release build.
