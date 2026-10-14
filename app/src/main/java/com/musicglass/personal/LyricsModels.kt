@@ -13,8 +13,14 @@ import kotlinx.serialization.json.*
 internal data class LyricsTrack(val mediaId: String, val title: String, val artist: String,
     val album: String, val durationMs: Long)
 internal data class LyricPart(val startMs: Long, val endMs: Long, val from: Int, val to: Int)
-internal data class LyricLine(val startMs: Long, val endMs: Long, val text: String,
+/** A background vocal (TTML role x-bg): its own text and timing, shown under the main line (Q16A). */
+internal data class LyricBacking(val startMs: Long, val endMs: Long, val text: String,
     val parts: List<LyricPart> = emptyList())
+internal data class LyricLine(val startMs: Long, val endMs: Long, val text: String,
+    val parts: List<LyricPart> = emptyList(), val backing: LyricBacking? = null) {
+    /** The line is current until both its main text and its background vocal have ended. */
+    val untilMs: Long get() = maxOf(endMs, backing?.endMs ?: endMs)
+}
 internal data class LyricsDocument(val source: String, val sourceUrl: String,
     val lines: List<LyricLine>, val instrumental: Boolean = false) {
     val timed: Boolean get() = lines.any { it.startMs >= 0 }
@@ -63,8 +69,21 @@ internal fun finishLyricLines(input: List<LyricLine>, durationMs: Long): List<Ly
         line.copy(endMs = end, parts = line.parts.filter {
             it.from >= 0 && it.to > it.from && it.to <= line.text.length &&
                 it.startMs >= line.startMs && it.endMs > it.startMs && it.endMs <= end + 500
-        })
+        }, backing = line.backing?.let { finishBacking(it, line.startMs, end, durationMs) })
     }
+}
+
+/** A background vocal keeps its own timing, which may run past the main line's end; only its own window bounds it. */
+private fun finishBacking(backing: LyricBacking, lineStart: Long, lineEnd: Long, durationMs: Long): LyricBacking? {
+    if (backing.text.isBlank()) return null
+    val limit = durationMs + 2000
+    val start = backing.startMs.takeIf { it >= 0 } ?: lineStart
+    val end = (if (backing.endMs > start) backing.endMs else lineEnd).coerceAtMost(limit)
+    if (end <= start) return null
+    return LyricBacking(start, end, backing.text, backing.parts.filter {
+        it.from >= 0 && it.to > it.from && it.to <= backing.text.length &&
+            it.startMs >= start && it.endMs > it.startMs && it.endMs <= end
+    })
 }
 
 internal fun parseTtml(raw: String, durationMs: Long, source: String = "Better Lyrics"): LyricsDocument? {
@@ -77,32 +96,52 @@ internal fun parseTtml(raw: String, durationMs: Long, source: String = "Better L
         val end = lyricsTimeMs(p.getAttribute("end")) ?: 0
         val text = StringBuilder()
         val parts = mutableListOf<LyricPart>()
-        fun walk(node: Node, depth: Int = 0) {
+        // Background vocals (role x-bg) are collected apart, with offsets into their own text (Q16A).
+        val backText = StringBuilder()
+        val backParts = mutableListOf<LyricPart>()
+        var backStart = Long.MAX_VALUE
+        var backEnd = -1L
+        fun spanTime(node: Element): Pair<Long, Long>? {
+            val wordStart = lyricsTimeMs(node.getAttribute("begin")) ?: return null
+            val wordEnd = lyricsTimeMs(node.getAttribute("end"))
+                ?: lyricsTimeMs(node.getAttribute("dur"))?.plus(wordStart) ?: return null
+            return (wordStart to wordEnd).takeIf { wordEnd > wordStart }
+        }
+        fun walk(node: Node, out: StringBuilder, words: MutableList<LyricPart>, depth: Int = 0) {
             if (depth > 24) return
             if (node.nodeType == Node.TEXT_NODE || node.nodeType == Node.CDATA_SECTION_NODE) {
                 val value = node.nodeValue
-                if (!(value.isBlank() && (value.contains('\n') || value.contains('\r')))) text.append(value)
+                if (!(value.isBlank() && (value.contains('\n') || value.contains('\r')))) out.append(value)
                 return
             }
             if (node is Element) {
                 val role = node.getAttributeNS("http://www.w3.org/ns/ttml#metadata", "role")
-                // Translation/romanization is not the sung text. Retain background vocals.
+                // Translation/romanization is not the sung text.
                 if (role in setOf("x-translation", "x-roman", "x-romanization")) return
-                if (node.localName == "br") { text.append('\n'); return }
+                if (role == "x-bg" && out !== backText) {
+                    if (backText.isNotEmpty() && !backText.last().isWhitespace()) backText.append(' ')
+                    spanTime(node)?.let { (a, b) -> backStart = minOf(backStart, a); backEnd = maxOf(backEnd, b) }
+                    val count = backParts.size
+                    walk(node, backText, backParts, depth + 1)
+                    backParts.drop(count).forEach { backStart = minOf(backStart, it.startMs); backEnd = maxOf(backEnd, it.endMs) }
+                    return
+                }
+                if (node.localName == "br") { out.append('\n'); return }
             }
-            val from = text.length
-            val count = parts.size
-            for (child in 0 until node.childNodes.length) walk(node.childNodes.item(child), depth + 1)
-            if (node is Element && node.localName == "span" && parts.size == count && text.length > from) {
-                val wordStart = lyricsTimeMs(node.getAttribute("begin"))
-                val wordEnd = lyricsTimeMs(node.getAttribute("end"))
-                    ?: wordStart?.let { a -> lyricsTimeMs(node.getAttribute("dur"))?.plus(a) }
-                if (wordStart != null && wordEnd != null && wordEnd > wordStart)
-                    parts += LyricPart(wordStart, wordEnd, from, text.length)
-            }
+            val from = out.length
+            val count = words.size
+            for (child in 0 until node.childNodes.length) walk(node.childNodes.item(child), out, words, depth + 1)
+            if (node is Element && node.localName == "span" && words.size == count && out.length > from)
+                spanTime(node)?.let { (a, b) -> words += LyricPart(a, b, from, out.length) }
         }
-        walk(p)
-        if (text.isNotBlank()) lines += LyricLine(start, end, text.toString(), parts)
+        walk(p, text, parts)
+        val backing = backText.toString().takeIf { it.isNotBlank() }?.let { raw ->
+            // Trailing spaces are trimmed from the text only; word offsets stay inside it.
+            val trimmed = raw.trimEnd()
+            LyricBacking(if (backStart == Long.MAX_VALUE) -1 else backStart, backEnd, trimmed,
+                backParts.filter { it.to <= trimmed.length })
+        }
+        if (text.isNotBlank() || backing != null) lines += LyricLine(start, end, if (backing == null) text.toString() else text.toString().trimEnd(), parts, backing)
     }
     val result = finishLyricLines(lines, durationMs)
     return result.takeIf { it.isNotEmpty() }?.let { LyricsDocument(source, "https://betterlyrics.org", it) }
@@ -214,9 +253,67 @@ internal fun startedLyricLine(lines: List<LyricLine>, positionMs: Long): Int {
     val index = low - 1
     return index.takeIf { it >= 0 && lines[it].startMs >= 0 } ?: -1
 }
-internal fun activeLyricLine(lines: List<LyricLine>, positionMs: Long): Int {
-    val index = startedLyricLine(lines,positionMs)
-    return index.takeIf { it >= 0 && positionMs < lines[it].endMs && lines[it].text.isNotBlank() } ?: -1
+/** How far back the active set looks for a line that started earlier and is still sung. */
+internal const val LYRIC_OVERLAP_SCAN = 24
+
+/**
+ * Every line being sung at [positionMs], in order (Q16A). Two voices can overlap; a line stays lit until its
+ * own end and its background vocal's end, whichever is later, even when a later line has started and ended.
+ */
+internal fun activeLyricLines(lines: List<LyricLine>, positionMs: Long): List<Int> {
+    val started = startedLyricLine(lines, positionMs)
+    if (started < 0) return emptyList()
+    val active = ArrayList<Int>(2)
+    for (index in started downTo maxOf(0, started - LYRIC_OVERLAP_SCAN + 1)) {
+        val line = lines[index]
+        if (line.startMs >= 0 && positionMs < line.untilMs && (line.text.isNotBlank() || line.backing != null)) active += index
+    }
+    active.reverse()
+    return active
+}
+
+/** The most recently started line that is still being sung, or -1. */
+internal fun activeLyricLine(lines: List<LyricLine>, positionMs: Long): Int =
+    activeLyricLines(lines, positionMs).lastOrNull() ?: -1
+
+/** A sung word: its syllable parts joined, from the first one's start to the last one's end. */
+internal data class LyricWord(val from: Int, val to: Int, val startMs: Long, val endMs: Long) {
+    val durationMs: Long get() = endMs - startMs
+}
+
+/** Syllables with nothing between them (TTML often times syllables) are one word; a space or a gap ends it. */
+internal fun lyricWords(text: String, parts: List<LyricPart>): List<LyricWord> {
+    val words = mutableListOf<LyricWord>()
+    for (part in parts.sortedBy { it.from }) {
+        val last = words.lastOrNull()
+        val joined = last != null && part.from == last.to && last.to > 0 && part.from < text.length &&
+            !text[last.to - 1].isWhitespace() && !text[part.from].isWhitespace()
+        if (joined) words[words.lastIndex] = last!!.copy(to = part.to, startMs = minOf(last.startMs, part.startMs),
+            endMs = maxOf(last.endMs, part.endMs))
+        else words += LyricWord(part.from, part.to, part.startMs, part.endMs)
+    }
+    return words
+}
+
+internal const val HELD_WORD_MS = 900L
+internal const val LONG_HELD_WORD_MS = 1600L
+internal const val HELD_WORD_RATIO = 1.5
+
+/**
+ * Words held out by the singer (Q16A): at least [LONG_HELD_WORD_MS], or at least [HELD_WORD_MS] with a time per
+ * letter at least [HELD_WORD_RATIO] times the line's median, so a line sung slowly throughout does not pop
+ * every word. Only word-timed lines have any.
+ */
+internal fun heldLyricWords(text: String, parts: List<LyricPart>): List<LyricWord> {
+    val words = lyricWords(text, parts)
+    if (words.isEmpty()) return emptyList()
+    fun letters(word: LyricWord) = text.substring(word.from, word.to).count { !it.isWhitespace() }.coerceAtLeast(1)
+    val perLetter = words.map { it.durationMs.toDouble() / letters(it) }.sorted()
+    val median = perLetter[perLetter.size / 2]
+    return words.filter { word ->
+        word.durationMs >= LONG_HELD_WORD_MS ||
+            (word.durationMs >= HELD_WORD_MS && word.durationMs.toDouble() / letters(word) >= median * HELD_WORD_RATIO)
+    }
 }
 
 /** Mobile browse returns raw timedLyricsData rows; older clients wrap lyricLineRenderer. */

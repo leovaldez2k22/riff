@@ -1,7 +1,5 @@
 package com.musicglass.personal
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
@@ -17,24 +15,14 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.preferredFrameRate
-import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.ResolvedTextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -98,12 +86,14 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
         }
     }
     val songLyrics = document
-    val currentIndex by remember(songLyrics) { derivedStateOf {
-        if (songLyrics?.timed == true) activeLyricLine(songLyrics.lines,position+offsetMs) else -1
+    // Every line being sung now: two voices can overlap (Q16A). The list only changes when a line starts or ends.
+    val activeLines by remember(songLyrics) { derivedStateOf {
+        if (songLyrics?.timed == true) activeLyricLines(songLyrics.lines,position+offsetMs) else emptyList()
     } }
-    // Silence has no active word, but reopening must still center the latest sung line.
+    // Follow the earliest line still sung, so overlapping lines stay in view. Silence has no active line, but
+    // reopening must still center the latest sung line.
     val scrollIndex by remember(songLyrics) { derivedStateOf {
-        if (songLyrics?.timed == true) startedLyricLine(songLyrics.lines,position+offsetMs) else -1
+        if (songLyrics?.timed == true) activeLines.firstOrNull() ?: startedLyricLine(songLyrics.lines,position+offsetMs) else -1
     } }
     LaunchedEffect(scrollIndex,follow,songLyrics) {
         if (follow && scrollIndex >= 0) {
@@ -157,8 +147,10 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                             contentPadding = PaddingValues(start = 28.dp,end = 28.dp,top = 24.dp,bottom = space),
                             verticalArrangement = Arrangement.spacedBy(22.dp)) {
                             itemsIndexed(songLyrics.lines,key = { index,line -> "${line.startMs}:$index" }) { index,line ->
-                                val active by remember(songLyrics,index) { derivedStateOf { currentIndex == index } }
-                                KaraokeLine(line,active,{ position+offsetMs },motion,
+                                val active by remember(songLyrics,index) { derivedStateOf { index in activeLines } }
+                                val backingActive by remember(songLyrics,index) { derivedStateOf {
+                                    line.backing?.let { (position+offsetMs) in it.startMs until it.endMs } == true } }
+                                KaraokeLine(line,active,backingActive,{ position+offsetMs },motion,"lyric_backing_$index",
                                     modifier = Modifier.testTag("lyric_line_$index")
                                         .then(if (line.startMs >= 0) Modifier.clickable { uiHaptic(); 
                                             playback.seekTo((line.startMs-offsetMs).coerceAtLeast(0))
@@ -243,47 +235,4 @@ private fun LyricsMessage(title: String,subtitle: String,modifier: Modifier) {
         Text(title,color = White,fontSize = 28.sp,fontWeight = FontWeight.Bold)
         Text(subtitle,color = Muted,fontSize = 16.sp,modifier = Modifier.padding(top = 12.dp))
     }
-}
-private data class LyricHighlight(val part: LyricPart,val path: Path,val bounds: Rect,val rtl: Boolean)
-
-/** Only drawing reads the frame clock. Text measurement stays cached through the whole word. */
-@Composable
-private fun KaraokeLine(line: LyricLine,active: Boolean,position: () -> Long,motion: MotionPolicy,
-    modifier: Modifier = Modifier) {
-    var layout by remember(line) { mutableStateOf<TextLayoutResult?>(null) }
-    val highlights = remember(layout,line) {
-        val measured = layout
-        if (measured == null) emptyList() else line.parts.map { part ->
-            val path = measured.getPathForRange(part.from,part.to)
-            LyricHighlight(part,path,path.getBounds(),measured.getBidiRunDirection(part.from) == ResolvedTextDirection.Rtl)
-        }
-    }
-    val baseColor by animateColorAsState(if (active) White.copy(alpha = if (line.parts.isEmpty()) 1f else .38f)
-        else White.copy(alpha = .40f),GlassMotion.timed(GlassMotion.selectionMs,motion),label = "lyric focus")
-    val scale = animateFloatAsState(if (active && !motion.reduced) 1.025f else 1f,
-        GlassMotion.timed(GlassMotion.selectionMs,motion),label = "lyric emphasis")
-    Text(line.text.ifBlank { "♪" },color = baseColor,fontSize = 29.sp,lineHeight = 38.sp,fontWeight = FontWeight.Bold,
-        onTextLayout = { layout = it },modifier = modifier.fillMaxWidth().padding(vertical = 5.dp)
-            .semantics { if (active) stateDescription = string(R.string.current_lyric) }
-            .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
-            .drawWithContent {
-                drawContent()
-                val measured = layout
-                if (active && measured != null) {
-                    val now = position()
-                    for (highlight in highlights) {
-                        val part = highlight.part
-                        val fraction = ((now-part.startMs).toFloat()/(part.endMs-part.startMs)).coerceIn(0f,1f)
-                        if (fraction <= 0) continue
-                        val bounds = highlight.bounds
-                        clipPath(highlight.path) {
-                            clipRect(left = if (highlight.rtl) bounds.right-bounds.width*fraction else bounds.left,
-                                top = bounds.top,right = if (highlight.rtl) bounds.right else bounds.left+bounds.width*fraction,
-                                bottom = bounds.bottom) {
-                                drawText(measured,color = if (now >= part.endMs) White else Pink)
-                            }
-                        }
-                    }
-                }
-            })
 }

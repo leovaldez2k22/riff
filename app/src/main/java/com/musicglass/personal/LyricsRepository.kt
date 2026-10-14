@@ -266,8 +266,9 @@ internal class LyricsRepository(private val directory: File,
         }.getOrDefault(60_000)
         return millis.coerceIn(1000,86400_000)
     }
+    // v3 (Q16A): background vocals are now parsed apart, so lyrics cached before are fetched once more.
     private fun cacheKey(track: LyricsTrack): String = MessageDigest.getInstance("SHA-256")
-        .digest("hierarchy-v2\u0000${track.mediaId}\u0000${track.title}\u0000${track.artist}\u0000${track.album}\u0000${track.durationMs}".toByteArray())
+        .digest("hierarchy-v3\u0000${track.mediaId}\u0000${track.title}\u0000${track.artist}\u0000${track.album}\u0000${track.durationMs}".toByteArray())
         .joinToString("") { "%02x".format(it.toInt() and 255) }
     private fun readCache(key: String): LyricsDocument? = runCatching {
         val file = File(directory,"$key.json")
@@ -286,24 +287,34 @@ internal class LyricsRepository(private val directory: File,
     /** For tests and short-lived instances only; the shared instance lives as long as the process. */
     fun close() { scope.cancel(); client.dispatcher.cancelAll(); kotlin.concurrent.thread(name="lyrics-close") { client.connectionPool.evictAll() } }
 }
+private fun encodeLyricParts(parts: List<LyricPart>) = buildJsonArray { parts.forEach { part -> add(buildJsonObject {
+    put("start",part.startMs); put("end",part.endMs); put("from",part.from); put("to",part.to)
+}) } }
+private fun decodeLyricParts(raw: JsonElement?) = (raw as? JsonArray).orEmpty().map { partNode ->
+    val p = partNode.jsonObject
+    LyricPart(p.getValue("start").jsonPrimitive.long,p.getValue("end").jsonPrimitive.long,
+        p.getValue("from").jsonPrimitive.int,p.getValue("to").jsonPrimitive.int)
+}
+/** A line without a background vocal is written exactly as before Q16A, and files without "backing" still read. */
 internal fun encodeLyricsDocument(doc: LyricsDocument): JsonObject = buildJsonObject {
     put("source",doc.source); put("url",doc.sourceUrl); put("instrumental",doc.instrumental)
     putJsonArray("lines") { doc.lines.forEach { line -> add(buildJsonObject {
         put("start",line.startMs); put("end",line.endMs); put("text",line.text)
-        putJsonArray("parts") { line.parts.forEach { part -> add(buildJsonObject {
-            put("start",part.startMs); put("end",part.endMs); put("from",part.from); put("to",part.to)
-        }) } }
+        put("parts",encodeLyricParts(line.parts))
+        line.backing?.let { backing -> put("backing",buildJsonObject {
+            put("start",backing.startMs); put("end",backing.endMs); put("text",backing.text)
+            put("parts",encodeLyricParts(backing.parts))
+        }) }
     }) } }
 }
 internal fun decodeLyricsDocument(raw: JsonObject): LyricsDocument = LyricsDocument(
     raw.getValue("source").jsonPrimitive.content,raw.getValue("url").jsonPrimitive.content,
     (raw["lines"] as JsonArray).take(2000).map { node -> val line = node.jsonObject
         LyricLine(line.getValue("start").jsonPrimitive.long,line.getValue("end").jsonPrimitive.long,
-            line.getValue("text").jsonPrimitive.content,(line["parts"] as? JsonArray).orEmpty().map { partNode ->
-                val p = partNode.jsonObject
-                LyricPart(p.getValue("start").jsonPrimitive.long,p.getValue("end").jsonPrimitive.long,
-                    p.getValue("from").jsonPrimitive.int,p.getValue("to").jsonPrimitive.int)
-            })
+            line.getValue("text").jsonPrimitive.content,decodeLyricParts(line["parts"]),
+            (line["backing"] as? JsonObject)?.let { backing -> LyricBacking(backing.getValue("start").jsonPrimitive.long,
+                backing.getValue("end").jsonPrimitive.long,backing.getValue("text").jsonPrimitive.content,
+                decodeLyricParts(backing["parts"])) })
     },raw["instrumental"]?.jsonPrimitive?.booleanOrNull ?: false)
 
 internal data class LyricsLoadState(val document: LyricsDocument? = null,val loading: Boolean = true,val failed: Boolean = false,val generation: Long = 0)

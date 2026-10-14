@@ -58,6 +58,24 @@ internal object RiffType {
     val detail = 12.sp
 }
 
+/** Q16A: the lyrics screen's sung lines, their background vocals and the emphasis on held words. */
+internal object RiffLyrics {
+    val text = 29.sp
+    val textLine = 38.sp
+    /** A background vocal: smaller, under its line. */
+    val backing = 20.sp
+    val backingLine = 27.sp
+    val linePad = 5.dp
+    val backingGap = 4.dp
+    /** How far a held word rises, how far its glow spreads, and how soft the edge of its sweep is. */
+    val heldRise = 2.dp
+    val heldGlow = 14.dp
+    val sweepEdge = 10.dp
+    const val heldScale = 1.07f
+    /** The glow: a lighter pink than [Pink], so the white letters stay readable on it. */
+    val glow = Color(0xFFFF9BD3)
+}
+
 /**
  * The one theme of the app: dark, on [Ink], with [Pink] for what can be pressed. Every screen and every test
  * picture is drawn inside it. A filled button is [Pink] with [Ink] words on it: Material's own dark purple

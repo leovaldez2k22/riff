@@ -15,7 +15,7 @@ One entry point, `scripts/quality/verify.py` (or `scripts/quality/verify.ps1` on
 What each lane holds:
 
 - **Pull request.** The quality script tests, the static checks, the JVM and Compose tests, release lint, an unsigned shrunk release build with its build identity, the release content check (the merged manifest's backup, cleartext, exported components and permissions, and no test, fixture, benchmark or key file), the 40 MiB ceiling and the packaged Baseline Profile, and the solver seam in the R8 mapping.
-- **Emulator.** The fixture suite (`FIXTURE_CLASSES` in `verify.py`: account transitions, the legacy upgrade, local data and its export, playback, order, crossfade, normalization, recovery and downloads). The network inside the emulator is turned off first and the run fails if it still answers. No Google account is used.
+- **Emulator.** The fixture suite (`FIXTURE_CLASSES` in `verify.py`: account transitions, the legacy upgrade, local data and its export, playback, order, crossfade, normalization, recovery, downloads, and the lyrics renderer drawing a synthetic word-timed song). The network inside the emulator is turned off first and the run fails if it still answers. No Google account is used.
 - **Physical device.** The same suite on a phone named by `--serial`. A phone is never picked automatically, even when it is the only one connected. `--mode live` only labels the run: any account on the phone stays there, and nothing here supplies credentials.
 - **Benchmarks.** `:benchmark:connectedBenchmarkReleaseAndroidTest` on a tier R or L phone, read by `check_performance.py summary`. An emulator is refused: hosted or emulator timings are not evidence (Q14).
 - **Packaging.** A source archive built from the tracked files and checked (no build output, local settings, key, credential or evidence file; the build files present), the release APK's identity and certificate (an unsigned APK is BLOCKED for the certificate, never passed), `SHA256SUMS`, and an in-place upgrade from `--previous-apk` with `adb install -r` (a reinstall, or a refusal for a certificate or version code, fails; nothing is ever uninstalled).
@@ -25,7 +25,7 @@ What each lane holds:
 Each lane writes `lane-summary.json` and `lane-summary.md` in its evidence folder (`artifacts/quality/lanes/<lane>-<time>` unless `--evidence-dir` is given). The summary lists every gate the lane requires. A gate that could not run is BLOCKED with the reason. A required gate missing from the results is FAIL. Nothing counts as zero or as a pass by default. Exit status: 0 PASS_LOCAL, 2 BLOCKED, 1 FAIL.
 
 Device runs go through `collect_results.py`, which:
-- reads the structured instrumentation output case by case. An `INSTRUMENTATION_CODE: -1` alone is not success, and a process crash, an abort, a missing case or a truncated log fails;
+- reads the structured instrumentation output case by case. An `INSTRUMENTATION_CODE: -1` alone is not success, and a process crash, an abort, a missing case or a truncated log fails. Every status block counts as a case, so a test in a lane reports its numbers to logcat or a file on the device, never with `sendStatus` (the lyrics test writes `q16a-*.txt` beside its images);
 - compares the app and test APKs' embedded build identities before anything is installed;
 - records both APKs' SHA-256 and binds them to the source digest.
 
