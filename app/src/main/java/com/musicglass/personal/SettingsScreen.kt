@@ -144,6 +144,22 @@ import kotlinx.coroutines.withContext
             }
         }}
         item {SettingsSection(string(R.string.about)) {
+            // Q12A: shown only in a build that has a release feed. Off sends nothing, the manual check included.
+            val updates=remember(context) {AppContainer.get(context).updates}
+            if(updates.configured) {
+                SettingsToggleRow(string(R.string.check_for_updates),updates.enabled,hapticToggle(updates::updateEnabled),
+                    Icons.Rounded.SystemUpdate,"settings_check_updates",string(R.string.check_for_updates_detail,updates.feedHost.orEmpty()))
+                if(updates.enabled) {
+                    SettingsDivider()
+                    val newer=updates.available
+                    SettingsLinkRow(newer?.let {string(R.string.riff_version_is_available,it.version.toString())} ?: string(R.string.check_for_updates_now),
+                        icon=Icons.Rounded.Update,tag="settings_update_row") {
+                        if(newer!=null) openWebPage(context,newer.page,updates.pageHosts)
+                        else scope.launch {updateResultText(updates.checkNow())?.let(onNotice)}
+                    }
+                }
+                SettingsDivider()
+            }
             SettingsLinkRow(string(R.string.copy_playback_diagnostics),icon=Icons.Rounded.BugReport,tag="settings_copy_diagnostics") {
                 scope.launch {
                     val report=withContext(kotlinx.coroutines.Dispatchers.IO) {

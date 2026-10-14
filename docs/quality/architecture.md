@@ -103,6 +103,11 @@ the one `WebViewClient` base class (certificate errors end the load), who counts
 controller and what any other controller may do. `scripts/quality/check_release_content.py`: what a release
 APK may contain. See `docs/quality/security-review.md`.
 
+`UpdateNotice.kt` (Q12A) is the one other request the app makes on its own: `AppContainer.updates`, asked from
+`MainActivity.onResume` through `checkForUpdatesIfDue()`. It takes its feed, clocks, network and HTTP client as
+arguments, compares versions with `ReleaseVersion`, and opens a release page only through `openWebPage` with
+the configured hosts. It has no way to download or install. See `docs/quality/update-notice.md`.
+
 ## Static checks
 
     python scripts/quality/static_checks.py            # exit 1 on any finding

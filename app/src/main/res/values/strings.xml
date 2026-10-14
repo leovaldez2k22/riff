@@ -769,4 +769,16 @@
     <string name="youtube_music_stopped_sending_new_songs_this">YouTube Music stopped sending new songs. This list may be incomplete.</string>
     <string name="youtube_music_took_too_long_to_answer">YouTube Music took too long to answer. Try again.</string>
     <string name="youtube_music_took_too_long_to_respond">YouTube Music took too long to respond</string>
+    <string name="check_for_updates">Check for updates</string>
+    <string name="check_for_updates_detail">Once a day, asks %1$s for the newest version of Riff. Sends no account or device details.</string>
+    <string name="check_for_updates_now">Check for updates now</string>
+    <string name="riff_version_is_available">Riff %1$s is available</string>
+    <string name="view_release">View</string>
+    <string name="riff_is_up_to_date">Riff is up to date. The newest release is %1$s.</string>
+    <string name="no_release_published">No release of Riff has been published yet.</string>
+    <string name="local_build_newest_release">This is a local build, not a release. The newest release is %1$s.</string>
+    <string name="local_build_no_release">This is a local build, not a release. No release has been published yet.</string>
+    <string name="update_check_offline">You\'re offline. Check again when you\'re connected.</string>
+    <string name="update_check_busy">The release feed is busy. Try again later.</string>
+    <string name="update_check_failed">Couldn\'t check for updates. Try again later.</string>
 </resources>

@@ -111,6 +111,11 @@ such an address is not shown.
 
 The share actions send text the app composed itself. The Bluetooth settings shortcut uses a fixed action.
 
+Added in Q12A: the update notice's release page opens through `openWebPage` with the configured page hosts,
+after the feed entry's page passed `httpsAddressOn` when it was read and again when it was read back from
+storage. The update request itself carries no cookie, account or device detail and is bounded to 256 KiB
+(`docs/quality/update-notice.md`).
+
 ## 4. The media session service
 
 `MusicPlaybackService` is exported with no permission, and has to be: the system's media controls, Bluetooth,

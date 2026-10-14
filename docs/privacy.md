@@ -16,6 +16,8 @@ Search, playback, recommendations, catalog images, and provider-library actions 
 
 Lyrics matching sends public song metadata such as title, artist, album, and recording duration to Better Lyrics, NetEase, LRCLIB, and Lyrics.ovh as needed. The separate lyrics HTTP client does not receive YouTube/account cookies. Native YouTube lyrics use the YouTube integration. NetEase can require verification; Riff falls through instead of providing a verification bypass. Providers can observe ordinary connection information such as IP address and user agent.
 
+Check for updates (Settings → About) asks the public release feed once a day, while the app is open, whether a newer version of Riff exists. The request carries no account, device or install details; the feed's host sees an ordinary connection. It is on by default and off sends nothing. Riff only tells you about a newer version and opens its release page when asked; it never downloads or installs anything. The current build has no release feed, so it shows no such setting and makes no such request.
+
 Mood images are discovered through Openverse and Wikimedia Commons and loaded from image hosts. Artist/album artwork is loaded from provider URLs. Internet access is needed for online content and initial translation-model downloads; previously downloaded songs can play offline.
 
 ## Translation and voice search

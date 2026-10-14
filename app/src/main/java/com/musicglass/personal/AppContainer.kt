@@ -145,7 +145,14 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
             { CurrentOwner(provider.storageScopeKey(), provider.accountScopeDigests()) }, runtime.dispatchers.io,
             runtime.clocks::wallTimeMillis, localData.gate, eventLog::append)
     }
+    /** The once-a-day question to the release feed (Q12A). Asks nothing in a build without a feed. */
+    val updates: UpdateChecker by lazy { UpdateChecker.android(app, runtime, eventLog::append) }
     private val stateScope = CoroutineScope(SupervisorJob() + runtime.dispatchers.io)
+
+    /** The automatic update check, when the app comes to the front. Never on the caller's thread. */
+    fun checkForUpdatesIfDue() {
+        stateScope.launch { suspendCatching { updates.checkIfDue() } }
+    }
 
     /**
      * Opens the state database and moves pre-owner data, once per process and never on the caller's

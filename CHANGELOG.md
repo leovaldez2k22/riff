@@ -2,6 +2,7 @@
 
 ## Unreleased — 0.10.0-rc1 (code 22)
 
+- Adds an update notice: once a day the app can ask the public release feed whether a newer version exists, show one dismissible notice per version and open its release page. It never downloads or installs anything, sends no account or device details, and can be turned off. This build has no release feed (none is published yet), so it shows no such setting and asks nothing (`docs/quality/update-notice.md`).
 - Security: another app that connects to Riff's media session can still play, pause, seek and skip, but can no longer remove, move or replace queue entries.
 - Security: the photo credit links on Home open only HTTPS pages, in the browser. Before, the link text from the photo service was handed to Android as it came.
 - Privacy: the on-device diagnostic log keeps only event names, numbers and short words. Server host names, cookie names, the system's crash description and a queue entry identifier are no longer written, and a log left by an older version is cleaned on first use. "Copy playback diagnostics" cleans every line again.

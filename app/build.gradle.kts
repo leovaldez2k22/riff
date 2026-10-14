@@ -22,6 +22,13 @@ android {
         versionCode = 22
         versionName = "0.10.0-rc1"
         buildConfigField("boolean", "LITE", "false")
+        // Q12A: the public release feed the update check asks, and the hosts a release page may be on. No feed
+        // (the default until releases are published) means the check does not exist in the build and sends
+        // nothing. See docs/quality/update-notice.md.
+        buildConfigField("String", "UPDATE_FEED",
+            groovy.json.JsonOutput.toJson(providers.gradleProperty("riffUpdateFeed").orNull ?: ""))
+        buildConfigField("String", "UPDATE_PAGES",
+            groovy.json.JsonOutput.toJson(providers.gradleProperty("riffUpdatePages").orNull ?: "github.com"))
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

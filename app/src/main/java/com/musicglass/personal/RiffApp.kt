@@ -26,8 +26,10 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.ui.input.key.*
 import androidx.compose.runtime.Composable
@@ -162,6 +164,16 @@ internal fun RiffApp() {
     }
     LaunchedEffect(playback.state.notice) {
         playback.state.notice?.let { snackbar.showSnackbar(it) }
+    }
+    // Q12A: one notice per newer version, which the user can dismiss; its action opens the release page.
+    val updates = remember(context) { AppContainer.get(context).updates }
+    val updateNotice = updates.pendingNotice
+    LaunchedEffect(updateNotice) {
+        val release = updateNotice ?: return@LaunchedEffect
+        updates.noticeShown(release)
+        val result = snackbar.showSnackbar(string(R.string.riff_version_is_available, release.version.toString()),
+            actionLabel = string(R.string.view_release), withDismissAction = true, duration = SnackbarDuration.Long)
+        if (result == SnackbarResult.ActionPerformed) openWebPage(context, release.page, updates.pageHosts)
     }
     val density = LocalDensity.current.density
     val compact = LocalWindowInfo.current.containerSize.width / density < 390f ||
