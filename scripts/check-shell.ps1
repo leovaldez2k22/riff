@@ -5,7 +5,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$adb = Join-Path $project '.toolchain\sdk\platform-tools\adb.exe'
+. (Join-Path $PSScriptRoot 'quality\Tools.ps1'); $adb = Resolve-RiffAdb $project
 $out = (Resolve-Path $EvidenceDirectory).Path
 $logs = Join-Path $out 'logs'
 $screenshots = Join-Path $out 'screenshots'

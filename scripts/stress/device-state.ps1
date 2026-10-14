@@ -14,7 +14,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$adb = Join-Path $project '.toolchain\sdk\platform-tools\adb.exe'
+. (Join-Path $PSScriptRoot '..\quality\Tools.ps1'); $adb = Resolve-RiffAdb $project
 $stateFile = Join-Path $project 'artifacts\stress\device-baseline.json'
 $adbArgs = if ($Serial) { @('-s', $Serial) } else { @() }
 function Shell([string]$command) { ((& $adb @adbArgs shell $command) -join "`n").Trim() }

@@ -2,7 +2,7 @@
 # Signed with the same personal key as release; installs beside Riff, never over it.
 $ErrorActionPreference = 'Stop'
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$sdk = Join-Path $project '.toolchain\sdk'
+. (Join-Path $PSScriptRoot 'quality\Tools.ps1'); $sdk = Resolve-RiffSdk $project
 $gradle = Join-Path $project '.toolchain\gradle-8.13\bin\gradle.bat'
 if (-not (Test-Path -LiteralPath $gradle)) { $gradle = Join-Path $project 'gradlew.bat' }
 $apksigner = Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'

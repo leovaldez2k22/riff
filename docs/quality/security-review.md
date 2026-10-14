@@ -237,7 +237,8 @@ No high-severity issue is known to be open. That statement is only as good as th
 
 **Medium**
 
-- *Dependency verification is recorded but not enforced on CI.* See the section below.
+- *Dependency verification on CI is not yet proven on a hosted run.* Q16 added the Linux and macOS aapt2
+  checksums and made CI strict; no workflow has run since (nothing was pushed). See the section below.
 - *Foreign-controller behaviour is not verified on a device* (section 4).
 
 **Low**
@@ -275,13 +276,12 @@ What this is and is not:
   `--write-verification-metadata`. They say "the same bytes as on 13 October 2026", not "the bytes the
   publisher made". Nobody compared them with the publishers' own checksums, and signatures are not verified
   (`verify-signatures` is off). A cache that was already wrong has been recorded as right.
-- **It is not complete for Linux, so CI runs lenient.** A Linux build downloads a few artifacts a Windows
-  build never sees (`aapt2` for Linux at least). Both workflows therefore set
-  `-Dorg.gradle.dependency.verification=lenient`: a mismatch is written to the log and does not stop the
-  build. Until the Linux entries are added, CI gives no protection from this file. This is the open medium
-  item above. To close it: run the build once on Linux with
-  `--write-verification-metadata sha256`, review the added entries, commit them, and remove the `env` block
-  from both workflows.
+- **Linux and macOS (Q16).** The one platform-specific artifact the build resolves is `aapt2`, published per
+  operating system. Its Linux and macOS jars were added by hand: each was downloaded from Google's Maven
+  repository and matched the SHA-1 published beside it there, and the Windows jar fetched the same way hashed
+  to the value already recorded. Both workflows now run strict, like local builds. No hosted run has
+  confirmed that nothing else is missing (nothing was pushed). If the first run names another artifact,
+  add it from that run's log after reading it; do not set the build lenient again.
 - Sources and documentation jars are trusted by name, so that an IDE can sync. They are never compiled in.
 - Dependency locking was not added. Versions are already fixed in `gradle/libs.versions.toml`; locking would
   pin the transitive ones too and is a separate decision.

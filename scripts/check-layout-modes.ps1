@@ -6,7 +6,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$adb = Join-Path $project '.toolchain\sdk\platform-tools\adb.exe'
+. (Join-Path $PSScriptRoot 'quality\Tools.ps1'); $adb = Resolve-RiffAdb $project
 $out = (Resolve-Path $EvidenceDirectory).Path
 $fontOriginal = (& $adb -s $Serial shell settings get system font_scale).Trim()
 $sizeOriginal = (& $adb -s $Serial shell wm size) -join ' '

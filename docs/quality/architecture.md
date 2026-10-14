@@ -113,6 +113,11 @@ the main process reads past exits on a thread of its own. Its files are in `no_b
 the event ring. `DiagnosticsScreen.kt` shows them; its report goes through `DiagnosticEvent.parse` line by line.
 See `docs/quality/exit-diagnostics.md`.
 
+## Quality lanes (Q16)
+
+`scripts/quality/verify.py --lane pr|emulator|device|benchmark|packaging` runs the checks; CI calls the same
+script. See `docs/quality/ci-lanes.md`.
+
 ## Static checks
 
     python scripts/quality/static_checks.py            # exit 1 on any finding

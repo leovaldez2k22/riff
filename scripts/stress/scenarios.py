@@ -9,7 +9,17 @@ import json, os, re, subprocess, sys, threading, time
 from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[2]
-ADB = os.environ.get('RIFF_ADB') or str(PROJECT / '.toolchain/sdk/platform-tools/adb.exe')  # RIFF_ADB: run from a worktree
+sys.path.insert(0, str(PROJECT / 'scripts/quality'))
+import verify  # noqa: E402  (finds the SDK the same way every lane does, Q16)
+
+
+def _adb():
+    sdk = verify.find_sdk()
+    found = verify.executable(sdk / 'platform-tools' / 'adb') if sdk else None
+    return str(found) if found else 'adb'
+
+
+ADB = os.environ.get('RIFF_ADB') or _adb()  # RIFF_ADB: a particular adb, for example from a worktree
 PKG = 'com.musicglass.personal'
 OUT = PROJECT / 'artifacts/stress/scenarios'
 
@@ -185,9 +195,40 @@ class Capture:
         }
 
 
+def exit_records():
+    """The app's own exit and crash records (Q15A), read with run-as from a debuggable (stress) build.
+
+    Counts per reason, and None when they cannot be read (a release build). The records of a process that died
+    are written when the main process next starts, so a scenario that ends with the app still running shows
+    its exits in the next scenario's numbers.
+    """
+    text = sh(f'run-as {PKG} sh -c "cat no_backup/diagnostics/exits.log no_backup/diagnostics/crash-*.log 2>/dev/null"')
+    if 'not debuggable' in text or 'Unknown package' in text:
+        return None
+    counts = {}
+    for line in text.splitlines():
+        m = re.fullmatch(r'process_exit at=\d+ process=(\w+) reason=(\w+) importance=-?\d+ code=\d+', line.strip())
+        if m:
+            key = f'{m.group(1)}:{m.group(2)}'
+            counts[key] = counts.get(key, 0) + 1
+        m = re.match(r'uncaught at=\d+ process=(\w+) causes=\S+ count=(\d+)', line.strip())
+        if m:
+            key = f'{m.group(1)}:uncaught'
+            counts[key] = counts.get(key, 0) + int(m.group(2))
+    return counts
+
+
+def exit_delta(before, after):
+    """Records added between two readings; None when either could not be read."""
+    if before is None or after is None:
+        return None
+    return {k: after[k] - before.get(k, 0) for k in after if after[k] - before.get(k, 0) > 0}
+
+
 def run(name, fn):
     print(f'== {name} ({time.strftime("%H:%M:%S")})', flush=True)
     cap = Capture(name)
+    exits_before = exit_records()
     pid_before = app_pid()
     result = {'scenario': name, 'started': time.strftime('%H:%M:%S')}
     try:
@@ -198,6 +239,8 @@ def run(name, fn):
     log = captured.pop('_log')
     result.update(captured)
     result['pidBefore'], result['pidAfter'] = pid_before, app_pid()
+    # Informational: the app's own count of exits and crashes (Q15A); the pass rule above is unchanged.
+    result['exitRecords'] = exit_delta(exits_before, exit_records())
     result['jank'] = jank_breakdown(log, {pid_before, result['pidAfter']})
     checks = result.get('checks', {})
     result['pass'] = (not result.get('harnessError') and result['fatal'] == 0 and result['anr'] == 0

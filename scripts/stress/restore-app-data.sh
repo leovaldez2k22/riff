@@ -6,7 +6,9 @@
 set -euo pipefail
 export MSYS_NO_PATHCONV=1
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-ADB="$ROOT/.toolchain/sdk/platform-tools/adb.exe"
+# adb from ANDROID_HOME when set, else the project's own SDK (Q16).
+ADB="${ANDROID_HOME:+$ANDROID_HOME/platform-tools/adb}"
+ADB="${ADB:-$(ls "$ROOT"/.toolchain/sdk/platform-tools/adb* 2>/dev/null | head -1)}"
 PKG=com.musicglass.personal
 BACKUP="$ROOT/artifacts/stress/app-data-backup-2026-10-02.tar"
 WORK="$(mktemp -d)"

@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 if (-not $AllowInstall) { throw 'Installation requires -AllowInstall and an authorized test device/profile.' }
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $collector = Join-Path $PSScriptRoot 'quality/collect_results.py'
-$adb = Join-Path $project '.toolchain/sdk/platform-tools/adb.exe'
+. (Join-Path $PSScriptRoot 'quality/Tools.ps1'); $adb = Resolve-RiffAdb $project
 $devices = & $adb devices
 if ($LASTEXITCODE -ne 0) { throw 'adb devices failed.' }
 $ready = @($devices | Select-String '^([^\s]+)\s+device$')
@@ -23,10 +23,10 @@ if (-not ($ready | Where-Object { $_.Matches[0].Groups[1].Value -eq $Serial })) 
 $adbArgs = @('-s', $Serial)
 
 if (-not $NoBuild) {
-    $env:ANDROID_HOME = Join-Path $project '.toolchain/sdk'
+    $env:ANDROID_HOME = Resolve-RiffSdk $project
     $env:GRADLE_USER_HOME = Join-Path $project '.toolchain/gradle-user-home'
-    $jdk = Join-Path $project '.toolchain/jdk-21.0.12.1+1'
-    if (Test-Path -LiteralPath $jdk) { $env:JAVA_HOME = $jdk }
+    $jdk = Get-ChildItem (Join-Path $project '.toolchain') -Directory -Filter 'jdk-*' -ErrorAction SilentlyContinue | Select-Object -Last 1
+    if (-not $env:JAVA_HOME -and $jdk) { $env:JAVA_HOME = $jdk.FullName }
     & (Join-Path $project 'gradlew.bat') -p $project ':app:assembleStress' ':app:assembleStressAndroidTest' '-PriffTestBuildType=stress' '--console=plain'
     if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
 }

@@ -2,7 +2,7 @@ param([switch]$SkipChecks, [switch]$SkipClean, [switch]$NewSigningKey, [switch]$
 
 $ErrorActionPreference = 'Stop'
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$sdk = Join-Path $project '.toolchain\sdk'
+. (Join-Path $PSScriptRoot 'quality\Tools.ps1'); $sdk = Resolve-RiffSdk $project
 $gradle = Join-Path $project 'gradlew.bat'
 $keytool = if ($env:JAVA_HOME -and
     (Test-Path -LiteralPath (Join-Path $env:JAVA_HOME 'bin\keytool.exe'))) {

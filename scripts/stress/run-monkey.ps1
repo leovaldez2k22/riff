@@ -21,7 +21,7 @@ param(
 
 $ErrorActionPreference = 'Continue'  # adb writes progress to stderr
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$adb = Join-Path $project '.toolchain\sdk\platform-tools\adb.exe'
+. (Join-Path $PSScriptRoot '..\quality\Tools.ps1'); $adb = Resolve-RiffAdb $project
 $out = Join-Path $project "artifacts\stress\$Label"
 New-Item -ItemType Directory -Force $out | Out-Null
 $summary = Join-Path $out 'summary.jsonl'

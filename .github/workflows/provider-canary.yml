@@ -18,11 +18,7 @@ concurrency:
   group: provider-canary
   cancel-in-progress: false
 
-# gradle/verification-metadata.xml was recorded on Windows and has no checksum for the artifacts only a Linux
-# build downloads (aapt2 for Linux, for one). Until those are added from a reviewed Linux run, a mismatch here is
-# reported in the log and does not stop the build. Local builds are strict. See docs/quality/security-review.md.
-env:
-  GRADLE_OPTS: -Dorg.gradle.dependency.verification=lenient
+# Dependency verification is strict, as in ci.yml (Q16): see the note there.
 
 jobs:
   canary:

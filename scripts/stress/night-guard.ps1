@@ -7,7 +7,7 @@
 param([string]$Serial, [switch]$Stop)
 
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$adb = Join-Path $project '.toolchain\sdk\platform-tools\adb.exe'
+. (Join-Path $PSScriptRoot '..\quality\Tools.ps1'); $adb = Resolve-RiffAdb $project
 $adbArgs = if ($Serial) { @('-s', $Serial) } else { @() }
 $pidFile = '/data/local/tmp/riff-night-guard.pid'
 $logFile = '/data/local/tmp/riff-night-guard.log'

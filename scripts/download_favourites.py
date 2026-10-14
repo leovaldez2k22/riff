@@ -1,20 +1,55 @@
+"""Downloads every song of the album or playlist open in Riff, one at a time, through the app's own
+Download song action, from the bottom of the list up. A personal helper for driving your own phone over adb:
+it is not part of any build or test lane.
+
+    python scripts/download_favourites.py --serial <device> [--adb <path to adb>] [--work-dir <folder>]
+
+The device is never chosen automatically. adb comes from --adb, else from the SDK that verify.py finds
+(ANDROID_HOME, ANDROID_SDK_ROOT, sdk.dir in local.properties, then .toolchain/sdk). The UI dump and the progress
+file go in --work-dir (default: riff-download-favourites in the system temp folder); a second run continues
+where the first stopped.
+"""
+import argparse
 import subprocess
+import tempfile
 import time
 import os
 import sys
 import json
 import re
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-ADB = r"c:\Users\KIIT0001\.gemini\antigravity\scratch\App\.toolchain\sdk\platform-tools\adb.exe"
-DEVICE = "10BE1D18C0000E5"
-XML_LOCAL = r"C:\Users\KIIT0001\.gemini\antigravity\brain\12e7ddc6-fb03-4645-965c-6b6f67bf28ef\dump.xml"
-PROGRESS_FILE = r"C:\Users\KIIT0001\.gemini\antigravity\brain\12e7ddc6-fb03-4645-965c-6b6f67bf28ef\download_progress.json"
+# Set by configure() from the command line.
+ADB = DEVICE = XML_LOCAL = PROGRESS_FILE = None
+
+
+def configure(argv=None):
+    global ADB, DEVICE, XML_LOCAL, PROGRESS_FILE
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--serial", required=True, help="the device to drive (adb devices lists them)")
+    parser.add_argument("--adb", help="path to adb; default: platform-tools of the SDK that verify.py finds")
+    parser.add_argument("--work-dir", default=os.path.join(tempfile.gettempdir(), "riff-download-favourites"))
+    args = parser.parse_args(argv)
+    if args.adb:
+        ADB = args.adb
+    else:
+        sys.path.insert(0, str(Path(__file__).resolve().parent / "quality"))
+        import verify
+        sdk = verify.find_sdk()
+        found = verify.executable(sdk / "platform-tools" / "adb") if sdk else None
+        if not found:
+            parser.error("no adb found: pass --adb or set ANDROID_HOME")
+        ADB = str(found)
+    DEVICE = args.serial
+    os.makedirs(args.work_dir, exist_ok=True)
+    XML_LOCAL = os.path.join(args.work_dir, "dump.xml")
+    PROGRESS_FILE = os.path.join(args.work_dir, "download_progress.json")
 
 def safe_print(text):
     try:
@@ -212,4 +247,5 @@ def main():
     safe_print("All songs in playlist downloaded successfully!")
 
 if __name__ == "__main__":
+    configure()
     main()

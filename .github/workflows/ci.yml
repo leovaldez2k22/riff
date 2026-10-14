@@ -1,11 +1,12 @@
-# Riff CI (plan W7.6): unit and Robolectric UI tests, release lint, an unsigned shrunk release build
-# and the APK size budget. The signing key never comes here: release builds are unsigned in CI.
-# Device tests (instrumentation on the phone) stay local: scripts/verify-device.ps1, scripts/stress.
+# Riff CI: the deterministic pull-request lane of scripts/quality/verify.py (Q16): script tests, static checks,
+# JVM and Compose tests, release lint, an unsigned shrunk release with its build identity, the release content
+# check, the 40 MiB ceiling and the solver seam. The signing key never comes here: release builds are unsigned.
+# The emulator lane is emulator.yml; physical-device, benchmark and live lanes run locally (docs/quality/ci-lanes.md).
 name: CI
 
 on:
   push:
-    branches: [main, 'fix/**']
+    branches: [main, 'fix/**', 'codex/**']
   pull_request:
   workflow_dispatch:
 
@@ -18,11 +19,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# gradle/verification-metadata.xml was recorded on Windows and has no checksum for the artifacts only a Linux
-# build downloads (aapt2 for Linux, for one). Until those are added from a reviewed Linux run, a mismatch here is
-# reported in the log and does not stop the build. Local builds are strict. See docs/quality/security-review.md.
-env:
-  GRADLE_OPTS: -Dorg.gradle.dependency.verification=lenient
+# Dependency verification is strict here as it is locally: gradle/verification-metadata.xml also lists aapt2 for
+# Linux and macOS (Q16), the one platform-specific artifact the build resolves. If a hosted run reports an
+# artifact without a checksum, add it from a reviewed run; do not turn verification off.
 
 jobs:
   build:
@@ -51,30 +50,23 @@ jobs:
           key: robolectric-${{ hashFiles('app/build.gradle.kts') }}
           restore-keys: robolectric-
 
-      - name: Unit and UI tests, lint, release build
-        run: |
-          python3 -m unittest discover -s scripts/quality -p 'test_*.py'
-          python3 scripts/quality/collect_results.py --variant release
+      # Every required gate of the lane is in lane-summary.json; a gate that did not run is BLOCKED and fails the job.
+      - name: Pull-request lane
+        run: python3 scripts/quality/verify.py --lane pr --evidence-dir artifacts/quality/lanes/pr
 
-      - name: APK size budget (40 MiB)
-        run: |
-          apk=$(ls app/build/outputs/apk/release/*.apk)
-          bytes=$(stat -c %s "$apk")
-          echo "$(basename "$apk"): $((bytes / 1024 / 1024)) MiB"
-          unzip -l "$apk" | awk 'NR>3 {n=split($4,p,"/"); k=(p[1]=="lib"?p[1]"/"p[2]:p[1]); if(p[1]~/\.dex$/)k="dex"; s[k]+=$1} END {for(k in s) if(s[k]>100000) printf "%8.1f MB %s\n", s[k]/1e6, k}' | sort -rn
-          if [ "$bytes" -gt $((40 * 1024 * 1024)) ]; then echo "::error::Release APK is over the 40 MiB budget"; exit 1; fi
+      - name: Lane summary
+        if: always()
+        run: cat artifacts/quality/lanes/pr/lane-summary.md >> "$GITHUB_STEP_SUMMARY" || true
 
-      # Q15: the APK's own manifest and contents against the reviewed lists (backup, cleartext, exported
-      # components, permissions, no test or benchmark code, no key file).
-      - name: Release content
-        run: python3 scripts/quality/check_release_content.py --apk "$(ls app/build/outputs/apk/release/*.apk)" --aapt2 "$ANDROID_HOME/build-tools/36.0.0/aapt2"
-
-      - name: Upload quality manifests
+      # Sanitized summaries and manifests only: no APK, no device data, no signing file.
+      - name: Upload quality summaries
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: quality-manifests
-          path: artifacts/quality/**/manifest.json
+          name: quality-summaries
+          path: |
+            artifacts/quality/lanes/pr/lane-summary.*
+            artifacts/quality/**/manifest.json
           retention-days: 14
 
       - name: Upload reports

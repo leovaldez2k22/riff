@@ -12,7 +12,7 @@ param(
 $ErrorActionPreference = 'Stop'
 if (-not $AllowInstall) { throw 'Installation requires -AllowInstall and an authorized test device/profile.' }
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$sdk = Join-Path $project '.toolchain\sdk'
+. (Join-Path $PSScriptRoot 'quality\Tools.ps1'); $sdk = Resolve-RiffSdk $project
 $adb = Join-Path $sdk 'platform-tools\adb.exe'
 $wrapper = Join-Path $project 'gradlew.bat'
 $localGradle = Join-Path $project '.toolchain\gradle-8.13\bin\gradle.bat'
