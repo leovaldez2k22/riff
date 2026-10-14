@@ -1461,6 +1461,51 @@ Not part of this package and left untouched: scripts/download_favourites.py and 
 Commit: c368a37 on local branch codex/riff-quality-m0 (not pushed), after 4312497, 70e1949, 93136d8 and 5aa172c.
 Next exact action: Q15A (exit-reason diagnostics) is next in the plan's order and is one of the packages that is not authorized; it needs explicit authorization. Q16 is inside the 9 October authorization; wait for "start Q16" or for authorization of Q15A.
 
+## Q12A
+### Q12A completion (14 October 2026)
+Status: PASS locally with open items; the live feed is BLOCKED. UPD01 and UPD02 pass as JVM tests with a scripted feed, clock and network. No code path downloads or installs. There is no public release feed, so the check is built in but has no address: this build shows no setting and sends nothing. The notice and the About rows were not seen on a device.
+Source: a374ffa6695285335a6229763ffcb08b4fd63390 dirty (the two user files named at the end are the only uncommitted changes), digest prefix a7fd258b6340 (full value in the manifests). The debug run started before the commit, from e7de619 with the same files and the same digest. Evidence roots: artifacts/quality/e7de61944b34fe2298f3fe64b1c4e8195396b425-dirty-a7fd258b6340/ (debug) and artifacts/quality/a374ffa6695285335a6229763ffcb08b4fd63390-dirty-a7fd258b6340/ (release).
+Commit: a374ffa (code, tests, documents).
+User instruction on 14 October 2026: "start q12a, then a15a then complete q16". This is the authorization for Q12A, which the 9 October authorization (Q03-Q18) did not cover. "a15a" is read as Q15A (there is no package A15A).
+
+Where releases are published (plan action 1):
+- README: "No APK release has been published from this new repository yet."
+- github.com/leovaldez2k21/riff and github.com/leovaldez2k20/riff both answer 404 to unauthenticated requests for the page and for api.github.com/repos/.../releases. Neither is public. The authenticated gh account on this machine cannot see either.
+- build-release-candidate.ps1 and package-source.ps1 build and package; neither publishes.
+So no endpoint was invented. The feed address and the allowed page hosts are Gradle properties (riffUpdateFeed, riffUpdatePages, the latter defaulting to github.com). Without a feed the checker reports NotConfigured, and the Settings rows are not drawn.
+
+Implemented, by plan item:
+- 1 Feed. BuildConfig.UPDATE_FEED and UPDATE_PAGES from the properties. The format read is GitHub's release list, or its single latest release. docs/quality/update-notice.md says what to set once releases are public.
+- 2 Version. ReleaseVersion parses 0.10.0 and 0.10.0-rc1 (a candidate ranks below its release) and the installed name with the Lite suffix. Only a strictly newer release is offered. A debug, dirty or local-unknown build (isReleaseBuild) is never called current: it says it is a local build and names the newest release.
+- 3 Schedule. MainActivity.onResume -> AppContainer.checkForUpdatesIfDue, on the IO scope. At most once a day, by the stored date and, within a process, by the monotonic clock. A stored date in the future counts as due once. Skipped on a metered network while Data saver is on. Check for updates now in About asks at once.
+- 4 Setting. Check for updates in Settings, About, on by default. Off hides the manual check too and sends nothing. docs/privacy.md says so.
+- 5 Request. One GET of the feed address with Accept and User-Agent: Riff-update-check, nothing else; the provider client and its cookies are not used.
+- 6 Notice. One snackbar with View and a close button per newer version (noticeShown records it), and the About row "Riff X is available" while it is newer. View and the row open the page through openWebPage with the page hosts (Q15). No system notification, no download, no install request.
+- 7 Bounds. 256 KiB read at most. Malformed, oversized, 403/429, other errors, unreachable, offline and a redirect to plain HTTP are silent; the attempt time is stored before asking, so a failure waits a day like a success. The manual check says what happened. 404 is read as no release published.
+- 8 Seams. The checker takes its preferences, feed, clocks, network, Data saver reading, HTTP client and dispatcher as arguments.
+
+Verification:
+- Debug (q12a-debug-01/manifest.json): PASS_LOCAL. 964 JVM tests / 106 suites, zero failures, errors or skips (Q15: 952 / 105). Lint 0 errors, 84 warnings, 3 hints. Against q15-debug-01, four added (UseKtx in UpdateNotice.kt: SharedPreferences.edit to the KTX form; a style suggestion, the same as the 40 UseKtx already triaged) and none removed. APK SHA-256 9f94ac8134eb4e1bf9003dc4e0ae756df4de06aaead7b4454d6c39261a9ba903.
+- Release (q12a-release-01/manifest.json): PASS_LOCAL. 964 tests / 106 suites, zero failures, errors or skips; lint 0 errors, 84 warnings, 3 hints; against q15-release-01 the same four UseKtx added in UpdateNotice.kt and none removed. APK SHA-256 ee478e6105d7f95b0cc8a66b6a17f6d61a04b8f1c4f5b1769b6bfbca7dbd22b0 (unsigned).
+- New JVM tests, 12: UpdateNoticeTest. Version order and refused forms. Newer, same and older answers. A prerelease, which counts only for a prerelease install, and a draft. A local build. Failures: malformed, a non-list value, oversized, 403, 429, 500, unreachable, offline, a redirect to plain HTTP. Page lookalikes in the feed and on the phone. One notice per version across a restart. Off and no feed send nothing (UPD02). The daily throttle under date changes and failures. The request has exactly two headers. The source has no installer, download or activity start, the manifest no install permission.
+- StringResourcesTest passes with the twelve new strings.
+- Static checks: 157 files, 0 findings.
+- No emulator run for this package: with no feed nothing appears or is sent, and the fixture suite does not touch the change. Q15A's emulator run includes these changes.
+
+Decisions:
+- An empty feed address rather than BLOCKED with no code. The plan says to mark the package BLOCKED rather than invent an endpoint; no endpoint was invented, and the code and its tests are ready for the day a feed exists. The live part is BLOCKED.
+- Off also hides the manual check, so off is zero requests without exceptions.
+- A prerelease counts for a prerelease install, because every build so far is a candidate (0.10.0-rc1).
+
+BLOCKED or not done, with rerun steps:
+- Live feed (UPD01 against a real feed): publish a release on a public repository, set riffUpdateFeed and riffUpdatePages in gradle.properties, build, and check that a build one version lower shows the notice and that View opens the release page. Needs the user to publish (not authorized here).
+- The notice and the About rows on a device: build with a feed, install on the emulator (approved practice) and look; not done because no feed exists.
+
+Network use in this package: unauthenticated reads of github.com and api.github.com for the two repository paths (404). No Gradle run was online.
+Device state: no device or emulator used for this package.
+Not part of this package and not committed with it: scripts/download_favourites.py (user change) and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
+Next exact action: Q15A, authorized by the same instruction.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
@@ -1468,7 +1513,7 @@ New packages. Status TODO and implementation not yet authorized unless the line 
 - Q05R interim release R1. Dependencies: Q00-Q05 PASS.
 - Q08A loudness normalization. Dependencies: Q08. Authorized by the user on 11 October 2026 ("start q08 followed by q08a"). Status: PASS locally with open items (see the Q08A section).
 - Q10A provider canary and response runbook. Dependencies: Q10. Authorized by the user on 12 October 2026 ("do q08a and q10a"). Status: PASS locally with open items (see the Q10A section).
-- Q12A update notice. Dependencies: Q01, Q12.
-- Q15A exit-reason diagnostics. Dependencies: Q15.
+- Q12A update notice. Dependencies: Q01, Q12. Authorized by the user on 14 October 2026 ("start q12a, then a15a then complete q16"). Status: PASS locally with open items, live feed BLOCKED (see the Q12A section).
+- Q15A exit-reason diagnostics. Dependencies: Q15. Authorized by the user on 14 October 2026 (same instruction).
 Changed inside existing packages: Q14 now includes a Baseline Profile (optimization rule 8).
 New contract rule 16: commit each package locally on its branch before starting the next. Q00-Q02 work is still uncommitted on main; committing it is the next step before Q03 and has not been done. Pushing remains unauthorized.
