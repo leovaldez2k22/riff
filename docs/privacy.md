@@ -8,7 +8,7 @@ Riff stores playback position and queue, settings, account-scoped local saves an
 
 Downloads → Delete all downloads asks for confirmation, removes the current account's downloaded audio, artwork and lyrics, and cancels pending transfers. Clear playback cache also asks for confirmation and retains permanent downloaded bundles. Unlimited removes the app's configured download-budget cap; the device free-space reserve remains in force. These actions do not remove songs or playlists from the provider account.
 
-The diagnostics ring is bounded and avoids track names, signed URLs, and credentials. Copy playback diagnostics additionally scrubs URLs and token-like fields. Sharing the copied report is a user action; inspect reports and screenshots before posting publicly.
+The diagnostics ring is bounded and avoids track names, signed URLs, and credentials. Riff also keeps a short record of how its processes last ended, as Android reports it (for example a crash, the app not responding, or Android closing it to free memory), and the class names of errors that ended it, with positions in Riff's own code. These records hold no error messages, song titles, addresses or account details. Settings → About → Diagnostics shows them and can clear them. Share diagnostics report and Copy playback diagnostics put a plain-text report, cleaned again line by line, into the share sheet or the clipboard. Nothing is sent automatically. Sharing is your action; read reports and screenshots before posting them publicly.
 
 ## Network requests and accounts
 

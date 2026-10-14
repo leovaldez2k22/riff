@@ -160,16 +160,9 @@ import kotlinx.coroutines.withContext
                 }
                 SettingsDivider()
             }
-            SettingsLinkRow(string(R.string.copy_playback_diagnostics),icon=Icons.Rounded.BugReport,tag="settings_copy_diagnostics") {
-                scope.launch {
-                    val report=withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        playbackDiagnosticsReport(PlaybackEventLog(context).recent(),BuildConfig.VERSION_NAME,
-                            android.os.Build.VERSION.SDK_INT,"${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
-                    }
-                    context.getSystemService(android.content.ClipboardManager::class.java)
-                        .setPrimaryClip(android.content.ClipData.newPlainText(string(R.string.riff_playback_diagnostics),report))
-                    onNotice(string(R.string.playback_diagnostics_copied))
-                }
+            // Q15A: last exits, errors, Share diagnostics report and Copy playback diagnostics are on their own screen.
+            SettingsLinkRow(string(R.string.diagnostics),icon=Icons.Rounded.BugReport,tag="settings_diagnostics") {
+                model.push(Route.Settings(SettingsSection.Diagnostics))
             }
         }}
         item {Text(androidx.compose.ui.res.stringResource(R.string.about_build_identity, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildIdentity.current().shortId),color=Muted,fontSize=12.sp,

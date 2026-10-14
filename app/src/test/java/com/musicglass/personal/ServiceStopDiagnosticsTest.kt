@@ -63,7 +63,10 @@ class ServiceStopDiagnosticsTest {
             "3 oops https://rr1---sn.googlevideo.com/videoplayback?sig=abc&pot=xyz", "4 leaked pot=MnQx sig=AB12 SAPISID=zz __Secure-3PSIDTS=qq")
         val report = playbackDiagnosticsReport(lines, "0.9.0-rc18", 36, "vivo I2217")
         assertTrue(report, report.startsWith("Riff 0.9.0-rc18, Android SDK 36, vivo I2217\nBuild revision="))
-        for (secret in listOf("videoplayback", "abc", "xyz", "MnQx", "AB12", "=zz", "=qq")) assertFalse(secret, report.contains(secret))
+        // The planted values are looked for below the identity line: its hex digests can hold "abc" by chance.
+        val events = report.lines().drop(2).joinToString("\n")
+        assertFalse(report.contains("videoplayback"))
+        for (secret in listOf("abc", "xyz", "MnQx", "AB12", "=zz", "=qq")) assertFalse(secret, events.contains(secret))
         assertTrue(report.contains("pot=<redacted>")); assertTrue(report.contains("1 service_create"))
         assertTrue(report.contains(BuildConfig.SOURCE_REVISION)); assertTrue(report.contains("\n4 playback events"))
         assertEquals(EVENT_LOG_LINES + 3, playbackDiagnosticsReport(List(500) { "$it e" }, "v", 36, "d").lines().size)

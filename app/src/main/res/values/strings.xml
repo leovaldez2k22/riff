@@ -781,4 +781,30 @@
     <string name="update_check_offline">You\'re offline. Check again when you\'re connected.</string>
     <string name="update_check_busy">The release feed is busy. Try again later.</string>
     <string name="update_check_failed">Couldn\'t check for updates. Try again later.</string>
+    <string name="diagnostics">Diagnostics</string>
+    <string name="diagnostics_detail">How Riff last closed, as Android reports it, and the errors Riff recorded. Nothing leaves the phone unless you share it.</string>
+    <string name="last_exits">Last exits</string>
+    <string name="no_exits_recorded">No exits recorded yet.</string>
+    <string name="errors">Errors</string>
+    <string name="report">Report</string>
+    <string name="share_diagnostics_report">Share diagnostics report</string>
+    <string name="clear_exit_records">Clear exit records</string>
+    <string name="exit_records_cleared">Exit records cleared</string>
+    <string name="diagnostics_report_detail">The report holds the app version, how Riff closed, the names of errors and the playback event log. It holds no song titles, addresses, account details or sign-in data. Read it before you post it.</string>
+    <string name="stream_helper">Stream helper</string>
+    <string name="another_part_of_riff">Another part of Riff</string>
+    <string name="exit_crash">Stopped because of an error</string>
+    <string name="exit_crash_native">Stopped because of an error in native code</string>
+    <string name="exit_anr">Stopped responding and was closed</string>
+    <string name="exit_low_memory">Closed by Android to free memory</string>
+    <string name="exit_excessive_resource_usage">Closed by Android for using too many resources</string>
+    <string name="exit_init_failure">Could not start</string>
+    <string name="exit_dependency_died">Closed because a part it needs stopped</string>
+    <string name="exit_user_requested">Stopped from Android settings</string>
+    <string name="exit_user_stopped">Stopped by you</string>
+    <string name="exit_self">Closed normally</string>
+    <string name="exit_package_updated">Closed for an update</string>
+    <string name="exit_permission_change">Closed after a permission changed</string>
+    <string name="exit_other">Closed by Android, or swiped away</string>
+    <plurals name="n_times"><item quantity="one">%1$d time</item><item quantity="other">%1$d times</item></plurals>
 </resources>

@@ -108,6 +108,11 @@ APK may contain. See `docs/quality/security-review.md`.
 arguments, compares versions with `ReleaseVersion`, and opens a release page only through `openWebPage` with
 the configured hosts. It has no way to download or install. See `docs/quality/update-notice.md`.
 
+`ExitDiagnostics.kt` (Q15A) is started by `RiffApplication.onCreate`: each process installs `CrashRecorder`, and
+the main process reads past exits on a thread of its own. Its files are in `no_backup/diagnostics`, apart from
+the event ring. `DiagnosticsScreen.kt` shows them; its report goes through `DiagnosticEvent.parse` line by line.
+See `docs/quality/exit-diagnostics.md`.
+
 ## Static checks
 
     python scripts/quality/static_checks.py            # exit 1 on any finding

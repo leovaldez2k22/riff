@@ -37,6 +37,17 @@ internal fun quantity(@PluralsRes id: Int, count: Int, vararg args: Any?): Strin
 
 class RiffApplication : Application() {
     override fun attachBaseContext(base: Context) { super.attachBaseContext(base); AppStrings.install(resources) }
+
+    /**
+     * Q15A: every process records its own uncaught exceptions; the main process also reads, off the main thread,
+     * how earlier processes ended. Neither waits for anything or sends anything.
+     */
+    override fun onCreate() {
+        super.onCreate()
+        val role = processRole(getProcessName(), packageName)
+        CrashRecorder.install(this, role)
+        if (role == ProcessRole.Main) Thread({ runCatching { recordProcessExits(this) } }, "riff-exit-records").start()
+    }
 }
 
 /**

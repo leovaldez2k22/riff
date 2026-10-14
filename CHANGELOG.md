@@ -2,6 +2,7 @@
 
 ## Unreleased — 0.10.0-rc1 (code 22)
 
+- Adds **Settings → About → Diagnostics**: how Riff last closed (a crash, not responding, closed by Android for memory, or an ordinary stop, which is not shown as a failure) and the errors it recorded, with **Share diagnostics report**, **Copy playback diagnostics** and **Clear exit records**. The records keep error class names and positions in Riff's own code, never error messages, titles, addresses or account details. Nothing is sent automatically (`docs/quality/exit-diagnostics.md`).
 - Adds an update notice: once a day the app can ask the public release feed whether a newer version exists, show one dismissible notice per version and open its release page. It never downloads or installs anything, sends no account or device details, and can be turned off. This build has no release feed (none is published yet), so it shows no such setting and asks nothing (`docs/quality/update-notice.md`).
 - Security: another app that connects to Riff's media session can still play, pause, seek and skip, but can no longer remove, move or replace queue entries.
 - Security: the photo credit links on Home open only HTTPS pages, in the browser. Before, the link text from the photo service was handed to Android as it came.
