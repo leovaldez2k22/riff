@@ -171,7 +171,7 @@ Retention: 30/90/365 days or Keep until cleared; default Keep until cleared for 
 ## 5. Execution order and common completion requirements
 
 Critical path:
-Q00 baseline -> Q01 traceability -> Q02 test seams -> Q03 account identity -> Q04 migration -> Q05 controls -> Q05A local export/import -> Q05R interim release -> Q06 playback state -> Q07 recovery -> Q08 audio/solver -> Q08A loudness normalization -> Q09 downloads -> Q10 provider contracts -> Q10A provider canary/response -> Q11 architecture -> Q12 UX -> Q12A update notice -> Q13 accessibility -> Q14 performance -> Q15 security -> Q15A exit diagnostics -> Q16 CI -> Q17 docs -> Q18 release gates.
+Q00 baseline -> Q01 traceability -> Q02 test seams -> Q03 account identity -> Q04 migration -> Q05 controls -> Q05A local export/import -> Q05R interim release -> Q06 playback state -> Q07 recovery -> Q08 audio/solver -> Q08A loudness normalization -> Q09 downloads -> Q10 provider contracts -> Q10A provider canary/response -> Q11 architecture -> Q12 UX -> Q12A update notice -> Q13 accessibility -> Q14 performance -> Q15 security -> Q15A exit diagnostics -> Q16 CI -> Q16A lyrics lines and held words -> Q17 docs -> Q18 release gates.
 
 Lettered packages are specified in section 22. Q05A does not block Q05R; Q05R does not block Q06.
 
@@ -709,7 +709,7 @@ Live sample: at least12 varied available tracks, two authored collections includ
 | M2 | Q06-Q08, Q08A | Playback/recovery/audio/solver evidence/loudness option |
 | M3 | Q09-Q10, Q10A | Download integrity/provider contracts/canary and response runbook |
 | M4 | Q11-Q13, Q12A | Architecture/UX/accessibility/update notice |
-| M5 | Q14-Q16, Q15A | Physical budgets/Baseline Profile/security/exit diagnostics/CI |
+| M5 | Q14-Q16, Q15A, Q16A | Physical budgets/Baseline Profile/security/exit diagnostics/CI/lyrics |
 | M6 | Q17-Q18 | Exact-artifact candidate/final gates |
 
 No deadline is promised. Estimate packages after baseline and first slice. Do not truncate verification to fit guessed schedule.
@@ -1048,6 +1048,24 @@ Actions:
 Tests: scripted exit records for each reason class; exception with a message containing a URL, cookie and title; crash-loop bound; handler delegation; report scan for credentials, URLs, titles and scope IDs.
 
 Acceptance: DIAG01; SEC03 still passes with the new records and report included.
+
+### Q16A: Lyrics, simultaneous lines and held words
+
+Added 14 October 2026 at the user's request, to be done after Q16 and before Q17. Depends on Q12 (lyrics screen) and Q13 (reduced motion). Targets: LyricsModels.kt, LyricsPanel.kt, a new karaoke renderer, the lyrics cache format in LyricsRepository.kt.
+
+Reason: only one lyric line can be lit at a time. When two voices overlap, the first goes dim while it is still sung, and when the later line ends first nothing is lit at all. TTML background vocals are folded into the main line and their timing is cut 0.5 s after the line ends. Long held notes look the same as short words.
+
+Actions:
+1. Replace the single active line with the set of lines whose window contains the position (a line's window runs to the later of its own end and its background vocal's end). The scan backwards is bounded. Auto-scroll anchors on the earliest active line, else the latest started one, as now.
+2. Background vocals: TTML spans with role x-bg become the line's own background part (text, start, end, word timing), shown as a smaller line under the main one and lit on its own timing. Their timing is no longer clipped to the main line. The lyrics cache and the offline lyrics file store it; files written before still read.
+3. Held words: group syllable parts with no space between them into words. A word is held when it lasts at least 1.6 s, or at least 0.9 s with a per-character time at least 1.5 times the line's median. Word-synced lyrics only; nothing is invented for line-synced lyrics.
+4. The sweep is white. A held word that sits on one display line, while it is sung, grows about 7 percent around its own centre, rises about 2 dp and gains a soft pink glow over its lit letters with a soft sweep edge; it eases back after its end. Neighbouring words do not move. A held word broken across two display lines gets no emphasis. Reduced motion: glow only, no scale or rise.
+5. Drawing only: no re-layout or recomposition per frame; held words are measured once per line.
+6. Sources: TTML gives overlap and background vocals; word-timed QRC and NetEase sometimes overlap; LRC overlaps only on equal timestamps; YouTube Music effectively never. Line-synced songs behave as before.
+
+Tests: overlapping lines both lit, the later-started line ending first leaves the earlier lit, gaps and endpoints unchanged; x-bg parsing with nested words and timing past the line end; cache round trip with and without background vocals and reading an older file; syllable grouping, held-word thresholds, a line of uniformly slow words; Compose test that two lines are marked current together and the background line is shown.
+
+Acceptance: overlapping TTML lines light together; a held word pops and glows on the emulator with a synthetic word-timed song; reduced motion shows no scale; all existing lyrics tests pass.
 
 ### 22.1 Gate and ledger effects
 
