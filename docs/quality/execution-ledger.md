@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q10A PASS locally with open items (see the Q10A section, which follows Q11); Q12 PASS locally with open items, device walk-through BLOCKED (see the Q12 section); Q13 PASS locally with open items, TalkBack and keyboard walk-throughs BLOCKED (see the Q13 section); Q14 PASS locally for tooling, Baseline Profile and APK checks, every physical-tier budget BLOCKED and one open finding awaiting a product decision (see the Q14 section); Q15 PASS locally with open items, two of them medium (see the Q15 section); Q16-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections)
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q10A PASS locally with open items (see the Q10A section, which follows Q11); Q12 PASS locally with open items, device walk-through BLOCKED (see the Q12 section); Q13 PASS locally with open items, TalkBack and keyboard walk-throughs BLOCKED (see the Q13 section); Q14 PASS locally for tooling, Baseline Profile and APK checks, every physical-tier budget BLOCKED and one open finding awaiting a product decision (see the Q14 section); Q15 PASS locally with open items, two of them medium (see the Q15 section); Q16-Q18 TODO. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections); Q12A PASS locally with open items, live feed BLOCKED (see the Q12A section); Q15A PASS locally with open items (see the Q15A section)
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -1506,6 +1506,57 @@ Device state: no device or emulator used for this package.
 Not part of this package and not committed with it: scripts/download_favourites.py (user change) and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
 Next exact action: Q15A, authorized by the same instruction.
 
+## Q15A
+### Q15A completion (14 October 2026)
+Status: PASS locally with open items. DIAG01 passes on the fixture emulator for a crash in each process, a stop from Android settings and a SIGKILL; ANR and low-memory exits are covered by scripted records only. SEC03 passes with the new records and the report included. The screen was checked under Robolectric, not looked at on a device.
+Source: 2a7056c dirty; the evidence was built from d3bcb98 with the Q15A files uncommitted, the same files later committed in 2a7056c, digest prefix 3f46088455e5 (full value in the manifests). The other uncommitted files at the time were the Q16 scripts, workflows and documents (outside the source digest) and the two user files named at the end. Evidence root: artifacts/quality/d3bcb9809d8e7960447ddc991ae6cf55a0bedd27-dirty-3f46088455e5/.
+Commit: 2a7056c (code, tests, documents). The CHANGELOG and architecture.md were staged without their Q16 lines.
+Authorization: the user's instruction of 14 October 2026, "start q12a, then a15a then complete q16"; "a15a" is read as Q15A.
+
+Implemented, by plan action:
+- 1 Exits. RiffApplication.onCreate starts a thread in the main process only that reads getHistoricalProcessExitReasons for the package and records those newer than the last seen (exit_records preferences: seen_at, last_version_code). The version filed is the one that ran: after an update, the first start files exits under the previous code.
+- 2 Fields. process (main, solver, other), reason as a word (unknown future codes become reason_<n>), importance, the start of the hour, version code. The description and the trace stream are never read.
+- 3 Errors. CrashRecorder, installed in every process: exception class names (up to five with causes) and up to six frames in the app's package from the deepest cause that has any, never a message. It then calls the previous handler with the same thread and exception. On a plain JVM with no previous handler (unit tests) it prints the error as the JVM would; an earlier draft ended the process there, which ended the Gradle test JVM, see below.
+- 4 Store. no_backup/diagnostics: exits.log (last 12, main process only), crash-main.log and crash-solver.log (each written only by that process, the last 4 kinds, a repeat raises its count). 8 KiB cap, temporary file and rename, exact-shape parsing. Apart from the ring.
+- 5 Screen. Settings, About, Diagnostics (replaces the Copy playback diagnostics row, which moved inside): Last exits in words, failures marked, a stop from settings, by the user, an update or a swipe-away (other) neutral; Errors with class, process, count and hour.
+- 6 Report. Share diagnostics report (ACTION_SEND through the chooser, no component), Copy playback diagnostics (same text), Clear exit records. Fixed content: identity line, build identity, exits, errors with frames, the ring; every line through DiagnosticEvent.parse. No network endpoint.
+- 7 Soak. scripts/stress/scenarios.py reads the files with run-as before and after each scenario and writes exitRecords into result.json (informational). That file also carries Q16's SDK lookup and is committed with Q16. No stress run was made.
+
+Verification:
+- Debug (q15a-debug-05/manifest.json): PASS_LOCAL. 975 JVM tests / 108 suites, zero failures, errors or skips (Q12A: 964 / 106). Lint 0 errors, 85 warnings, 3 hints; against q12a-debug-01 one added (UseKtx, ExitDiagnostics.kt:172, SharedPreferences.edit to the KTX form; style, as the others) and none removed. APK SHA-256 3c54d97580015e33dbc4176e0dbe84a07d4c4de79a433bd19e5af45251e31e5c.
+- Release (q15a-release-01/manifest.json): PASS_LOCAL. 975 / 108, zero failures; lint 85 warnings, 3 hints, the same one UseKtx added against q12a-release-01. APK SHA-256 2133299a2ddd19308b7edbbefcff1d4cdcfedba412feab7957aadb96fe06d0bd (unsigned).
+- Release content (release-content-01.txt): every check ok; certificate n/a (unsigned).
+- Emulator, bound (q15a-debug-fixture-02/manifest.json, log q15a-instrumentation-03.log, install-02.log): PASS_LOCAL, all five gates PASS. 46 tests, third attempt, network off (ping_exit=2). Test APK SHA-256 8656ed5ace492f1d7924e0114f72c2d6225a812dcf8ea5c459d2804532454e02. The installed app APK matched the manifest hash. riff_q02_fixture, API 31, sdk_gphone64_x86_64.
+- DIAG01 (q15a-diag01-01.txt, -02.txt, -03.txt), on the same emulator and install, after the fixture run:
+  - am crash by package crashed the solver: exits.log got process=solver reason=crash importance=100 and crash-solver.log "uncaught process=solver causes=RemoteServiceException count=1 frames=" (no app frames: the exception is thrown from framework code).
+  - am force-stop: process=main reason=user_requested, shown neutral.
+  - am crash by the main pid: process=main reason=crash and crash-main.log causes=RemoteServiceException.
+  - SIGKILL of the main process (kill -9 as emulator root; run-as kill was refused, see below): process=main reason=signaled.
+  - Each was read at the next start, as designed. The two earlier lines (main 125, solver 300, user_requested) are the instrumentation runs ending. No record line matched http, cookie, SAPISID, @ or title=.
+  - adbd was returned to non-root afterwards.
+- New JVM tests, 11: ExitDiagnosticsTest (8) and DiagnosticsScreenTest (3), as listed in docs/quality/exit-diagnostics.md, plus a case for a recorder with no previous handler.
+- Static checks (static-checks-01.txt): 159 files, 24 reviewed sites, 658 raw measures in 34 screen files, 0 findings. Quality script tests (quality-script-tests-01.txt): 138, OK (this count includes Q16's test_verify.py, uncommitted at the time).
+
+Failed evidence attempts (kept):
+- q15a-debug-01: the Gradle test JVM ended with exit value 10. The recorder's no-handler branch called exitProcess, and some test let an exception escape a background thread. Fixed as described in action 3, with a test.
+- q15a-debug-02: DiagnosticsScreenTest found two Share rows. The Errors item was added to the lazy list only when there were errors, which moved the Report item for a frame. Fixed: every item has a key and the Errors item is always present, drawing nothing when there are none; the tests wait for both sections.
+- q15a-debug-03: ServiceStopDiagnosticsTest (Q15, unchanged until then) failed because the planted value "abc" occurs in this source digest (38802dababc9...). The test now looks for planted values below the identity line. A test fault, not an app fault.
+- q15a-debug-04: a test edit of mine put a real newline into a string literal (shell quoting); compile error, repaired with the editor.
+- attempts/q15a-instrumentation-01-failed.log: 46 run, 1 failed, DownloadLifecycleDeviceTest.aDownloadThatBeginsRightButCannotBePlayedFailsAsADownloadAndIsNotRetried timed out (the Q13 weakness), while the release collector was building.
+- attempts/q15a-instrumentation-02-failed.log: 46 run, 2 failed, CrossfadeFixtureDeviceTest "The two decoders did not align in four attempts" (the other Q13 weakness), Gradle stopped, 3.5 GB free. Attempt 03 on a cold-started emulator passed. Neither test was changed.
+- attempts/q15a-debug-fixture-01-misbound: bound with the instrumentation start time as the run start, so the collector called the JVM and lint reports stale. Rebound as fixture-02 with the debug run's start time, as Q15 did.
+
+Open items:
+- ANR, low memory, native crash and the other failure reasons were not produced on a device; scripted records only.
+- The Diagnostics screen was not looked at on a device or with TalkBack.
+- run-as cannot signal the app's process on this image (SELinux); the SIGKILL check needs a rootable emulator.
+- Action 7 was not exercised: no stress run.
+
+Network use in this package: none. All Gradle runs were offline.
+Device state: only the disposable fixture emulator (emulator-5580, network off). It was restarted once (cold) and left running for Q16. No physical device was attached.
+Not part of this package and not committed with it: scripts/download_favourites.py (user change), docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md, and the Q16 files.
+Next exact action: Q16, authorized by the 9 October authorization and the same instruction.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
@@ -1514,6 +1565,6 @@ New packages. Status TODO and implementation not yet authorized unless the line 
 - Q08A loudness normalization. Dependencies: Q08. Authorized by the user on 11 October 2026 ("start q08 followed by q08a"). Status: PASS locally with open items (see the Q08A section).
 - Q10A provider canary and response runbook. Dependencies: Q10. Authorized by the user on 12 October 2026 ("do q08a and q10a"). Status: PASS locally with open items (see the Q10A section).
 - Q12A update notice. Dependencies: Q01, Q12. Authorized by the user on 14 October 2026 ("start q12a, then a15a then complete q16"). Status: PASS locally with open items, live feed BLOCKED (see the Q12A section).
-- Q15A exit-reason diagnostics. Dependencies: Q15. Authorized by the user on 14 October 2026 (same instruction).
+- Q15A exit-reason diagnostics. Dependencies: Q15. Authorized by the user on 14 October 2026 (same instruction). Status: PASS locally with open items (see the Q15A section).
 Changed inside existing packages: Q14 now includes a Baseline Profile (optimization rule 8).
 New contract rule 16: commit each package locally on its branch before starting the next. Q00-Q02 work is still uncommitted on main; committing it is the next step before Q03 and has not been done. Pushing remains unauthorized.
