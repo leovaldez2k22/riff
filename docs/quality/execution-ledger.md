@@ -1670,13 +1670,26 @@ Open items, with rerun steps:
 - On a phone: the user will lend a phone for a full USB pass over the plan. Then: python scripts/quality/verify.py --lane device --allow-install --serial <phone> --tier R|L, pull files/q16b-*.png and q16b-letters.txt, play a real word-timed song with a held word, and long-press a downloaded song on the home page and open the player's menu while it plays. Installing needs the user's confirmation of the phone and the build.
 - The player's menu was not opened in a test: it calls the same DownloadSongAction, which is tested, but only when the player reports the song as from YouTube Music. Check on the phone with a song played from the home page, as the user reported.
 - "Remove download" is also offered while a download is queued or running (it cancels it). The user asked only about finished downloads; this keeps the menu from queuing a second copy. Easy to narrow if the user prefers.
-- Lift size: 2.5 dp was the user's starting value, to be tuned after they see it.
+- Lift size: 2.5 dp was the user's starting value, to be tuned after they see it. (Done: 1 dp, see Q16B tuning.)
 - API 33 and 36 emulator images are not installed (as Q16).
 
 Network use in this package: none.
 Device state: only the disposable fixture emulator (emulator-5580, API 31, network off); development installs and the lane reinstalled its debug app and test APK; the recordings were removed from the emulator after they were pulled. No physical device was attached.
 Not part of this package and not committed with it: scripts/download_favourites.py's remaining user change and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
 Next exact action: Q17 (current documentation and packaging), inside the 9 October authorization; not started (the user said to stop before Q17).
+
+### Q16B tuning (15 October 2026)
+Status: PASS locally and on the disposable emulator. The Q16B open items above stand, except the lift size, which the user has now chosen.
+Request: the user asked, after seeing Q16B, to "change the jump to 1 dp, and reduce how much it shakes, make the shake much more subtle".
+Change: RiffLyrics.letterRise 2.5 dp -> 1 dp; RiffLyrics.heldShake 0.6 dp -> 0.25 dp (on the user's 2.5-dp-to-1-dp scale, a shimmer more than a wobble: about 0.5-0.7 px on a phone). Nothing else in the renderer changed. Tests take the lift from the token. The device test now measures the shake over 160 ms in 10 ms steps, long enough for the shake to swing both ways and too short for the glow to change much; with the smaller shake the old 360 ms window let the glow's own brightening (about 0.2 px) blur the measure.
+Source: evidence taken on 4270977 dirty with these five files uncommitted, digest prefix b564ff385103. Committed as e634796 with exactly the evidence sources. Evidence: artifacts/quality/4270977879eb3788601d953d1ed8ad767c5db303-dirty-b564ff385103/q16b-tune-debug-01, q16b-tune-release-01; artifacts/quality/lanes/emulator-20261015T055433Z (q16b/: device PNGs, number files, logcat lines, a 22 s recording).
+Verification:
+- q16b-tune-debug-01: PASS_LOCAL, first run, 993 / 110, zero failures, lint 85 warnings, 3 hints. App APK f9cb70516904224551a18631be825e7ad7ac8044c2d8431f483d999494ef58e4.
+- q16b-tune-release-01: PASS_LOCAL, first run, 993 / 110, zero failures; lint unchanged against q16b-release-01 (nothing added or removed). Release APK afa1ff9385f040899a630f8033847c3ce0c0652ed6c1e9f36469ece8a3f8acd2, 28,263,130 bytes (unsigned).
+- Emulator lane, API 31 (emulator-20261015T055433Z): PASS_LOCAL, first attempt, 49 tests, network off. Test APK 65276fd4932f4c132275be1344de8bd2aaa6983391d1eb39eb36d498aef6a56a. Lift 2.00 px expected (1 dp at density 2), 2.01 measured; the held "t" wanders 0.84 px while sung (2.02 px before the change, over the longer window), 0.00 after the word ends; reduced motion 0.00 lift and 0.19 px (the glow); Q16A pink before=0 held=811 after=0, two lines current.
+- Before the evidence runs, two development runs of the device test on the emulator gave the same numbers and showed the reduced-motion figure (0.19 px) above the first threshold tried (0.15); the threshold was set to 0.3 and the shake's to 0.5, between the two measured values.
+Device state: only the disposable fixture emulator (emulator-5580, API 31, network off). No physical device.
+Next exact action: Q17, not started (the user said to stop before Q17).
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
