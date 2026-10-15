@@ -175,7 +175,7 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
             SongActionItem("Add to queue") { act { enqueueRealTrack(provider, playback, held, false, onNotice) } }
             if (track.isMusic && !track.isLive) {
                 SongActionItem("Add to playlist") { peek.dismiss(); uiHaptic(); playlistTrack = track }
-                SongActionItem("Download song") { act { requestSongDownload(context, track, onNotice) } }
+                DownloadSongAction(track, onNotice, onDismiss = { peek.dismiss() }, scope = scope)
             }
             held.artistId?.let { id -> SongActionItem("View artist") { peek.dismiss(); model.openCollection(id, playerArtistLabel(held.subtitle)) } }
             held.albumId?.let { id -> SongActionItem("View album") { peek.dismiss(); model.openCollection(id, held.album.ifBlank { string(R.string.album) }) } }

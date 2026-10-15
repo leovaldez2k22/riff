@@ -1,5 +1,6 @@
 package com.musicglass.personal
 
+import androidx.compose.ui.geometry.Offset
 import java.nio.file.Files
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.toList
@@ -243,5 +244,44 @@ class LyricsTest {
         assertEquals(0f,heldGlow(999,word),0f)
         assertTrue("the glow grows with the sweep",heldGlow(2100,word) > heldGlow(1300,word))
         assertEquals(0f,heldGlow(2200 + HELD_RELEASE_MS,word),0f)
+    }
+
+    @Test fun aLetterPopsUpWhenLitAndStaysUp() {
+        assertEquals(0f,letterRise(1000,1000),0f)
+        assertEquals(0f,letterRise(500,1000),0f)
+        val peak = (1..LETTER_POP_MS).maxOf { letterRise(1000 + it,1000) }
+        assertTrue("it overshoots a little, then settles ($peak)",peak in 1.02f..1.2f)
+        assertEquals(1f,letterRise(1000 + LETTER_POP_MS,1000),1e-5f)
+        assertEquals("it stays up for good",1f,letterRise(600_000,1000),1e-5f)
+        assertEquals(1f,letterSwell(999,1000),0f)
+        assertEquals(RiffLyrics.letterSwell,letterSwell(1000 + LETTER_POP_MS / 2,1000),1e-3f)
+        assertEquals("the swell is over once it is up",1f,letterSwell(1000 + LETTER_POP_MS,1000),0f)
+    }
+
+    @Test fun aHeldLetterShakesOnlyWhileItsWordIsSung() {
+        val word = LyricWord(0,4,1000,2600)
+        assertEquals("not before the letter is lit",Offset.Zero,letterShake(1300,1400,word,2))
+        assertEquals("not once the word has ended",Offset.Zero,letterShake(2600,1400,word,2))
+        assertEquals(Offset.Zero,letterShake(9000,1400,word,2))
+        val samples = (1600L..2400L step 7).map { letterShake(it,1400,word,2) }
+        assertTrue("it keeps moving",samples.distinct().size > 50)
+        assertTrue("never more than its size",samples.all { kotlin.math.abs(it.x) <= 1f && kotlin.math.abs(it.y) <= 1f })
+        assertTrue("and visibly",samples.maxOf { kotlin.math.abs(it.y) } > .8f)
+        assertNotEquals("each letter out of step",letterShake(2000,1400,word,1),letterShake(2000,1400,word,2))
+        assertTrue("it fades in",kotlin.math.abs(letterShake(1410,1400,word,2).x) < .05f)
+    }
+
+    @Test fun aSongMenuOffersToRemoveADownloadThatIsReadyOrOnItsWay() {
+        fun row(state: String) = OfflineSong("scope",ProviderTrack("song0000001","Song","Artist"),state,true,0,0,"",0,"","","",0,0,0)
+        assertEquals("Download song",songDownloadOffer(null,audioReady = false))
+        assertEquals("only a name from listening","Download song",songDownloadOffer(row("metadata"),audioReady = false))
+        for (state in listOf("queued","resolving","transferring","validating")) assertEquals(state,"Remove download",songDownloadOffer(row(state),audioReady = false))
+        assertEquals("Remove download",songDownloadOffer(row("assets"),audioReady = true))
+        assertEquals("Remove download",songDownloadOffer(row("complete"),audioReady = true))
+        assertEquals("a Smart Downloads song is downloaded too","Remove download",songDownloadOffer(row("complete").copy(pinned = false),audioReady = true))
+        assertEquals("paused before any audio: start it again","Download song",songDownloadOffer(row("paused"),audioReady = false))
+        assertEquals("Download song",songDownloadOffer(row("failed"),audioReady = false))
+        assertEquals("being removed","Download song",songDownloadOffer(row("cancelled"),audioReady = false))
+        assertEquals("files that are there count, whatever the row says","Remove download",songDownloadOffer(row("failed"),audioReady = true))
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ClipOp
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
@@ -38,6 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.ResolvedTextDirection
 import androidx.compose.ui.unit.TextUnit
+import java.text.BreakIterator
+import kotlin.math.PI
+import kotlin.math.sin
 
 /** How long a held word takes to grow when it starts, and to settle back after it ends (Q16A). */
 internal const val HELD_RISE_MS = 220L
@@ -60,10 +65,88 @@ internal fun heldGlow(nowMs: Long, word: LyricWord): Float = when {
     else -> smooth(1 - (nowMs - word.endMs).toFloat() / HELD_RELEASE_MS)
 }
 
+/** How long a letter takes to pop up once the sweep reaches it, and how long a held letter's shake takes to start and stop (Q16B). */
+internal const val LETTER_POP_MS = 180L
+internal const val SHAKE_FADE_MS = 120L
+
+/** How far a letter has popped up, as a share of [RiffLyrics.letterRise]: 0 before the sweep reaches it, a little over 1 on the way, then 1 for good. */
+internal fun letterRise(nowMs: Long, litMs: Long): Float {
+    if (nowMs <= litMs) return 0f
+    val t = ((nowMs - litMs).toFloat() / LETTER_POP_MS).coerceAtMost(1f) - 1
+    return 1 + 2.70158f * t * t * t + 1.70158f * t * t
+}
+
+/** A letter's size while it pops: 1 before and after, up to [RiffLyrics.letterSwell] in between. */
+internal fun letterSwell(nowMs: Long, litMs: Long): Float {
+    if (nowMs <= litMs || nowMs >= litMs + LETTER_POP_MS) return 1f
+    return 1 + (RiffLyrics.letterSwell - 1) * sin(PI * (nowMs - litMs) / LETTER_POP_MS).toFloat()
+}
+
+/**
+ * A held word's letter shaking, as a share of [RiffLyrics.heldShake] in each direction: nothing before the letter is
+ * lit or once the word has ended, a quick fade in and out, and each letter ([seed]) out of step with the others.
+ */
+internal fun letterShake(nowMs: Long, litMs: Long, word: LyricWord, seed: Int): Offset {
+    if (nowMs < litMs || nowMs >= word.endMs) return Offset.Zero
+    val amount = smooth((nowMs - litMs).toFloat() / SHAKE_FADE_MS) * smooth((word.endMs - nowMs).toFloat() / SHAKE_FADE_MS)
+    val seconds = nowMs / 1000.0
+    return Offset((amount * sin(2 * PI * 11 * seconds + seed * 1.7)).toFloat(), (amount * sin(2 * PI * 13 * seconds + seed * 2.3)).toFloat())
+}
+
 private data class LyricHighlight(val part: LyricPart, val path: Path, val bounds: Rect, val rtl: Boolean)
 
+/** One letter (Q16B): its column, the strip it is drawn through, and when the sweep reaches its middle. */
+private class LyricLetter(val column: Rect, val litMs: Long)
+
+/** The letters of a word-synced line, all columns together, and when the first and last are lit. */
+private class LyricLetters(val letters: List<LyricLetter>, val all: Path) {
+    val firstMs = letters.minOfOrNull { it.litMs } ?: Long.MAX_VALUE
+    val lastMs = letters.maxOfOrNull { it.litMs } ?: Long.MIN_VALUE
+}
+
+/** Letters as the reader sees them (a base and its marks together), with their character ranges. Spaces are left out. */
+private fun graphemes(text: String): List<IntRange> = buildList {
+    val breaks = BreakIterator.getCharacterInstance().apply { setText(text) }
+    var start = breaks.first()
+    var end = breaks.next()
+    while (end != BreakIterator.DONE) {
+        if (text.substring(start, end).isNotBlank()) add(start until end)
+        start = end; end = breaks.next()
+    }
+}
+
+/** Where the sweep is across [bounds] at [x], from 0 to 1, in the reading direction. */
+private fun sweepShare(x: Float, bounds: Rect, rtl: Boolean) =
+    if (bounds.width <= 0f) 0f else ((if (rtl) bounds.right - x else x - bounds.left) / bounds.width).coerceIn(0f, 1f)
+
+private fun lyricLetters(text: String, layout: TextLayoutResult, highlights: List<LyricHighlight>): LyricLetters {
+    val letters = graphemes(text).mapNotNull { range ->
+        val highlight = highlights.firstOrNull { range.first >= it.part.from && range.first < it.part.to } ?: return@mapNotNull null
+        val row = layout.getLineForOffset(range.first)
+        val box = range.map { layout.getBoundingBox(it) }.reduce { a, b -> Rect(minOf(a.left, b.left), a.top, maxOf(a.right, b.right), a.bottom) }
+        val part = highlight.part
+        LyricLetter(Rect(box.left, layout.getLineTop(row), box.right, layout.getLineBottom(row)),
+            part.startMs + ((part.endMs - part.startMs) * sweepShare(box.center.x, highlight.bounds, highlight.rtl)).toLong())
+    }
+    return LyricLetters(letters, Path().apply { letters.forEach { addRect(it.column) } })
+}
+
+/**
+ * A held word's letter (Q16B), measured on its own and drawn whole at [at], so its glow is never cut. [column] is
+ * where it sits in the line; it is lit when the word's own sweep reaches its middle.
+ */
+private class HeldLetter(val glyph: TextLayoutResult, val at: Offset, val column: Rect, val litMs: Long)
+
 /** A held word on one display line, measured alone so it can be drawn grown and glowing without its neighbours. */
-private class HeldWord(val word: LyricWord, val path: Path, val alone: TextLayoutResult, val topLeft: Offset, val rtl: Boolean)
+private class HeldWord(val word: LyricWord, val path: Path, val alone: TextLayoutResult, val topLeft: Offset, val rtl: Boolean,
+    val letters: List<HeldLetter>)
+
+private val separateScripts = setOf(Character.UnicodeScript.LATIN, Character.UnicodeScript.CYRILLIC, Character.UnicodeScript.GREEK,
+    Character.UnicodeScript.COMMON, Character.UnicodeScript.INHERITED, Character.UnicodeScript.HAN, Character.UnicodeScript.HIRAGANA,
+    Character.UnicodeScript.KATAKANA, Character.UnicodeScript.HANGUL)
+
+/** Whether a word's letters keep their shapes when drawn one by one. Joined scripts (Arabic, Devanagari and the like) do not. */
+private fun separable(word: String) = word.codePoints().allMatch { Character.UnicodeScript.of(it) in separateScripts }
 
 /**
  * One sung line and, under it, its background vocal (Q16A). [active] lights the line; [backingActive] lights
@@ -109,9 +192,22 @@ private fun KaraokeText(text: String, parts: List<LyricPart>, active: Boolean, p
             val alone = measurer.measure(text.substring(word.from, word.to), style, softWrap = false, maxLines = 1)
             val rtl = measured.getBidiRunDirection(word.from) == ResolvedTextDirection.Rtl
             val left = if (rtl) bounds.right - alone.size.width else bounds.left
-            HeldWord(word, path, alone, Offset(left, measured.getLineBaseline(row) - alone.firstBaseline), rtl)
+            val topLeft = Offset(left, measured.getLineBaseline(row) - alone.firstBaseline)
+            val whole = Rect(topLeft, Size(alone.size.width.toFloat(), alone.size.height.toFloat()))
+            val spelled = text.substring(word.from, word.to)
+            val pieces = if (separable(spelled)) graphemes(spelled) else listOf(spelled.indices)
+            val letters = pieces.map { range ->
+                val box = range.map { alone.getBoundingBox(it) }.reduce { a, b -> Rect(minOf(a.left, b.left), a.top, maxOf(a.right, b.right), a.bottom) }
+                val column = Rect(topLeft.x + box.left, whole.top, topLeft.x + box.right, whole.bottom)
+                val single = pieces.size == 1
+                HeldLetter(if (single) alone else measurer.measure(spelled.substring(range.first, range.last + 1), style, softWrap = false, maxLines = 1),
+                    if (single) topLeft else Offset(column.left, topLeft.y), column,
+                    word.startMs + (word.durationMs * sweepShare(column.center.x, whole, rtl)).toLong())
+            }
+            HeldWord(word, path, alone, topLeft, rtl, letters)
         }
     }
+    val letters = remember(layout, highlights) { layout?.let { if (highlights.isEmpty()) null else lyricLetters(text, it, highlights) } }
     val baseColor by animateColorAsState(if (active) White.copy(alpha = if (parts.isEmpty()) 1f else .38f)
         else White.copy(alpha = .40f), GlassMotion.timed(GlassMotion.selectionMs, motion), label = "lyric focus")
     val scale = animateFloatAsState(if (active && !motion.reduced) 1.025f else 1f,
@@ -121,26 +217,56 @@ private fun KaraokeText(text: String, parts: List<LyricPart>, active: Boolean, p
             .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
             .drawWithContent {
                 val measured = layout
-                if (!active || measured == null) { drawContent(); return@drawWithContent }
+                val lifted = letters
+                val raise = if (motion.reduced) 0f else RiffLyrics.letterRise.toPx()
+                if (measured == null || (!active && (lifted == null || raise == 0f))) { drawContent(); return@drawWithContent }
                 val now = position()
-                val popping = heldWords.filter { now >= it.word.startMs && now < it.word.endMs + HELD_RELEASE_MS }
-                if (popping.isEmpty()) drawContent()
-                else {
-                    // The held word is drawn again on its own, grown; the copy in the line must not show under it.
-                    val cut = Path().apply { popping.forEach { addPath(it.path) } }
-                    clipPath(cut, ClipOp.Difference) { this@drawWithContent.drawContent() }
+                val popping = if (!active) emptyList() else heldWords.filter { now >= it.word.startMs && now < it.word.endMs + HELD_RELEASE_MS }
+                // The held word is drawn again on its own, grown; the copy in the line must not show under it.
+                val cut = if (popping.isEmpty()) null else Path().apply { popping.forEach { addPath(it.path) } }
+                // The line as it stands now: dim letters, and while it is current, white where it has been sung.
+                fun DrawScope.paint() {
+                    if (cut == null) this@drawWithContent.drawContent() else clipPath(cut, ClipOp.Difference) { this@drawWithContent.drawContent() }
+                    if (!active) return
+                    for (highlight in highlights) {
+                        val part = highlight.part
+                        if (popping.any { part.from >= it.word.from && part.to <= it.word.to }) continue
+                        val fraction = ((now - part.startMs).toFloat() / (part.endMs - part.startMs)).coerceIn(0f, 1f)
+                        if (fraction <= 0) continue
+                        val bounds = highlight.bounds
+                        clipPath(highlight.path) {
+                            clipRect(left = if (highlight.rtl) bounds.right - bounds.width * fraction else bounds.left,
+                                top = bounds.top, right = if (highlight.rtl) bounds.right else bounds.left + bounds.width * fraction,
+                                bottom = bounds.bottom) {
+                                drawText(measured, color = White)
+                            }
+                        }
+                    }
                 }
-                for (highlight in highlights) {
-                    val part = highlight.part
-                    if (popping.any { part.from >= it.word.from && part.to <= it.word.to }) continue
-                    val fraction = ((now - part.startMs).toFloat() / (part.endMs - part.startMs)).coerceIn(0f, 1f)
-                    if (fraction <= 0) continue
-                    val bounds = highlight.bounds
-                    clipPath(highlight.path) {
-                        clipRect(left = if (highlight.rtl) bounds.right - bounds.width * fraction else bounds.left,
-                            top = bounds.top, right = if (highlight.rtl) bounds.right else bounds.left + bounds.width * fraction,
-                            bottom = bounds.bottom) {
-                            drawText(measured, color = White)
+                when {
+                    // Q16B: each letter pops up as the sweep reaches it and stays up. Nothing lit yet, or no word timing: as it is.
+                    lifted == null || raise == 0f || now <= lifted.firstMs -> paint()
+                    // Every letter is up: one pass for all of them, and one for anything between (spaces, untimed text).
+                    now >= lifted.lastMs + LETTER_POP_MS -> {
+                        clipPath(lifted.all, ClipOp.Difference) { paint() }
+                        translate(top = -raise) { clipPath(lifted.all) { paint() } }
+                    }
+                    else -> {
+                        val up = Path()
+                        val moving = ArrayList<LyricLetter>()
+                        for (letter in lifted.letters) when {
+                            now <= letter.litMs -> Unit
+                            now >= letter.litMs + LETTER_POP_MS -> up.addRect(letter.column)
+                            else -> moving += letter
+                        }
+                        val down = Path().apply { addPath(up); moving.forEach { addRect(it.column) } }
+                        clipPath(down, ClipOp.Difference) { paint() }
+                        translate(top = -raise) { clipPath(up) { paint() } }
+                        for (letter in moving) {
+                            val swell = letterSwell(now, letter.litMs)
+                            withTransform({ translate(top = -raise * letterRise(now, letter.litMs)); scale(swell, swell, letter.column.center) }) {
+                                clipRect(letter.column.left, letter.column.top, letter.column.right, letter.column.bottom) { paint() }
+                            }
                         }
                     }
                 }
@@ -161,13 +287,27 @@ private fun DrawScope.drawHeldWord(held: HeldWord, now: Long, dim: Color, reduce
     val glowRadius = RiffLyrics.heldGlow.toPx()
     val soft = RiffLyrics.sweepEdge.toPx()
     val rise = RiffLyrics.heldRise.toPx() * emphasis
+    val pad = glowRadius + soft
+    // Q16B: letter by letter, each popped up like the rest of the line and shaking while the word is sung.
+    val lift = if (reduced) 0f else RiffLyrics.letterRise.toPx()
+    val shake = if (reduced) 0f else RiffLyrics.heldShake.toPx()
+    // Each letter is drawn whole (never through a strip), so its glow is never cut.
+    fun DrawScope.eachLetter(draw: DrawScope.(HeldLetter) -> Unit) = held.letters.forEachIndexed { index, letter ->
+        val wobble = letterShake(now, letter.litMs, word, index) * shake
+        val swell = if (reduced) 1f else letterSwell(now, letter.litMs)
+        withTransform({ translate(wobble.x, wobble.y - lift * letterRise(now, letter.litMs)); scale(swell, swell, letter.column.center) }) {
+            draw(letter)
+        }
+    }
     withTransform({ translate(top = -rise); scale(grow, grow, centre) }) {
-        drawText(held.alone, color = dim, topLeft = held.topLeft)
-        val pad = glowRadius + soft
-        val area = Rect(held.topLeft.x - pad, held.topLeft.y - pad, held.topLeft.x + width + pad, held.topLeft.y + height + pad)
+        eachLetter { drawText(it.glyph, color = dim, topLeft = it.at) }
+        val reach = pad + lift * 1.2f + shake
+        val area = Rect(held.topLeft.x - reach, held.topLeft.y - reach, held.topLeft.x + width + reach, held.topLeft.y + height + reach)
         drawContext.canvas.saveLayer(area, Paint())
-        drawText(held.alone, color = White, topLeft = held.topLeft,
-            shadow = if (glow > 0f) Shadow(RiffLyrics.glow.copy(alpha = .9f * glow), Offset.Zero, glowRadius * glow) else null)
+        eachLetter {
+            drawText(it.glyph, color = White, topLeft = it.at,
+                shadow = if (glow > 0f) Shadow(RiffLyrics.glow.copy(alpha = .9f * glow), Offset.Zero, glowRadius * glow) else null)
+        }
         // Keep what has been sung; past the sweep the letters and their glow fade out over a short soft edge.
         val keep = if (sweep >= 1f) {
             Brush.horizontalGradient(listOf(Color.Black, Color.Black), startX = area.left, endX = area.right)

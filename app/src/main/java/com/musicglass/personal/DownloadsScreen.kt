@@ -42,10 +42,35 @@ internal suspend fun requestSongDownload(context:Context,track:ProviderTrack,onN
         DownloadCoordinator.start(context);uiHaptic(HapticCue.Confirm);onNotice(string(R.string.downloading_highest_available_audio_artwork))
     } catch(e:CancellationException) {throw e} catch(_:Exception) {uiHaptic(HapticCue.Reject);onNotice(string(R.string.could_not_start_download_retry_from_download))}
 }
-@Composable internal fun DownloadSongAction(track:ProviderTrack,onNotice:(String)->Unit={},onDismiss:()->Unit={}) {
+/** What a song's menu offers for its download (Q16B): to remove one that is ready or on its way, else to download it. */
+internal fun songDownloadOffer(song:OfflineSong?,audioReady:Boolean)=
+    if(audioReady || song?.status?.pending==true) "Remove download" else "Download song"
+internal suspend fun requestSongRemoval(context:Context,track:ProviderTrack,onNotice:(String)->Unit) {
+    try {
+        val store=OfflineMusicStore.get(context)
+        withContext(Dispatchers.IO) {store.remove(store.currentScope,track.videoId)}
+        uiHaptic(HapticCue.Confirm);onNotice(string(R.string.download_removed))
+    } catch(e:CancellationException) {throw e} catch(_:Exception) {uiHaptic(HapticCue.Reject);onNotice(string(R.string.could_not_change_this_download))}
+}
+/**
+ * "Download song", or "Remove download" (pink, with a trash can) for a song already downloaded or on its way. Every
+ * song menu uses this one. The store is read off the main thread, so the item appears once it is known, and it
+ * follows the store while the menu is open. [scope] should outlive the menu when the caller has one.
+ */
+@Composable internal fun DownloadSongAction(track:ProviderTrack,onNotice:(String)->Unit={},onDismiss:()->Unit={},scope:CoroutineScope=rememberCoroutineScope()) {
     if(track.isLive || !track.isMusic) return
-    val context=LocalContext.current;val scope=rememberCoroutineScope()
-    SongActionItem("Download song",onClick={onDismiss();scope.launch {requestSongDownload(context,track,onNotice)}})
+    val context=LocalContext.current;val store=remember {OfflineMusicStore.get(context)}
+    val revision by store.revision.collectAsStateWithLifecycle()
+    val offer by produceState<String?>(null,track.videoId,revision) {
+        value=withContext(Dispatchers.IO) {
+            val scopeName=store.currentScope
+            songDownloadOffer(store.song(scopeName,track.videoId),store.audio(scopeName,track.videoId)!=null)
+        }
+    }
+    when(offer) {
+        "Remove download"->SongActionItem("Remove download",onClick={onDismiss();scope.launch {requestSongRemoval(context,track,onNotice)}})
+        "Download song"->SongActionItem("Download song",onClick={onDismiss();scope.launch {requestSongDownload(context,track,onNotice)}})
+    }
 }
 internal fun storageLabel(bytes:Long)=if(bytes>=1024L*1024*1024) "%.1f GB".format(bytes/(1024.0*1024*1024)) else "%.1f MB".format(bytes/(1024.0*1024))
 internal val downloadBudgets=(1..16).map {it*1073741824L}+listOf(24L,32L,64L,128L,256L).map {it*1073741824L}+Long.MAX_VALUE
