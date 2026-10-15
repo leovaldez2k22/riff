@@ -107,7 +107,7 @@ $commit = (& git -C $project rev-parse --short HEAD).Trim()
 
 Push-Location $project
 try {
-    $qualityStartUtc = [DateTime]::UtcNow.ToString('o')
+    $qualityStartUtc = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.ffffffZ')
     if (-not $SkipClean) {
         $ErrorActionPreference = 'Continue'
         & $gradle ':app:clean' @gradleFlags
@@ -155,7 +155,7 @@ try {
     [System.IO.File]::WriteAllText((Join-Path $releaseDir 'SHA256SUMS.txt'),
         "$hash  $(Split-Path -Leaf $releaseApk)`n")
 
-    $qualityEndUtc = [DateTime]::UtcNow.ToString('o')
+    $qualityEndUtc = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.ffffffZ')
     $qualityArgs = @('--collect-only','--variant','release','--apk',$releaseApk,
         '--start-utc',$qualityStartUtc,'--end-utc',$qualityEndUtc,'--exit-code','0',
         '--command',('Gradle ' + ($tasks -join ' ')))
