@@ -14,6 +14,8 @@ Android 12 or later, 64-bit ARM phones. Signed with the same certificate as ever
 
 **Playback.** Normalize volume (off by default). A crash in the stream helper no longer stops the music; after an app crash the queue returns paused with a one-time note; playback resumes by itself when the network returns. Recovery, crossfade and queue edits were reworked to keep the queue and refuse stale requests.
 
+**Player.** No Play video button; no patches behind the close button and heading; rounded shuffle and repeat; the title and buttons no longer show twice while the player opens; a tap on the lyrics page no longer reaches the home page beneath it. The first song after a break starts sooner: the stream helper keeps YouTube's prepared player script and is made ready when you come back to the app.
+
 **Downloads.** Song menus offer **Remove download** in pink for a downloaded song, everywhere. Downloads restart safely, are checked before playing and are marked damaged only on proof.
 
 **Diagnostics.** Settings → About → Diagnostics shows how Riff last closed and the errors it recorded, and shares a cleaned report only when you ask.

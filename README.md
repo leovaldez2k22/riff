@@ -17,7 +17,7 @@ This repository continues the project under **leovaldez2k21** with its Git histo
 ## Features
 
 - Browse recommendations, search, albums, playlists, artists, podcasts and live radio.
-- Background playback, automatic crossfades, normalize volume, queue editing, sleep timers and official video counterparts when available.
+- Background playback, automatic crossfades, normalize volume, queue editing and sleep timers.
 - Word-synced or line-synced lyrics with overlapping lines, background vocals and held-word emphasis, timing adjustment and on-device English translation.
 - Song and collection downloads, optional Smart Downloads, storage budgets.
 - Separate data for each account, for signed-out listening and for audio on the phone; Privacy and data controls; export and import to another phone.

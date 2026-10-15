@@ -46,9 +46,6 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.RepeatOne
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
@@ -83,6 +80,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.preferredFrameRate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -100,6 +98,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -190,7 +190,6 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     val scope=rememberCoroutineScope()
     val videoId=state.mediaId.removePrefix("yt:")
     val favorite=provider.songLikes[videoId] == true
-    var videoBusy by remember(state.mediaId) {mutableStateOf(false)}
     var likeBusy by remember(state.mediaId,provider.authRevision) { mutableStateOf(false) }
     LaunchedEffect(state.mediaId,provider.authRevision) {
         if(state.source=="YouTube Music" && provider.signedIn) {
@@ -315,21 +314,28 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     SeekNudgeOverlay(seekNudge)
                 }
             }
+            // The close button and the heading sit on this shade, not on patches of their own, which read as
+            // outlines around them. Down to below the close button it is as deep as an icon's patch was (Q13),
+            // so the button still reads over white artwork; then it fades out.
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
-                0f to Color.Black.copy(alpha = .16f), .36f to Color.Transparent)))
+                0f to Color.Black.copy(alpha = RiffContrast.scrimForControl),
+                PLAYER_TOP_SHADE_END to Color.Black.copy(alpha = RiffContrast.scrimForControl),
+                .42f to Color.Transparent)))
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 .padding(top = statusInset + 2.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                // Each sits on its own patch of scrim: over white artwork neither could be seen (Q13).
                 IconButton(onClick = hapticClick(onClose),enabled=!queueOpen, modifier = Modifier.testTag("player_close")) {
-                    Box(Modifier.size(RiffSpace.scrimPatch).scrimPatch(RiffContrast.scrimForControl), contentAlignment = Alignment.Center) {
+                    Box(contentAlignment = Alignment.Center) {
+                        // A soft shadow, not an outline.
+                        Icon(Icons.Rounded.Close, contentDescription = null, tint = Color.Black.copy(alpha = .5f),
+                            modifier = Modifier.blur(3.dp))
                         Icon(Icons.Rounded.Close, contentDescription = string(R.string.close_player), tint = White)
                     }
                 }
                 Box(Modifier.weight(1f)) {
                     Text(string(R.string.now_playing), color = White, fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, maxLines = 1,
-                        modifier = Modifier.scrimLabel(RiffContrast.scrimForText))
+                        style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .6f), blurRadius = 6f)))
                 }
             }
         }
@@ -425,7 +431,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         Row(Modifier.fillMaxWidth().graphicsLayer { alpha = transportAlpha() },
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically) {
-            TransportButton(Icons.Rounded.Shuffle,
+            TransportButton(RoundedTransportIcons.Shuffle,
                 if (state.shuffle) string(R.string.shuffle_on) else string(R.string.shuffle_off), playback::toggleShuffle,
                 modifier = Modifier.testTag("playback_shuffle"), active = state.shuffle,
                 enabled = hasQueue, diameter = 42.dp, iconSize = 22.dp)
@@ -445,32 +451,13 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     .onGloballyPositioned {
                         onMorphElementBounds("next", it) }, enabled = hasQueue,
                 diameter = 54.dp, iconSize = 38.dp)
-            TransportButton(if (state.repeat == 1) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+            TransportButton(if (state.repeat == 1) RoundedTransportIcons.RepeatOne else RoundedTransportIcons.Repeat,
                 when (state.repeat) { 1 -> string(R.string.repeat_one); 2 -> string(R.string.repeat_all); else -> string(R.string.repeat_off) },
                 playback::cycleRepeat, modifier = Modifier.testTag("playback_repeat"),
                 active = state.repeat != 0, diameter = 42.dp, iconSize = 22.dp)
         }
         AudioOutputControls(onLyrics = onLyrics, onQueue = onQueue)
         if(state.sleepDeadlineMs>0) SleepTimerCountdown(state.sleepDeadlineMs) {uiHaptic();sleepTimerVisible=true}
-        if(state.source=="YouTube Music" && !state.live) TextButton(enabled=!videoBusy,onClick={ uiHaptic();videoBusy=true;scope.launch {
-            // The entry, so that a second copy of the same song is not mistaken for this one.
-            val requested=state.playback.queueItemId to state.mediaId
-            try {
-                if(state.video) {playback.restoreAudio(providerTrack(),playback.currentPositionMs());return@launch}
-                val lookup=kotlinx.coroutines.withTimeoutOrNull(25_000) {provider.videoFor(providerTrack())}
-                if(lookup==null || lookup.isFailure) {onNotice(string(R.string.could_not_check_official_videos_check_your));return@launch}
-                val target=lookup.getOrNull()
-                if(playback.state.let {it.playback.queueItemId to it.mediaId}!=requested) return@launch
-                if(target==null) {onNotice(string(R.string.no_official_music_video_is_available));return@launch}
-                val result=kotlinx.coroutines.withTimeoutOrNull(35_000) {provider.resolve(target,video=true)}
-                if(playback.state.let {it.playback.queueItemId to it.mediaId}!=requested) return@launch
-                if(result==null) onNotice(string(R.string.official_video_unavailable_try_again_later)) else result.fold(onSuccess={stream->
-                    if(!pairedVideoTitleAllowed(providerTrack(),stream.resolvedTitle) || stream.videoUrl==null && stream.sabrVideoBootstrap==null && stream.mimeType?.contains("mpegurl",true)!=true) onNotice(string(R.string.no_official_music_video_is_available))
-                    else playback.replaceProvider(providerTrack(),stream,playback.currentPositionMs())
-                },onFailure={onNotice(string(R.string.official_video_unavailable_try_again_later))})
-            } catch(e:kotlinx.coroutines.CancellationException) {throw e}
-            finally {videoBusy=false}
-        }},modifier=Modifier.testTag("player_video")) {Text(if(videoBusy) string(R.string.preparing_video) else if(state.video) string(R.string.switch_to_audio) else string(R.string.play_video),color=White,fontSize=13.sp)}
         PlaybackProblem(state.notice, state.error, state.playback.failure, onFailureAction)
         }
     }
@@ -485,6 +472,9 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         } },
         containerColor = Raised)
 }
+
+/** How far down the artwork (a share of its height) the shade under the close button stays at its full depth. */
+internal const val PLAYER_TOP_SHADE_END = .2f
 
 private fun collectionsCanSave(collections: LocalCollections) = collections.canSave
 

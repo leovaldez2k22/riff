@@ -140,6 +140,8 @@ internal class YouTubeMusicProvider(context: Context,
     override suspend fun resolve(request:StreamRequest)=streams.resolve(request)
     suspend fun invalidateAttestation()=streams.invalidateAttestation()
     fun invalidateStream(videoId:String)=streams.invalidateStream(videoId)
+    /** The app is on the screen again: get the next song ready to start quickly ([ProviderStreamResolver.warmUp]). */
+    fun warmStreams()=streams.warmUp()
 
     override fun close() {
         sessionManager.scope.cancel()

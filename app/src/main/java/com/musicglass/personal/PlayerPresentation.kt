@@ -209,6 +209,15 @@ internal fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
 /** Progress after which the flying morph elements hand over to the real player controls. */
 private const val morphHandoffStart = .96f
 
+/** How far the flying copies have travelled at morph progress [p]: all the way by the time the hand-over starts. */
+internal fun morphTravel(p: Float): Float = (p / morphHandoffStart).coerceIn(0f, 1f)
+
+/** How much of each flying copy shows at [p]; the real element shows the rest ([morphHandoff]). */
+internal fun morphCopyAlpha(p: Float): Float = motionRamp(p, 0f, .02f) * (1f - morphHandoff(p))
+
+/** How much of the real title, artwork and play buttons shows at [p]. */
+internal fun morphHandoff(p: Float): Float = motionRamp(p, morphHandoffStart, 1f)
+
 /** One surface occupies the mini-player bounds and animates into the full player bounds. */
 @Composable
 internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: Boolean,
@@ -240,8 +249,8 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
         val y = miniY + (fullY - miniY) * p
         val w = miniWidth + (maxWidth - miniWidth) * p
         val h = miniHeight + (maxHeight - fullY - miniHeight) * p
-        val handoff = motionRamp(p, morphHandoffStart, 1f)
-        val movingAlpha = motionRamp(p, 0f, .02f) * (1f - handoff)
+        val handoff = morphHandoff(p)
+        val movingAlpha = morphCopyAlpha(p)
         val miniOrigin = miniBounds ?: Rect(0f, 0f, 0f, 0f)
         fun miniPosition(name: String, fallbackX: androidx.compose.ui.unit.Dp,
             fallbackY: androidx.compose.ui.unit.Dp): Pair<androidx.compose.ui.unit.Dp, androidx.compose.ui.unit.Dp> {
@@ -329,19 +338,23 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                 }
             }
             if (p > 0f && p < 1f) {
-                val artX = 12.dp * (1f - p)
-                val artY = 11.dp * (1f - p)
+                // The flying copies arrive before the hand-over starts and then fade in place. They used to
+                // travel until the very end, so during the hand-over each copy and the real element it hands
+                // to were both visible a few dp apart: two titles, two play buttons (seen on a phone).
+                val t = morphTravel(p)
+                val artX = 12.dp * (1f - t)
+                val artY = 11.dp * (1f - t)
                 val heroHeight = fullHeight / 2f
-                val artSize = 40.dp + (fullWidth - 40.dp) * p
-                val artHeight = 40.dp + (heroHeight - 40.dp) * p
+                val artSize = 40.dp + (fullWidth - 40.dp) * t
+                val artHeight = 40.dp + (heroHeight - 40.dp) * t
                 val state = playback.state
                 Box(Modifier.offset(x = artX, y = artY).width(artSize).height(artHeight)
-                    .clip(RoundedCornerShape(10.dp * (1f - p)))
+                    .clip(RoundedCornerShape(10.dp * (1f - t)))
                     .graphicsLayer {
                         alpha = 1f - handoff
                     }) {
                     PlayerArtwork(state.artworkUrl ?: providerArtworkUrl(state.mediaId.removePrefix("yt:")),
-                        Modifier.fillMaxSize(), blend = p)
+                        Modifier.fillMaxSize(), blend = t)
                 }
 
                 val (miniTitleX, miniTitleY) = miniPosition("title", 64.dp, 10.dp)
@@ -350,10 +363,10 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                 val (miniArtistX, miniArtistY) = miniPosition("artist", 64.dp, 31.dp)
                 val (fullArtistX, fullArtistY) = fullPosition("artist", 0.dp,
                     20.dp, heroHeight + 38.dp)
-                val titleBaseY = miniTitleY + (fullTitleY - miniTitleY) * p
-                val artistBaseY = miniArtistY + (fullArtistY - miniArtistY) * p
+                val titleBaseY = miniTitleY + (fullTitleY - miniTitleY) * t
+                val artistBaseY = miniArtistY + (fullArtistY - miniArtistY) * t
                 val artworkClearance = (artHeight + 6.dp - titleBaseY).coerceAtLeast(0.dp) *
-                    ((p - .05f) / .15f).coerceIn(0f, 1f)
+                    ((t - .05f) / .15f).coerceIn(0f, 1f)
                 val fullTextWidth = { name: String -> fullElementBounds[name]?.let { with(measure) { it.width.toDp() } }
                     ?: (fullWidth - 120.dp) }
                 Text(state.title, color = White,
@@ -361,25 +374,25 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.offset(
-                        x = miniTitleX + (fullTitleX - miniTitleX) * p,
+                        x = miniTitleX + (fullTitleX - miniTitleX) * t,
                         y = titleBaseY + artworkClearance)
                         .width(fullTextWidth("title")).graphicsLayer {
                             alpha = movingAlpha
                             val start=if(measure.fontScale>=1.6f) 12f/22f else 14f/22f
-                            scaleX=start+(1f-start)*p;scaleY=scaleX
+                            scaleX=start+(1f-start)*t;scaleY=scaleX
                             transformOrigin=androidx.compose.ui.graphics.TransformOrigin(0f,0f)
                         })
                 Text(playerArtistLabel(state.artist), color = Muted,
                     fontSize = 13.sp, maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.offset(
-                        x = miniArtistX + (fullArtistX - miniArtistX) * p,
+                        x = miniArtistX + (fullArtistX - miniArtistX) * t,
                         y = artistBaseY + artworkClearance)
                         .width(fullTextWidth("artist")).graphicsLayer {
-                            scaleX=11f/13f+(2f/13f)*p;scaleY=scaleX
+                            scaleX=11f/13f+(2f/13f)*t;scaleY=scaleX
                             transformOrigin=androidx.compose.ui.graphics.TransformOrigin(0f,0f)
                             alpha = if (measure.fontScale >= 1.8f && !miniElementBounds.containsKey("artist"))
-                                movingAlpha * p else movingAlpha
+                                movingAlpha * t else movingAlpha
                         })
                 val controlHeight = fullHeight - (bottomInset + 10f).dp - heroHeight
                 val groupGap = ((controlHeight - 284.dp) / 3f).coerceAtLeast(0.dp)
@@ -394,15 +407,15 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                 val playIcon = if (playback.state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow
                 Icon(playIcon, contentDescription = null, tint = White,
                     modifier = Modifier.offset(
-                        x = miniPlayX + (fullPlayX - miniPlayX) * p,
-                        y = miniPlayY + (fullPlayY - miniPlayY) * p)
-                        .size(24.dp + 28.dp * p)
+                        x = miniPlayX + (fullPlayX - miniPlayX) * t,
+                        y = miniPlayY + (fullPlayY - miniPlayY) * t)
+                        .size(24.dp + 28.dp * t)
                         .graphicsLayer { alpha = movingAlpha })
                 Icon(Icons.Rounded.FastForward, contentDescription = null, tint = White,
                     modifier = Modifier.offset(
-                        x = miniNextX + (fullNextX - miniNextX) * p,
-                        y = miniNextY + (fullNextY - miniNextY) * p)
-                        .size(24.dp + 14.dp * p)
+                        x = miniNextX + (fullNextX - miniNextX) * t,
+                        y = miniNextY + (fullNextY - miniNextY) * t)
+                        .size(24.dp + 14.dp * t)
                         .graphicsLayer {
                             alpha = movingAlpha * if (state.queue.size > 1) 1f else .36f
                         })

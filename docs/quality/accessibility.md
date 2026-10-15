@@ -47,7 +47,7 @@ the target.
 | A screen coloured from its artwork (queue, collection, Downloads) | 48% of the artwork colour, darkened further until Pink reaches 4.5:1 | Pink, Muted, White and White at 60% all at least 4.5:1; the drag handle (White 45%) at least 3:1 |
 | White words over a picture | Black at 58% | 4.5:1 needs 55.1% |
 | Muted words over a picture (Home over a photograph) | Black at 74% | 4.5:1 needs 73.2% |
-| A white icon over a picture (close player, back) | Black at 46% | 3:1 needs 43.5% |
+| A white icon over a picture (back; the player's close button, on a shade at 46% across the top fifth of the artwork, not a patch of its own) | Black at 46% | 3:1 needs 43.5% |
 | Title block over a cover (collection, Downloads) | The cover's tone at 90% | title at least 3:1 (it is 28 sp), artist and description at least 4.5:1 |
 | Speed-dial tile title | A 42 dp gradient, 62% black by the title's top edge | at least 4.5:1 over a white cover |
 | Ambient backdrop | Every palette, at 441 points of an upright and a sideways phone | Muted and White at least 4.5:1, Pink at least 3:1 |

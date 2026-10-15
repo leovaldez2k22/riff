@@ -82,11 +82,41 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
         innerTube = innerTube,
         tokenProvider = streamTokens,
     )
+    // When the streams were last made ready (at start and by warmUp); declared before init, which sets it.
+    private val warmLock=Any()
+    private var warmedAtMs:Long?=null
+    private var warming:Job?=null
     init {
         cipherIsolated=runCatching {dependencies.installSolverBridge(extractor,remoteCipher)}
             .onFailure {playbackEvents.append("solver_bridge_unavailable ${it.javaClass.simpleName}")}.isSuccess
-        if (cipherIsolated && dependencies.startProviderBackgroundWork) runtimeScope.launch {dependencies.wait(2000);suspendCatching {extractor.prewarm()}}
+        if (cipherIsolated && dependencies.startProviderBackgroundWork) {
+            warmedAtMs=dependencies.clocks.monotonicMillis()
+            runtimeScope.launch {dependencies.wait(2000);prewarm("start")}
+        }
         session.onReset { synchronized(cacheLock) {streamCache.clear();streamFlights.values.forEach {it.cancel()};streamFlights.clear()} }
+    }
+
+    /**
+     * Gets the next song ready to start quickly when the app comes back to the screen: the solver is started with
+     * its player script, and an expired attestation is made again, before a song is asked for. Both are lost while
+     * the app is away (the solver stops after ten idle minutes, Android may stop the app), and the first song
+     * after a long break used to wait for all of it. At most once in [STREAM_REWARM_INTERVAL_MS].
+     */
+    fun warmUp() {
+        if(!cipherIsolated || !dependencies.startProviderBackgroundWork) return
+        synchronized(warmLock) {
+            val now=dependencies.clocks.monotonicMillis()
+            if(warming?.isActive==true || !streamRewarmDue(warmedAtMs,now)) return
+            warmedAtMs=now
+            warming=runtimeScope.launch {prewarm("foreground")}
+        }
+    }
+
+    private suspend fun prewarm(reason:String) {
+        val started=dependencies.clocks.monotonicMillis()
+        suspendCatching {extractor.prewarm()}.fold(
+            onSuccess={playbackEvents.append("stream_prewarm reason=$reason ms=${dependencies.clocks.monotonicMillis()-started}")},
+            onFailure={playbackEvents.append("stream_prewarm_failed reason=$reason type=${it::class.simpleName}")})
     }
 
     suspend fun resolve(videoId:String,live:Boolean=false,excludedProfiles:Set<String> = emptySet(),video:Boolean=false,download:Boolean=false):Result<ProviderStream> =
@@ -185,3 +215,9 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
 
     fun close() { streamTokens.dispose() }
 }
+
+/** How long after one warm-up another may start; coming back to the app more often than this does nothing. */
+internal const val STREAM_REWARM_INTERVAL_MS = 5 * 60_000L
+
+internal fun streamRewarmDue(lastMs: Long?, nowMs: Long, intervalMs: Long = STREAM_REWARM_INTERVAL_MS) =
+    lastMs == null || nowMs - lastMs >= intervalMs

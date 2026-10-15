@@ -154,6 +154,7 @@ internal fun RiffApp() {
     DisposableEffect(lifecycleOwner, player) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) player.stopped(model.sheet.isNotEmpty())
+            if (event == Lifecycle.Event.ON_START) provider.warmStreams()
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -242,7 +243,7 @@ internal fun RiffApp() {
                     onMiniRelease = { player.releaseMini(model.sheet.isNotEmpty(), motion, area.height) { model.sheet = "mini" } },
                     onNotice = { scope.launch { snackbar.showSnackbar(it) } })
             }
-            if(model.sheet=="lyrics" || isTransitionActive) Box(Modifier.fillMaxSize().background(Ink))
+            if(model.sheet=="lyrics" || isTransitionActive) Box(Modifier.fillMaxSize().background(Ink).blockTouchesBelow())
             AnimatedVisibility(visible=model.sheet!="lyrics",
                 enter=fadeIn(GlassMotion.timed(GlassMotion.playerMs,motion)) + slideInVertically(GlassMotion.timed(GlassMotion.playerMs,motion)) { -it/14 },
                 exit=fadeOut(GlassMotion.timed(GlassMotion.playerMs,motion)) + slideOutVertically(GlassMotion.timed(GlassMotion.playerMs,motion)) { -it/14 },
@@ -299,7 +300,9 @@ internal fun RiffApp() {
                 exit = fadeOut(GlassMotion.timed(GlassMotion.playerMs, motion)) + slideOutVertically(GlassMotion.timed(GlassMotion.playerMs,motion)) {it/14},
                 modifier = Modifier.fillMaxSize()) {
                 CompositionLocalProvider(LocalLyricsVisibilityScope provides this) {
-                Box(Modifier.fillMaxSize().background(Color.Black).testTag("lyrics_screen")) {
+                // Touches that no lyrics control takes stop here: before, a tap between the controls at the bottom
+                // reached the home page underneath and could start one of its songs.
+                Box(Modifier.fillMaxSize().background(Color.Black).blockTouchesBelow().testTag("lyrics_screen")) {
                     LyricsPanel(playback, provider, lyricsRepository, onBack = { model.sheet = "mini" })
                 }
                 }

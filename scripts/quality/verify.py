@@ -62,7 +62,7 @@ BUILD_TOOLS = "36.0.0"
 FIXTURE_CLASSES = [f"{PACKAGE}.{name}" for name in (
     "AccountSwitchDeviceTest", "CrossfadeFixtureDeviceTest", "DownloadLifecycleDeviceTest", "FixturePlaybackTest",
     "LegacyUpgradeDeviceTest", "LocalDataDeviceTest", "LocalDataTransferDeviceTest", "NormalizationDeviceTest",
-    "PlaybackOrderDeviceTest", "RecoveryDeviceTest", "LyricsKaraokeDeviceTest")]
+    "PlaybackOrderDeviceTest", "RecoveryDeviceTest", "LyricsKaraokeDeviceTest", "PlayerFixesDeviceTest")]
 
 LANES = {
     "pr": ["script-tests", "static", "build", "artifactIdentity", "jvm", "lint", "release-content", "apk", "solver-seam"],

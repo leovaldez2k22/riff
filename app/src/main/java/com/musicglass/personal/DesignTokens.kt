@@ -1,7 +1,6 @@
 package com.musicglass.personal
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -37,8 +36,6 @@ internal object RiffSpace {
     /** A list row with artwork: one line of title and one of detail. */
     val listRow = 60.dp
     val listArtwork = 48.dp
-    /** The patch of scrim under an icon set over a picture. */
-    val scrimPatch = 36.dp
 }
 
 internal object RiffRadius {
@@ -103,7 +100,7 @@ internal object RiffContrast {
     const val scrimForText = .58f
     /** Under [Muted] words: 4.5:1 needs 0.732. */
     const val scrimForMutedText = .74f
-    /** Under a [White] icon: 3:1 needs 0.435. */
+    /** Under a [White] icon (the player's close button sits on a shade this deep): 3:1 needs 0.435. */
     const val scrimForControl = .46f
     /** How much of an artwork's tone goes under words set over the artwork itself. */
     const val toneUnderWords = .9f
@@ -111,8 +108,6 @@ internal object RiffContrast {
 
 /** A patch of scrim under one icon or a few words set over a picture; [alpha] is one of [RiffContrast]'s. */
 internal fun Modifier.scrimPatch(alpha: Float): Modifier = background(Color.Black.copy(alpha = alpha), RoundedCornerShape(50))
-/** The same with room around the words. */
-internal fun Modifier.scrimLabel(alpha: Float): Modifier = scrimPatch(alpha).padding(horizontal = 10.dp, vertical = RiffSpace.tight)
 
 /** Behind words set over a picture: [tone] at [RiffContrast.toneUnderWords], eased in over the first 24 dp so that it has no edge. */
 internal fun Modifier.wordsOverPicture(tone: Color): Modifier = drawBehind {

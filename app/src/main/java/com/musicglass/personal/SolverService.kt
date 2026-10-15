@@ -23,6 +23,7 @@ import kotlinx.serialization.json.Json
  * Nothing else runs in this process: RiffApplication only installs the strings and the crash recorder
  * here, so no provider, WebView or image loader is created. The pinned library may fetch a
  * pre-processed YouTube player from jsDelivr here (docs/privacy.md); this client has no cookies.
+ * The prepared player script is kept in the app's cache folder ([PreprocessedPlayerCache]).
  */
 class SolverService : Service() {
     private val http by lazy {
@@ -37,6 +38,12 @@ class SolverService : Service() {
         YouTubeCipherService(http, RemotePlayerConfigStore(http, AppPlayerConfigRepository(this, "player_config_solver")))
     }
 
+    // The prepared player script survives this process, so a solver started again does not prepare it again.
+    private val preparedPlayers by lazy { PreprocessedPlayerCache(java.io.File(cacheDir, "solver-players")) }
+    private val cacheInstalled by lazy {
+        runBlocking { cipher.setPreprocessedPlayerCache({ preparedPlayers.read(it) }, { key, value -> preparedPlayers.write(key, value) }) }
+    }
+
     private val binder = object : Binder() {
         override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
             if (code < SolverProtocol.INITIALIZE || code > SolverProtocol.PROCESS_N) return super.onTransact(code, data, reply, flags)
@@ -44,6 +51,7 @@ class SolverService : Service() {
             data.enforceInterface(SolverProtocol.DESCRIPTOR)
             // Compute fully before writing, so a failure never leaves a half-written reply.
             val result: Result<String?> = runCatching {
+                cacheInstalled
                 runBlocking {
                     when (code) {
                         SolverProtocol.INITIALIZE -> { cipher.initialize(); null }

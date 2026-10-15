@@ -42,12 +42,12 @@ class DiagnosticsScreenTest {
 
     private fun shown(text: String) = compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
     private fun count(tag: String) = compose.onAllNodesWithTag(tag).fetchSemanticsNodes().size
-    private fun tap(tag: String) { compose.waitUntil(10_000) { count(tag) > 0 }; compose.onNodeWithTag(tag).performSemanticsAction(SemanticsActions.OnClick) }
+    private fun tap(tag: String) { compose.waitUntil(WAIT_MS) { count(tag) > 0 }; compose.onNodeWithTag(tag).performSemanticsAction(SemanticsActions.OnClick) }
 
     @Test fun exitsReadInPlainWordsAndOnlyFailuresAreMarkedAsSuch() {
         compose.setContent { DiagnosticsScreen(ShellModel(), 0.dp) { notices += it } }
         // The exits and the errors are two list items and may arrive a frame apart.
-        compose.waitUntil(10_000) { shown(string(R.string.exit_crash)) && count("diagnostics_error") > 0 }
+        compose.waitUntil(WAIT_MS) { shown(string(R.string.exit_crash)) && count("diagnostics_error") > 0 }
         for (text in listOf(R.string.exit_crash, R.string.exit_user_requested, R.string.exit_low_memory, R.string.exit_other, R.string.stream_helper))
             assertTrue(string(text), shown(string(text)))
         assertEquals(2, count("diagnostics_exit_failure"))
@@ -58,11 +58,11 @@ class DiagnosticsScreenTest {
 
     @Test fun shareSendsTheCleanedReportThroughTheSystemSheetOnly() {
         compose.setContent { DiagnosticsScreen(ShellModel(), 0.dp) { notices += it } }
-        compose.waitUntil(10_000) { count("diagnostics_error") > 0 }
+        compose.waitUntil(WAIT_MS) { count("diagnostics_error") > 0 }
         assertEquals("the report row is drawn once after the errors appear", 1, count("diagnostics_share"))
         tap("diagnostics_share")
         val shadow = Shadows.shadowOf(ApplicationProvider.getApplicationContext<android.app.Application>())
-        compose.waitUntil(10_000) { shadow.peekNextStartedActivity() != null }
+        compose.waitUntil(WAIT_MS) { shadow.peekNextStartedActivity() != null }
         val chooser = shadow.nextStartedActivity
         assertEquals(Intent.ACTION_CHOOSER, chooser.action)
         val send = chooser.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)!!
@@ -77,10 +77,10 @@ class DiagnosticsScreenTest {
 
     @Test fun clearRemovesTheRecordsAndSaysSo() {
         compose.setContent { DiagnosticsScreen(ShellModel(), 0.dp) { notices += it } }
-        compose.waitUntil(10_000) { count("diagnostics_exit_failure") > 0 }
+        compose.waitUntil(WAIT_MS) { count("diagnostics_exit_failure") > 0 }
         tap("diagnostics_clear")
-        compose.waitUntil(10_000) { string(R.string.exit_records_cleared) in notices }
-        compose.waitUntil(10_000) { shown(string(R.string.no_exits_recorded)) }
+        compose.waitUntil(WAIT_MS) { string(R.string.exit_records_cleared) in notices }
+        compose.waitUntil(WAIT_MS) { shown(string(R.string.no_exits_recorded)) }
         assertEquals(0, count("diagnostics_error"))
         assertTrue(ExitStore.of(context).exits().isEmpty())
         assertTrue(ExitStore.of(context).crashes().isEmpty())

@@ -180,7 +180,6 @@
     <string name="could_not_add_to_queue">Could not add to queue</string>
     <string name="could_not_be_stored_x_import_the">Could not be stored: %1$s. Import the file again to retry.</string>
     <string name="could_not_change_this_download">Could not change this download</string>
-    <string name="could_not_check_official_videos_check_your">Could not check official videos. Check your connection and retry.</string>
     <string name="could_not_check_playlists">Could not check playlists</string>
     <string name="could_not_check_the_youtube_music_video">Could not check the YouTube Music video switcher</string>
     <string name="could_not_confirm_the_selected_youtube_music">Could not confirm the selected YouTube Music account. Check the account shown on the page, or restart sign-in.</string>
@@ -414,7 +413,6 @@
     <string name="no_matching_results">No matching results.</string>
     <string name="no_more_playable_recommendations_right_now">No more playable recommendations right now</string>
     <string name="no_music_files_were_found_on_this">No music files were found on this phone.</string>
-    <string name="no_official_music_video_is_available">No official music video is available</string>
     <string name="no_plays_match_x">No plays match “%1$s”.</string>
     <string name="no_recommendations_available_search_for_musi">No recommendations available. Search for music to get started.</string>
     <string name="no_recommended_shows_available_yet">No recommended shows available yet.</string>
@@ -440,7 +438,6 @@
     <string name="nothing_was_changed">" Nothing was changed."</string>
     <string name="nothing_was_removed_riff_could_not_change">Nothing was removed. Riff could not change its storage.</string>
     <string name="now_playing">NOW PLAYING</string>
-    <string name="official_video_unavailable_try_again_later">Official video unavailable. Try again later.</string>
     <string name="older_app_saved_tracks_imported_to_this">Older app-saved tracks imported to this account</string>
     <string name="oldest_first">Oldest first</string>
     <string name="on_device">On device</string>
@@ -467,7 +464,6 @@
     <string name="play_all">Play all</string>
     <string name="play_counts">play counts</string>
     <string name="play_next">Play next</string>
-    <string name="play_video">Play video</string>
     <string name="play_x">Play %1$s</string>
     <string name="playback_cache_cleared_downloads_kept">Playback cache cleared; downloads kept</string>
     <string name="playback_could_not_connect_x">Playback could not connect: %1$s</string>
@@ -487,7 +483,6 @@
     <string name="preparing_highest_quality_audio">Preparing highest-quality audio</string>
     <string name="preparing_language_model">Preparing language model…</string>
     <string name="preparing_playback_timed_out_try_again">Preparing playback timed out. Try again.</string>
-    <string name="preparing_video">Preparing video…</string>
     <string name="previous_track">Previous track</string>
     <string name="privacy_and_data">Privacy and data</string>
     <string name="provider_playback_is_unavailable">Provider playback is unavailable</string>
@@ -632,7 +627,6 @@
     <string name="stopped_unexpectedly">Stopped unexpectedly</string>
     <string name="stopping">Stopping…</string>
     <string name="storage_budget">Storage budget</string>
-    <string name="switch_to_audio">Switch to audio</string>
     <string name="tech">Tech</string>
     <string name="text_lyrics">Text lyrics</string>
     <string name="the_audio_did_not_arrive_in_full">The audio did not arrive in full. Check the connection, then restart.</string>

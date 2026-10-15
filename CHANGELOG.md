@@ -4,6 +4,12 @@
 
 Release notes: `docs/release-notes-0.10.0-rc1.md`. Built and checked locally; nothing has been published.
 
+- Player: the close button and **NOW PLAYING** heading no longer sit on dark patches of their own, which looked like outlines; a shade across the top of the artwork keeps them readable over white artwork, and the close button has a soft shadow.
+- Player: **Play video** is gone; the player plays a song's audio only. Live radio still shows its video.
+- Fixed: on the lyrics page, a tap between the controls at the bottom could reach the home page underneath and start one of its songs.
+- Fixed: while the player opened from the mini player or closed into it, the title, artist, artwork and play and next buttons briefly showed twice, a few dp apart.
+- Player: shuffle and repeat have round line ends and corners, like the buttons beside them.
+- Faster starts: the stream helper keeps YouTube's prepared player script on the phone instead of preparing it again every time it starts, and when you come back to Riff after five minutes or more it gets the stream helper and the playback attestation ready before you choose a song. The first song after a break used to wait for both.
 - Documentation: README, features, privacy, architecture, testing, ADR status, final report and the dependency inventory were brought up to date with the code; older documents are marked as historical records (`docs/README.md`).
 - Privacy: `docs/privacy.md` now lists every network destination. Newly disclosed: the YouTube library used for playback can fetch a pre-processed YouTube player from jsDelivr and run it in the stream helper process (no cookies or account details are sent). The app also names a player-configuration address that the library refuses, so it is never requested.
 - Licenses: the dependency inventory was regenerated (233 runtime dependencies). It no longer lists demo audio or a motion loop, which are gone, and records that ML Kit and its Play services parts are under Google's terms rather than an open-source license, an open item for any public distribution.

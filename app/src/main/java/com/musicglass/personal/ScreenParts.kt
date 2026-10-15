@@ -33,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
@@ -75,6 +76,15 @@ internal fun ScreenTitle(title: String, subtitle: String? = null) {
             fontWeight = FontWeight.Bold)
         if (subtitle != null) Text(subtitle, color = Muted, fontSize = RiffType.body)
     }
+}
+
+/**
+ * For a full-screen layer drawn over another page: a touch that no control in the layer takes stops here instead
+ * of reaching the page underneath. Compose gives a touch to the topmost of overlapping siblings that listens for
+ * touches, so listening is enough; nothing is consumed, and the layer's own controls work as before.
+ */
+internal fun Modifier.blockTouchesBelow(): Modifier = pointerInput(Unit) {
+    awaitPointerEventScope { while (true) awaitPointerEvent() }
 }
 
 internal suspend fun playRealTrack(provider: YouTubeMusicProvider, playback: PlaybackGateway,

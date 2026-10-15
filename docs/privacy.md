@@ -23,7 +23,7 @@ Signing out or switching accounts hides the other owner's queue, history, search
 - Downloaded audio, artwork and lyrics, app-private and per owner. Uninstalling deletes them.
 - A 256 MB playback cache of streamed audio, and the last successful mood photograph per mood.
 - Provider sign-in cookies, in WebView's cookie store, used only for YouTube Music and YouTube requests.
-- Cached copies of the public YouTube player details the stream helper uses (below).
+- Cached copies of the public YouTube player details the stream helper uses (below), and up to three copies of YouTube's player script as the stream helper prepares it, so a restarted helper does not prepare it again. These hold YouTube's public code only, live in the app's cache folder and go when Android clears it.
 - Diagnostics: a 200-line event ring, the last 12 process exits as Android reports them, and the last 4 kinds of error per process (exception class, count, hour and positions in Riff's own code). No error messages, titles, addresses, tokens, cookies or account details.
 
 Android cloud backup and device transfer are disabled (`allowBackup=false` and data-extraction rules that exclude everything). There is no cross-device synchronization.
