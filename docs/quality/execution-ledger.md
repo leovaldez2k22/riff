@@ -1765,6 +1765,9 @@ Verification (worktree youthful-wright-c57334 on ed81a63 plus this change, gradl
 - Not run: the full collector (debug and release), lint, the emulator lane. The race was seen in 3 of many runs, so 10 clean runs alone would not prove the fix; the deterministic test is the evidence for the cause.
 Not part of this change and not committed with it: scripts/download_favourites.py and docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md.
 
+### Q18 split into Q18A, Q18B and Q18C (15 October 2026)
+At the owner's request, before Q18 starts: Q18A needs the phone and the owner, Q18B the phone only, Q18C neither; any order, except that C1 comes before B1 and C9 (closing gates) runs last. Sub-phases, gates and owner decisions: docs/quality/q18-split.md. Finding: the device lane installs the debug build as com.musicglass.personal, the main app's package, so it cannot run on the owner's phone (the install fails on the certificate; the lane never uninstalls); C1 adds a side-by-side debug variant. Q18 itself not started.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
