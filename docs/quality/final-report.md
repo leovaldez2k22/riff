@@ -23,7 +23,7 @@ Riff 0.10.0-rc1, version code 22. Written 15 October 2026 in Q17; Q18 completes 
 | Q15, Q15A | Security review; exit-reason diagnostics | PASS locally; two medium items open |
 | Q16 | CI lanes and portable tooling | PASS locally; hosted CI and API 33/36 BLOCKED |
 | Q16A, Q16B | Lyrics: overlap, background vocals, held words, letter pop and shake; Remove download in menus | PASS locally and on the emulator; phone not yet checked |
-| Q17 | Current documentation and packaging | See the ledger's Q17 entry |
+| Q17 | Current documentation and packaging | PASS locally and on the emulator; candidate packaged, not published |
 | Q18 | Final verification and handoff | Not started |
 
 Latest full runs (Q16B tuning, 15 October 2026): 993 JVM tests in 110 suites with no failures; lint 85 warnings, 3 hints, no errors; emulator lane 49 tests. Release APK 28,263,130 bytes, under the 40 MiB ceiling.
