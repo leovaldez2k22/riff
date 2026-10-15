@@ -1,8 +1,9 @@
 # -Toolchain: the folder that holds signing, gradle-user-home and jdk-* (default: this checkout's .toolchain), so a
 # clean worktree can be built with the main checkout's key and cache. -OutDir: where the candidate goes (default
-# artifacts\release). -Offline: no network; every dependency must already be in the Gradle cache.
+# artifacts\release). -Offline: no network; every dependency must already be in the Gradle cache. -Preview: also
+# build the preview (the same release under com.musicglass.personal.preview, to try beside an installed release).
 param([switch]$SkipChecks, [switch]$SkipClean, [switch]$NewSigningKey, [switch]$AllowDirty, [string]$Python = 'python',
-    [string]$Toolchain, [string]$OutDir, [switch]$Offline)
+    [string]$Toolchain, [string]$OutDir, [switch]$Offline, [switch]$Preview)
 
 $ErrorActionPreference = 'Stop'
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -126,14 +127,17 @@ try {
     $ErrorActionPreference = 'Stop'
     if ($gradleExit -ne 0) { throw 'Release build or checks failed.' }
     if (-not (Test-Path -LiteralPath $apk)) { throw "Release APK missing: $apk" }
-    $certificates = & $apksigner verify --verbose --print-certs $apk
-    if ($LASTEXITCODE -ne 0) { throw 'APK signature verification failed.' }
-    $certificates | Write-Host
-    $digest = $certificates | Select-String 'Signer #1 certificate SHA-256 digest:\s*([0-9a-f]{64})' |
-        Select-Object -First 1
-    if (-not $digest -or $digest.Matches[0].Groups[1].Value -ne $expectedCertificate) {
-        throw "APK is not signed with the release certificate $expectedCertificate. Don't install or publish it."
+    function Assert-ReleaseCertificate([string]$path) {
+        $certificates = & $apksigner verify --verbose --print-certs $path
+        if ($LASTEXITCODE -ne 0) { throw "APK signature verification failed: $path" }
+        $certificates | Write-Host
+        $digest = $certificates | Select-String 'Signer #1 certificate SHA-256 digest:\s*([0-9a-f]{64})' |
+            Select-Object -First 1
+        if (-not $digest -or $digest.Matches[0].Groups[1].Value -ne $expectedCertificate) {
+            throw "$path is not signed with the release certificate $expectedCertificate. Don't install or publish it."
+        }
     }
+    Assert-ReleaseCertificate $apk
     & $gradle ':app:dependencies' '--configuration' 'releaseRuntimeClasspath' @gradleFlags |
         Set-Content -LiteralPath $dependencyGraph
     if ($LASTEXITCODE -ne 0) { throw 'Release dependency report failed.' }
@@ -159,6 +163,22 @@ try {
     & $Python (Join-Path $PSScriptRoot 'quality/collect_results.py') @qualityArgs
     if ($LASTEXITCODE -eq 1) { throw 'Release evidence failed validation; do not distribute this candidate.' }
     if ($LASTEXITCODE -eq 2) { Write-Warning 'Release evidence BLOCKED: checks were explicitly skipped.' }
+    if ($Preview) {
+        $ErrorActionPreference = 'Continue'
+        & $gradle ':app:assemblePreview' @gradleFlags
+        $gradleExit = $LASTEXITCODE
+        $ErrorActionPreference = 'Stop'
+        if ($gradleExit -ne 0) { throw 'Preview build failed.' }
+        $previewApk = Join-Path $project 'app\build\outputs\apk\preview\app-preview.apk'
+        if (-not (Test-Path -LiteralPath $previewApk)) { throw "Preview APK missing: $previewApk" }
+        Assert-ReleaseCertificate $previewApk
+        $previewOut = Join-Path $releaseDir "riff-$versionName-preview.apk"
+        Copy-Item -LiteralPath $previewApk -Destination $previewOut -Force
+        $previewHash = (Get-FileHash -LiteralPath $previewOut -Algorithm SHA256).Hash.ToLowerInvariant()
+        [System.IO.File]::AppendAllText((Join-Path $releaseDir 'SHA256SUMS.txt'), "$previewHash  $(Split-Path -Leaf $previewOut)`n")
+        Write-Host "Preview APK: $previewOut"
+        Write-Host "Preview SHA-256: $previewHash"
+    }
     Write-Host "Signed APK: $releaseApk ($('{0:N1}' -f ($apkBytes / 1MB)) MiB)"
     Write-Host "R8 mapping: $releaseMapping (keep it with the APK to read crash reports)"
     Write-Host "SHA-256: $hash"

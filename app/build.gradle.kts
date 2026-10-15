@@ -103,6 +103,15 @@ android {
             ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
             matchingFallbacks += "release"
         }
+        // The release build under its own package id, to try a candidate on a phone beside an installed
+        // release without touching its data. Same code, shrinking, ABI and key; launcher name "Riff Preview"
+        // (src/preview). Its data is its own: uninstalling it leaves the installed release as it was.
+        create("preview") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+            matchingFallbacks += "release"
+        }
     }
 
     compileOptions {

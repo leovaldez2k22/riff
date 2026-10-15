@@ -7,6 +7,7 @@ being guessed from a group name. Run after Gradle's releaseRuntimeClasspath repo
 from collections import Counter
 import csv
 from pathlib import Path
+import os
 import re
 import sys
 import xml.etree.ElementTree as ET
@@ -14,7 +15,9 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 # The graph to audit: the first argument, or the release candidate's own copy.
 GRAPH = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "artifacts/release/dependencies.txt"
-CACHE = ROOT / ".toolchain/gradle-user-home/caches/modules-2/files-2.1"
+# The Gradle cache the build used: GRADLE_USER_HOME (set by build-release-candidate.ps1, also for a worktree),
+# else this checkout's own .toolchain copy.
+CACHE = Path(os.environ.get("GRADLE_USER_HOME") or ROOT / ".toolchain/gradle-user-home") / "caches/modules-2/files-2.1"
 OUTPUT = ROOT / "docs/dependency-license-audit.csv"
 COORDINATE = re.compile(
     r"([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+)(?::([A-Za-z0-9_.-]+))?"
