@@ -144,12 +144,15 @@ internal suspend fun requestCollectionDownload(context:Context,tracks:List<Provi
 }
 
 private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val artwork:String?)
+private data class DownloadListing(val entries:List<DownloadDisplay>,val used:Long)
 @Composable internal fun DownloadsScreen(model:ShellModel,bottom:Dp,playback:PlaybackGateway,onNotice:(String)->Unit) {
     val context=LocalContext.current;val store=remember {OfflineMusicStore.get(context)}
     val provider=remember {YouTubeMusicProvider.shared(context)};val revision by store.revision.collectAsStateWithLifecycle()
     val scope=rememberCoroutineScope();val listState=rememberLazyListState()
-    var entries by remember {mutableStateOf<List<DownloadDisplay>>(emptyList())}
-    var loaded by remember {mutableStateOf(false)};var used by remember {mutableLongStateOf(0)}
+    // Null until the first load. One value, so what the list shows and whether it has loaded change together; read
+    // into plain values below, so the lazy list's items change only when this screen recomposes.
+    var listing by remember {mutableStateOf<DownloadListing?>(null)}
+    val entries=listing?.entries.orEmpty();val loaded=listing!=null;val used=listing?.used?:0L
     var filter by rememberSaveable {mutableStateOf("All")}
     var query by rememberSaveable {mutableStateOf("")}
     var sortName by rememberSaveable {mutableStateOf(CollectionSort.Newest.name)}
@@ -176,9 +179,11 @@ private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val ar
             val songs=store.rows(scopeKey).filter {it.status!=DownloadState.Metadata && it.status!=DownloadState.Cancelled}
                 .sortedWith(compareByDescending<OfflineSong> {it.downloadedAt}.thenBy {it.track.title.lowercase(java.util.Locale.ROOT)}.thenBy {it.track.videoId})
             songs.map {song->DownloadDisplay(song,store.audio(scopeKey,song.track.videoId)!=null,
-                store.artwork(scopeKey,song.track.videoId)?.toURI()?.toString()?:song.track.artworkUrl)} to store.usedBytes(scopeKey)
+                store.artwork(scopeKey,song.track.videoId)?.toURI()?.toString()?:song.track.artworkUrl)}.let {DownloadListing(it,store.usedBytes(scopeKey))}
         }
-        entries=result.first;used=result.second;loaded=true
+        // Written on the main thread: an effect's dispatcher need not bring it back there (a test's unconfined one
+        // does not), and a write from elsewhere can land while the list is being measured ("Index 3, size 3").
+        withContext(Dispatchers.Main.immediate) {listing=result}
     }
     val ready=entries.filter {it.ready};val tracks=ready.map {it.song.track}
     val filtered=entries.filter {filter=="All" || if(filter=="Downloaded") it.ready else !it.ready}
