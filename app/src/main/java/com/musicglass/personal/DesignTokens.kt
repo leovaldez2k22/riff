@@ -73,10 +73,10 @@ internal object RiffLyrics {
     val sweepEdge = 10.dp
     const val heldScale = 1.07f
     /** Q16B: how far each letter pops up as the sweep reaches it (it stays there), and how much it swells on the way. */
-    val letterRise = 2.5.dp
+    val letterRise = 1.dp
     const val letterSwell = 1.12f
-    /** Q16B: how far a held word's letters shake while it is sung. */
-    val heldShake = .6.dp
+    /** Q16B: how far a held word's letters shake while it is sung: a shimmer more than a wobble. */
+    val heldShake = .25.dp
     /** The glow: a lighter pink than [Pink], so the white letters stay readable on it. */
     val glow = Color(0xFFFF9BD3)
 }

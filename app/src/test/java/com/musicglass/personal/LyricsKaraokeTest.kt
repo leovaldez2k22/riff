@@ -128,13 +128,14 @@ class LyricsKaraokeTest {
         val waiting = topOfInk(at(900), 0, 60)          // "Go": nothing sung yet
         val sung = topOfInk(at(1700), 0, 60)            // "Go" sung and settled
         // Lit letters are white and waiting ones dim, so their anti-aliased top edge can cross the threshold a row apart.
-        assertTrue("the sung letters stand 2.5 dp (5 px) higher (${waiting - sung})", waiting - sung in 5..6)
+        val lift = (RiffLyrics.letterRise.value * 2).toInt()   // xhdpi: 2 px a dp
+        assertTrue("the sung letters stand ${RiffLyrics.letterRise} ($lift px) higher (${waiting - sung})", waiting - sung in lift..lift + 1)
         active.value = false
         compose.mainClock.advanceTimeBy(2_000)
         val notYet = inkMiddle(at(500), 0, 60)
         val past = inkMiddle(at(60_000), 0, 60)
-        // The renderer puts text on whole pixels, so a 5 px lift can land as 5 or 6.
-        assertTrue("and stay up once the line is over (${notYet - past})", notYet - past in 4.65..6.35)
+        // The renderer puts text on whole pixels, so a lift of n px can land as n or n + 1.
+        assertTrue("and stay up once the line is over (${notYet - past})", notYet - past in lift - .35..lift + 1.35)
     }
 
     @Test fun reducedMotionLeavesTheLettersWhereTheyAre() {

@@ -151,22 +151,23 @@ class LyricsKaraokeDeviceTest {
         middle("held", find)
         settle { now = 8000 }                            // the line is over and no longer current
         val raised = waiting - middle("over", find)
-        val shaking = spread(3000L..3360L step 40, held) { now = it }
-        val still = spread(4200L..4560L step 40, held) { now = it }
+        // A short run of moments: long enough for the shake to swing both ways, too short for the glow to change much.
+        val shaking = spread(3000L..3160L step 10, held) { now = it }
+        val still = spread(4200L..4360L step 10, held) { now = it }
         reduced.value = true
         settle { now = 900 }
         val reducedWaiting = middle(null, find)
         settle { now = 8000 }
         val reducedRaised = reducedWaiting - middle(null, find)
-        val reducedShaking = spread(3000L..3360L step 40, held) { now = it }
+        val reducedShaking = spread(3000L..3160L step 10, held) { now = it }
         report("q16b-letters", "lift=${"%.2f".format(lift)}px raised=${"%.2f".format(raised)} shake=${"%.2f".format(shaking)} " +
             "after=${"%.2f".format(still)} reduced_raised=${"%.2f".format(reducedRaised)} reduced_shake=${"%.2f".format(reducedShaking)}")
-        assertEquals("sung letters stand 2.5 dp higher once the line is over", lift.toDouble(), raised, 1.2)
-        assertTrue("a held word's letters shake while it is sung ($shaking)", shaking > 1.0)
-        assertTrue("and are still once it has ended ($still)", still < shaking / 4)
+        assertEquals("sung letters stand ${RiffLyrics.letterRise} higher once the line is over", lift.toDouble(), raised, .5)
+        assertTrue("a held word's letters shake while it is sung ($shaking)", shaking > .5)
+        assertTrue("and are still once it has ended ($still)", still < .15)
         assertEquals("reduced motion: nothing pops", 0.0, reducedRaised, .3)
-        // What still moves under reduced motion is the glow growing with the sweep (well under a pixel), not the letter.
-        assertTrue("reduced motion: nothing shakes ($reducedShaking)", reducedShaking < .8)
+        // Under reduced motion only the glow still changes, brightening with the sweep: about 0.2 px on the emulator.
+        assertTrue("reduced motion: nothing shakes ($reducedShaking)", reducedShaking < .3)
     }
 
     /** Plays the song in real time, for a screen recording and frame timing; asserts only that frames kept coming. */
