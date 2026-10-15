@@ -1,7 +1,13 @@
 # Changelog
 
-## Unreleased — 0.10.0-rc1 (code 22)
+## Unreleased — 0.10.0-rc1 (code 22), prepared, not published
 
+Release notes: `docs/release-notes-0.10.0-rc1.md`. Built and checked locally; nothing has been published.
+
+- Documentation: README, features, privacy, architecture, testing, ADR status, final report and the dependency inventory were brought up to date with the code; older documents are marked as historical records (`docs/README.md`).
+- Privacy: `docs/privacy.md` now lists every network destination. Newly disclosed: the YouTube library used for playback can fetch a pre-processed YouTube player from jsDelivr and run it in the stream helper process (no cookies or account details are sent). The app also names a player-configuration address that the library refuses, so it is never requested.
+- Licenses: the dependency inventory was regenerated (233 runtime dependencies). It no longer lists demo audio or a motion loop, which are gone, and records that ML Kit and its Play services parts are under Google's terms rather than an open-source license, an open item for any public distribution.
+- Build tooling: `scripts/package-source.ps1` writes exactly the files Git tracks and refuses a tree whose tracked files differ from the commit; `scripts/audit_dependency_licenses.py` takes the dependency graph as an argument.
 - Lyrics: in word-synced lyrics each letter pops up slightly (1 dp) as the sweep reaches it and stays up until the line leaves the screen. The letters of a held word also shimmer very slightly for as long as it is sung. With Android's animations turned off, letters neither pop nor shake.
 - Song menus: a song that is already downloaded, or still downloading, now offers **Remove download** (pink, with a trash can) instead of **Download song**. This was wrong in the home page's long-press menu and in the player's menu, and is now the same in every song menu.
 - Lyrics: when two voices overlap, both lines light up together, and a line stays lit while it is still sung even after a later line has ended (before, nothing was lit then). Background vocals in word-timed lyrics are their own smaller line under the main one, lit on their own timing. A word the singer holds grows a little, rises and glows pink while it is sung, then settles. The sweep is now white. With Android's animations turned off, held words glow but do not grow. Lyrics cached before this version are fetched once more.

@@ -2,6 +2,12 @@
 
 What is measured, with what, on which build, and what has and has not been measured so far.
 
+**Status on 15 October 2026 (Q17, 0.10.0-rc1): unchanged since Q14.** Still no budget measured on a phone;
+no phone has been available. The release APK grew from 26.89 MiB (Q14) to 26.95 MiB (28,263,130 bytes, Q16B)
+and stays under the 40 MiB ceiling. Q16A and Q16B added per-letter lyric drawing; its frame cost is one of the
+unmeasured budgets (the player and lyrics journey on Tier R). The cold-start finding below still awaits a
+product decision.
+
 **State on 12 October 2026: no budget has been measured on a phone.** Every timing, frame, battery and soak
 gate below is BLOCKED until the benchmarks are run on the two physical tiers. What exists is the tooling, a
 shipped Baseline Profile, the checks that do not depend on a phone's speed (APK size, profile packaging,

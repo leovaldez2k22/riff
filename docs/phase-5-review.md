@@ -1,5 +1,7 @@
 # Phase 5 browse and collection review — 28 September 2026
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 ## Implemented
 
 - Home uses listening history for Quick picks and Recently played. Speed Dial has two pages, swipe and button paging, and persistent track pinning from the track menu.

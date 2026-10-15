@@ -1,5 +1,7 @@
 # Riff 0.9.0-rc17
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Volume booster is in Settings > Audio, with an on/off switch and a 100–300% capsule slider. It is disabled by default and remembers its selected level. Settings changes reach the playback service through a retained preference listener. Decoded native audio receives 1–3x PCM amplitude gain, a 30 ms gain ramp and a continuous soft limiter for loud peaks. At 100% the samples are bit-exact. System media volume is unchanged. Downloads, native music/video and native live radio use the same processing chain; the sleep timer still fades AudioTrack output and restores its previous volume after pausing.
 
 The player's options panel unfolds from the tapped three-dot button, including the button in the inline queue. A rounded 40dp footprint grows into the floating panel with a damped spring; labels and icons fade in as it opens. Shape changes happen in a graphics layer, while the menu rows keep their layout. Closing reverses the reveal. The popup respects status/navigation insets, scrolls when needed, consumes its gestures independently of player dismissal, supports Back/outside dismissal, and snaps when Reduce motion or disabled platform animations are in use. The player remains visible underneath.

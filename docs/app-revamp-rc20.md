@@ -1,5 +1,7 @@
 # Riff rc20: lyrics expansion and playback fixes
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 ## Scope
 
 Includes rc19's stream replacement recovery, queue remove buttons and persistent Data saver.

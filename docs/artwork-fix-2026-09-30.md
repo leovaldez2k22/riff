@@ -1,5 +1,7 @@
 # Music artwork fix — 30 September 2026
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 The installed rc3 APK lacked Coil's network fetcher service entry. Rebuilding with the existing coil-network-okhttp 3.3.0 dependency restored fetching. MainActivity now configures one shared ImageLoader with an explicitly registered HTTP fetcher, so network artwork does not depend on service-loader packaging. Failure diagnostics include only host, exception type, and HTTP status; success logs and the temporary Home diagnostic text were removed.
 
 The original parser chose the first URL in each thumbnail array, often a 60px rendition. Home, profile, and song parsing now use a shared selector that checks the CDN host and chooses the largest thumbnail by pixel area without assuming array order. A Coil mapper upgrades Google image size parameters to at least 1024px and requests YouTube max-resolution video covers. The mapper also handles older locally saved URLs and changes the cache identity before loading, so tiny cached covers are not stretched. A missing max-resolution YouTube cover falls back to hqdefault. Image quality remains limited by the source artwork supplied by the provider.

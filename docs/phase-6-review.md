@@ -1,5 +1,7 @@
 # Phase 6 lyrics, podcasts, and offline media review — 28 September 2026
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Phase 6 follows the user's requested final real-streaming attempt. Authenticated YouTube Music search returned real rows, but the selected SABR stream returned `RELOAD_PLAYER` on its first media request and again after one fresh-player-response retry. The M5 streaming gate remains open. Phase 6 does not represent YouTube Music tracks as downloadable or playable offline.
 
 ## Implemented

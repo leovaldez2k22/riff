@@ -1,5 +1,7 @@
 # Downloads, frosted menus and crossfade verification
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Verified on 6 October 2026 with an iQOO I2217 running Android 16.
 
 ## Resulting behavior

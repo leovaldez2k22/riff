@@ -20,8 +20,9 @@ import kotlinx.serialization.json.Json
  * process. If QuickJS crashes, only this process dies: playback, the media session and the UI keep
  * running, and [RemoteCipherClient] restarts it for the next request.
  *
- * Nothing else runs in this process: the app has no Application class, so no provider, WebView
- * or image loader is created here.
+ * Nothing else runs in this process: RiffApplication only installs the strings and the crash recorder
+ * here, so no provider, WebView or image loader is created. The pinned library may fetch a
+ * pre-processed YouTube player from jsDelivr here (docs/privacy.md); this client has no cookies.
  */
 class SolverService : Service() {
     private val http by lazy {

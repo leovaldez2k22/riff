@@ -1,5 +1,7 @@
 # Animation upgrade validation — 30 September 2026
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 ## Delivered
 
 Detailed implementation brief: [animation-upgrade-prompt.md](animation-upgrade-prompt.md), approximately 2,650 words, grounded in the current Kotlin sources, real provider/local content states, and historical device evidence. It separates this upgrade from proposed follow-on work.

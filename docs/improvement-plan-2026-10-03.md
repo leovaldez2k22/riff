@@ -1,5 +1,7 @@
 # Riff improvement plan: rc17 to rc19
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Drafted 2026-10-03 against **Riff 0.9.0-rc16** (versionCode 17, commit `06aae55` plus four uncommitted UI files). Status: **plan only. No code has been changed.**
 
 This plan merges two reviews of the project into one ordered piece of work:

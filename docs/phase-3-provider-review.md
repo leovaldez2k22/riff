@@ -1,5 +1,7 @@
 # Phase 3 provider and playback review
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 ## Decision
 
 The user approved GNU GPL version 3 for this personal app. InnerTubeX 0.7.1 is pinned as the

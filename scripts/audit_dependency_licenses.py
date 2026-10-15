@@ -8,10 +8,12 @@ from collections import Counter
 import csv
 from pathlib import Path
 import re
+import sys
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
-GRAPH = ROOT / "artifacts/release/dependencies.txt"
+# The graph to audit: the first argument, or the release candidate's own copy.
+GRAPH = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "artifacts/release/dependencies.txt"
 CACHE = ROOT / ".toolchain/gradle-user-home/caches/modules-2/files-2.1"
 OUTPUT = ROOT / "docs/dependency-license-audit.csv"
 COORDINATE = re.compile(
@@ -78,7 +80,7 @@ def main():
     print(f"Audited {len(rows)} resolved release dependencies")
     print(", ".join(f"{status}: {count}" for status, count in sorted(counts.items())))
     for coordinate, license_name, _, status in rows:
-        if status in ("POM has no license declaration", "POM unavailable"):
+        if status == "POM has no license declaration" or status.startswith("POM unavailable"):
             print(f"REVIEW {coordinate}: {license_name} ({status})")
 
 

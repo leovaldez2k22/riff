@@ -1,5 +1,7 @@
 # Riff 0.9.0-rc12
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Settings now presents account management and compact Interaction, Appearance, Downloads and Library cards. The feedback preview control and technical explanatory paragraphs were removed. A global Haptic feedback switch remains persistent and gates app touch feedback while respecting Android’s system setting. Frosted glass, glass intensity, reduced motion, high-contrast controls and listening history retain their existing preferences.
 
 Smart Downloads gains a saved Allow mobile data switch, off by default. The default still requires validated unmetered Wi-Fi. Opting in permits validated cellular or metered connections. JobScheduler periodic and immediate work follow the selected network policy, and active automatic transfers recheck connectivity and battery at most once per second. Battery, playback priority, reserve-space, account and manual-download rules remain in place. Changing this preference does not enable Smart Downloads. Storage budget is a 1–16 GB capsule slider in 1 GB increments, saved when the gesture finishes; its default is 4 GB.

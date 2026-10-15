@@ -1,5 +1,7 @@
 # Phase 7 adapted visual media review — 29 September 2026
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 The user chose to keep Samples removed and adapt the planned richer-media work to the existing Podcasts and Radio tabs. Radio has an “Explore visual sessions” entry; each original podcast episode has a “Watch visual preview” entry. These are clearly labeled silent original previews over a generated blue/plum/teal motion loop. No YouTube Music video or feed capability is claimed.
 
 ## Implementation

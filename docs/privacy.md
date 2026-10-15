@@ -1,44 +1,85 @@
 # Privacy and permissions
 
-Updated 6 October 2026 for the current `main` implementation. The published 4 October rc20 APK predates the latest download and cache controls; see [update notes](update-2026-10-06.md). External providers have their own terms and privacy policies.
+Updated 15 October 2026 for Riff 0.10.0-rc1 (version code 22) as built from this repository. External providers have their own terms and privacy policies. Detailed designs: [account scope](quality/account-scope.md), [privacy and data controls](quality/privacy-controls.md), [state and migration](quality/state-and-migration.md), [export and import](quality/local-export-import.md), [exit diagnostics](quality/exit-diagnostics.md), [update notice](quality/update-notice.md), [security review](quality/security-review.md).
 
-## Local data
+Riff has no server of its own, no analytics and no crash-reporting service. Nothing on the phone is sent to the developer. The network requests it makes are listed below.
 
-Riff stores playback position and queue, settings, account-scoped local saves and listening history, catalog caches, downloaded audio/artwork/lyrics, and a small playback diagnostic ring on the phone. Downloads are app-private. Signing out hides account-scoped local collections; returning to the same account can make them available again. Uninstalling deletes app-private data. Android cloud backup and device transfer are disabled. These local collections do not provide cross-device synchronization.
+## Whose data it is
 
-Downloads → Delete all downloads asks for confirmation, removes the current account's downloaded audio, artwork and lyrics, and cancels pending transfers. Clear playback cache also asks for confirmation and retains permanent downloaded bundles. Unlimited removes the app's configured download-budget cap; the device free-space reserve remains in force. These actions do not remove songs or playlists from the provider account.
+Everything Riff keeps belongs to one owner:
 
-The diagnostics ring is bounded and avoids track names, signed URLs, and credentials. Riff also keeps a short record of how its processes last ended, as Android reports it (for example a crash, the app not responding, or Android closing it to free memory), and the class names of errors that ended it, with positions in Riff's own code. These records hold no error messages, song titles, addresses or account details. Settings → About → Diagnostics shows them and can clear them. Share diagnostics report and Copy playback diagnostics put a plain-text report, cleaned again line by line, into the share sheet or the clipboard. Nothing is sent automatically. Sharing is your action; read reports and screenshots before posting them publicly.
+| Owner | When |
+|---|---|
+| A YouTube Music account | Signed in, and the provider returned a stable account identifier. Data is stored under a key derived from that identifier (a SHA-256 digest), never the identifier itself |
+| Signed-out listening (Guest) | Signed out |
+| Unverified | Signed in, but no stable identifier came back. Nothing is saved or downloaded for it; the Account screen offers **Verify account** |
+| This phone (DeviceLocal) | Audio files in the phone's own library: their queue and history, whichever account is signed in |
 
-## Network requests and accounts
+Signing out or switching accounts hides the other owner's queue, history, searches, saved tracks and downloads; returning to the same account shows them again. Raw account identifiers, names and email addresses are never written to logs or diagnostics.
 
-Search, playback, recommendations, catalog images, and provider-library actions contact YouTube Music/YouTube and their delivery services. Sign-in uses an in-app WebView; Riff retains provider session information on this installation to make authenticated requests. Account actions such as liking a song or editing a provider playlist are sent to the provider when requested.
+## What stays on the phone
 
-Lyrics matching sends public song metadata such as title, artist, album, and recording duration to Better Lyrics, NetEase, LRCLIB, and Lyrics.ovh as needed. The separate lyrics HTTP client does not receive YouTube/account cookies. Native YouTube lyrics use the YouTube integration. NetEase can require verification; Riff falls through instead of providing a verification bypass. Providers can observe ordinary connection information such as IP address and user agent.
+- Playback position and queue (per owner), settings, tracks saved in Riff, listening history (up to 100,000 plays per owner), recent searches (30 per owner), catalog caches.
+- Downloaded audio, artwork and lyrics, app-private and per owner. Uninstalling deletes them.
+- A 256 MB playback cache of streamed audio, and the last successful mood photograph per mood.
+- Provider sign-in cookies, in WebView's cookie store, used only for YouTube Music and YouTube requests.
+- Cached copies of the public YouTube player details the stream helper uses (below).
+- Diagnostics: a 200-line event ring, the last 12 process exits as Android reports them, and the last 4 kinds of error per process (exception class, count, hour and positions in Riff's own code). No error messages, titles, addresses, tokens, cookies or account details.
 
-Check for updates (Settings → About) asks the public release feed once a day, while the app is open, whether a newer version of Riff exists. The request carries no account, device or install details; the feed's host sees an ordinary connection. It is on by default and off sends nothing. Riff only tells you about a newer version and opens its release page when asked; it never downloads or installs anything. The current build has no release feed, so it shows no such setting and makes no such request.
+Android cloud backup and device transfer are disabled (`allowBackup=false` and data-extraction rules that exclude everything). There is no cross-device synchronization.
 
-Mood images are discovered through Openverse and Wikimedia Commons and loaded from image hosts. Artist/album artwork is loaded from provider URLs. Internet access is needed for online content and initial translation-model downloads; previously downloaded songs can play offline.
+### Data from earlier builds
 
-## Translation and voice search
+Builds before per-account storage kept one listening history, one queue and one search list for every account on the phone. On upgrade these are not given to whoever signs in next. Plays of on-device audio go to This phone; the rest is held apart, shown to no owner, until the user decides in **Settings → Privacy and data → Earlier data**: import the plays, the queue or the searches into the owner active now (after a warning that they may include other accounts' listening), or delete them.
 
-ML Kit translates lyrics on the device. Google supplies downloadable language models and receives SDK performance/usage metrics. See [ML Kit terms and privacy](https://developers.google.com/ml-kit/terms).
+## Controls and retention
 
-The short translation metrics sentence was removed from the lyrics screen in the latest UI update. Translation processing and model/metrics behavior remain as described here.
+**Settings → Privacy and data** names the owner each action applies to and shows a count first:
 
-Voice search uses Android's configured speech-recognition service when invoked. That service may process audio remotely according to its own settings and policies; Riff does not promise offline recognition. Microphone permission is requested for voice search.
+- **Save listening history** (on by default) and **History retention**: keep until cleared (default), or 30, 90 or 365 days. Retention is applied after each recorded play, when the period changes and at most once a day at start, so plays can outlive the period until Riff next runs.
+- **Clear account listening history**, **Clear device listening history**, **Clear search history**, **Delete downloads**, and **Delete local data for this account** (plays, searches, saved queue, tracks saved in Riff and downloads of the active owner).
+- **Earlier data**, above, and **Move to another phone** (export and import), below.
+
+Every clear asks first, says it cannot be undone, and reports what was removed, partly removed or not removed. None of them changes the YouTube Music account; likes, playlists and Google-held history are managed in Google's own account controls. Downloads → **Delete all downloads** and **Clear playback cache** (which keeps downloads) also ask first.
+
+Settings → About → Diagnostics shows the exit and error records, can clear them, and can share or copy a plain-text report that is cleaned again line by line. Nothing is sent automatically; sharing is your action, so read a report before posting it publicly.
+
+## Export file
+
+**Settings → Privacy and data → Move to another phone → Export local data** writes one file to a place you choose through the system picker. You choose which owners to include. It can hold: settings you changed (haptics, solid controls, reduce motion, glass, audio boost, normalize volume, crossfade, data saver, history saving and period), tracks saved in Riff, recently played, searches, listening history, items marked Not interested, and download names (song identifier, title, artist, album). Each account is named by an opaque digest.
+
+It never holds cookies, tokens, account names or identifiers, stream addresses, audio, image bytes, lyrics, diagnostics, the saved queue, or download settings. **The file is not encrypted**: anyone who has it can read the listening history and searches in it. **Import local data** adds to what is on the phone and removes nothing. Riff requests no storage permission for either.
+
+## Network requests
+
+Providers can observe ordinary connection information such as IP address, time and user agent.
+
+| Destination | When | What is sent |
+|---|---|---|
+| YouTube Music and YouTube (`music.youtube.com`, `www.youtube.com`, `*.googlevideo.com`, `i.ytimg.com`), Google sign-in (`accounts.google.com`) | Browsing, search, playback, recommendations, artwork, library actions, sign-in in an in-app WebView | Provider requests with the session cookies when signed in. Likes and playlist edits are sent only when you make them |
+| Pre-processed YouTube player on jsDelivr (`cdn.jsdelivr.net/gh/MetrolistGroup/faraday@.../<player>.json`), requested by the pinned YouTube library | Only in the stream helper process, when a playback challenge was not solved otherwise; cached for a day | A plain GET naming YouTube's current player version. No cookies, account, song or device details |
+| Lyrics: Better Lyrics (`api.betterlyrics.org`, including its QQ and Kugou routes), NetEase (`music.163.com`), LRCLIB (`lrclib.net`), Lyrics.ovh (`api.lyrics.ovh`) | When a song's lyrics are needed | Public song metadata: title, artist, album and duration. A separate HTTP client without YouTube cookies. NetEase verification is never bypassed; Riff moves to the next provider |
+| Mood photographs: Openverse (`api.openverse.org`), Wikimedia Commons (`commons.wikimedia.org`) and the image hosts they name | Home mood backgrounds, refreshed daily | Mood search words and a user agent naming Riff and its version |
+| Google ML Kit | First use of lyrics translation, and while translating | Language-model downloads, and SDK performance and usage metrics sent by Google's library. Lyric text is translated on the phone. See [ML Kit terms and privacy](https://developers.google.com/ml-kit/terms) |
+| Android's speech-recognition service | Only when you tap voice search | Your speech, handled by whichever service the phone is configured with, under its own settings; it may be processed remotely |
+
+**Update check.** A build made with a release feed address asks that feed once a day while the app is open (Settings → About → Check for updates; off sends nothing). The request carries only `Accept` and `User-Agent: Riff-update-check`: no cookies, account, device, install or version details. Riff never downloads or installs anything; it only opens the release page when you ask. **This build has no feed address, so it shows no such setting and makes no such request.**
+
+Internet access is needed for online content; downloaded songs play offline.
 
 ## Permissions
 
 | Permission | Use |
 |---|---|
-| Internet and network state | Online content, provider requests, and network-aware work |
-| Audio/media library access | On-device audio browsing, requested on that screen; legacy storage access on Android 12 |
-| Microphone | Optional voice search |
-| Notifications | Playback/download notifications when allowed |
-| Foreground media playback/data sync | Background audio and download work |
-| Receive boot completed | Re-establish scheduled app work after restart |
+| Internet, network state | Online content and network-aware work (Data saver, downloads on Wi-Fi only) |
+| Read media audio (Android 13+), read external storage (Android 12 only) | On-device audio, requested on that screen; files stay on the phone |
+| Record audio | Voice search, requested when you first tap it |
+| Post notifications | Playback and download notifications, if allowed |
+| Foreground service (media playback, data sync) | Background audio and downloads |
+| Receive boot completed | Lets Android's scheduled-work library re-arm Smart Downloads and refresh jobs after a restart |
 
-Settings → Privacy and data → Export local data writes settings, tracks saved in Riff, searches, listening history and the names of downloaded songs to one file in a place you choose through the system picker; Riff requests no storage permission for it. The file is not encrypted: anyone who has it can read your listening history and searches. It holds no passwords, sign-in data or audio. Import local data reads such a file, adds to what is on the phone and removes nothing.
+There is no install permission, no location, contacts, camera or account-list access, and cleartext HTTP is disabled.
 
-App data and provider-account data are separate. Removing a local download does not delete a provider-library song. To manage Google-held account data, use Google's account controls. For app questions, use [GitHub Issues](https://github.com/leovaldez2k20/riff/issues/new/choose); for security concerns, follow [SECURITY](../SECURITY.md).
+## Contact
+
+For app questions, use [GitHub Issues](https://github.com/leovaldez2k21/riff/issues/new/choose) once the repository is public; for security concerns, follow [SECURITY](../SECURITY.md).

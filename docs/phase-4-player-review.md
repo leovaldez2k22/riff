@@ -1,5 +1,7 @@
 # Phase 4 player review — 28 September 2026
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 ## Current implementation
 
 - Twelve scheduled ambient palettes blend three colors at the top and fade to AMOLED black. Album pages use a full-width artwork hero with a fade into artwork-derived track-row colors.

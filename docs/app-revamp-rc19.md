@@ -1,5 +1,7 @@
 # Riff 0.9.0-rc19
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 ## Requested changes
 
 The reported symptom is that, after several songs, a new song shows "YouTube Music could not start this track. Try another track." The supplied screenshot contains the app's generic player-error text; it does not identify the underlying transport failure. No Android device was connected during this change, so that exact listening-session failure could not be reproduced.

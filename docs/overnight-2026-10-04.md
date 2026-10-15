@@ -1,5 +1,7 @@
 # Overnight phone run, 2026-10-03 23:00 → 2026-10-04 07:00
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Riff 0.9.0-rc18 on the vivo I2217 (Android 16), dummy YouTube Music account, media volume held at 0 all night (`scripts/stress/night-guard.ps1`). App pinning was off, so nothing was pinned; random-input runs used the new `-NoPin` watchdog instead. Evidence: `artifacts/overnight-2026-10-03/` (screenshots, logs, `findings.txt`).
 
 ## Summary

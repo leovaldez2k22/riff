@@ -1,5 +1,7 @@
 # Riff 0.9.0-rc15
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 This release implements the latest Home-photo, sleep-timer, collection artwork, navigation, official-video and live-radio requests. The 20 fallback covers follow the revised direction: minimal compositions with visibly designed curves, folds, subtle grain and restrained colour. It keeps the existing package ID and signing key for an in-place upgrade.
 
 ## Resulting behavior

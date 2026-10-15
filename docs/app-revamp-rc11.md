@@ -1,5 +1,7 @@
 # Riff rc11: offline downloads, startup and official videos
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Version 0.9.0-rc11, version code 12. October 1, 2026. Android 12/API 31 remains the minimum.
 
 ## Official videos

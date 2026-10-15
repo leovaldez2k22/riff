@@ -1,5 +1,7 @@
 # Phase 1 Glass Lab review
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Updated 2026-09-27. **M1 passed for View/Compose optics with a documented video fallback.** The separate YouTube Music feasibility gate remains open. No Phase 2 app shell has been started.
 
 ## Implementation and reference comparison

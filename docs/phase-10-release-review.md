@@ -1,5 +1,7 @@
 # Phase 10 release candidate handoff (historical rc1 preparation)
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 This record predates the rc3 phone installation. The current handoff is [phase-10-rc3-handoff.md](phase-10-rc3-handoff.md).
 
 Status: **offline release preparation complete; M10 DEVICE_CHECK_PENDING; M9 DEVICE_CHECK_PENDING**.

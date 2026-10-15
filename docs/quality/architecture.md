@@ -1,8 +1,59 @@
-# Ownership, structure and static checks (Q11)
+# Ownership, structure and static checks (Q11, updated Q17)
 
 Riff is one Gradle module, `:app`, in one package (ADR-Q01). Structure is kept by who owns what and by the
 checks below, not by module walls. Entry-point class names (`MainActivity`, `MusicPlaybackService`,
 `OfflineDownloadService`, `OfflineDownloadJob`, `SolverService`, the widgets) do not change.
+
+## The final shape (0.10.0-rc1)
+
+Updated 15 October 2026 (Q17). Two processes, one app module, one test module. Arrows point from the
+owner to what it holds; the column on the right is how long each lives. Decisions and deviations from the
+plan's ADRs: [adr.md](adr.md).
+
+~~~text
+:app (package com.musicglass.personal)                                    lifetime
+|
++-- main process
+|   |
+|   +-- RiffApplication: strings, CrashRecorder, ExitDiagnostics reader    process
+|   |
+|   +-- AppContainer (AppContainer.get)                                    process
+|   |   +-- YouTubeMusicProvider facade
+|   |   |   +-- ProviderSessionManager: HTTP + InnerTube clients, cookies, SessionToken
+|   |   |   +-- ProviderCatalogRepository   (reads)
+|   |   |   +-- ProviderLibraryRepository   (account changes)
+|   |   |   +-- ProviderStreamResolver      (streams; player config cache; RemoteCipherClient -> :solver)
+|   |   +-- SessionCoordinator: owner + generation, serialized transitions
+|   |   +-- LibraryStateDb (library-state.db): history, snapshots, scope registry, migrations
+|   |   +-- LegacyStateMigration, ScopeAliasJournal, LocalDataController, LocalDataTransfer
+|   |   +-- PlaybackEventLog (200-line ring), UpdateNotice (no feed in this build)
+|   |   +-- state scope on the IO dispatcher (migration, pruning, merges)
+|   |
+|   +-- MusicPlaybackService (Media3)                                      service
+|   |   +-- player + tail player, MediaSession, service scope
+|   |   +-- QueueCoordinator, RecoveryCoordinator, PlaybackPersistence
+|   |   +-- AudioTransitionCoordinator: boost, normalization, CrossfadeOwner
+|   |   +-- SleepTimerController, SABR HTTP client
+|   |
+|   +-- OfflineDownloadService / OfflineDownloadJob                        transfer / job
+|   |   +-- OfflineDownloadEngine -> OfflineMusicStore (offline-music.db, files per owner)
+|   |
+|   +-- MainActivity -> RiffApp (Compose)                                  activity
+|       +-- PlaybackGateway (MediaController), shell navigation, player presentation
+|       +-- screens: read the container, collect flows with the lifecycle
+|
++-- :solver process
+|   +-- SolverService: WebView/QuickJS challenge solver behind Binder     solver process
+|
++-- widgets (AppWidgetProvider)                                           broadcast
+
+:benchmark (com.android.test, tests only) drives com.musicglass.personal.benchmark from outside
+~~~
+
+Everything that crosses the edge of the app goes through one of: `ProviderSessionManager.http` (YouTube
+Music and YouTube, with cookies), the lyrics client (no cookies), `MoodPhotos` (Openverse, Wikimedia),
+ML Kit, the pre-processed player fetch the pinned library makes in `:solver`, and `UpdateNotice` (inactive in this
+build). [Privacy](../privacy.md) lists each destination and what it is sent.
 
 ## Who owns what
 

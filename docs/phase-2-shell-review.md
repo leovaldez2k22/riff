@@ -1,5 +1,7 @@
 # Phase 2 shell review
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Updated 2026-09-27. **M2 passed for the user's gesture-navigation phone setup.** The user explicitly excluded a three-button layout check because they do not use that mode. The fixture-backed shell and core M2 phone journey passed.
 
 ## What is in the build

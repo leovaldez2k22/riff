@@ -1,5 +1,7 @@
 # Riff overnight stress test — 2026-10-02 23:00 to 2026-10-03 06:00
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Unattended USB stress and bug-fix pass on a vivo I2217 (Android 16, 7.5 GB RAM, 120 Hz), signed in to a dummy YouTube Music account. The phone was kept silent (media, system and notification volume held at 0 by an on-phone guard; ring and alarm untouched) and awake on charge.
 
 ## Summary

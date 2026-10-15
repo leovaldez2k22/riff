@@ -237,12 +237,29 @@ No high-severity issue is known to be open. That statement is only as good as th
 
 **Medium**
 
+- *Remote solver code from a third-party repository (found in Q17).* When a playback challenge is not solved
+  otherwise, the pinned library (innertubex 0.7.2) fetches a pre-processed YouTube player script from
+  `cdn.jsdelivr.net/gh/MetrolistGroup/faraday@player-<hash>/...` (cached a day, 4 MiB cap, no redirects, no
+  cookies: the `:solver` process's HTTP client has none) and runs it in QuickJS in the `:solver` process.
+  Whoever controls that repository therefore controls code that runs there. It has no host access beyond the
+  globals the library sets and cannot reach the main process, cookies or files, but it decides the challenge
+  answers: it could make playback fail or see the challenge values it is given. This request was not disclosed
+  before Q17; it is now in `docs/privacy.md`. Read from the library's 0.7.1 sources in `.toolchain/innertubex`;
+  the 0.7.2 classes the app builds with hold the same addresses and allow-list. Not observed on a network.
+  Options: keep and disclose (done); turn it off (`AppPlayerConfigRepository.enabled = false`) and accept that
+  playback may break sooner after a YouTube player change; or ask upstream for a pinned hash. A product
+  decision; not changed here.
 - *Dependency verification on CI is not yet proven on a hosted run.* Q16 added the Linux and macOS aapt2
   checksums and made CI strict; no workflow has run since (nothing was pushed). See the section below.
 - *Foreign-controller behaviour is not verified on a device* (section 4).
 
 **Low**
 
+- *A configured player-configuration address that is never used (Q17).* `AppPlayerConfigRepository` names
+  `raw.githubusercontent.com/ZemerTeam/zemer-cipher/.../player_configs.json`, but the library's allow-list
+  accepts only `MetrolistGroup/faraday` addresses, so no request is made to it and the table it would supply is
+  not used; its only effect is to select the jsDelivr fallback above. Playback does not depend on it. Removing
+  or replacing it is a change to playback behaviour and is left for a package that can check playback live.
 - *Content addresses in the sign-in browser* (section 2).
 - *Session cookies are stored as WebView stores them*, in app-private storage, not additionally encrypted.
   Backup and device transfer exclude them. On a rooted phone they can be read.
@@ -255,7 +272,8 @@ No high-severity issue is known to be open. That statement is only as good as th
 
 **Not looked at in this package**
 
-- The provider integration's own network code (InnerTubeX) beyond what Q10 covered; certificate pinning
+- The provider integration's own network code (InnerTubeX) beyond what Q10 covered and the remote solver
+  inputs above (Q17); certificate pinning
   (none is used: the platform's trust store decides).
 - Tapjacking and overlay attacks on the sign-in screen; screenshots and the recents thumbnail of the sign-in
   browser.

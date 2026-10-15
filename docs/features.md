@@ -1,6 +1,6 @@
 # Features and behavior
 
-This guide describes current `main`, including the [6 October 2026 update](update-2026-10-06.md). The published 4 October rc20 APK predates that update; see [README](../README.md) for release availability and installation.
+This guide describes Riff 0.10.0-rc1 (version code 22), a prepared and unpublished release candidate, as built from this repository on 15 October 2026. The last distributed APK, 0.9.0-rc20 (4 October 2026), predates most of what is new here; see the [changelog](../CHANGELOG.md) and [README](../README.md) for availability.
 
 ## Browse, search and library
 
@@ -10,6 +10,13 @@ This guide describes current `main`, including the [6 October 2026 update](updat
 - Song menus can add a song to several selected YouTube Music playlists. Successfully saved selections are removed from the picker; failed or read-only selections can be retried. Owned playlist rows can remove their exact entry after confirmation. Local collection search matches title and artist, including accents; sorting supports collection order, title A–Z/Z–A and artist A–Z. Date-added sorting uses supplied dates only: real download commit times are available, while provider collections may omit date metadata.
 - Explicit Save on this phone, local playlist tracks and listening history remain account-scoped phone saves. They appear separately from the provider library.
 - On-device audio access requests `READ_MEDIA_AUDIO` on Android 13+, or `READ_EXTERNAL_STORAGE` on Android 12, only on that screen. Files remain on the phone.
+
+## Accounts, privacy and data
+
+- Each YouTube Music account, signed-out listening and the audio on the phone have their own queue, history, searches, saved tracks and downloads. Switching accounts saves the outgoing account's queue, stops it, and restores the other account's queue paused; on-device audio keeps playing. A sign-in that YouTube Music does not confirm with a stable account is shown as unverified: saving and downloading say why they are unavailable, and the Account screen offers **Verify account**.
+- **Settings → Privacy and data**: turn history saving off, keep plays until cleared or for 30, 90 or 365 days, clear an account's or the phone's listening history, clear searches, delete downloads, or delete everything Riff keeps for the account in use. Each action names whose data it removes and how much, asks first, and reports what could not be removed. None changes the YouTube Music account.
+- **Earlier data** holds what builds before per-account storage shared between every account (plays, the saved queue, searches) until you import it into the account in use or delete it.
+- **Move to another phone** exports chosen owners' settings, saved tracks, history, searches and download names to one unencrypted file you place with the system picker, and imports such a file without removing anything. Android backup and device transfer are disabled. See [privacy](privacy.md).
 
 ## Home, podcasts and radio
 
@@ -46,11 +53,23 @@ Enable **Settings → Audio → Crossfade** and select a duration from **1–12 
 
 ## Playback reliability
 
+- **Settings → Normalize volume**, off by default, turns down songs louder than YouTube Music's reference level (by at most 12 dB) when it supplies loudness data, also offline for songs downloaded with this version. It never turns a song up, and audio from the phone's own library is unchanged. The **Volume booster** and its level are separate.
+
 Ordinary online audio now uses direct transport. Playback cache identities distinguish transport, format and bitrate, addressing the short playback interruption without changing the selected quality. See [the 5 October continuity verification](playback-fix-2026-10-05.md).
 
 - Playback starts from the selected song's metadata without resolving the remaining queue. Lyrics and recommendations start after playback is ready and playing. The shared provider prewarms extraction and coalesces requests with a bounded, expiring RAM stream cache. Persistent catalog/listening metadata and a 256 MB LRU audio cache support repeat listening. Signed URLs and tokens are not written into download metadata. Partial playback cache is an optimization; use Download song for guaranteed offline storage. Highest available does not imply a fixed bitrate or lossless audio.
 - YouTube challenge solving (QuickJS) runs in a separate `:solver` process, so a crash there doesn't stop the music. If the app itself crashes, the queue comes back paused with a one-time "Stopped unexpectedly" line in the mini player (TalkBack reads the full sentence); playback never resumes on its own after a crash. If the network drops, playback resumes by itself when it returns. Settings → About → Diagnostics shows how Riff last closed (a crash, not responding, closed for memory, or an ordinary stop) and the errors it recorded, and can share or copy a cleaned report with the build, those records and the recent playback event log (no URLs, tokens, cookies, titles or messages) for bug reports. If YouTube Music stops accepting the sign-in, Home and Library show "Session expired · Sign in again".
 
+## Accessibility
+
+- Every queue row offers **Move up**, **Move down**, **Play next** and **Remove** to a screen reader or a switch, and says its position; the like button says whether the song is liked. Pressable controls take presses in at least 48 dp.
+- Screens are checked at font scales up to 2.0, right to left, landscape and a large window; at large text on a short screen the player scrolls. Text and controls over artwork or photographs sit on a scrim dark enough for a white picture. **High-contrast controls**, **Reduce motion** and solid controls are in Settings. Text is English only.
+- No formal accessibility audit has been done, and TalkBack and keyboard walk-throughs on a phone are still to be done ([accessibility](quality/accessibility.md)).
+
+## Updates
+
+- Riff never downloads or installs updates. A build made with a release feed can ask it once a day whether a newer version exists and show one notice per version that opens the release page (Settings → About → Check for updates, on by default). **This build has no feed**, because no release is published, so it shows no such setting and makes no request ([update notice](quality/update-notice.md)).
+
 ## Historical records
 
-- Older verification documents describe historical work and are not bundled as app content. The retired `core/glass` prototype is kept in git as the tag `archive/core-glass`.
+- Older verification documents describe historical work and are not bundled as app content; the [documentation index](README.md) lists which are current. The retired `core/glass` prototype is kept in git as the tag `archive/core-glass`.

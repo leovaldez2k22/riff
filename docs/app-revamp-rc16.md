@@ -1,5 +1,7 @@
 # Riff rc16 — synced lyrics and Speed dial
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 ## Behavior
 
 YouTube Music fallback lyrics now request the native mobile browse identity at the music endpoint, using a minimal public-metadata body, before falling back to the signed web response. The parser accepts the current `timedLyricsData` rows as well as older `lyricLineRenderer` wrappers, preserving supplied cue starts and ends. Plain lyrics remain readable when no timestamps exist; mixed or malformed timing does not silently drop a verse. No timestamps are invented.

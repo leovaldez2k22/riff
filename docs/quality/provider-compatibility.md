@@ -7,6 +7,9 @@ Riff reads YouTube Music through one pinned library and its own parsers. This fi
 - `com.github.MetrolistGroup.innertubex:innertubex:0.7.2` (`gradle/libs.versions.toml`). Requests are made as the `WEB_REMIX` client. The version is exact, not a range.
 - The library builds and signs the requests. Riff's own code parses every answer (`ProviderCatalog.kt`, the parsers in `YouTubeMusicProvider.kt`, `SessionHealth.kt`, `PlaylistEditing.kt`, `PlaylistSortRequest.kt`).
 - Changing the version means rerunning everything under "Tests" and the live checks under "Live result".
+- Besides YouTube itself, the library can fetch a pre-processed YouTube player from `cdn.jsdelivr.net/gh/MetrolistGroup/faraday` when a challenge is not solved otherwise, and runs it in the `:solver` process. Riff names a ZemerTeam configuration table that the library's allow-list refuses, so that table is never fetched. See `security-review.md` (Q17).
+
+**Status on 15 October 2026 (Q17):** no live check under "Live result" has been run, and the canary has two manual results (12 October), both healthy. Since Q10A the provider files changed only for strings (Q13), trace marks (Q14) and diagnostic wording (Q15), not in what is requested or how answers are parsed; the fixture suite still passes.
 
 ## Interfaces
 

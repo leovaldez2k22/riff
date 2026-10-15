@@ -1,5 +1,7 @@
 # Audio interruption fix — 5 October 2026
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 The connected I2217 phone's rc20 logs showed `VISIONOS_SABR__nopo` delivering its
 first audio segment, followed by `ATTESTATION_REQUIRED` with zero further media
 bytes. Playback briefly started, stopped, and recovered. The recovery first

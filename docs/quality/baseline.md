@@ -1,5 +1,7 @@
 # Q00 baseline
 
+> **Historical record (Q00, 8 October 2026).** The state of the project before the excellence plan began, kept as measured then. The risks listed here were taken up by later packages; their current state is in [final-report.md](final-report.md), the [execution ledger](execution-ledger.md) and [adr.md](adr.md).
+
 Status: PASS (baseline established; release compliance remains unverified). Authorized 8 October 2026 (Asia/Kolkata).
 Starting revision: b99865fe84b1d83d7495bb98fbd07b6e3abb7b20; dirty checkout.
 Existing work preserved: modified scripts/download_favourites.py; untracked docs/RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md.

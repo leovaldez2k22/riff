@@ -22,7 +22,7 @@ Certificate SHA-256: ac70342323a39eb9cbd1fe80a9a5b060e22c01ba9a9102a9f698367bca0
 Certificate SHA-1:   46cdc7dddcae0ea5d2ffe6ba60d54b6e87b28229
 ```
 
-Checked on 2026-10-03: the keystore on this PC and the APKs `riff-0.9.0-rc16.apk` and `youtube-music-glass-0.9.0-rc9.apk` all show the SHA-256 digest above.
+Checked on 2026-10-03: the keystore on this PC and the APKs `riff-0.9.0-rc16.apk` and `youtube-music-glass-0.9.0-rc9.apk` all show the SHA-256 digest above. Checked again on 2026-10-15 (Q17): `riff-0.9.0-rc20.apk`, the last distributed APK, shows the same digest.
 
 `scripts/build-release-candidate.ps1` reads the `Certificate SHA-256:` line above and refuses to finish a release whose certificate is different.
 

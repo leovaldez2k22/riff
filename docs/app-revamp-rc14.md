@@ -1,5 +1,7 @@
 # Riff 0.9.0-rc14
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Home, Podcasts, Radio and provider mood feeds now retain successful data in process memory and share in-flight requests. Re-entering a tab reads the cached response. Refresh windows follow the phone’s local time at 06:00 and 18:00, including timezone and daylight-saving changes. The cache clears on account changes and removal from recent apps. Cancelling a screen leaves the shared request running; cancelled or obsolete cache generations cannot publish stale data. Failed requests remain retryable. Library requests the current playlist index on every tab entry, retains existing playlist contents, and invalidates deleted or edited collections. A pink thumbs-up on black identifies Liked Music.
 
 The Home tags come from YouTube Music’s browse chips and mood/genre navigation endpoints. Selection curates Home through those provider endpoints, with independently cached feeds and a distinct subtle code-drawn scene for each tag. The selected scene replaces the ambient gradient and fades into black near the screen midpoint. The device supplied 50 tags. Forgotten favourites moves immediately after Quick picks when the provider offers that shelf; if absent, the existing unavailable notice follows the same ordering.

@@ -1,5 +1,7 @@
 # YouTube Music Integration — Agent Execution Guide
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](docs/README.md). Current plan: [Riff excellence implementation plan](docs/RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 > **For:** an AI coding agent (Claude Code, Cursor, Copilot Agent, etc.) working inside an existing Android project.
 > **Human owner:** will review your changes. Follow steps in order. Do not skip verification steps.
 

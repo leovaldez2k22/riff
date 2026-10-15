@@ -1,5 +1,7 @@
 # Music app implementation plan
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](docs/README.md). Current plan: [Riff excellence implementation plan](docs/RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Status: consolidated planning baseline, 27 September 2026. No app has been built or tested yet. The inspected project directory was empty. Confirmed by the user: preserve the supplied navigation, apply Apple-style glass, use an unofficial YouTube Music integration for a personal APK, and test on an iQOO Neo 7 Pro running Android 16. The initial reference set is complete: R01 player, R02 bottom navigation, R03 album details, R04 lyrics. Integration feasibility and final visual tuning remain to be proven; additional images are not required to begin the planned implementation.
 
 **Current direction (28 September 2026):** This document records the original baseline. Later user instructions supersede its four-tab and no-blur decisions: the app now uses Home / Podcasts / Radio / Library with detached Search, has no Samples tab, and uses clear untinted glass with optical blur. Podcasts and Radio use explicitly labeled original demos for now. Phase reviews in `docs/` track implementation and verification status.

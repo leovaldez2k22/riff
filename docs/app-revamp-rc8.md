@@ -1,5 +1,7 @@
 # Riff — 0.9.0-rc8
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 This release implements the supplied album, queue-video and frosted-glass references, plus the requested catalog and playback changes. It preserves the account session and upgrades the installed app with the same signing key.
 
 ## Requested changes

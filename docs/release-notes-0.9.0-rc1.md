@@ -1,5 +1,7 @@
 # Riff 0.9.0-rc1
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Personal release candidate for offline handoff and later phone validation. It is not approved for public distribution.
 
 ## Included

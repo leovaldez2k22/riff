@@ -1,5 +1,7 @@
 # Phase 8 account track: current status
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Phase 8 is split into independent tracks by the implementation plan. This review covers the accounts, sync, and uploads track only. The user chose to keep app-saved online items on the phone for the same account's next sign-in.
 
 ## Implemented

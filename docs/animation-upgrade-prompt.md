@@ -1,5 +1,7 @@
 # Riff: next-generation motion implementation prompt
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Prepared from the current app source and local motion evidence on 30 September 2026.
 
 ## Copy-ready implementation prompt

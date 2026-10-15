@@ -1,5 +1,7 @@
 # Motion overhaul validation
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 This section records the original offline implementation pass. For subsequent rc2/rc3 phone measurements, see [phase-9-device-review.md](phase-9-device-review.md). The rc3 clear-glass shader removed the 49-sample interior blur after an on-device clear/solid comparison; the short measured loop improved from 22 ms median and 31/544 missed-deadline frames on rc2 clear glass to 16 ms median and 16/417 on rc3 clear glass. The runs are indicative, not a controlled trace.
 
 The before-change inventory is in `motion-audit.md`. This pass changed animation ownership and state invalidation rather than lengthening existing transitions.

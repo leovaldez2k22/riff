@@ -1,3 +1,5 @@
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 **Riff Spotify feasibility assessment — 2 October 2026**
 
 **Verdict: a Spotify companion version is technically feasible, with substantial changes and reduced feature parity. A supported, native Android replacement that sends Spotify audio directly into Riff's existing ExoPlayer/download pipeline is not available through the public integration reviewed.** Public distribution is also conditional on Spotify's access and product rules.

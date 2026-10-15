@@ -1,5 +1,7 @@
 # Timed lyrics upgrade — 30 September 2026
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 ## Provider choice
 
 Better Lyrics supplies the finest timing available here: TTML syllable/word timing, followed by its QQ word-timed source. LRCLIB provides an independent line-synced and plain-text fallback. Better Lyrics' Kugou endpoint and the existing YouTube Music session provide additional fallback coverage.

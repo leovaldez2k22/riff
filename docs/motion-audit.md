@@ -1,5 +1,7 @@
 # Motion audit (code inspection, 2026-09-29)
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 No device or emulator frame trace was available for this audit. The observations below describe code behavior; visible stutter, frame drops, and shader cost remain unmeasured hypotheses.
 
 | Surface | Existing behavior | Assessment |

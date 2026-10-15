@@ -1,5 +1,7 @@
 # Riff — 0.9.0-rc7
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 This release implements the requested catalog, player, library, radio discovery and navigation changes. Native live playback remains blocked on the tested stations by media-server HTTP 403; it is not verified as working. It preserves the existing account session and timed lyrics integration. The image reference was used for capsule progress/volume tracks and softened icon silhouettes.
 
 ## Requested changes

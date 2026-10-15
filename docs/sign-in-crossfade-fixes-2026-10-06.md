@@ -1,5 +1,7 @@
 # Sign-in reliability and crossfade fixes
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 ## Sign-in
 
 The account screen is now separate from the shell. A signed-out account opens a Riff welcome screen; Google sign-in opens only after the user chooses to continue. Connected accounts show an account summary, reconnect/change-account action, sign-out, and the existing legacy-import action.

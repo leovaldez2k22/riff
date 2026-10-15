@@ -1,5 +1,7 @@
 # Phase 0 decision record
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Updated 2026-09-27. Status: **M0 and the scoped M1 optical gate passed on the iQOO phone**; Phase 0Y provider proof remains open. Phase 2 awaits user approval.
 
 | Item | Decision or evidence |

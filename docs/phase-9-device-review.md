@@ -1,5 +1,7 @@
 # Phase 9 device check — 29 September 2026
 
+> **Historical record.** This document describes earlier work and is kept as it was written. It is not current documentation and may not match the code. Current documents: [documentation index](README.md). Current plan: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md).
+
 Device: iQOO Neo 7 Pro (I2217), Android 16/API 36, 1080×2400 at 440 dpi, gesture navigation, active refresh 60 Hz. App: signed release variants rc1–rc3. Evidence is under `artifacts/device-checks/M09/20260929-motion-release/`.
 
 ## Confirmed results

@@ -1,7 +1,18 @@
-param([switch]$SkipChecks, [switch]$SkipClean, [switch]$NewSigningKey, [switch]$AllowDirty, [string]$Python = 'python')
+# -Toolchain: the folder that holds signing, gradle-user-home and jdk-* (default: this checkout's .toolchain), so a
+# clean worktree can be built with the main checkout's key and cache. -OutDir: where the candidate goes (default
+# artifacts\release). -Offline: no network; every dependency must already be in the Gradle cache.
+param([switch]$SkipChecks, [switch]$SkipClean, [switch]$NewSigningKey, [switch]$AllowDirty, [string]$Python = 'python',
+    [string]$Toolchain, [string]$OutDir, [switch]$Offline)
 
 $ErrorActionPreference = 'Stop'
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$toolchain = if ($Toolchain) { (Resolve-Path -LiteralPath $Toolchain).Path } else { Join-Path $project '.toolchain' }
+if (-not $env:JAVA_HOME) {
+    $jdk = Get-ChildItem -LiteralPath $toolchain -Directory -Filter 'jdk-*' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($jdk) { $env:JAVA_HOME = $jdk.FullName }
+}
+if (-not $env:ANDROID_HOME -and (Test-Path -LiteralPath (Join-Path $toolchain 'sdk'))) { $env:ANDROID_HOME = Join-Path $toolchain 'sdk' }
+$gradleFlags = @('--console=plain', '--quiet') + @(if ($Offline) { '--offline' })
 . (Join-Path $PSScriptRoot 'quality\Tools.ps1'); $sdk = Resolve-RiffSdk $project
 $gradle = Join-Path $project 'gradlew.bat'
 $keytool = if ($env:JAVA_HOME -and
@@ -13,12 +24,12 @@ $keytool = if ($env:JAVA_HOME -and
     'C:\Program Files\Java\jdk-20\bin\keytool.exe'
 }
 $apksigner = Join-Path $sdk 'build-tools\36.0.0\apksigner.bat'
-$signingDir = Join-Path $project '.toolchain\signing'
+$signingDir = Join-Path $toolchain 'signing'
 $keystore = Join-Path $signingDir 'musicglass-release.p12'
 $passwordFile = Join-Path $signingDir 'password.txt'
 $passwordDpapi = Join-Path $signingDir 'password.dpapi'
 $apk = Join-Path $project 'app\build\outputs\apk\release\app-release.apk'
-$releaseDir = Join-Path $project 'artifacts\release'
+$releaseDir = if ($OutDir) { $OutDir } else { Join-Path $project 'artifacts\release' }
 $versionLine = Get-Content (Join-Path $project 'app\build.gradle.kts') |
     Select-String 'versionName\s*=\s*"([^"]+)"' | Select-Object -First 1
 if (-not $versionLine) { throw 'Cannot determine versionName from app/build.gradle.kts.' }
@@ -71,7 +82,7 @@ if (-not (Test-Path -LiteralPath $keystore)) {
 }
 
 $env:ANDROID_HOME = $sdk
-$env:GRADLE_USER_HOME = Join-Path $project '.toolchain\gradle-user-home'
+$env:GRADLE_USER_HOME = Join-Path $toolchain 'gradle-user-home'
 $env:MUSIC_GLASS_KEYSTORE = $keystore
 $env:MUSIC_GLASS_KEY_ALIAS = 'musicglass-release'
 # password.dpapi is readable only by this Windows user; password.txt is the plaintext fallback.
@@ -98,7 +109,7 @@ try {
     $qualityStartUtc = [DateTime]::UtcNow.ToString('o')
     if (-not $SkipClean) {
         $ErrorActionPreference = 'Continue'
-        & $gradle ':app:clean' '--console=plain' '--quiet'
+        & $gradle ':app:clean' @gradleFlags
         $gradleExit = $LASTEXITCODE
         $ErrorActionPreference = 'Stop'
         if ($gradleExit -ne 0) { throw 'Clean build preparation failed.' }
@@ -110,7 +121,7 @@ try {
     # Gradle prints warnings (R8 on Kotlin metadata, for example) to stderr. With 'Stop', Windows
     # PowerShell turns them into errors whenever output is captured; the exit code is what counts.
     $ErrorActionPreference = 'Continue'
-    & $gradle @tasks '--console=plain' '--quiet'
+    & $gradle @tasks @gradleFlags
     $gradleExit = $LASTEXITCODE
     $ErrorActionPreference = 'Stop'
     if ($gradleExit -ne 0) { throw 'Release build or checks failed.' }
@@ -123,10 +134,10 @@ try {
     if (-not $digest -or $digest.Matches[0].Groups[1].Value -ne $expectedCertificate) {
         throw "APK is not signed with the release certificate $expectedCertificate. Don't install or publish it."
     }
-    & $gradle ':app:dependencies' '--configuration' 'releaseRuntimeClasspath' `
-        '--console=plain' '--quiet' | Set-Content -LiteralPath $dependencyGraph
+    & $gradle ':app:dependencies' '--configuration' 'releaseRuntimeClasspath' @gradleFlags |
+        Set-Content -LiteralPath $dependencyGraph
     if ($LASTEXITCODE -ne 0) { throw 'Release dependency report failed.' }
-    & $Python (Join-Path $project 'scripts\audit_dependency_licenses.py')
+    & $Python (Join-Path $project 'scripts\audit_dependency_licenses.py') $dependencyGraph
     if ($LASTEXITCODE -ne 0) { throw 'Release license audit failed.' }
     $apkBytes = (Get-Item -LiteralPath $apk).Length
     if ($apkBytes -gt $maxApkBytes) {
