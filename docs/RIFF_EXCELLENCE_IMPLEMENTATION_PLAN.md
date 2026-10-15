@@ -171,7 +171,7 @@ Retention: 30/90/365 days or Keep until cleared; default Keep until cleared for 
 ## 5. Execution order and common completion requirements
 
 Critical path:
-Q00 baseline -> Q01 traceability -> Q02 test seams -> Q03 account identity -> Q04 migration -> Q05 controls -> Q05A local export/import -> Q05R interim release -> Q06 playback state -> Q07 recovery -> Q08 audio/solver -> Q08A loudness normalization -> Q09 downloads -> Q10 provider contracts -> Q10A provider canary/response -> Q11 architecture -> Q12 UX -> Q12A update notice -> Q13 accessibility -> Q14 performance -> Q15 security -> Q15A exit diagnostics -> Q16 CI -> Q16A lyrics lines and held words -> Q17 docs -> Q18 release gates.
+Q00 baseline -> Q01 traceability -> Q02 test seams -> Q03 account identity -> Q04 migration -> Q05 controls -> Q05A local export/import -> Q05R interim release -> Q06 playback state -> Q07 recovery -> Q08 audio/solver -> Q08A loudness normalization -> Q09 downloads -> Q10 provider contracts -> Q10A provider canary/response -> Q11 architecture -> Q12 UX -> Q12A update notice -> Q13 accessibility -> Q14 performance -> Q15 security -> Q15A exit diagnostics -> Q16 CI -> Q16A lyrics lines and held words -> Q16B letter pop and download menu -> Q17 docs -> Q18 release gates.
 
 Lettered packages are specified in section 22. Q05A does not block Q05R; Q05R does not block Q06.
 
@@ -709,7 +709,7 @@ Live sample: at least12 varied available tracks, two authored collections includ
 | M2 | Q06-Q08, Q08A | Playback/recovery/audio/solver evidence/loudness option |
 | M3 | Q09-Q10, Q10A | Download integrity/provider contracts/canary and response runbook |
 | M4 | Q11-Q13, Q12A | Architecture/UX/accessibility/update notice |
-| M5 | Q14-Q16, Q15A, Q16A | Physical budgets/Baseline Profile/security/exit diagnostics/CI/lyrics |
+| M5 | Q14-Q16, Q15A, Q16A, Q16B | Physical budgets/Baseline Profile/security/exit diagnostics/CI/lyrics |
 | M6 | Q17-Q18 | Exact-artifact candidate/final gates |
 
 No deadline is promised. Estimate packages after baseline and first slice. Do not truncate verification to fit guessed schedule.
@@ -1066,6 +1066,22 @@ Actions:
 Tests: overlapping lines both lit, the later-started line ending first leaves the earlier lit, gaps and endpoints unchanged; x-bg parsing with nested words and timing past the line end; cache round trip with and without background vocals and reading an older file; syllable grouping, held-word thresholds, a line of uniformly slow words; Compose test that two lines are marked current together and the background line is shown.
 
 Acceptance: overlapping TTML lines light together; a held word pops and glows on the emulator with a synthetic word-timed song; reduced motion shows no scale; all existing lyrics tests pass.
+
+### Q16B: Lyrics letter pop and held-word shake; download state in song menus
+
+Added 15 October 2026 at the user's request, after Q16A and before Q17. Depends on Q16A (karaoke renderer), Q13 (reduced motion) and Q09 (downloads). Targets: LyricsKaraoke.kt, DesignTokens.kt, the song menus (CardPeek.kt, DownloadsScreen.kt and the menus that use DownloadSongAction).
+
+Reason: in word-synced lyrics only held words move. The user wants every letter to pop up as the sweep reaches it and stay up, and the letters of a held word to shake slightly for as long as it is sung. Separately, a song's menu (long-press on the home page, and the player's menu for a song started from the home page) offers "Download song" for a song that is already downloaded.
+
+Actions:
+1. Letter pop: in word-synced lyrics, each letter rises 2.5 dp (a token, to be tuned) as the sweep reaches it, easing in over a short time, and stays raised until the line leaves the screen; it does not drop back when the line ends. All words, held or not. The letters are drawn one by one from the text layout; no re-layout per frame.
+2. Held-word shake: on top of the Q16A grow, rise and glow, the letters of a held word shake very slightly (a fraction of a dp, a few cycles a second, each letter out of step) from the moment each is lit until the word ends, then stop.
+3. Reduced motion: no pop and no shake; the sweep and the glow stay.
+4. Song menus: a song whose download is ready, or queued or in progress, shows "Remove download" in pink with a pink trash icon in place of "Download song"; choosing it removes the download as the Downloads screen does. Every song menu that offers a download uses the one decision: the home long-press menu, the player's menu, collection and catalog menus. The menu follows the store, so it changes when a download finishes or is removed.
+
+Tests: the pop and shake curves (rise eases in and stays; shake is zero before a letter is lit and after the word ends; reduced motion is zero); a Robolectric drawing of a sung line whose lit letters sit higher than unlit ones and stay up after the line ends; the download decision for no row, metadata only, queued, in progress, ready, paused and failed; a Compose test that a ready song's menu shows "Remove download", that choosing it removes the files, and that the menu then offers "Download song".
+
+Acceptance: on the emulator a word-timed line pops letter by letter and stays raised, a held word's letters shake while sung, reduced motion shows neither; a downloaded song's long-press menu on the home page and its player menu show "Remove download" in pink with a trash icon.
 
 ### 22.1 Gate and ledger effects
 
