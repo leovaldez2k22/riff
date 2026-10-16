@@ -1768,6 +1768,23 @@ Not part of this change and not committed with it: scripts/download_favourites.p
 ### Q18 split into Q18A, Q18B and Q18C (15 October 2026)
 At the owner's request, before Q18 starts: Q18A needs the phone and the owner, Q18B the phone only, Q18C neither; any order, except that C1 comes before B1 and C9 (closing gates) runs last. Sub-phases, gates and owner decisions: docs/quality/q18-split.md. Finding: the device lane installs the debug build as com.musicglass.personal, the main app's package, so it cannot run on the owner's phone (the install fails on the certificate; the lane never uninstalls); C1 adds a side-by-side debug variant. Q18 itself not started.
 
+### Q18A1 player and lyrics, by eye, on the owner's phone (15 October 2026)
+Status: done, with four findings logged in docs/quality/q18-bugs.md (Q18-001 to Q18-004) and not fixed: at the owner's request bugs found in Q18 are logged and fixed together after all the testing.
+Authorization: the owner said "okay, lets start with q18a", then "yes, start a1, screenshots are fine". Rules set by the owner during A1: ask before every Q18 sub-phase; delete files testing leaves on the phone when testing is done; log bugs, fix later.
+Device and build: the owner's phone (Tier R candidate, Android 16), Riff Preview com.musicglass.personal.preview 0.10.0-rc1-preview built from 7f7ab8e (SHA-256 1239446a44e5c317fb6d593bc6f52efe5999e54ab9299b8992dc60f757327d4c), installed 15 Oct 2026 18:50 with the owner's confirmation. Riff Preview is signed in to the owner's own account; A1 only looked and tapped, nothing on the account was changed. The main app was not touched.
+Method: the owner did each step and reported; screenshots taken over USB with adb exec-out screencap straight to the computer (nothing saved on the phone), only while Riff Preview was in front (the helper refuses otherwise). Evidence: artifacts/quality/q18a/a1/.
+Results:
+1. Player opening and closing: FAIL, Q18-001. The doubled title and artist (and a faint second cover) still show at the mini-player end of the morph; the Q17A fix covered the full-player end. Owner's screenshot a1-01-user-mini-doubled.webp; open player a1-01-player-open.png.
+2. Top of the player over a light cover: no outlines, close button and NOW PLAYING readable (PASS). The owner does not want the dark fade at the top: change request Q18-002 (shadows on the icon and heading instead). a1-02-player-light-cover.png.
+3. No Play video; shuffle and repeat rounded: PASS (a1-01-player-open.png).
+4. Lyrics page: taps at the lower corners and between the controls reached nothing beneath, song playing: PASS (owner). a1-04-lyrics-open.png. The owner also reported line-synced lyrics where word-synced exist (Taylor Swift, "Delicate"): Q18-003.
+5. Letter pop and glow on a word-synced song (ABBA, "Dancing Queen", Better Lyrics): PASS, but some held words do not glow: Q18-004 (cause confirmed by arithmetic on the song's word timing). a1-05-lyrics-word-synced.png.
+6. Remove animations on (all three animation scales read 0.0): nothing moves, held words glow without growing: PASS. a1-06-lyrics-reduced-motion.png ("go" glowing, not grown). The owner turned it off again; the scales read 1.0, as before the step.
+7. Remove download offered for a downloaded song from a Home long-press and from the player's menu: PASS on the owner's report. The screenshot (a1-07-...png) was taken after the menu had closed and shows the lyrics page, so it is not evidence of the menu.
+Network use: two reads of BetterLyrics' public getLyrics from the computer (Delicate, Dancing Queen) to check Q18-003 and Q18-004; no account data sent.
+Device state: animation scales back at 1.0; no file created on the phone by this sub-phase; nothing installed or removed.
+Next exact action: ask the owner before A2 (listening).
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
