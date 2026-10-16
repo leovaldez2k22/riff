@@ -1780,7 +1780,7 @@ Results:
 4. Lyrics page: taps at the lower corners and between the controls reached nothing beneath, song playing: PASS (owner). a1-04-lyrics-open.png. The owner also reported line-synced lyrics where word-synced exist (Taylor Swift, "Delicate"): Q18-003.
 5. Letter pop and glow on a word-synced song (ABBA, "Dancing Queen", Better Lyrics): PASS, but some held words do not glow: Q18-004 (cause confirmed by arithmetic on the song's word timing). a1-05-lyrics-word-synced.png.
 6. Remove animations on (all three animation scales read 0.0): nothing moves, held words glow without growing: PASS. a1-06-lyrics-reduced-motion.png ("go" glowing, not grown). The owner turned it off again; the scales read 1.0, as before the step.
-7. Remove download offered for a downloaded song from a Home long-press and from the player's menu: PASS on the owner's report. The screenshot (a1-07-...png) was taken after the menu had closed and shows the lyrics page, so it is not evidence of the menu.
+7. Remove download offered for a downloaded song from a Home long-press and from the player's menu: PASS. The player's menu is verified by screenshot a1-07b-menu-remove-download.png (Dancing Queen, "Remove download" in pink at the top); the Home long-press menu on the owner's report. The first screenshot (a1-07-player-menu-remove-download.png) was taken after the menu had closed and shows the lyrics page, so it is not evidence of the menu.
 Network use: two reads of BetterLyrics' public getLyrics from the computer (Delicate, Dancing Queen) to check Q18-003 and Q18-004; no account data sent.
 Device state: animation scales back at 1.0; no file created on the phone by this sub-phase; nothing installed or removed.
 Next exact action: ask the owner before A2 (listening).
