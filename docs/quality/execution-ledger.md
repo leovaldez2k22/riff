@@ -2055,6 +2055,16 @@ completed. Battery temperature fell from 40.1 to 37.4 °C. Network turned back o
 was not run: the owner's account was off limits overnight and the phone had to stay unattended; it remains open
 for a session with the owner.
 
+### Q18B11 foreign controller on the owner's phone (19 October 2026, overnight; partial)
+
+The throwaway controller app from Q18C3 (`test.riff.foreign`, its own key, no relation to Riff) installed on the
+I2217 and pointed at Riff Preview's media session while the dummy account's 13-song queue was loaded
+(`artifacts/quality/q18b/b11-foreign-phone.txt`). **PASS**: the session reports can_change_items=false and
+can_set_item=false to it; its removeMediaItem left the queue at 13 of 13; it could read the timeline, skip, play
+(playing true) and pause (playing false). Same result as the emulator in Q18C3. Riff Preview kept the same process
+throughout. Not done: content access in the sign-in browser, which needs the sign-in pages on screen with the
+owner present. `test.riff.foreign` stays installed until the Q18B12 clean-up.
+
 ### Q18C3 foreign controller on the emulator (19 October 2026, overnight)
 
 A throwaway app, test.riff.foreign (built in the scratchpad from 40 lines of Kotlin against media3-session 1.11.1,
