@@ -2014,6 +2014,33 @@ from the app's own user with run-as (the receivers are not exported). Evidence i
 - Left on the phone: Riff Stress (com.musicglass.personal.stress), signed out, a search for "Beat It" in its own
   history; removal belongs to B12.
 
+### Q18B7 performance budgets on the owner's phone (19 October 2026, overnight)
+
+Done overnight under the owner's delegation. Riff Benchmark (com.musicglass.personal.benchmark, benchmarkRelease, fixture
+feed) and the macrobenchmark test APK (com.musicglass.personal.macrobenchmark), both debug-signed with their own
+packages, built from 9a253bb and installed beside Riff; hashes in artifacts/quality/q18b/b7/apks.sha256. Phone I2217,
+iQOO/I2217/I2217:16/BP2A.250605.031.A3, on its charger at 100%, 38.5-39.3 C (warm: it charges with the screen on), system
+animations on (scales 1.0), display at 120 Hz. Aeroplane mode with Wi-Fi and data off for the runs; all restored after.
+
+- Macrobenchmark, BLOCKED (Q18-023). The runner hangs after its first app launch: the launch finishes (247 ms, Fully
+  drawn +1.585 s) but the shell call that ran it never returns. Reproduced twice (JourneyCheck whole and one test,
+  each stopped by hand after 5 to 12 minutes). So JourneyCheck, StartupBenchmark, ActionBenchmark (player and queue
+  actions, 2,000-entry queue, local and controlled online first audio), FrameBenchmark, MainThreadAudit and
+  MemoryCheck have no result on this phone, and check_performance.py summary has nothing to read.
+- Fallback, not the official instrument (coldstart-*.txt, frames-*.txt):
+  - Cold start, 15 launches each with am start -W, reading the platform's Fully drawn time (the app reports it at the
+    usable shell). Without the profile (compiled verify): median 1503 ms, min 1478, max 1618 (TotalTime median 182 ms).
+    With the Baseline Profile (installed with profileinstaller, compiled speed-profile): median 1457 ms, min 1417,
+    max 1490 (TotalTime median 179 ms). The profile saves about 3%. Both are over the 1.2 s Tier R budget for p95;
+    the owner judged the matching logo time (about 1.3 s, A8) about right.
+  - Home scroll, gfxinfo after one warm-up loop, 5 loops of 3 flings down and 3 up: at 120 Hz 3,062 frames, 34 missed
+    their deadline (1.11%, budget 3% at high refresh), p50 12 ms, p95 14 ms, p99 19 ms, no missed vsync. A 60 Hz run
+    was not possible: this phone ignored peak_refresh_rate and min_refresh_rate set to 60 and stayed at 120 Hz (the
+    second run, 3,063 frames, 1.08%, is another 120 Hz result). The 2% budget at 60 Hz is not measured.
+- Settings restored: refresh rate (peak 120.0, min unset), aeroplane mode off, Wi-Fi and mobile data on.
+- Left on the phone: Riff Benchmark and its test APK; removal belongs to B12.
+- New bug: Q18-023 (Medium, tooling), logged, not fixed.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
