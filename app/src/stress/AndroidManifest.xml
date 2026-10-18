@@ -1,10 +1,12 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Q18B4: "Riff Stress" in a side-by-side build (riffSideBySide), to tell it apart from Riff and Riff Preview. -->
+    <application android:label="${riffStressLabel}" tools:replace="android:label">
         <activity android:name=".FeatureTestActivity" android:exported="false"
             android:theme="@android:style/Theme.Material.NoActionBar" />
         <provider
             android:name=".StressDiagnostics"
-            android:authorities="com.musicglass.personal.stress-diagnostics"
+            android:authorities="${applicationId}.stress-diagnostics"
             android:exported="false"
             android:initOrder="1000" />
     </application>

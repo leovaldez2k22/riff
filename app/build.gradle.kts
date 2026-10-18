@@ -95,9 +95,19 @@ android {
         }
         // Release code and signing key, debuggable: installs over a release install without
         // wiping data, and allows run-as backups, heap dumps and StrictMode (src/stress).
+        // Q18B4: with -PriffSideBySide=true it is its own app instead, "Riff Stress", so it installs beside Riff
+        // and Riff Preview on the owner's phone; it then has nothing to update, so the debug key does when the
+        // release key's variables are absent.
         create("stress") {
             initWith(getByName("release"))
             isDebuggable = true
+            val sideBySide = providers.gradleProperty("riffSideBySide").orNull == "true"
+            if (sideBySide) {
+                applicationIdSuffix = ".stress"
+                versionNameSuffix = "-stress"
+                if (signingConfig == null) signingConfig = signingConfigs.getByName("debug")
+            }
+            manifestPlaceholders["riffStressLabel"] = if (sideBySide) "Riff Stress" else "@string/app_name"
             // Not shrunk: AGP disables R8 optimisation for debuggable builds but still removes unused
             // code, which broke instrumentation (it uses the app's copy of the Kotlin stdlib). Check
             // shrinking with a real release build instead.

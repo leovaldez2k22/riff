@@ -1980,6 +1980,40 @@ from the download_reconcile log line, the Downloads rows and the job scheduler. 
   Hunt is Coming (Extended), Radiohead - Let Down + Choir, No One Noticed (Extended English), Whirling In Rags 8 PM,
   Chamber of Reflection, Let Go (Slowed to perfection)); removal is part of the clean-up at the end of testing.
 
+### Q18B4 stream helper under stress on the owner's phone (18 October 2026, overnight)
+
+Done overnight under the owner's delegation (all decisions theirs to me, 23:30-06:00). Riff Stress: the stress build
+made with -PriffSideBySide=true, new in this package. The stress build had no package suffix and would have installed
+over the owner's Riff, so the switch gives it com.musicglass.personal.stress, the launcher name "Riff Stress", its
+diagnostics authority under its own package, and the debug key when the release key's variables are absent (it updates
+nothing, so it needs no release key). Off by default: a plain stress build is as before. APK sha256 in
+artifacts/quality/q18b/b4/stress-apk.sha256 (0.10.0-rc1-stress, debuggable, CN=Android Debug); installed beside Riff and
+Riff Preview, which were not touched. Riff Stress was used signed out, so no account was involved. Fault hooks were sent
+from the app's own user with run-as (the receivers are not exported). Evidence in artifacts/quality/q18b/b4/.
+
+- First song after a cold start, PASS against Q17A: prewarm at launch stream_prewarm reason=start ms=3702;
+  first song selected_stream_ready ms=2614, playing 3.3 s after the tap. After 10 minutes in the background
+  (23:48:43-23:59:25): selected_stream_ready ms=2652, playing 3.7 s after the tap.
+- Solver crashed once during a lookup (SIGSEGV 0.4 s after Next), PASS: solver_call_lost attempt=0, solver_died,
+  a new solver connected 0.67 s later and the song played (selected_stream_ready ms=3904). solver-kill-once-b.txt.
+- Solver kept down (crashed as it restarted, during a lookup), PASS on attempts, FAIL on the message (Q18-022). The
+  crash-loop guard paused the solver after its third death in 10 minutes; the player made exactly three attempts
+  and stopped (recovery_stop attempts=3, 6.5 s) with Retry and Skip, and nothing crashed. But the screen said
+  "Could not play this item" and the attempts were classed as timeout, not "Online playback resolver unavailable":
+  the SolverUnavailableException does not reach the player. Retry during the 10-minute pause failed the same way;
+  Retry after it recovered on the first attempt (recovery_done attempts=1). solver-kill-loop.txt,
+  retry-after-pause.txt, after-10-min.txt, s8-player-solver-down.png.
+- Attestation fault during playback (PLY05), BLOCKED. Armed (FAIL_SABR delivered), but signed out every stream was
+  DIRECT (every song tried, ten lookups), and the fault only applies to SABR audio, which the signed-in sessions get. Signing Riff
+  Stress in needs a password typed on the phone, which I do not do. Rerun: the owner signs Riff Stress in to the
+  dummy account; then run-as com.musicglass.personal.stress am broadcast --user 0 -a
+  com.musicglass.personal.stress.FAIL_SABR -p com.musicglass.personal.stress --ei count 1 while a SABR song plays,
+  and expect one "recovery class=attestation attempt=1 action=attestation" line and playback continuing.
+- No crash of the app process (no AndroidRuntime lines in logcat-b4.txt).
+- New bug: Q18-022 (Medium), logged, not fixed.
+- Left on the phone: Riff Stress (com.musicglass.personal.stress), signed out, a search for "Beat It" in its own
+  history; removal belongs to B12.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
