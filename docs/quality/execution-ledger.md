@@ -1785,6 +1785,25 @@ Network use: two reads of BetterLyrics' public getLyrics from the computer (Deli
 Device state: animation scales back at 1.0; no file created on the phone by this sub-phase; nothing installed or removed.
 Next exact action: ask the owner before A2 (listening).
 
+### Q18A2 listening on the owner's phone (18 October 2026)
+Status: done. Crossfade, booster and normalization PASS on the speaker and on Bluetooth; wired headphones BLOCKED (the owner has none). One finding logged, not fixed: Q18-005 (seek stalls).
+Authorization: the owner said "start a2" (after asking whether A3 could go first, then choosing A2).
+Device and build: the owner's phone, Riff Preview 0.10.0-rc1-preview from 7f7ab8e (as A1). Songs played from the owner's own Riff Preview library; no account change.
+Method: the owner listened and reported each step; screenshots over USB straight to the computer, only while Riff Preview was in front. Evidence: artifacts/quality/q18a/a2/.
+Starting settings (a2-00-settings-before.png): Volume booster on at 300 %, Normalize volume off, Crossfade on at 3 s. Restored to exactly these at the end (a2-99-settings-after.png).
+Results (owner's reports):
+1. Speaker, booster off, crossfade 1 s, three automatic changes: smooth, no click, no level jump. PASS.
+2. Speaker, booster off, crossfade 6 s (two changes) and 12 s (two changes): smooth. PASS.
+3. During a 12 s blend: pause ends the blend at once and the next song carries on at full level; seek and next leave only the new song at normal level; turning crossfade off ends the blend cleanly and no later change blends; setting a sleep timer ends the blend and the next song plays at full level; repeat-one restarts the song with no blend. All as designed (Crossfade.kt ends any blend on pause, skip or stop; the sleep timer owns the volume). PASS. The owner chose to keep pause and sleep-timer behaviour as it is.
+4. Speaker, crossfade 6 s, booster 200 % and 300 %, two changes each: no distortion, no dip, the next song at the same level. PASS.
+5. Normalize volume on (booster 300 %, crossfade 6 s), songs from different artists: closer in loudness, no click or jump. PASS (by ear; no gain values read, diagnostics not opened).
+6. Bluetooth headphones, crossfade 6 s (two changes) and 12 s (one), pause and play from the headphone button during a blend: smooth, button works. PASS.
+7. Wired headphones: BLOCKED, none available. Rerun: plug in wired headphones, repeat steps 1, 2 and 4.
+Finding: Q18-005, seeking stalls for too long on streamed and downloaded songs, worst when seeking back (owner's report during step 3).
+Network use: none from the computer.
+Device state: Riff Preview audio settings restored and checked by screenshot; no file created on the phone; nothing installed or removed.
+Next exact action: ask the owner before A3 (audio interruptions).
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
