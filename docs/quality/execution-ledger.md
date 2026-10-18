@@ -2052,8 +2052,9 @@ AndroidRuntime errors. Memory: total PSS 285.7 MiB at the first sample, 242.9 Mi
 290.3): no growth, against a budget of max(10%, 20 MiB) = 28.6 MiB. Every song was served from its download (each
 lookup ended in the local file; no `selected_stream_ready`, so nothing went to the network); 22 crossfades, all
 completed. Battery temperature fell from 40.1 to 37.4 °C. Network turned back on afterwards. The 4-hour live soak
-was not run: the owner's account was off limits overnight and the phone had to stay unattended; it remains open
-for a session with the owner.
+was not run: 4 hours no longer fitted before 06:00, and a shorter one on the dummy account was stopped before it
+started, when the session's auto-mode safety check refused the tap that would have begun streaming on the
+unattended phone. It remains open for a session with the owner.
 
 ### Q18B11 foreign controller on the owner's phone (19 October 2026, overnight; partial)
 
