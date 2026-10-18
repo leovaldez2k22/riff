@@ -23,7 +23,7 @@ import java.io.IOException
  * Q09: downloads on a device. The download engine runs with Android's own extractor and muxer on audio
  * encoded here from a generated tone; the resolver, the audio and artwork responses and the lyrics are
  * scripted, so nothing reaches a provider. What it leaves is then played by the real playback service.
- * Emulator only, signed out, synthetic songs.
+ * Emulator or the side-by-side debug build only (disposableInstall), signed out, synthetic songs.
  */
 @RunWith(AndroidJUnit4::class)
 @androidx.annotation.OptIn(markerClass=[androidx.media3.common.util.UnstableApi::class])

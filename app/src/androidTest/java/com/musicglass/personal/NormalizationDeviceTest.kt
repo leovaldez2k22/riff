@@ -14,7 +14,7 @@ import java.io.File
 
 /**
  * Q08A: Normalize volume through the real playback service. Downloads are built here from generated tones,
- * encoded as a download is stored, with a scripted loudness value next to them; nothing comes from the provider. Emulator only, signed out. What is
+ * encoded as a download is stored, with a scripted loudness value next to them; nothing comes from the provider. Emulator or the side-by-side debug build only (disposableInstall), signed out. What is
  * read is the gain the service says it applied; the emulator has no audio output to listen to.
  */
 @RunWith(AndroidJUnit4::class)

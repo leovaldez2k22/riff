@@ -26,7 +26,7 @@ import kotlin.math.sin
 
 /**
  * Q08: blends between generated tones through the real playback service, its second player and its effects.
- * Emulator only, signed out, nothing from the provider. What is read is the player's level and the blend the
+ * Emulator or the side-by-side debug build only (disposableInstall), signed out, nothing from the provider. What is read is the player's level and the blend the
  * screens draw from; the emulator has no audio output to listen to.
  */
 @RunWith(AndroidJUnit4::class)

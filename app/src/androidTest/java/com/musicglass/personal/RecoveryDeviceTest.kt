@@ -11,7 +11,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Recovery against the real playback service (Q07). Emulator only, with the network off: a queued
+ * Recovery against the real playback service (Q07). Emulator or the side-by-side debug build only, with the network off: a queued
  * "YouTube Music" entry cannot be fetched, which is the fault these tests need. Nothing here
  * reaches a provider.
  */

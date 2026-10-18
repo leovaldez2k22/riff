@@ -2,7 +2,6 @@ package com.musicglass.personal
 
 import android.content.ComponentName
 import android.content.Context
-import android.os.Build
 import android.os.Bundle
 import android.os.Looper
 import android.os.SystemClock
@@ -28,7 +27,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * What a build that keeps data per owner does with the shared history file and shared queue of an
- * earlier build, against the real playback service and the real database. Emulator only, because it
+ * earlier build, against the real playback service and the real database. Emulator or the side-by-side debug build only (disposableInstall), because it
  * clears history it wrote: identities are synthetic and the network is expected to be off.
  */
 @RunWith(AndroidJUnit4::class)
@@ -46,7 +45,7 @@ class LegacyUpgradeDeviceTest {
     private lateinit var controller:MediaController
 
     @Before fun connect() {
-        assumeTrue("Emulator only",Build.HARDWARE in setOf("ranchu","goldfish") || Build.MODEL.startsWith("sdk_gphone"))
+        assumeTrue("Emulator or the side-by-side debug build only",disposableInstall())
         val sync=sessionPrefs.getString("sync",null)
         assumeTrue("Install holds a non-fixture account",!provider.signedIn || sync?.startsWith("fixture-sync-")==true)
         runBlocking {process.stateReady.await()}

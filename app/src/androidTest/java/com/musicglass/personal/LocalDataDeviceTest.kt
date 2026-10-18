@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Looper
 import android.os.SystemClock
@@ -32,7 +31,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Saving, clearing and deleting local data against the real playback service and database.
- * Emulator only, because it clears history and deletes an owner's data: identities are synthetic,
+ * Emulator or the side-by-side debug build only (disposableInstall), because it clears history and deletes an owner's data: identities are synthetic,
  * the only audio played is a fixture file, and the network is expected to be off.
  */
 @RunWith(AndroidJUnit4::class)
@@ -52,7 +51,7 @@ class LocalDataDeviceTest {
     private var savingBefore=true
 
     @Before fun connect() {
-        assumeTrue("Emulator only",Build.HARDWARE in setOf("ranchu","goldfish") || Build.MODEL.startsWith("sdk_gphone"))
+        assumeTrue("Emulator or the side-by-side debug build only",disposableInstall())
         val sync=sessionPrefs.getString("sync",null)
         assumeTrue("Install holds a non-fixture account",!provider.signedIn || sync?.startsWith("fixture-sync-")==true)
         runBlocking {process.stateReady.await()}

@@ -33,9 +33,18 @@ import java.util.concurrent.TimeUnit
 
 /**
  * What the two playback device tests share: a controller on the real service, signed-out use,
- * synthetic queue entries and fixture audio. Emulator only; the network is expected to be off, so
+ * synthetic queue entries and fixture audio. Emulator or the side-by-side debug build only (disposableInstall); the network is expected to be off, so
  * nothing queued from "YouTube Music" can actually be fetched.
  */
+/**
+ * Where the fixture tests may clear history, delete an owner's data and seed synthetic entries: an emulator, or
+ * (Q18C1) the side-by-side debug build com.musicglass.personal.debug, whose data is its own on a real phone. Never
+ * Riff, Riff Preview or Riff Lite.
+ */
+internal fun disposableInstall():Boolean =
+    Build.HARDWARE in setOf("ranchu","goldfish") || Build.MODEL.startsWith("sdk_gphone") ||
+        InstrumentationRegistry.getInstrumentation().targetContext.packageName=="com.musicglass.personal.debug"
+
 @androidx.annotation.OptIn(markerClass=[androidx.media3.common.util.UnstableApi::class])
 internal open class PlaybackDeviceHarness {
     val instrumentation=InstrumentationRegistry.getInstrumentation()
@@ -46,7 +55,7 @@ internal open class PlaybackDeviceHarness {
     val connected get()=::controller.isInitialized
 
     fun requireDisposableInstall() {
-        assumeTrue("Emulator only",Build.HARDWARE in setOf("ranchu","goldfish") || Build.MODEL.startsWith("sdk_gphone"))
+        assumeTrue("Emulator or the side-by-side debug build only",disposableInstall())
         val sync=target.getSharedPreferences("provider_session",Context.MODE_PRIVATE).getString("sync",null)
         assumeTrue("Install holds a non-fixture account",!provider.signedIn || sync?.startsWith("fixture-sync-")==true)
     }
