@@ -1898,6 +1898,8 @@ B12). Riff, Riff Preview and the older com.musicglass.personal.test were not tou
   and 980 ms and the player show one cover, one title and one set of controls each; q16a-pixels pink before=0
   held=2098 after=0 current=2; q16b-letters lift 2.75 px raised 2.99 shake 0.87 after 0.00, reduced motion 0.00 and
   0.20; q16a-frames 262 updates, median 66 ms, p95 84 ms.
+- Offline rerun with the owner's VPN disconnected (offline-rerun-novpn.txt), Wi-Fi and mobile data off for 32 s:
+  3 of 3 pass. B1 total on the phone: 51 of 51. This confirms Q18-017 is the VPN, not the tests.
 - Riff Debug and its test package stay on the phone for later B sub-phases; removal is asked in B12.
 
 ## Plan v1.1 additions (11 October 2026)
