@@ -1856,6 +1856,28 @@ no credit is taken); the placeholders are not acceptable (Q18-014). First song, 
 the media session, so effectively a cold start); the owner finds about 3 s just above tolerable (Q18-015).
 Downloaded songs start at once (0 to 0.09 s). Evidence: artifacts/quality/q18a/a8/.
 
+### Q18C1 side-by-side device builds (18 October 2026)
+
+Source 09b6c05. With -PriffSideBySide=true the debug build is com.musicglass.personal.debug, launcher name "Riff
+Debug", version 0.10.0-rc1-debug, and its test APK com.musicglass.personal.debug.test. The seven instrumentations
+in src/androidTest/AndroidManifest.xml take their target from a placeholder set per variant, and
+OfflineSmokeInstrumentation starts the preview activity in the target's own package. verify.py builds the pair with
+the property, reads both package names with aapt2 and refuses to install anything else ("nothing is installed over
+another app"); two new tests in test_verify.py cover that and the runner name. The property is off by default: with
+the suffix always on, 7 Robolectric database tests failed with "Can't upgrade read-only database", because each
+test's folder holds the package name and the longest test names then pass Windows' 260-character path limit.
+
+- JVM: 1006 tests, 0 failures, without the property. Lint (debug): 0 errors, 94 warnings, 3 hints; the 9 more than
+  Q17A are all newer-version notices (AndroidGradlePluginVersion, NewerVersionAvailable) that appeared with time.
+- Script tests: 139 of 140; the failure is the static check's finding in RoundedTransportIcons.kt from Q17A,
+  logged as Q18-016, not changed here.
+- Emulator lane emulator-20261018T134313Z: PASS_LOCAL, 51 tests, riff_q02_fixture (API 31), cold-started, network
+  off. App APK 944e8706...818af7, test APK 6d044670...27eff. Installed beside an older com.musicglass.personal and
+  its test package, which were left as they were. emulator-20261018T133139Z on a second run without a restart: 50 of
+  51, CrossfadeFixtureDeviceTest "The two decoders did not align in four attempts" (the known Q13 emulator
+  weakness). emulator-20261018T125651Z: 51 of 51 but FAIL on identity, because comments were edited during the run.
+- Not done on the phone: B1 runs this on the owner's phone and asks before installing.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
