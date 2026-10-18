@@ -2041,6 +2041,20 @@ animations on (scales 1.0), display at 120 Hz. Aeroplane mode with Wi-Fi and dat
 - Left on the phone: Riff Benchmark and its test APK; removal belongs to B12.
 - New bug: Q18-023 (Medium, tooling), logged, not fixed.
 
+### Q18B8 offline soak on the owner's phone (19 October 2026, overnight)
+
+Riff Preview (7f7ab8e) on the I2217, signed in with the dummy test account, Wi-Fi and mobile data off, the
+13-song album the test account had downloaded playing with repeat all, screen off, app in the background, music
+volume muted for the night. 00:31:51 to 02:31:59, sampled every 5 minutes (`artifacts/quality/q18b/b8/
+soak-samples.csv`, 25 samples; `logcat-soak.txt`; `soak-events.txt`). **PASS**: one process the whole time (pid
+unchanged), PLAYING in every sample, no crash, ANR or kill events for the package in the events log, no
+AndroidRuntime errors. Memory: total PSS 285.7 MiB at the first sample, 242.9 MiB at the last (min 235.0, max
+290.3): no growth, against a budget of max(10%, 20 MiB) = 28.6 MiB. Every song was served from its download (each
+lookup ended in the local file; no `selected_stream_ready`, so nothing went to the network); 22 crossfades, all
+completed. Battery temperature fell from 40.1 to 37.4 °C. Network turned back on afterwards. The 4-hour live soak
+was not run: the owner's account was off limits overnight and the phone had to stay unattended; it remains open
+for a session with the owner.
+
 ### Q18C3 foreign controller on the emulator (19 October 2026, overnight)
 
 A throwaway app, test.riff.foreign (built in the scratchpad from 40 lines of Kotlin against media3-session 1.11.1,
