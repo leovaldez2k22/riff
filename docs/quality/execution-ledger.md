@@ -1804,6 +1804,29 @@ Network use: none from the computer.
 Device state: Riff Preview audio settings restored and checked by screenshot; no file created on the phone; nothing installed or removed.
 Next exact action: ask the owner before A3 (audio interruptions).
 
+### Q18A4 TalkBack walk-through on the owner's phone (18 October 2026)
+Status: done. UX01-UX06 and UX08-UX10 PASS; UX04's spoken announcements not heard; UX07 BLOCKED (needs a second account); home-screen widgets not checked. No bug stands: two suspected from the accessibility tree (Q18-006, Q18-007) were withdrawn after the owner listened with TalkBack.
+Authorization: the owner asked whether A4 could go before A3, then said "start a4". Later the owner asked me to drive the phone and confirm results ("can you do it yourself, and i can just confirm the results?", then "can you do the spot check yourself too?").
+Device and build: the owner's phone, Riff Preview 0.10.0-rc1-preview from 7f7ab8e (as A1). Signed in to the owner's own account; nothing on the account was changed.
+Method, three parts:
+1. UX01 by the owner with TalkBack on (first attempt was in the main app by mistake; my screenshot helper refused, and the owner repeated it in Riff Preview).
+2. UX02-UX10 driven by me over adb with TalkBack off: input taps, and the accessibility tree read with uiautomator dump straight to the computer (nothing saved on the phone); the owner watched. Evidence: artifacts/quality/q18a/a4/*.xml and *.png.
+3. A spot check by the owner with TalkBack on, for what only listening settles. Driving TalkBack over adb was tried and abandoned: injected taps and swipes bypass TalkBack's touch exploration (one tap ran a recent search, "aaa", already in the owner's history), and Alt+arrow shortcuts moved the focus only unreliably.
+Lesson: uiautomator's dump is not the same as what TalkBack reads. It showed the Library tiles with no name, and the page beneath the lyrics page; with TalkBack, both were fine. The dump is a guide only; what is heard decides.
+Results:
+- UX01 Home: every item read once, in order; Back leaves the account page. PASS (owner, TalkBack). sc: a4-ux01-home.png.
+- UX02 search, play, queue: results named; each song row is one stop plus its options button; TalkBack's Actions on a row offer Play next and Add to queue (owner); Add to queue showed "Added to queue"; tapping a song played it. PASS.
+- UX03 filter and sort: the chosen chip is marked checked; the sort button says the current order ("Sort: Relevance", "Sort: Title"). PASS. Both restored.
+- UX04 download: a test song ("Why Did It Have To Be Me?", ABBA) downloaded within 40 s and was then removed (Downloads back to 31 songs). The search screen shows no download stages, so whether each is announced once was not heard. PARTLY.
+- UX05 player and queue: every control named ("Close player", "Shuffle off", "Repeat off", "Open queue", "Remove <song> from queue"); opening the player puts TalkBack focus on the close button, closing returns it to the mini player; queue rows say their position and offer Move up, Move down and Remove; the queue's Shuffle and Repeat say on or off (owner). PASS.
+- UX06 lyrics timing: the dialog shows its value (+0.2 s, the owner's setting for that song) and Done leaves it; nothing changed. PASS.
+- UX07 account switch: BLOCKED. Needs a second (test) account; the owner's account is not switched.
+- UX08 deletion: "Delete all downloads?" reads its title, then what is removed ("all downloaded songs, artwork and lyrics from this account on this phone..."), then Cancel, then Delete. PASS. The owner pressed Cancel (my tap near the delete button was refused by a safety check, rightly); downloads intact.
+- UX09 errors: aeroplane mode on, a song that is not downloaded: the error and its button are read once (owner). PASS.
+- UX10 sleep timer: options named, the custom-minutes field labelled, filled (25) and visible above the keyboard; closed without setting a timer. PASS. Home-screen widgets not checked.
+Device state: TalkBack off again, accessibility off (read back: services null, accessibility_enabled 0); aeroplane mode off. Before A4 the only service on was Microsoft's screen-mirroring service; it is no longer listed, and was not touched by me. Test download removed. No file created on the phone by this sub-phase. /data/local/tmp holds dump.xml, riff-ui.xml, riff-monkey-watchdog.log and riff-rc20-original.json from earlier work (not this session's); they are to be raised with the owner under the clean-up rule when testing ends.
+Next exact action: ask the owner before the next sub-phase (A3, A5, A6 or A8).
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
