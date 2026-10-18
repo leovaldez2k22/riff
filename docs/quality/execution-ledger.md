@@ -1926,6 +1926,29 @@ media-session state logged throughout (artifacts/quality/q18b/b3/b3-playback-sta
 First audio for streamed songs in this session: 3.3, 3.9 and 6.6 s (after a reconnect); see Q18-015.
 Wi-Fi, mobile data, Bluetooth and aeroplane mode as before; Riff Preview left paused.
 
+### Q18B6 export and import on the owner's phone (18 October 2026)
+
+Riff Preview 7f7ab8e, the owner's account, Settings > Privacy and data, driven over adb with the system file picker
+(com.google.android.documentsui). Evidence in artifacts/quality/q18b/b6/ (screen trees; the exported file is kept
+there only, gitignored, because it holds the owner's history; only its structure was read).
+
+- Export, PASS. The dialog lists this phone (11 settings, 1 hidden item), signed-out listening (2 searches, 5
+  plays), Leo Valdez (1 saved track, 50 recently played, 29 searches, 238 plays, 31 downloads) and another account
+  used on this phone (1 search, the dummy account's carried-over search, Q18-012), offered but not ticked by design;
+  and says the file is not encrypted. Saved through the picker as Download/riff-local-data-2026-10-18.jsonl, 88,218
+  bytes: 373 JSON lines, all parseable, schema 1, app 0.10.0-rc1-preview; owner sections device, guest and one
+  provider whose id is a version prefix and a 64-hex digest, not the account id; counts per section equal the
+  dialog's; no cookie, e-mail address, token or signed URL in the text.
+- Import preview, PASS. The same file chosen in the picker: the preview shows the same counts and says importing
+  adds and removes nothing and starts nothing. Cancelled; history 238 plays, 29 searches, 31 downloads unchanged.
+- Export cancelled at the picker, PASS: Back from the picker returns to Riff's dialog and writes nothing (still one
+  riff-local file), Cancel closes it. A cancel while the file is being written is too quick to reach by hand at this
+  size; it is covered by LocalDataTransferDeviceTest (passed in B1 on this phone).
+- No storage permission asked: READ_MEDIA_AUDIO declared and not granted before and after; app ops for external
+  storage and media all "ignore".
+- Left on the phone: Download/riff-local-data-2026-10-18.jsonl, created by this test; removal is part of the
+  clean-up at the end of testing.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
