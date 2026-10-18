@@ -2041,6 +2041,30 @@ animations on (scales 1.0), display at 120 Hz. Aeroplane mode with Wi-Fi and dat
 - Left on the phone: Riff Benchmark and its test APK; removal belongs to B12.
 - New bug: Q18-023 (Medium, tooling), logged, not fixed.
 
+### Q18C3 foreign controller on the emulator (19 October 2026, overnight)
+
+A throwaway app, test.riff.foreign (built in the scratchpad from 40 lines of Kotlin against media3-session 1.11.1,
+not part of the repository; its source is kept as artifacts/quality/q18c/c3-ForeignCheck.kt.txt), connects a media3
+MediaController to Riff's MusicPlaybackService from its own package and user id, which a test inside Riff's package
+cannot do. Target: Riff Benchmark (benchmarkRelease, fixture feed, release code) on the API 31 fixture emulator,
+network off, playing Fixture Song 1 from Speed dial. Result (artifacts/quality/q18c/c3-foreign-emulator.txt), PASS:
+- Commands offered to the foreign app: COMMAND_CHANGE_MEDIA_ITEMS false, COMMAND_SET_MEDIA_ITEM false; play/pause,
+  seek to next and reading the timeline true.
+- Queue edit refused: removeMediaItem(0) and addMediaItem(...) left the queue at 3 items (3 before, 3 after).
+- Transport allowed: pause stopped playback, play started it again.
+The phone half (B11) uses the same app; the emulator was shut down afterwards.
+
+### Q18C4 lint and static triage (19 October 2026, overnight)
+
+docs/quality/lint-triage.md: all 97 lint issues of the last debug lint (94 warnings, 3 hints, 0 errors) triaged by
+rule with a disposition and a reason, nothing suppressed in bulk. 4 false positives (Recycle, StaticFieldLeak x3:
+checked in the code), 13 upgrade notices, 15 changes worth making (widget text and padding, three int states,
+collected as Q18-024), the rest accepted with reasons (ExportedService, deliberate commit() in the one-time migration,
+41 KTX style notices and others). The R8 Kotlin-metadata warning (179 identical lines in each shrunk build, nothing
+else from R8) is explained: AGP 8.13.2 bundles R8 8.13.19, older than Kotlin 2.4.10's metadata; Riff reads no Kotlin
+metadata at run time, and the shrunk app has worked all through Q18 on the phone. Fix (pin R8 9.1.29) listed in
+Q18-024. Note: the triage count differs from the split's "85 warnings" because C1's lint added 9 version notices.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
