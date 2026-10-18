@@ -1949,6 +1949,37 @@ there only, gitignored, because it holds the owner's history; only its structure
 - Left on the phone: Download/riff-local-data-2026-10-18.jsonl, created by this test; removal is part of the
   clean-up at the end of testing.
 
+### Q18B5 downloads under interruption on the owner's phone (18 October 2026)
+
+Riff Preview 7f7ab8e, the owner's account, online (Wi-Fi and mobile data, VPN off). Riff was force-stopped with adb
+while a download was in a given phase, then reopened; the phase was read from the Downloads screen and the result
+from the download_reconcile log line, the Downloads rows and the job scheduler. Evidence in artifacts/quality/q18b/b5/
+(screen trees, run2-kill.txt, run3-phasekill.txt, run4-reboot.txt, run1-job-history.txt, riff-log-2040-2100.txt).
+
+- Run 1, killed while Downloading ("Radiohead - Let Down + Choir"), FAIL (Q18-021). On reopening the state was right
+  (download_reconcile requeued=1 swept=2; the partial files went; the song showed as waiting, not as downloaded) but
+  nothing resumed it: the pending resume job ran as Riff reopened and was cancelled before it bound, no new job was
+  scheduled, and the song finished only when the next download was asked for, eleven minutes later.
+- Run 2, killed 6.4 s after the stream resolved ("Chamber of Reflection", 2:48): the download had already finished;
+  no reconcile line, complete and unaffected. Short songs take under 6 s in all.
+- Run 3, killed during "Saving artwork and lyrics" (the 44:53 Witcher track, removed and downloaded again with the
+  owner's approval to give a long download), state PASS, resume FAIL (Q18-021). requeued=1 swept=0: the audio was
+  kept (total unchanged) and the row read "Waiting to save artwork and lyrics", never falsely complete; but no job
+  was pending and it did not continue on its own.
+- "Checking audio" was not caught on the phone: even on the 44:53 track it lasts less than one screen poll (about
+  1.5 s). A stop in that phase is covered by DownloadReconcileTest (DLD01, a stop in each phase).
+- Run 4, phone rebooted (owner's approval) 9 s into a download ("Let Go (Slowed to perfection)") with the Witcher
+  track waiting, PASS once Riff was opened. The persisted resume job survived the reboot but stayed READY for 12
+  minutes without running: this phone does not start Riff in the background by itself (standby bucket active,
+  background running allowed). Opening Riff: requeued=1 swept=2, the job ran for 39 s and both songs finished
+  (38 songs, 193.0 MB); the Witcher track reads Ready offline, 41.5 MB, 132 kbps AAC, artwork saved, lyrics not
+  available. No song was left falsely complete or with stray partial files in any run.
+- New bug: Q18-021 (High), a song interrupted mid-download is put back in the queue but nothing starts it again.
+  Logged, not fixed.
+- Left on the phone: the B5 test downloads in Riff Preview (Main Menu - Disco Elysium OST, The Witcher 3 ... The
+  Hunt is Coming (Extended), Radiohead - Let Down + Choir, No One Noticed (Extended English), Whirling In Rags 8 PM,
+  Chamber of Reflection, Let Go (Slowed to perfection)); removal is part of the clean-up at the end of testing.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
