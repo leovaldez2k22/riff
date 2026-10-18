@@ -46,7 +46,8 @@ JVM tests read these through test resources. Only the instrumentation APK packag
 Set JAVA_HOME to the bundled JDK, ANDROID_HOME to `.toolchain/sdk`, and GRADLE_USER_HOME to `.toolchain/gradle-user-home`. From the repository root:
 
 ~~~powershell
-./gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --offline --continue --console=plain
+./gradlew.bat :app:testDebugUnitTest :app:lintDebug --offline --continue --console=plain
+./gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest -PriffSideBySide=true --offline --console=plain
 ~~~
 
 Use an explicitly selected disposable emulator. Installing these APKs over a personal app is outside the fixture workflow. On a fresh isolated emulator:
@@ -55,7 +56,7 @@ Use an explicitly selected disposable emulator. Installing these APKs over a per
 $fixtureSerial = 'emulator-5580'
 ./.toolchain/sdk/platform-tools/adb.exe -s $fixtureSerial install app/build/outputs/apk/debug/app-debug.apk
 ./.toolchain/sdk/platform-tools/adb.exe -s $fixtureSerial install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-./.toolchain/sdk/platform-tools/adb.exe -s $fixtureSerial shell am instrument -w -r -e class com.musicglass.personal.FixturePlaybackTest com.musicglass.personal.test/androidx.test.runner.AndroidJUnitRunner
+./.toolchain/sdk/platform-tools/adb.exe -s $fixtureSerial shell am instrument -w -r -e class com.musicglass.personal.FixturePlaybackTest com.musicglass.personal.debug.test/androidx.test.runner.AndroidJUnitRunner
 ~~~
 
 `FixturePlaybackTest` drives a real Media3 player from the bounded HTTP server, checks preparation within 10 seconds, real playback advancement, 30-second duration within 100 ms and seek completion. It mutes output. Real elapsedRealtime and bounded waits measure the decoder; fake policy time never drives decoder assertions.

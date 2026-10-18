@@ -14,7 +14,8 @@ import kotlinx.coroutines.withTimeout
  * the deadline. When an instrumentation finishes, Android force-stops the app: a real process kill in
  * which the service's onDestroy never runs, which is exactly what the saved deadline must survive.
  *
- *   adb shell am instrument -w -e minutes 2 com.musicglass.personal.test/com.musicglass.personal.SleepTimerSetInstrumentation
+ *   adb shell am instrument -w -e minutes 2 com.musicglass.personal.debug.test/com.musicglass.personal.SleepTimerSetInstrumentation
+ *   (test APK of a debug build made with -PriffSideBySide=true, as the lanes make it; otherwise com.musicglass.personal.test)
  *
  * Then restart the playback service, press play, and check it pauses at the reported deadline.
  */

@@ -16,7 +16,8 @@ import org.junit.runner.RunWith
  * when asked for:
  *
  *   adb shell am instrument -w -r -e class com.musicglass.personal.ProviderCanaryDeviceTest -e riffCanary stream \
- *       com.musicglass.personal.test/androidx.test.runner.AndroidJUnitRunner
+ *       com.musicglass.personal.debug.test/androidx.test.runner.AndroidJUnitRunner
+ *   (test APK of a debug build made with -PriffSideBySide=true, as the lanes make it; otherwise com.musicglass.personal.test)
  *
  * The result is one status line, riffCanary={...}, which scripts/quality/provider_canary.py reads with
  * --stream-log. The test passes whatever the provider answers. If the app is signed in it sends nothing.

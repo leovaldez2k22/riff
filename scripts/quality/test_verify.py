@@ -1,6 +1,7 @@
 """Tests for verify.py (Q16): lanes, device choice, tool lookup, summaries and the source archive check."""
 import json
 import os
+import shutil
 from pathlib import Path
 import tempfile
 import unittest
@@ -172,6 +173,40 @@ class InstallTest(unittest.TestCase):
             lane = verify.Lane(Args(checks="static", evidence_dir=temp), root=Path(temp))
             lane.gate("script-tests", lambda: 0)
             self.assertEqual("BLOCKED", lane.gates["script-tests"]["status"])
+
+
+class PackageTest(unittest.TestCase):
+    """Q18C1: the lanes install the debug build under its own package, never over Riff or Riff Preview."""
+    def test_the_runner_and_fixtures_name_the_debug_package_and_the_source_classes(self):
+        self.assertEqual("com.musicglass.personal.debug", verify.DEBUG_PACKAGE)
+        self.assertTrue(verify.RUNNER.startswith("com.musicglass.personal.debug.test/"))
+        self.assertTrue(all(name.startswith("com.musicglass.personal.") and ".debug." not in name
+                            for name in verify.FIXTURE_CLASSES))
+
+    def pair(self, packages):
+        temp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, temp, True)
+        lane = verify.Lane(Args(lane="device", evidence_dir=temp), root=Path(temp))
+        lane.build_pair = lambda: (Path(temp, "app.apk"), Path(temp, "test.apk"))
+        for name in ("app.apk", "test.apk"):
+            Path(temp, name).write_bytes(b"apk")
+        lane.package_names = lambda app, test: packages
+        identity = dict(revision="r", sourceState="clean", sourceDigest="d")
+        original = verify.collect_results.apk_identity
+        verify.collect_results.apk_identity = lambda path: identity
+        try:
+            lane.gate("pairing", lane.pairing)
+        finally:
+            verify.collect_results.apk_identity = original
+        return lane.gates["pairing"]
+
+    def test_apks_for_the_main_app_or_preview_are_refused_before_install(self):
+        for packages in (("com.musicglass.personal", "com.musicglass.personal.test"),
+                         ("com.musicglass.personal.preview", "com.musicglass.personal.debug.test")):
+            gate = self.pair(packages)
+            self.assertEqual("FAIL", gate["status"])
+            self.assertIn("nothing is installed over another app", gate["reason"])
+        self.assertEqual("PASS", self.pair((verify.DEBUG_PACKAGE, verify.TEST_PACKAGE))["status"])
 
 
 class SourceArchiveTest(unittest.TestCase):

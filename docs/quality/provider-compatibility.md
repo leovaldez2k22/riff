@@ -211,9 +211,9 @@ A canary result satisfies no release gate and is not the live check under "Live 
 
 It needs the JDK and Android SDK the build needs, and a network connection. Exit 0: recorded. Exit 1: confirmed break. Exit 2: the canary is at fault.
 
-With the stream phase, on an emulator or a spare phone that has the debug build and its test APK installed, a connection, and **no account signed in**:
+With the stream phase, on an emulator or a spare phone that has the debug build and its test APK installed (built with `-PriffSideBySide=true`, as the lanes build them), a connection, and **no account signed in**:
 
-    adb shell am instrument -w -r -e class com.musicglass.personal.ProviderCanaryDeviceTest -e riffCanary stream com.musicglass.personal.test/androidx.test.runner.AndroidJUnitRunner > stream.log
+    adb shell am instrument -w -r -e class com.musicglass.personal.ProviderCanaryDeviceTest -e riffCanary stream com.musicglass.personal.debug.test/androidx.test.runner.AndroidJUnitRunner > stream.log
     python scripts/quality/provider_canary.py --run-jvm --stream-log stream.log --stream-lane emulator
 
 Without `-e riffCanary stream` the device test is skipped and sends nothing.

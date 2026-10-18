@@ -69,7 +69,19 @@ android {
     }
     buildTypes {
         // Q13: en-XA (longer, accented) and ar-XB (right to left) come with a debug build, to look at text by eye.
-        debug { isPseudoLocalesEnabled = true }
+        // Q18C1: with -PriffSideBySide=true (the device and emulator lanes pass it) the debug build gets its own package
+        // id and launcher name, so it and its test APK install beside an installed Riff or Riff Preview on a real phone
+        // instead of failing on the certificate. Off by default: unit tests keep the shorter package, because
+        // Robolectric's per-test folders hold it and the longest test names would pass Windows' 260-character limit.
+        debug {
+            isPseudoLocalesEnabled = true
+            val sideBySide = providers.gradleProperty("riffSideBySide").orNull == "true"
+            if (sideBySide) {
+                applicationIdSuffix = ".debug"
+                versionNameSuffix = "-debug"
+            }
+            manifestPlaceholders["riffDebugLabel"] = if (sideBySide) "Riff Debug" else "@string/app_name"
+        }
         release {
             // R8 and resource shrinking (plan W4): the APK was 128.5 MiB, 61 MB of it unshrunk DEX.
             isMinifyEnabled = true
@@ -166,6 +178,9 @@ androidComponents {
             java.setSrcDirs(emptyList<String>()); kotlin.setSrcDirs(emptyList<String>())
         }
     }
+    // Q18C1: the instrumentations in src/androidTest name the package they test through this placeholder, so a
+    // test APK always targets the app it was built with (com.musicglass.personal.debug for debug).
+    onVariants { variant -> variant.androidTest?.manifestPlaceholders?.put("riffTargetPackage", variant.applicationId) }
 }
 
 // Q14: the profile is generated on request (:app:generateReleaseBaselineProfile) and kept as source under

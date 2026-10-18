@@ -1,5 +1,8 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:networkSecurityConfig="@xml/fixture_network_security_config">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Q18C1: "Riff Debug" in a side-by-side build (riffSideBySide), to tell it apart from Riff and Riff Preview. -->
+    <application android:label="${riffDebugLabel}" tools:replace="android:label"
+        android:networkSecurityConfig="@xml/fixture_network_security_config">
         <activity android:name=".FeatureTestActivity" android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />
         <activity android:name=".FeaturePreviewActivity" android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />
     </application>

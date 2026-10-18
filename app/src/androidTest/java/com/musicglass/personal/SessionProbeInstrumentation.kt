@@ -21,7 +21,8 @@ import kotlinx.serialization.json.jsonObject
  * signing the phone out. Sends the same requests with the real cookies, with none, with every value
  * scrambled, and with only the session cookies scrambled (closest to a server-side revocation).
  *
- *   adb shell am instrument -w com.musicglass.personal.test/com.musicglass.personal.SessionProbeInstrumentation
+ *   adb shell am instrument -w com.musicglass.personal.debug.test/com.musicglass.personal.SessionProbeInstrumentation
+ *   (test APK of a debug build made with -PriffSideBySide=true, as the lanes make it; otherwise com.musicglass.personal.test)
  *
  * Reports status codes, Google error codes, the loggedOut flag and yes/no markers only: never cookie
  * values, visitor data, sync IDs or response text.

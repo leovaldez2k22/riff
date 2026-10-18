@@ -55,7 +55,11 @@ import collect_results  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = "com.musicglass.personal"
-RUNNER = f"{PACKAGE}.test/androidx.test.runner.AndroidJUnitRunner"
+# Q18C1: the lanes build debug with -PriffSideBySide=true, which gives it its own package id, so they install beside
+# Riff and Riff Preview. Its test APK is the debug package plus ".test"; the test classes keep the source namespace.
+DEBUG_PACKAGE = f"{PACKAGE}.debug"
+TEST_PACKAGE = f"{DEBUG_PACKAGE}.test"
+RUNNER = f"{TEST_PACKAGE}/androidx.test.runner.AndroidJUnitRunner"
 BUILD_TOOLS = "36.0.0"
 
 # The fixture suite: no account, no provider, synthetic audio and identities (docs/quality/deterministic-harness.md).
@@ -352,7 +356,8 @@ class Lane:
         return dict(self.device)
 
     def build_pair(self):
-        command = [gradle(self.root), ":app:assembleDebug", ":app:assembleDebugAndroidTest", "--console=plain"]
+        command = [gradle(self.root), ":app:assembleDebug", ":app:assembleDebugAndroidTest", "-PriffSideBySide=true",
+                   "--console=plain"]
         if self.args.offline:
             command.append("--offline")
         self.run(command, "build-pair.log")
@@ -369,9 +374,23 @@ class Lane:
         a, t = collect_results.apk_identity(app), collect_results.apk_identity(test)
         if a != t:
             raise Failed("the app and test APKs were not built together")
+        packages = self.package_names(app, test)
+        if packages != (DEBUG_PACKAGE, TEST_PACKAGE):
+            raise Failed(f"the APKs are {packages[0]} and {packages[1]}, not {DEBUG_PACKAGE} and {TEST_PACKAGE}: "
+                         "nothing is installed over another app")
         hashes = dict(app=collect_results.sha256(app), test=collect_results.sha256(test))
         (self.evidence / "apks.sha256").write_text(f"{hashes['app']}  app.apk\n{hashes['test']}  test.apk\n", encoding="utf-8")
         return dict(revision=a["revision"], sourceState=a["sourceState"], sourceDigest=a["sourceDigest"], **hashes)
+
+    def package_names(self, app, test):
+        aapt2 = self.sdk_tool("build-tools", BUILD_TOOLS, "aapt2")
+        names = []
+        for apk in (app, test):
+            result = subprocess.run([str(aapt2), "dump", "packagename", str(apk)], text=True, capture_output=True, timeout=120)
+            if result.returncode or not result.stdout.strip():
+                raise Failed("could not read the package name of " + apk.name)
+            names.append(result.stdout.strip())
+        return tuple(names)
 
     def install(self, app, test, network_off):
         if network_off:

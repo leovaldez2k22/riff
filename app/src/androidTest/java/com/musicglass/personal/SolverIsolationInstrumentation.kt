@@ -20,7 +20,8 @@ import kotlinx.coroutines.runBlocking
  * Device check for the :solver process (W1.2). Runs in the app's own process, so surviving each
  * solver crash is itself part of the check.
  *
- *   adb shell am instrument -w com.musicglass.personal.test/com.musicglass.personal.SolverIsolationInstrumentation
+ *   adb shell am instrument -w com.musicglass.personal.debug.test/com.musicglass.personal.SolverIsolationInstrumentation
+ *   (test APK of a debug build made with -PriffSideBySide=true, as the lanes make it; otherwise com.musicglass.personal.test)
  *
  * Crashes the solver four times; afterwards force-stop the app so the provider's own client
  * forgets those crashes.

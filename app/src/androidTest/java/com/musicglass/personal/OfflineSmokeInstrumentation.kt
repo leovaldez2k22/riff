@@ -66,7 +66,7 @@ class OfflineSmokeInstrumentation:Instrumentation() {
             }
             if(mode=="navigation_fixture" || mode=="navigation_liquid" || mode=="queue_fixture") {
                 val queue=mode=="queue_fixture"
-                val intent=android.content.Intent().setClassName("com.musicglass.personal","com.musicglass.personal.FeaturePreviewActivity").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("scene",if(queue) "queue" else if(mode=="navigation_liquid") "navigation_liquid" else "navigation")
+                val intent=android.content.Intent().setClassName(targetContext.packageName,"com.musicglass.personal.FeaturePreviewActivity").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("scene",if(queue) "queue" else if(mode=="navigation_liquid") "navigation_liquid" else "navigation")
                 val activity=startActivitySync(intent) as FeaturePreviewActivity
                 try {
                     Thread.sleep(800)
@@ -121,7 +121,7 @@ class OfflineSmokeInstrumentation:Instrumentation() {
                     }
                     // The request belongs to the provider's lifetime; hold it while inspecting the real Home UI.
                     entered.await()
-                    val intent=android.content.Intent().setClassName("com.musicglass.personal","com.musicglass.personal.FeaturePreviewActivity").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("scene","home")
+                    val intent=android.content.Intent().setClassName(targetContext.packageName,"com.musicglass.personal.FeaturePreviewActivity").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("scene","home")
                     val activity=startActivitySync(intent) as FeaturePreviewActivity
                     fun texts():List<String> {
                         val values=mutableListOf<String>()
