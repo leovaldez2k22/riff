@@ -1902,6 +1902,30 @@ B12). Riff, Riff Preview and the older com.musicglass.personal.test were not tou
   3 of 3 pass. B1 total on the phone: 51 of 51. This confirms Q18-017 is the VPN, not the tests.
 - Riff Debug and its test package stay on the phone for later B sub-phases; removal is asked in B12.
 
+### Q18B3 playback robustness on the owner's phone (18 October 2026)
+
+Riff Preview 7f7ab8e, the owner's account, phone speaker, Wi-Fi and mobile data on, VPN off. Driven over adb,
+media-session state logged throughout (artifacts/quality/q18b/b3/b3-playback-state.log).
+
+1. Rapid selections, PASS: three Speed dial tiles tapped within 0.66 s. Gwyn was loading for 0.2 s and dropped,
+   watch never started, Surfin' plays (position advancing).
+2. Pause while opening, PASS: Main Menu chosen, Pause 0.3 s later; paused at 0:00, nothing started in 20 s.
+3. Duplicates: Add to queue on a song already queued keeps one copy by design but says "Added to queue"
+   (Q18-018). A queue with two copies cannot be made from the menus; covered by B1's PlaybackOrderDeviceTest on
+   this phone (both copies kept on restore; edits follow the selected entry), which passed.
+4. Force-stop while playing, PASS with a display fault: killed at 25.1 s; reopened paused with the same queue and
+   resumed from 22.2 s on Play. Until Play the player shows 0:00 and -0:00 (Q18-019).
+5. Wi-Fi off for 33 s with mobile data on, PASS: no loading pause, playback continuous.
+6. Aeroplane mode: on this phone it keeps Wi-Fi on (wifi_on=2, ping answered), so three 60 s runs only show that
+   switching it on and off does not disturb playback (a seek in a cached song, a skip to a download and to a
+   preloaded next song all played). The connection loss itself was tested with Wi-Fi and mobile data off for
+   60 s, not changing the phone's aeroplane settings:
+   (a) PASS: an unloaded song waited with "Connection lost; waiting to reconnect" and started by itself 9 s after
+   the connection came back. (b) PASS: Pause pressed while waiting; nothing started in 45 s after reconnecting;
+   Play then played it. While waiting, and after the Pause, the media session reports ERROR (Q18-020).
+First audio for streamed songs in this session: 3.3, 3.9 and 6.6 s (after a reconnect); see Q18-015.
+Wi-Fi, mobile data, Bluetooth and aeroplane mode as before; Riff Preview left paused.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
