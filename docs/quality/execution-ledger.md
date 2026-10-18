@@ -1844,6 +1844,18 @@ reads "Back to Back" (Q18-011). The owner could not recall the other points wher
 complete overhaul of the sign-in page, logged as Q18-013 for the fix package. No screenshots kept of pages showing
 a password; a6 evidence that shows e-mail addresses is local only. Riff Preview left on the dummy account.
 
+### Q18A8 feel checks (18 October 2026)
+
+Riff Preview 7f7ab8e on the owner's phone, on mains power, Wi-Fi. Cold start, three runs recorded over adb
+(am start -W TotalTime 196 to 203 ms to the first frame; recordings pulled and deleted from the phone): the logo
+screen lasts 1.32, 1.32 and 1.37 s until Home's layout has fully replaced it (the fade starts at about 1.2 s), then
+grey placeholders until the real Home content at 3.1 to 4.1 s from the tap. The owner: the logo feels about right
+(input to the pending cold-start decision, finding 2 of Q14; the 1.2 s Tier R budget is not met by about 0.15 s and
+no credit is taken); the placeholders are not acceptable (Q18-014). First song, timed from the media-session state
+(read with the owner's OK): streamed 3.17 s after a cold start and 3.48 s after a 13-minute pause (Android had ended
+the media session, so effectively a cold start); the owner finds about 3 s just above tolerable (Q18-015).
+Downloaded songs start at once (0 to 0.09 s). Evidence: artifacts/quality/q18a/a8/.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
