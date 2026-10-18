@@ -1878,6 +1878,28 @@ test's folder holds the package name and the longest test names then pass Window
   weakness). emulator-20261018T125651Z: 51 of 51 but FAIL on identity, because comments were edited during the run.
 - Not done on the phone: B1 runs this on the owner's phone and asks before installing.
 
+### Q18B1 device lane on the owner's phone (18 October 2026)
+
+Phone I2217, Android 16 (API 36), on mains power, Wi-Fi and mobile data on, NordVPN connected. The owner approved
+each install, reading logs and dumpsys for the session, and a short time with Wi-Fi and mobile data off. Stay awake
+while plugged in was turned on at the owner's request (stay_on_while_plugged_in was 0, now 15; to be restored in
+B12). Riff, Riff Preview and the older com.musicglass.personal.test were not touched.
+
+- device-20261018T140050Z (source 37fd4ea, app 847cccfd...4d79a367, test 92283679...0dac33cc): 51 reported OK, but
+  42 skipped themselves on the old "Emulator only" guard; FAIL. The guard dates from when debug shared the main
+  app's package. 53e7e1d replaces it with disposableInstall(): an emulator or com.musicglass.personal.debug.
+- device-20261018T141540Z (source 53e7e1d, app 32be77a2...0fbf6b9d25, test 29c14059...5b53ea4b): 48 of 51 pass in
+  363 s. The other three need the phone offline: two DownloadLifecycleDeviceTest cases failed and one
+  RecoveryDeviceTest case skipped, because the network was on.
+- Offline rerun of those three (offline-rerun.txt), Wi-Fi and mobile data off for 50 s with ping failing, then both
+  back on and ping answering: still 2 failed and 1 skipped. NordVPN stayed the active network and stayed marked
+  validated, and Riff's network check believes it. Logged as Q18-017 (a real gap for anyone using a VPN), not fixed.
+- Kept files pulled from Riff Debug's own folder (kept/, 14 files) and reviewed: q17a morph frames at 500, 900, 965
+  and 980 ms and the player show one cover, one title and one set of controls each; q16a-pixels pink before=0
+  held=2098 after=0 current=2; q16b-letters lift 2.75 px raised 2.99 shake 0.87 after 0.00, reduced motion 0.00 and
+  0.20; q16a-frames 262 updates, median 66 ms, p95 84 ms.
+- Riff Debug and its test package stay on the phone for later B sub-phases; removal is asked in B12.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
