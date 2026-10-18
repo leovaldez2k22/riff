@@ -1827,6 +1827,11 @@ Results:
 Device state: TalkBack off again, accessibility off (read back: services null, accessibility_enabled 0); aeroplane mode off. Before A4 the only service on was Microsoft's screen-mirroring service; it is no longer listed, and was not touched by me. Test download removed. No file created on the phone by this sub-phase. /data/local/tmp holds dump.xml, riff-ui.xml, riff-monkey-watchdog.log and riff-rc20-original.json from earlier work (not this session's); they are to be raised with the owner under the clean-up rule when testing ends.
 Next exact action: ask the owner before the next sub-phase (A3, A5, A6 or A8).
 
+### Q18A5 keyboard walk-through (18 October 2026)
+Status: BLOCKED on the phone: the owner has no physical or Bluetooth keyboard. Partial evidence: step 5 (with the on-screen keyboard open, the field and its action stay visible) was seen in A4 UX10 for the sleep timer (artifacts/quality/q18a/a4/ux10-02-sleep-typed.png); not checked for Search.
+Alternative proposed to the owner: steps 1-4 (Tab reaches every control with visible focus; Enter and Space activate; Back or Escape closes in order; focus never sticks) can run on the API 31 fixture emulator with the computer's keyboard, which needs no phone and no owner; that would move them into Q18C. Not started.
+Rerun on the phone: pair a Bluetooth keyboard and follow the five keyboard steps in docs/quality/accessibility.md.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
