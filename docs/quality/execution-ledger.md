@@ -1832,6 +1832,18 @@ Status: BLOCKED on the phone: the owner has no physical or Bluetooth keyboard. P
 Alternative proposed to the owner: steps 1-4 (Tab reaches every control with visible focus; Enter and Space activate; Back or Escape closes in order; focus never sticks) can run on the API 31 fixture emulator with the computer's keyboard, which needs no phone and no owner; that would move them into Q18C. Not started.
 Rerun on the phone: pair a Bluetooth keyboard and follow the five keyboard steps in docs/quality/accessibility.md.
 
+### Q18A6 test account sign-in and account isolation (18 October 2026)
+
+Riff Preview 7f7ab8e on the owner's phone, with the owner's dummy Google account. Sign-in through Change account
+was blocked: Google moved to its country domain and Riff stopped with an error (Q18-009). The owner switched to the
+dummy account through Google's account chooser and Continue to Riff. After an earlier aborted attempt, Google's list
+showed the owner's account signed out while Riff still used it (Q18-010). Under the dummy account: Downloads 0
+songs, History 0 plays, Library the dummy's own items, mini player empty (PASS); the owner's open search and its
+results were still on the Search tab and were saved to the dummy's recent searches (Q18-012). Settings' back button
+reads "Back to Back" (Q18-011). The owner could not recall the other points where sign-in got stuck and asked for a
+complete overhaul of the sign-in page, logged as Q18-013 for the fix package. No screenshots kept of pages showing
+a password; a6 evidence that shows e-mail addresses is local only. Riff Preview left on the dummy account.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
