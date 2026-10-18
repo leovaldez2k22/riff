@@ -2065,6 +2065,32 @@ else from R8) is explained: AGP 8.13.2 bundles R8 8.13.19, older than Kotlin 2.4
 metadata at run time, and the shrunk app has worked all through Q18 on the phone. Fix (pin R8 9.1.29) listed in
 Q18-024. Note: the triage count differs from the split's "85 warnings" because C1's lint added 9 version notices.
 
+### Q18C6 fresh-clone lanes (19 October 2026, overnight)
+
+A fresh clone of commit 0549229 in a separate folder (no build outputs, no local caches beyond the shared Gradle
+home), PR lane run offline: build, artifactIdentity, jvm (1006 tests, 0 failures), lint, release-content, apk and
+solver-seam PASS; script-tests and static FAIL, both only from the known Q18-016 entries and nothing new
+(`artifacts/quality/q18c/c6-pr-lane.txt`). Packaging lane: source-archive PASS, checksums PASS; release-identity
+BLOCKED (the clone builds an unsigned release APK; the certificate check needs a signed candidate,
+docs/release-signing.md); upgrade BLOCKED (needs a signed candidate installed over
+`artifacts/release/riff-0.9.0-rc20.apk` with --allow-install and --previous-apk). Rerun both after the fix
+package with the signing variables set. The clone is removed afterwards.
+
+### Q18C7 secrets and privacy sweep (19 October 2026, overnight)
+
+Pattern scan (private keys, Google/AWS/GitHub/Slack tokens, JWTs, YouTube session cookies, password and signing
+variable assignments, e-mail addresses, key and keystore files) over every tracked file of the fresh clone, every
+entry of its release APK and every entry of the packaging lane's source archive; values masked in the reports
+(`artifacts/quality/q18c/c7-secrets-repo.txt`, `-apk.txt`, `-source-archive.txt`). Repo and archive: the only API
+key is the documented public YouTube web client key; test cookies and tokens are synthetic fixtures; the signing
+scripts read the passwords from DPAPI, none is written down; no key or keystore file is tracked; no e-mail
+address. APK: the same public key in classes.dex; two e-mail-like strings inside Google's ML Kit native library
+(`libtranslate_jni.so`), third-party and not project data. Account names: neither test account's name appears in
+the APK; the source mentions only the project's own GitHub handle (repository, issue and CI links) and one author
+credit. Linux dependency checksums: BLOCKED (no Linux machine, CI not pushed); rerun the CI workflow's dependency
+verification on the first push. Open medium items: the jsDelivr fallback stays an owner decision; the foreign
+controller on the phone is Q18B11.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
