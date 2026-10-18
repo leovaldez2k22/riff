@@ -2065,6 +2065,21 @@ else from R8) is explained: AGP 8.13.2 bundles R8 8.13.19, older than Kotlin 2.4
 metadata at run time, and the shrunk app has worked all through Q18 on the phone. Fix (pin R8 9.1.29) listed in
 Q18-024. Note: the triage count differs from the split's "85 warnings" because C1's lint added 9 version notices.
 
+### Q18C2 API 33 and API 36 emulators (19 October 2026, overnight)
+
+System images google_apis x86_64 for API 33 and API 36 downloaded with sdkmanager (`artifacts/quality/q18c/c2/
+sdkmanager.log`; the owner's overnight delegation covered the network use). Two disposable AVDs in
+`.toolchain/q18-avd` (720x1280, 2 GB, swiftshader). Emulator lane with the network off on each, source at
+0549229: **API 33 PASS** (51 of 51, lane emulator-20261018T200636Z) and **API 36 PASS** (51 of 51, lane
+emulator-20261018T195407Z); the network was confirmed off (mobile_data 0, no default network) before and after
+each run. Two earlier API 36 attempts are kept, not hidden: the first ran 49 of 51 because the lane switched mobile
+data off before telephony was up, the setting did not stick and the emulator's cellular network connected mid-run,
+so two download tests saw a validated network (lane emulator-20261018T193554Z; tooling, Q18-025); the second was
+cut short when the emulator process itself crashed (exit 139, host at 3.6 GB free). Foreground-service limits for
+downloads: the Android 12+ background-start refusal falls back to the job (DownloadSchedulingTest, JVM); the Android
+15 daily dataSync limit is handled in OfflineDownloadService.onTimeout, which hands the rest to the job, but no test
+reaches it and the lane's downloads finish in seconds: logged as a test gap with the recipe, Q18-026.
+
 ### Q18C6 fresh-clone lanes (19 October 2026, overnight)
 
 A fresh clone of commit 0549229 in a separate folder (no build outputs, no local caches beyond the shared Gradle
@@ -2074,7 +2089,7 @@ solver-seam PASS; script-tests and static FAIL, both only from the known Q18-016
 BLOCKED (the clone builds an unsigned release APK; the certificate check needs a signed candidate,
 docs/release-signing.md); upgrade BLOCKED (needs a signed candidate installed over
 `artifacts/release/riff-0.9.0-rc20.apk` with --allow-install and --previous-apk). Rerun both after the fix
-package with the signing variables set. The clone is removed afterwards.
+package with the signing variables set. The clone (C:\q18c6) is left for the owner to delete: a safety check stops an unattended recursive delete.
 
 ### Q18C7 secrets and privacy sweep (19 October 2026, overnight)
 
