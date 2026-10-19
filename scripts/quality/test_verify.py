@@ -229,6 +229,15 @@ class PackageTest(unittest.TestCase):
         self.assertTrue(all(name.startswith("com.musicglass.personal.") and ".debug." not in name
                             for name in verify.FIXTURE_CLASSES))
 
+    def test_the_time_limit_test_runs_only_on_emulators_from_api_35(self):
+        name = "com.musicglass.personal.DownloadTimeLimitDeviceTest"
+        self.assertNotIn(name, verify.FIXTURE_CLASSES)
+        self.assertIn(name, verify.fixture_classes("emulator", 35))
+        self.assertIn(name, verify.fixture_classes("emulator", 36))
+        self.assertNotIn(name, verify.fixture_classes("emulator", 34))
+        self.assertNotIn(name, verify.fixture_classes("emulator", None))
+        self.assertNotIn(name, verify.fixture_classes("device", 36), "it changes system settings: never on a phone")
+
     def pair(self, packages):
         temp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, temp, True)

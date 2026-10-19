@@ -67,6 +67,14 @@ FIXTURE_CLASSES = [f"{PACKAGE}.{name}" for name in (
     "AccountSwitchDeviceTest", "CrossfadeFixtureDeviceTest", "DownloadLifecycleDeviceTest", "FixturePlaybackTest",
     "LegacyUpgradeDeviceTest", "LocalDataDeviceTest", "LocalDataTransferDeviceTest", "NormalizationDeviceTest",
     "PlaybackOrderDeviceTest", "RecoveryDeviceTest", "LyricsKaraokeDeviceTest", "PlayerFixesDeviceTest")]
+# Run only where they apply, never skipped: a skip is not a pass. DownloadTimeLimitDeviceTest shortens Android 15's
+# dataSync time limit with device_config, so emulators only, from API 35 (Q18-026).
+EMULATOR_CLASSES = {f"{PACKAGE}.DownloadTimeLimitDeviceTest": 35}
+
+
+def fixture_classes(lane, api):
+    """The fixture suite for this lane and API level."""
+    return FIXTURE_CLASSES + [name for name, since in EMULATOR_CLASSES.items() if lane == "emulator" and (api or 0) >= since]
 
 LANES = {
     "pr": ["script-tests", "static", "build", "artifactIdentity", "jvm", "lint", "release-content", "apk", "solver-seam"],
@@ -428,7 +436,7 @@ class Lane:
         app, test = self.app, self.test
         log = self.evidence / "instrumentation.txt"
         start = datetime.now(timezone.utc).isoformat()
-        result = self.adb("shell", "am", "instrument", "-w", "-r", "-e", "class", ",".join(FIXTURE_CLASSES), RUNNER, timeout=7200)
+        result = self.adb("shell", "am", "instrument", "-w", "-r", "-e", "class", ",".join(fixture_classes(self.args.lane, self.device["api"])), RUNNER, timeout=7200)
         log.write_text(result.stdout + result.stderr, encoding="utf-8")
         end = datetime.now(timezone.utc).isoformat()
         command = [self.python, "scripts/quality/collect_results.py", "--collect-only", "--variant", "debug",

@@ -94,7 +94,7 @@ class OfflineDownloadService:Service() {
         }
         // A second start while a run is active changes nothing: the run picks up newly queued songs itself.
         if(work?.isActive!=true) work=scope.launch {
-            try {val finished=OfflineDownloadEngine.run(this@OfflineDownloadService,false) {manager.notify(703,notification(it))};if(!finished) OfflineDownloadScheduler.resumeManualLater(this@OfflineDownloadService)}
+            try {val finished=OfflineDownloadEngine.run(this@OfflineDownloadService,false,runtimeFor(this@OfflineDownloadService)) {manager.notify(703,notification(it))};if(!finished) OfflineDownloadScheduler.resumeManualLater(this@OfflineDownloadService)}
             finally {stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()}
         }
         return START_NOT_STICKY
@@ -105,6 +105,13 @@ class OfflineDownloadService:Service() {
         work?.cancel();OfflineDownloadScheduler.resumeManualLater(this);stopSelf()
     }
     override fun onDestroy() {scope.cancel();super.onDestroy()}
+    companion object {
+        /**
+         * What the run is given. Always the process's own runtime, except in an emulator test that has to keep a run
+         * going until Android's time limit ends it (DownloadTimeLimitDeviceTest, Q18-026).
+         */
+        @Volatile internal var runtimeFor:(Context)->RuntimeDependencies={AppContainer.get(it).runtime}
+    }
 }
 
 class OfflineDownloadJob:JobService() {
