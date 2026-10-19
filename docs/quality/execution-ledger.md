@@ -1837,9 +1837,15 @@ from the phone; music muted during it and set back to 15 afterwards):
   Q18-031. The album page's back button also reads "Back to Back" (Q18-011 widened).
   `artifacts/quality/q18b/a4-ux04/`. Riff Stress keeps the 42 downloaded songs until Q18B12.
 - UX07 account switch: DEFERRED by the owner to after the fix package (Change account is broken, Q18-009).
-- Home-screen widgets: the six widgets the owner placed belong to the main Riff app (rc20), which the owner wants
-  left untouched (A7), and would test rc20 rather than the candidate; not pressed. Waiting for Riff Stress or Riff
-  Preview widgets.
+- Home-screen widgets: the six widgets the owner first placed belonged to the main Riff app (rc20), which stays
+  untouched (A7); not pressed. The owner then placed the six Riff Preview widgets (Compact, Wide, Artwork,
+  Circle, Large, Player over three home pages) and removed the rc20 ones. **PASS**: every button is named (Play or
+  pause, Previous song, Next song; the cover is "Open Riff"); each widget's play button paused and resumed Riff
+  Preview (dummy account, music muted), checked against the media session each time; Next went to the song the
+  Large widget listed as up next and Previous came back, and all six widgets updated to the playing song every
+  time; the paused icon is play (screenshot); the cover opens Riff Preview. One improvement: the play button's
+  name does not follow the state (Q18-032). Riff Preview left paused, volume back to 15.
+  `artifacts/quality/q18b/a4-widgets/`. **A4 is complete apart from UX07 (deferred).**
 
 ### Q18A5 keyboard walk-through (18 October 2026)
 Status: BLOCKED on the phone: the owner has no physical or Bluetooth keyboard. Partial evidence: step 5 (with the on-screen keyboard open, the field and its action stay visible) was seen in A4 UX10 for the sleep timer (artifacts/quality/q18a/a4/ux10-02-sleep-typed.png); not checked for Search.
