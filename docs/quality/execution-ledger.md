@@ -2352,6 +2352,38 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   /data/local/tmp, /sdcard/riff-play-ui.xml and the debug build's q16a/q16b/q17a outputs (already kept on the computer).
   Only Riff (com.musicglass.personal) and its data remain; the owner's own files were not touched.
 
+### Q19F fix round 2 (19 October 2026)
+- Started at the owner's word ("lets start with q19f"); plan in docs/quality/final-stretch-plan.md, decisions D8 (no
+  AGP upgrade), D9 (supplement in part) and D10 (rc2 candidates, 0.10.0 final) recorded there.
+- F1 6c31a74: Q18-037 (cause confirmed by a picture test before the fix: the line clip cut the sung line's grow) and
+  Q18-036 (the Aurora card look; render kept in artifacts/quality/q19/f1/aurora-card.png).
+- F2 f463a14: Q18-038 (real liked-song and playlist counts) and Q18-039 (Checking at its agreed pace, at least 7.4 s,
+  then the full 5 to 6). No live call was made; the header count is read in the shape YouTube's playlist headers use,
+  to be compared with Riff's Library count in Q19B3.
+- F3 9713908: LyricShareDeviceTest (content:// share, nothing outside cache/shared_lyrics, one saved picture, none on
+  failure; compiled, runs in Q19C2) and SettingsCompartmentsTest (JVM).
+- F4: lint triage of the new warnings (lint-triage.md, Q19F4 section): 21 unused sign-in strings removed, the record's
+  offset made a lambda, the rest accepted with reasons; 107 to 85 warnings, 0 errors. Security review section 9 for
+  the new surfaces; no fix needed beyond these.
+- F5, plan 2 supplement (D9):
+  - S00: plan 1 was searched for owners of the seven gaps; none owns any of them, as the supplement says. Plan 1
+    section 22 was not given a pointer: the supplement is the owner's untracked file and stays uncommitted.
+  - S01: declined by D8. The 179 R8 metadata warnings stay a known limitation (Q18-024).
+  - S02: PlayerConfigBoundaryTest (PC01 to PC03) on Riff's own provider client: a config request carries no cookie,
+    authorisation, visitor data or account; redirects are not followed; malformed, wrong-version and oversized tables
+    are refused with the last good table kept; other hosts are never asked; the solver process creates no provider,
+    cookie store or WebView. Found: Riff's configured config address is refused by the pinned library's allow-list,
+    so no config host is contacted at all (Q18-041, owner decision). Trust decision (S02 item 8) left to the owner
+    with Q18-041.
+  - S03: InnerTubeX 0.7.2 artifact hashes recorded in dependency-license-inventory.md and already enforced by
+    verification-metadata.xml (DA02). The upstream commit and a 0.7.2 source archive need a GitHub fetch: BLOCKED until
+    the owner approves that download. The build-from-source fallback was declined.
+  - S04: the owner's publishing decision (D1) is still open; S04 is recorded when D1 is made.
+  - S05, S06, S07: declined by the owner (D9); named as known limitations in the final report.
+- Q18-040 stays open for its capture in Q19B5.
+- JVM: 1,097 tests, 0 failures; lint 0 errors, 85 warnings; device tests compile. Nothing ran on an emulator or the
+  phone in Q19F.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):

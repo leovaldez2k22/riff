@@ -46,6 +46,25 @@ The script reads each resolved coordinate's POM from the local Gradle cache and 
 
 The build obtains dependencies from Google Maven, Maven Central and JitPack, checked against `gradle/verification-metadata.xml`.
 
+## InnerTubeX provenance (plan 2 S03, 19 October 2026)
+
+InnerTubeX resolves only from JitPack, which builds it from the upstream tag on demand. What Riff accepts is fixed
+by hash in `gradle/verification-metadata.xml` (`verify-metadata` is on), so a rebuilt or replaced artifact fails
+the build instead of being used:
+
+| Artifact | SHA-256 |
+|---|---|
+| innertubex-android-0.7.2.aar | `c4c3b4de9c7f943a08ea4fc5c655de05eec289d959906ee971fd52b0dbf07bcc` |
+| innertubex-android-0.7.2.module | `e6ed5b4bee292bdddf7416a7ad3f3d022f1f8b0e82eb46a0c6eff52352550517` |
+| innertubex-0.7.2.module | `012f046e60e7138faf366fc2515fc15b9d0a0d2a84ec97ef4eb62950385374cd` |
+| innertubex-android-0.7.2.pom (not verified by Gradle; recorded here) | `76bba4251a1f238a0d5f8e52343ca39bb4bfd7114b743a71ddbba4d424297016` |
+| innertubex-0.7.2.pom (as above) | `69eb404da7fe7e9cec19e8adec8e3edeef4b29f78916543c1e49d7e768ad1a4d` |
+
+The cached files on this computer match the recorded hashes. Still open: the upstream commit behind tag 0.7.2 and a
+source archive of that tag beside the candidate. Both need the local checkout (`.toolchain/innertubex`, at v0.7.1)
+fetched from GitHub, a download asked for before it is made. The build-from-source fallback (S03 action 3) was
+declined by the owner (D9).
+
 ## Assets in the APK
 
 | Asset | Provenance |

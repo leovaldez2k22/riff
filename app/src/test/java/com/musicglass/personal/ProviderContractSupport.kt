@@ -29,13 +29,14 @@ internal fun providerFixtureJson(name:String):JsonElement = Json.parseToJsonElem
  */
 internal class ProviderWorld(private val context:Context,signedIn:Boolean=true,sync:String="fixture-sync-A"):AutoCloseable {
     /** One request the provider made: the endpoint (the part after /youtubei/v1/) and its JSON body. */
-    data class Call(val endpoint:String,val body:JsonObject,val query:Map<String,String> = emptyMap()) {
+    data class Call(val endpoint:String,val body:JsonObject,val query:Map<String,String> = emptyMap(),
+        val host:String="",val headers:List<Pair<String,String>> = emptyList()) {
         fun field(name:String):String?=(body[name] as? JsonPrimitive)?.contentOrNull
         val browseId get()=field("browseId")
         /** The page token, wherever the library put it: the body for browse, the address for search. */
         val continuation get()=field("continuation")?:query["continuation"]?:query["ctoken"]
     }
-    class Reply(val body:String,val status:Int=200,val failure:IOException?=null)
+    class Reply(val body:String,val status:Int=200,val failure:IOException?=null,val headers:Map<String,String> = emptyMap())
     val calls=CopyOnWriteArrayList<Call>()
     @Volatile var route:(Call)->Reply={error("Unscripted provider request: ${it.endpoint} ${it.body.keys}")}
     val clock=FakeClock()
@@ -44,11 +45,13 @@ internal class ProviderWorld(private val context:Context,signedIn:Boolean=true,s
         val text=Buffer().also {request.body?.writeTo(it)}.readUtf8()
         val call=Call(request.url.encodedPath.substringAfter("/youtubei/v1/",request.url.encodedPath),
             runCatching {Json.parseToJsonElement(text) as JsonObject}.getOrDefault(JsonObject(emptyMap())),
-            request.url.queryParameterNames.associateWith {request.url.queryParameter(it).orEmpty()})
+            request.url.queryParameterNames.associateWith {request.url.queryParameter(it).orEmpty()},
+            request.url.host,request.headers.toList())
         calls+=call
         val reply=route(call)
         reply.failure?.let {throw it}
         Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(reply.status).message("fixture")
+            .apply {reply.headers.forEach {(name,value)->header(name,value)}}
             .body(reply.body.toResponseBody("application/json".toMediaType())).build()
     }}}}
     val runtime=RuntimeDependencies(
