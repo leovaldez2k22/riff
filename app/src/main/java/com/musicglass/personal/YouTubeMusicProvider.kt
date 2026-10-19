@@ -23,7 +23,8 @@ internal data class ProviderHomeCard(val title: String, val subtitle: String,
     val artistId: String? = null, val albumId: String? = null, val album: String = "",val musicVideo:Boolean=false,val officialMusicVideo:Boolean=false,val setVideoId:String?=null,val addedAt:Long?=null,
     val notInterestedToken:String?=null)
 internal data class ProviderHomeSection(val title: String, val cards: List<ProviderHomeCard>)
-internal data class ProviderProfile(val name: String, val artworkUrl: String?)
+/** [email] comes from the account menu when YouTube includes it; it is shown on the phone and never logged. */
+internal data class ProviderProfile(val name: String, val artworkUrl: String?, val email: String? = null)
 internal data class ProviderStream(
     val url: String,
     val headers: Map<String, String>,

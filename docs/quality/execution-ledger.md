@@ -2335,6 +2335,19 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   compartments). Not started, by the owner's instruction; mockups were shown for F2 and F5.
 - No application code changed.
 
+### Feature requests F1 to F5 and the Q18-013 sign-in built (19 October 2026)
+- The owner asked for the two waves (not the record) on the lyric card, today's sliders unchanged in the settings
+  compartments, the storage budget kept a slider, and then to build everything.
+- F3 21d9372, F1 9c57bec, F4 75da2ed, F5 7fbf4ca, F2 fa9c650; statuses in feature-requests.md.
+- Q18-013: the sign-in rebuilt to sign-in-design.md: screens 1, 1b and 2 to 6, the travelling record (ring drawn as part
+  of it), the frosted glass, saved accounts (name, email, last use; never cookies; listed in docs/privacy.md), the
+  agreed transition lengths, the 5 to 6 grow, glow and aura. Riff now finishes by itself when Google hands back (when
+  changing account, once Google's own page was shown or the account was picked in Riff), links elsewhere open outside
+  Riff, and "didn't load" appears only when nothing loaded. The account menu's email is now read (ProviderFixtureTest
+  updated); it is never logged.
+- JVM: 1,075 tests, 0 failures; lint 0 errors. Not yet run on an emulator or the phone: the sign-in needs the owner
+  and a real Google account (A9).
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):

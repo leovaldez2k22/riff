@@ -21,6 +21,31 @@ class SignInFlowTest {
         assertEquals("true", handoff.getQueryParameter("action_handle_signin"))
         assertEquals("/", handoff.getQueryParameter("next"))
         assertFalse(shouldVerifyFinishedSignIn("https://music.youtube.com/", changingAccount = true))
+        // Q18-013: once the owner has been on Google's own page (or picked the account in Riff), it finishes by itself.
+        assertTrue(shouldVerifyFinishedSignIn("https://music.youtube.com/", changingAccount = true, choseOnGoogle = true))
+    }
+
+    @Test fun aSavedAccountOpensGooglesPageWithThatAccountChosen() {
+        val start = signInStartUrl(changingAccount = true, email = "someone@example.com").toUri()
+        assertEquals("/ServiceLogin", start.path)
+        assertEquals("someone@example.com", start.getQueryParameter("Email"))
+        assertEquals("someone@example.com", start.getQueryParameter("login_hint"))
+        assertNull(signInStartUrl(changingAccount = false).toUri().getQueryParameter("login_hint"))
+    }
+
+    @Test fun googlesOwnAccountPagesAreKnownOnEveryCountryHost() {
+        assertTrue(googleAccountsPage("https://accounts.google.com/AccountChooser"))
+        assertTrue(googleAccountsPage("https://accounts.google.co.in/signin"))
+        assertFalse(googleAccountsPage("https://accounts.google.co.in.attacker.example/"))
+        assertFalse(googleAccountsPage("http://accounts.google.com/"))
+        assertFalse(googleAccountsPage("https://music.youtube.com/"))
+    }
+
+    @Test fun linksElsewhereOpenOutsideRiffOnlyOverHttps() {
+        assertTrue(signInOutsideLink("https://policies.example.org/privacy"))
+        assertFalse(signInOutsideLink("https://accounts.google.com/"))
+        assertFalse(signInOutsideLink("http://policies.example.org/"))
+        assertFalse(signInOutsideLink("javascript:alert(1)"))
     }
 
     @Test fun selectedSecondaryAccountSurvivesTheYouTubeHandoffAndOptionalSetup() {
@@ -77,11 +102,12 @@ class SignInFlowTest {
         assertFalse(attempt.accepts(retry))
     }
 
-    @Test fun navigationGetsASlowMessageThenRecoveryInsteadOfAnInfiniteSpinner() {
-        assertEquals(SignInStage.Loading, signInLoadingStage(19_999))
-        assertEquals(SignInStage.Slow, signInLoadingStage(20_000))
-        assertEquals(SignInStage.Slow, signInLoadingStage(44_999))
-        assertEquals(SignInStage.Failed, signInLoadingStage(45_000))
+    @Test fun googlesPageIsOnlyCalledNotLoadedWhenNothingLoaded() {
+        // A slow page that is still working never gets a message (Q18-013 point 3).
+        assertFalse(signInNothingLoaded(30_000, pageShown = false, mainFrameFailed = false))
+        assertFalse(signInNothingLoaded(600_000, pageShown = true, mainFrameFailed = false))
+        assertTrue(signInNothingLoaded(45_000, pageShown = false, mainFrameFailed = false))
+        assertTrue(signInNothingLoaded(1_000, pageShown = false, mainFrameFailed = true))
     }
 
     @Test fun cookieRotationDoesNotMistakeAnUnrelatedCookieForAnAccountChange() {

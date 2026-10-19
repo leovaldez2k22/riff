@@ -3,14 +3,18 @@ package com.musicglass.personal
 import androidx.core.net.toUri
 import android.content.Intent
 
-/** Let YouTube consume Google's selected-account handoff before opening Music. */
-internal fun signInStartUrl(changingAccount: Boolean): String {
+/**
+ * Let YouTube consume Google's selected-account handoff before opening Music. With [email] (an account picked from
+ * Riff's saved list) Google's page opens with that account already chosen.
+ */
+internal fun signInStartUrl(changingAccount: Boolean, email: String? = null): String {
     val handoff = "https://music.youtube.com/signin".toUri().buildUpon()
         .appendQueryParameter("action_handle_signin", "true")
         .appendQueryParameter("app", "desktop")
         .appendQueryParameter("next", "/").build()
-    return "https://accounts.google.com/${if (changingAccount) "AccountChooser" else "ServiceLogin"}"
-        .toUri().buildUpon().appendQueryParameter("service", "youtube")
+    val page = if (email != null) "ServiceLogin" else if (changingAccount) "AccountChooser" else "ServiceLogin"
+    return "https://accounts.google.com/$page".toUri().buildUpon().appendQueryParameter("service", "youtube")
+        .apply { if (email != null) appendQueryParameter("Email", email).appendQueryParameter("login_hint", email) }
         .appendQueryParameter("continue", handoff.toString()).build().toString()
 }
 
@@ -29,18 +33,32 @@ internal fun signInAccountMatches(selectedIndex: String?, pageIndex: String?): B
     pageIndex != null && pageIndex.isNotEmpty() && pageIndex.all { it in '0'..'9' } &&
         (selectedIndex == null || selectedIndex == pageIndex)
 
-/** A cached Google session must not silently complete the explicit change-account flow. */
-internal fun shouldVerifyFinishedSignIn(url: String, changingAccount: Boolean): Boolean {
+/**
+ * Q18-013: Riff finishes by itself as soon as Google hands back to YouTube Music. When changing account, a cached
+ * Google session must not complete it silently: only once the owner has been on Google's own page in this attempt
+ * ([choseOnGoogle]) or picked the account in Riff's list. Otherwise Continue to Riff stays as the fallback.
+ */
+internal fun shouldVerifyFinishedSignIn(url: String, changingAccount: Boolean, choseOnGoogle: Boolean = false): Boolean {
     val uri = url.toUri()
-    return !changingAccount && uri.scheme == "https" && uri.host == "music.youtube.com" && uri.path in setOf("", "/")
+    return (!changingAccount || choseOnGoogle) && uri.scheme == "https" && uri.host == "music.youtube.com" && uri.path in setOf("", "/")
 }
 
+/** True for Google's own account pages (any country host), where the owner chooses or signs in. */
+internal fun googleAccountsPage(url: String): Boolean {
+    val uri = url.toUri()
+    return uri.scheme == "https" && (uri.host == "accounts.google.com" ||
+        googleCountryDomains.any { uri.host == "accounts.$it" })
+}
+
+/** Q18-013: a link to somewhere else than Google's and YouTube's sign-in hosts opens outside Riff, https only. */
+internal fun signInOutsideLink(url: String): Boolean = url.toUri().scheme == "https" && !allowedSignInUrl(url)
+
 /** Loading deadlines apply to navigation, never to a user completing a loaded Google form. */
-internal const val SIGN_IN_SLOW_MS = 20_000L
 internal const val SIGN_IN_TIMEOUT_MS = 45_000L
 internal const val SIGN_IN_VERIFY_MS = 20_000L
 
-internal enum class SignInStage { Ready, Loading, Waiting, Slow, Failed, Verifying, Connected }
+/** Q18-013: the agreed screens (docs/quality/sign-in-design.md); the stop sheet sits over [Google]. */
+internal enum class SignInPhase { Manage, Welcome, AllAccounts, Google, NoLoad, Checking, Connected }
 
 /** A generation rejects callbacks from a WebView or verification request that was abandoned. */
 internal class SignInAttempt {
@@ -49,11 +67,12 @@ internal class SignInAttempt {
     fun accepts(value: Int) = value == generation
 }
 
-internal fun signInLoadingStage(elapsedMs: Long): SignInStage = when {
-    elapsedMs >= SIGN_IN_TIMEOUT_MS -> SignInStage.Failed
-    elapsedMs >= SIGN_IN_SLOW_MS -> SignInStage.Slow
-    else -> SignInStage.Loading
-}
+/**
+ * Q18-013 point 3: "Google's page didn't load" only when nothing loaded: the page's own request failed, or the
+ * deadline passed before anything of this navigation was shown. A slow page that is still working gets no message.
+ */
+internal fun signInNothingLoaded(elapsedMs: Long, pageShown: Boolean, mainFrameFailed: Boolean): Boolean =
+    mainFrameFailed || (!pageShown && elapsedMs >= SIGN_IN_TIMEOUT_MS)
 
 internal data class WebSignInCandidate(val cookies: String, val visitor: String?, val syncId: String?,
     val accountIndex: String, val revision: Int)

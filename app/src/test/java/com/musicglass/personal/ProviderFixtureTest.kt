@@ -163,8 +163,9 @@ class ProviderFixtureTest {
 
     // ---- account, watch queue, lyrics
 
-    @Test fun theAccountMenuGivesANameAndAPictureAndNothingElse() {
-        assertEquals(ProviderProfile("Fixture Listener","https://yt3.ggpht.com/fixture-avatar=s108"),
+    // Q18-013: the email is read too, for the saved-accounts list the owner agreed (sign-in-design.md); nothing else.
+    @Test fun theAccountMenuGivesANameAPictureAndAnEmailAndNothingElse() {
+        assertEquals(ProviderProfile("Fixture Listener","https://yt3.ggpht.com/fixture-avatar=s108","listener@example.invalid"),
             parseAccountProfile(providerFixtureJson("account-menu.json"))!!.let {it.copy(artworkUrl=it.artworkUrl?.substringBefore("=s")+"=s108")})
         val signedOut=providerFixtureJson("account-menu-signed-out.json")
         assertNull(parseAccountProfile(signedOut));assertEquals(401,providerEnvelopeError(signedOut)!!.code)

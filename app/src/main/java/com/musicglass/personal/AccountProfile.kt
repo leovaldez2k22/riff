@@ -35,7 +35,8 @@ internal fun parseAccountProfile(root: JsonElement): ProviderProfile? {
         .orEmpty().take(80)
     val photo = listOf("accountPhoto", "channelAvatar", "avatar", "photo")
         .firstNotNullOfOrNull { providerThumbnail(header[it]) }
-    return if (name.isBlank() && photo == null) null else ProviderProfile(name, photo)
+    val email = text(header["email"]).trim().takeIf { it.length in 3..254 && it.count { c -> c == '@' } == 1 && ' ' !in it }
+    return if (name.isBlank() && photo == null) null else ProviderProfile(name, photo, email)
 }
 
 /** Provider subtitles also contain album, duration and view counts. Player labels show artists only. */

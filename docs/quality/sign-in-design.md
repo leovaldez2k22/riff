@@ -1,7 +1,8 @@
 # Sign-in design (Q18-013)
 
 Agreed with the owner on 19 October 2026 from animated mockups shown in the session (the record concept, "C", with
-Riff's frosted glass). Not built yet: building it waits for the owner's go-ahead. This replaces the look and flow of
+Riff's frosted glass). Built on 19 October 2026 after the owner's go-ahead (AccountScreen.kt, SignInDesign.kt); not yet
+checked on a phone. This replaces the look and flow of
 AccountScreen.kt; the working scope in q18-bugs.md (Q18-013: automatic finish, Google's own hosts, no banners over a
 working page, a separate cookie profile, accessibility, tests) still applies underneath it.
 
