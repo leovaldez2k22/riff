@@ -99,11 +99,16 @@ internal data class PlaybackState(
     val recovery: RecoveryReason? = null,
 )
 
+/**
+ * [held]: the service holds a recovery the user paused. The session shows that player as buffering rather than
+ * failed (Q18-020, WaitingSessionPlayer), and for the user it is paused.
+ */
 internal fun playbackStatus(itemCount: Int, playerState: Int, playWhenReady: Boolean, isPlaying: Boolean,
-    failed: Boolean, recovering: Boolean, resolving: Boolean): PlaybackStatus = when {
+    failed: Boolean, recovering: Boolean, resolving: Boolean, held: Boolean = false): PlaybackStatus = when {
     itemCount == 0 -> PlaybackStatus.Idle
     recovering -> PlaybackStatus.Recovering
     failed -> PlaybackStatus.Failed
+    held && !playWhenReady -> PlaybackStatus.Paused
     playerState == Player.STATE_ENDED -> PlaybackStatus.Ended
     isPlaying -> PlaybackStatus.Playing
     playerState == Player.STATE_BUFFERING -> if (resolving) PlaybackStatus.Resolving else PlaybackStatus.Buffering

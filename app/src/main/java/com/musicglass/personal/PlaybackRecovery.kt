@@ -205,6 +205,8 @@ internal class RecoveryCoordinator(private val scope: CoroutineScope, private va
 
     /** True while an episode is waiting, trying or watching the result of an attempt. */
     val active get() = phase == Phase.Waiting || phase == Phase.Trying || phase == Phase.Awaiting
+    /** A song still being recovered, or held by a pause: its player error is not a failure to show outside Riff (Q18-020). */
+    val masksError get() = episode != null && (active || phase == Phase.Held)
 
     /** The player reported a failure for [entry]. */
     fun failed(entry: String, fault: PlaybackFault) {

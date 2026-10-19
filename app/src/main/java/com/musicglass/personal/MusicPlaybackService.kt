@@ -27,14 +27,17 @@ import io.ktor.client.engine.okhttp.OkHttp
 @androidx.annotation.OptIn(markerClass = [UnstableApi::class, androidx.media3.common.util.ExperimentalApi::class])
 class MusicPlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
-    private val audio by lazy {AudioTransitionCoordinator(this,serviceScope,runtime,events) {session?.player}}
+    /** The player Riff drives. The session is given [sessionPlayer], which shows a recovering song as waiting, not failed (Q18-020). */
+    private var mainPlayer: ExoPlayer? = null
+    private var sessionPlayer: WaitingSessionPlayer? = null
+    private val audio by lazy {AudioTransitionCoordinator(this,serviceScope,runtime,events) {mainPlayer}}
     private val events by lazy { PlaybackEventLog(this) }
     private val runtime by lazy {AppContainer.get(this).runtime}
     private val serviceScope by lazy {CoroutineScope(SupervisorJob()+runtime.dispatchers.main)}
     @OptIn(ExperimentalCoroutinesApi::class)
     private val queueDecoder by lazy {runtime.dispatchers.io.limitedParallelism(1)}
     private val provider by lazy { YouTubeMusicProvider.shared(this) }
-    private val sleepTimer by lazy {SleepTimerController(serviceScope,runtime.clocks::monotonicMillis,wait=runtime.wait,pause={session?.player?.pause()},publish={deadline->sleepDeadlineMs=deadline;publishState()},readVolume={session?.player?.volume?:1f},writeVolume={session?.player?.volume=it},persist=::persistSleepDeadline)}
+    private val sleepTimer by lazy {SleepTimerController(serviceScope,runtime.clocks::monotonicMillis,wait=runtime.wait,pause={mainPlayer?.pause()},publish={deadline->sleepDeadlineMs=deadline;publishState()},readVolume={mainPlayer?.volume?:1f},writeVolume={mainPlayer?.volume=it},persist=::persistSleepDeadline)}
     private fun bootCount()=android.provider.Settings.Global.getInt(contentResolver,android.provider.Settings.Global.BOOT_COUNT,-1)
     private fun persistSleepDeadline(deadline:Long) {
         val edit=snapshotPrefs.edit()
@@ -68,14 +71,14 @@ class MusicPlaybackService : MediaSessionService() {
     private val commands by lazy {OrderedCommands(serviceScope,order,SessionResult(SessionError.INFO_CANCELLED),SessionResult(SessionError.ERROR_UNKNOWN))}
     private val internalChange=InternalChange()
     private inline fun <T> internally(block:()->T):T=internalChange.run(block)
-    private val queue:QueueCoordinator by lazy {QueueCoordinator(this,serviceScope,provider,sessions,offline,events,order,audio,{persistence},internalChange,{session?.player}) {recovery.clear()}}
+    private val queue:QueueCoordinator by lazy {QueueCoordinator(this,serviceScope,provider,sessions,offline,events,order,audio,{persistence},internalChange,{mainPlayer}) {recovery.clear()}}
     private val faults:PlaybackFaults by lazy {PlaybackFaults(serviceScope,runtime,provider,offline,events,queue)}
     private val sources:PlaybackSources by lazy {PlaybackSources(this,serviceScope,provider,offline,events,audio,queue,sabrHttp,::publishState)}
     private var sleepDeadlineMs=0L
     private var publishedState=""
     /** Queue revision, owner and what is being done for the selected entry, for every controller. Main thread. */
     private fun publishState() {
-        val media=session?:return;val player=media.player
+        val media=session?:return;val player=mainPlayer?:return
         val entry=player.currentMediaItem?.entryId().orEmpty().takeIf(sources::isResolving).orEmpty()
         val signal=recoverySignal
         val owner=persistence.owner
@@ -85,6 +88,7 @@ class MusicPlaybackService : MediaSessionService() {
         media.setSessionExtras(Bundle().apply {putLong("sleepDeadlineMs",sleepDeadlineMs);putLong("queueRevision",order.queueRevision)
             putString("queueOwner",owner);putString("resolving",entry);putString("recovery",signal.recovery?.wire.orEmpty())
             putString("failure",signal.failure?.name.orEmpty());putBoolean("recoveryHeld",signal.held)})
+        sessionPlayer?.refresh()
     }
     /**
      * A command that changes the queue. [prepare] may read files off the main thread; [apply] then
@@ -179,7 +183,9 @@ class MusicPlaybackService : MediaSessionService() {
             Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        session = MediaSession.Builder(this, player).setSessionActivity(sessionActivity)
+        mainPlayer = player
+        val shown = WaitingSessionPlayer(player) { recovery.masksError }.also { sessionPlayer = it }
+        session = MediaSession.Builder(this, shown).setSessionActivity(sessionActivity)
             .setCallback(object : MediaSession.Callback {
             override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
                 // Another app: transport and reading, not rewriting the queue, and none of the app's own commands.
@@ -298,7 +304,7 @@ class MusicPlaybackService : MediaSessionService() {
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
         val result=super.onStartCommand(intent,flags,startId)
         if(intent?.action==WIDGET_CONTROL && intent.getStringExtra("widgetToken")==RiffWidgets.token(this)) {
-            val player=session?.player?:return result
+            val player=mainPlayer?:return result
             if(player.mediaItemCount==0) return result
             when(intent.getStringExtra("command")) {
                 "toggle"->if(toggleShouldPause(player.isPlaying,player.playWhenReady,player.playbackState==Player.STATE_IDLE)) player.pause() else retryPlayback(player)
@@ -331,7 +337,7 @@ class MusicPlaybackService : MediaSessionService() {
     private suspend fun quiesceForAccountSwitch() {
         var stops=false
         val save=withContext(Dispatchers.Main.immediate) {
-            val player=session?.player?:return@withContext null
+            val player=mainPlayer?:return@withContext null
             // A pure on-device queue belongs to the device and keeps playing.
             if(!queueStopsWithAccount((0 until player.mediaItemCount).map {player.getMediaItemAt(it).mediaId})) return@withContext null
             stops=true;audio.cancelBlend();internally {player.pause()}
@@ -344,7 +350,7 @@ class MusicPlaybackService : MediaSessionService() {
             check(outcome==StoreOutcome.Done || outcome==StoreOutcome.Stale) {string(R.string.could_not_save_the_queue)}
         }
         withContext(Dispatchers.Main.immediate) {
-            val player=session?.player?:return@withContext
+            val player=mainPlayer?:return@withContext
             persistence.release()
             queue.resetForNewQueue();player.stop();player.clearMediaItems()
             events.append("account_switch_queue_saved")
@@ -353,12 +359,12 @@ class MusicPlaybackService : MediaSessionService() {
     private suspend fun restoreForCurrentOwner() {
         val key=withContext(Dispatchers.Main.immediate) {
             // On-device audio that kept playing is not replaced; the account's queue stays saved for later.
-            val player=session?.player
+            val player=mainPlayer
             if(player==null || player.mediaItemCount>0) null else offline.currentScope.takeIf {it!=UNVERIFIED_SCOPE_KEY}
         }?:return
         val stored=persistence.load(key)?:return
         withContext(Dispatchers.Main.immediate) {
-            val player=session?.player?:return@withContext
+            val player=mainPlayer?:return@withContext
             if(player.mediaItemCount==0 && offline.currentScope==key) {internally {queue.restore(player,stored)};events.append("account_switch_queue_restored")}
         }
     }
@@ -375,7 +381,7 @@ class MusicPlaybackService : MediaSessionService() {
     }
     private val recovery:RecoveryCoordinator by lazy {RecoveryCoordinator(serviceScope,runtime.clocks::monotonicMillis,runtime.wait,
         {kotlin.random.Random.nextLong(RecoveryPolicy.MAX_JITTER_MS+1)},object:RecoveryHost {
-        override fun wantsPlayback()=session?.player?.playWhenReady==true
+        override fun wantsPlayback()=mainPlayer?.playWhenReady==true
         override fun online()=runtime.networkConditions().validated
         override fun publish(signal:RecoverySignal) {recoverySignal=signal;publishState()}
         override fun event(text:String) {events.append(text)}
@@ -386,8 +392,8 @@ class MusicPlaybackService : MediaSessionService() {
         provider.discardPageMemory()
         taskRemoved=true
         events.append("task_removed_stop")
-        persistence.flushAndClose(session?.player)
-        queue.reset();session?.player?.stop();session?.player?.clearMediaItems()
+        persistence.flushAndClose(mainPlayer)
+        queue.reset();mainPlayer?.stop();mainPlayer?.clearMediaItems()
         pauseAllPlayersAndStopSelf()
     }
 
@@ -399,17 +405,17 @@ class MusicPlaybackService : MediaSessionService() {
         networkCallback=null
         sleepTimer.close()
         audio.release()
-        val player=session?.player
+        val player=mainPlayer
         val playWhenReady=player?.playWhenReady==true
         events.append(runCatching {stopContext(this,playWhenReady,player?.playbackState?:0,taskRemoved)}.getOrDefault("service_destroy"))
         if(isUnexpectedStop(playWhenReady,taskRemoved)) events.append("unexpected_stop")
         sessionRegistration?.close();sessionRegistration=null
-        persistence.flushAndClose(session?.player);saveJob?.cancel()
+        persistence.flushAndClose(mainPlayer);saveJob?.cancel()
         session?.let { media ->
             media.player.release()
             media.release()
         }
-        session = null
+        session = null; sessionPlayer = null; mainPlayer = null
         offline.playbackBusy=false
         queue.resetForNewQueue(keepQueuedIds=true);serviceScope.cancel()
         sabrHttp.close()

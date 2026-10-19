@@ -25,8 +25,15 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36])
 class PlaybackStateTest {
     private fun status(count: Int = 1, state: Int = Player.STATE_READY, wants: Boolean = false, playing: Boolean = false,
-        failed: Boolean = false, recovering: Boolean = false, resolving: Boolean = false) =
-        playbackStatus(count, state, wants, playing, failed, recovering, resolving)
+        failed: Boolean = false, recovering: Boolean = false, resolving: Boolean = false, held: Boolean = false) =
+        playbackStatus(count, state, wants, playing, failed, recovering, resolving, held)
+
+    @Test fun aPausedRecoveryIsPausedThoughTheSessionShowsItBuffering() {
+        // Q18-020: the session shows a held recovery as buffering, not as an error; for the user it is paused.
+        assertEquals(PlaybackStatus.Paused, status(state = Player.STATE_BUFFERING, held = true))
+        assertEquals("Play pressed: recovery starts again and says so", PlaybackStatus.Recovering, status(state = Player.STATE_BUFFERING, wants = true, recovering = true))
+        assertEquals("Not held: a paused player buffering is as before", PlaybackStatus.Buffering, status(state = Player.STATE_BUFFERING))
+    }
 
     @Test fun exactlyOneStatusDescribesEachSituation() {
         assertEquals(PlaybackStatus.Idle, status(count = 0, state = Player.STATE_IDLE))

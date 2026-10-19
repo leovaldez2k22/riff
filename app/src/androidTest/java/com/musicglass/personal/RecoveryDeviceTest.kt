@@ -53,6 +53,8 @@ class RecoveryDeviceTest {
         assertEquals("Connection lost; waiting to reconnect",now.notice)
         assertNull("waiting is not a failure",now.error)
         assertTrue("the wish to play is kept",now.playback.desiredPlayWhenReady)
+        // Q18-020: what Android, a watch or a car reads from the session is buffering, not an error.
+        assertEquals(listOf<Any?>(null,androidx.media3.common.Player.STATE_BUFFERING),device.onMain {listOf(device.controller.playerError,device.controller.playbackState)})
         val entry=now.playback.queueItemId
         // Waiting uses no attempt, however long it lasts.
         Thread.sleep(6_000)
@@ -68,6 +70,8 @@ class RecoveryDeviceTest {
         Thread.sleep(3_000)
         assertEquals(PlaybackStatus.Paused,state().playback.status)
         assertEquals(1,events().count {it=="recovery_held"})
+        assertNull("paused while waiting is not an error to the session",device.onMain {device.controller.playerError})
+        assertFalse(device.onMain {device.controller.playWhenReady})
         assertEquals("no new wait began while paused",1,events().count {it.startsWith("recovery_wait_online")})
 
         // Play: the same entry waits again, by the user's request.
