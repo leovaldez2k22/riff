@@ -56,6 +56,37 @@ class AccountScopeProviderTest {
         } finally { provider.close() }
     }
 
+    /** Q18-010: another account signed in through the shared cookie store, and the change was not finished. */
+    @Test fun cookiesOfAnotherSignInAreNeverUsedUnderTheCommittedAccount() {
+        session(sync, "0")
+        val provider = AppContainer(context, runtime(emptySet())).provider
+        try {
+            val owner = providerScope(VerifiedAccountIdentity(sync))
+            assertTrue(provider.signedIn); assertFalse(provider.detached)
+            // A rotation of other cookies, and the same login cookie written again, change nothing.
+            CookieManager.getInstance().setCookie("https://music.youtube.com", "__Secure-3PSIDTS=rotated")
+            CookieManager.getInstance().setCookie("https://music.youtube.com", "SAPISID=fixture")
+            assertTrue(provider.refreshAccount()); assertFalse(provider.detached)
+            // The sign-in browser signed another account in and the user came back without finishing.
+            CookieManager.getInstance().setCookie("https://music.youtube.com", "SAPISID=fixture-other-account")
+            assertFalse(provider.refreshAccount())
+            assertTrue(provider.detached)
+            assertEquals(SessionState.Expired, provider.sessionState)
+            assertEquals("This account's local data stays its own", owner, provider.accountScope())
+            assertTrue(PlaybackEventLog(context).recent().any { it.endsWith(" session_cookies_changed") })
+            // Finishing a sign-in commits the cookies that are there now.
+            assertTrue(provider.useWebSession(null, sync, "0"))
+            assertFalse(provider.detached)
+            assertTrue(provider.refreshAccount())
+        } finally { provider.close() }
+    }
+    @Test fun theCookieDigestHoldsNoCookieValue() {
+        val digest = cookieIdentityDigest("SAPISID=fixture-secret-value; HSID=x")!!
+        assertEquals(64, digest.length); assertFalse("fixture-secret-value" in digest)
+        assertEquals(digest, cookieIdentityDigest("HSID=y; SAPISID=fixture-secret-value"))
+        assertNull(cookieIdentityDigest("HSID=x")); assertNull(cookieIdentityDigest(null))
+    }
+
     @Test fun signedInWithoutStableIdentifierIsUnverifiedNotGuest() {
         session(null, "0")
         val provider = AppContainer(context, runtime(setOf(GUEST_SCOPE_KEY, legacyScopeKey(sync, "0")))).provider

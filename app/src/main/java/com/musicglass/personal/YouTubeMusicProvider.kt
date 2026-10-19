@@ -59,6 +59,8 @@ internal class YouTubeMusicProvider(context: Context,
     // ---- session
     override val signedIn get() = sessionManager.signedIn
     override val sessionState get() = sessionManager.sessionState
+    /** The cookie store no longer holds the committed account's sign-in; nothing is sent with it (Q18-010). */
+    internal val detached get() = sessionManager.detached
     override val session: StateFlow<SessionToken> get() = sessionManager.session
     val accountProfile get() = sessionManager.accountProfile
     val authRevision get() = sessionManager.authRevision

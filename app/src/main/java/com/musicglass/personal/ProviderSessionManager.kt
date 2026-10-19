@@ -30,6 +30,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
+private const val COOKIE_IDENTITY = "cookie_identity"
+
 /**
  * Who is signed in, and the one HTTP client that speaks for them. WebView owns the cookies; app-private
  * preferences keep the page session fields that are not cookies. Sign-in, sign-out, the check that Google
@@ -67,6 +69,7 @@ internal class ProviderSessionManager(context: Context, internal val dependencie
     }
     private suspend fun probeSession() = sessionProbeGate.withLock {
         if(!signedIn) {sessionState=SessionState.SignedOut;return@withLock}
+        if(detached) return@withLock
         val revision=authRevision
         sessionChecks.checked()
         val state=try {
@@ -121,11 +124,25 @@ internal class ProviderSessionManager(context: Context, internal val dependencie
             connectTimeoutMillis = 12_000
             requestTimeoutMillis = 30_000
         }
-        install(cookieRotationPlugin(enabled = { signedIn && !simulatedExpiry }, persist = ::persistRotatedCookies))
+        install(cookieRotationPlugin(enabled = { signedIn && !simulatedExpiry && !detached }, persist = ::persistRotatedCookies))
     }
     internal val innerTube: InnerTube = InnerTube(http)
     @Volatile private var simulatedExpiry = false
+    /**
+     * The sign-in browser writes to the same cookie store as the live session. When the store no longer holds
+     * the cookies the committed account was signed in with (another account signed in there and the change
+     * was not finished), Riff stops sending them: nothing reaches the other account under this one's name,
+     * this account's local data stays, and the session asks to sign in again (Q18-010).
+     */
+    @Volatile internal var detached = false
+        private set
     private val cookieLock = Any()
+    private fun detachFromChangedCookies() {
+        detached = true
+        innerTube.replaceSession(cookie = null, visitorData = visitorData, dataSyncId = dataSyncId, authUser = authUser, useLoginForBrowse = false)
+        if (sessionState != SessionState.Expired) playbackEvents.append("session_cookies_changed")
+        sessionState = SessionState.Expired
+    }
     /** Writes rotated session cookies back to WebView's store and the live InnerTube session (W5). */
     private fun persistRotatedCookies(host: String, cookies: List<Pair<String, String>>): Unit = synchronized(cookieLock) {
         val manager = CookieManager.getInstance()
@@ -136,6 +153,8 @@ internal class ProviderSessionManager(context: Context, internal val dependencie
         changed.forEach { (_, header) -> manager.setCookie("https://$host", header) }
         manager.flush()
         val current = manager.getCookie("https://music.youtube.com") ?: return@synchronized
+        val committed = sessionPrefs.getString(COOKIE_IDENTITY, null)
+        if (committed != null && cookieIdentityDigest(current) != committed) { detachFromChangedCookies(); return@synchronized }
         if (signedIn && !simulatedExpiry) innerTube.replaceSession(cookie = current, visitorData = visitorData,
             dataSyncId = dataSyncId, authUser = authUser, useLoginForBrowse = true)
         playbackEvents.append("cookies_rotated count=${changed.size}")
@@ -164,6 +183,11 @@ internal class ProviderSessionManager(context: Context, internal val dependencie
             val name = it.trim().substringBefore('=')
             name == "SAPISID" || name == "__Secure-3PAPISID" || name == "__Secure-1PAPISID"
         } == true
+        // A session from before this check is trusted once, as it is; later changes are not.
+        val committed = sessionPrefs.getString(COOKIE_IDENTITY, null)
+            ?: cookieIdentityDigest(cookies)?.takeIf { valid }?.also { sessionPrefs.edit().putString(COOKIE_IDENTITY, it).apply() }
+        val changed = valid && committed != null && cookieIdentityDigest(cookies) != committed
+        detached = false
         innerTube.replaceSession(cookie = cookies.takeIf { valid }, visitorData = visitorData,
             dataSyncId = dataSyncId, authUser = authUser, useLoginForBrowse = valid)
         signedIn = valid
@@ -172,6 +196,7 @@ internal class ProviderSessionManager(context: Context, internal val dependencie
         resetListeners.forEach { it() }
         authRevision++;publishSession()
         sessionChecks.reset();sessionState=if(valid) SessionState.Checking else SessionState.SignedOut
+        if(changed) {detachFromChangedCookies();return false}
         if(valid && dependencies.startProviderBackgroundWork) runtimeScope.launch {dependencies.wait(1500);probeSession()}
         if(valid && dependencies.startProviderBackgroundWork) runtimeScope.launch {runCatching {reconcileAccountStorage()}}
         return valid
@@ -181,8 +206,9 @@ internal class ProviderSessionManager(context: Context, internal val dependencie
         visitorData = visitor?.takeIf { it.isNotBlank() && it != "null" }
         dataSyncId = syncId?.substringBefore("||")?.takeIf { it.isNotBlank() && it != "null" }
         authUser = accountIndex?.filter(Char::isDigit)?.ifBlank { "0" } ?: "0"
+        val identity = cookieIdentityDigest(CookieManager.getInstance().getCookie("https://music.youtube.com"))
         sessionPrefs.edit().putString("visitor", visitorData)
-            .putString("sync", dataSyncId).putString("account", authUser)
+            .putString("sync", dataSyncId).putString("account", authUser).putString(COOKIE_IDENTITY, identity)
             .remove("signed_out").apply()
         CookieManager.getInstance().flush()
         return refreshAccount()

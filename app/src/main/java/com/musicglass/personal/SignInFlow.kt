@@ -69,6 +69,14 @@ internal fun signInCookieIdentity(cookies: String?): Map<String, String> = cooki
             name to part.trim().substringAfter('=') else null
     }.toMap()
 
+/**
+ * A one-way digest of the login cookies' values, kept to notice when the shared cookie store changes account
+ * under the committed one (Q18-010). The cookies themselves are never stored by Riff.
+ */
+internal fun cookieIdentityDigest(cookies: String?): String? = signInCookieIdentity(cookies).takeIf { it.isNotEmpty() }
+    ?.toSortedMap()?.entries?.joinToString(";") { "${it.key}=${it.value}" }
+    ?.let { java.security.MessageDigest.getInstance("SHA-256").digest(it.toByteArray()).joinToString("") { b -> "%02x".format(b.toInt() and 255) } }
+
 /** Follow only an approved web destination from an Android app link; never execute the intent. */
 internal fun signInWebFallback(url: String): String? {
     if (!url.startsWith("intent://")) return null
