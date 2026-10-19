@@ -111,6 +111,12 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
     var stepFound by remember { mutableStateOf(false) }
     var stepLibrary by remember { mutableStateOf(false) }
     var checkFailed by remember { mutableStateOf<String?>(null) }
+    // Q18-039: the ticks shown, which follow the real steps at Checking's own pace.
+    var ticks by remember { mutableIntStateOf(0) }
+    // Q18-038: the real numbers, fetched from the moment the account is committed; null until they arrive.
+    var likedCount by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
+    var playlistCount by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
+    var counting by remember { mutableStateOf<Job?>(null) }
     var connectedName by remember { mutableStateOf("") }
     var connectedEmail by remember { mutableStateOf<String?>(null) }
     val browserOpen = phase in setOf(SignInPhase.Google, SignInPhase.NoLoad, SignInPhase.Checking)
@@ -144,12 +150,22 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
         selectedAccountIndex = null
         choseOnGoogle = email != null
         pageLoading = true; pageShown = false; mainFrameFailed = false; onMusic = false
-        stepFound = false; stepLibrary = false; checkFailed = null
+        stepFound = false; stepLibrary = false; checkFailed = null; ticks = 0
+        counting?.cancel(); likedCount = null; playlistCount = null
         startedAt = SystemClock.elapsedRealtime()
         go(SignInPhase.Google)
     }
 
-    fun leave() { closeBrowser(); model.back() }
+    /** Q18-038: counts Liked music and the playlists while the animation plays; an account change drops them. */
+    fun startCounting() {
+        counting?.cancel(); likedCount = null; playlistCount = null
+        counting = scope.launch {
+            launch { provider.likedSongsCount { so -> likedCount = so to false }.onSuccess { likedCount = it.total to !it.complete } }
+            launch { provider.scanLibraryPlaylists().onSuccess { playlistCount = it.size to (it.size >= LIBRARY_PLAYLIST_SCAN_LIMIT) } }
+        }
+    }
+
+    fun leave() { closeBrowser(); counting?.cancel(); model.back() }
 
     fun verify(view: WebView, token: Int) {
         if (!attempt.accepts(token) || verification?.isActive == true) return
@@ -159,9 +175,15 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
             return
         }
         val verifyNavigation = navigation
-        stepFound = false; stepLibrary = false; checkFailed = null
+        stepFound = false; stepLibrary = false; checkFailed = null; ticks = 0
         go(SignInPhase.Checking)
         verification = scope.launch {
+            // Q18-039: Checking plays to its full length around the real work below.
+            val timeline = async {
+                signInCheckingTimeline(reduced, SystemClock::elapsedRealtime,
+                    done = { step -> when (step) { 0 -> true; 1 -> stepFound; else -> stepLibrary } },
+                    failed = { checkFailed != null }, onTick = { ticks = it })
+            }
             val outcome = withTimeoutOrNull(SIGN_IN_VERIFY_MS) {
                 // Google's document can finish before its account config is initialized.
                 var candidate: WebSignInCandidate? = null
@@ -194,6 +216,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                 sessions.transition("sign_in", provider.signInScope(it)) { provider.commitSignIn(it) }
             }
             if (switched is SessionTransition.Committed && verified != null) {
+                startCounting()
                 stepLibrary = true
                 val profile = verified.profile
                 connectedName = profile?.name.orEmpty()
@@ -202,14 +225,16 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                     accounts.used(it, profile?.name.orEmpty(), profile?.email, System.currentTimeMillis())
                 }
                 status = null
+                // The last step's tick and the full ring are seen before the record moves on.
+                if (!timeline.await()) return@launch
                 uiHaptic(HapticCue.Confirm)
-                if (!reduced) delay(900) // The last step's tick and the full ring are seen before the record moves on.
                 closeBrowser()
                 go(SignInPhase.Connected)
             } else {
                 checkFailed = if (switched is SessionTransition.Failed)
                     string(R.string.could_not_switch_accounts_safely_nothing_was)
                 else outcome?.exceptionOrNull()?.message ?: string(R.string.could_not_finish_checking_your_account_try)
+                timeline.cancel()
             }
         }
     }
@@ -430,10 +455,10 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                             web?.reload() ?: restart(changingAccount, pickedEmail)
                         },
                         onStartOver = { closeBrowser(); go(SignInPhase.Welcome) })
-                    SignInPhase.Checking -> CheckingScreen(stepFound, stepLibrary, checkFailed,
+                    SignInPhase.Checking -> CheckingScreen(ticks, checkFailed,
                         onRetry = { checkFailed = null; web?.let { verify(it, generation) } ?: restart(changingAccount, pickedEmail) },
                         onStartOver = { closeBrowser(); go(SignInPhase.Welcome) })
-                    SignInPhase.Connected -> ConnectedScreen(provider, connectedName, connectedEmail, reduced,
+                    SignInPhase.Connected -> ConnectedScreen(connectedName, connectedEmail, likedCount, playlistCount, reduced,
                         onStart = {
                             uiHaptic(HapticCue.Confirm)
                             onNotice(string(R.string.youtube_music_account_connected))
@@ -452,7 +477,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
         val y by animateDpAsState(spot.y, travel, label = "record y")
         val size by animateDpAsState(spot.size, travel, label = "record size")
         val grey by animateFloatAsState(if (phase == SignInPhase.NoLoad) 1f else 0f, if (reduced) snap() else tween(1400, delayMillis = 900), label = "record grey")
-        val ringTarget = when { phase != SignInPhase.Checking -> 0f; stepLibrary -> 1f; stepFound -> .66f; else -> .33f }
+        val ringTarget = if (phase != SignInPhase.Checking) 0f else maxOf(ticks, 1) / SIGN_IN_CHECKING_STEPS.toFloat()
         val ring by animateFloatAsState(ringTarget, if (reduced) snap() else tween(900), label = "record ring")
         Box(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
             RiffRecord(Modifier.offset(x - size / 2, y - size / 2).size(size)
@@ -639,15 +664,15 @@ internal fun recordSpot(phase: SignInPhase, hasAccounts: Boolean, width: Dp, hei
 }
 
 /** 5: Checking your account; three steps tick off in turn. */
-@Composable internal fun CheckingScreen(found: Boolean, library: Boolean, failed: String?, onRetry: () -> Unit, onStartOver: () -> Unit) {
+@Composable internal fun CheckingScreen(ticks: Int, failed: String?, onRetry: () -> Unit, onStartOver: () -> Unit) {
     val title = string(R.string.signin_checking)
     Column(Modifier.fillMaxSize().semantics { paneTitle = title }.padding(horizontal = 20.dp), verticalArrangement = Arrangement.Bottom) {
         Column(Modifier.fillMaxWidth().padding(bottom = 24.dp).signInGlass().padding(22.dp).testTag("account_verifying"),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
             SignInTitle(title, Modifier.padding(bottom = 8.dp))
-            SignInStepRow(string(R.string.signin_step_signed_in), done = true, current = false)
-            SignInStepRow(string(R.string.signin_step_found), done = found, current = !found)
-            SignInStepRow(string(R.string.signin_step_library), done = library, current = found && !library)
+            SignInStepRow(string(R.string.signin_step_signed_in), done = ticks >= 1, current = ticks == 0)
+            SignInStepRow(string(R.string.signin_step_found), done = ticks >= 2, current = ticks == 1)
+            SignInStepRow(string(R.string.signin_step_library), done = ticks >= 3, current = ticks == 2)
             if (failed != null) {
                 Text(failed, color = Muted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 8.dp)
                     .semantics { liveRegion = LiveRegionMode.Polite }.testTag("account_status"))
@@ -658,15 +683,12 @@ internal fun recordSpot(phase: SignInPhase, hasAccounts: Boolean, width: Dp, hei
     }
 }
 
-/** 6: Connected. Waits for Start listening. */
-@Composable internal fun ConnectedScreen(provider: YouTubeMusicProvider, name: String, email: String?, reduced: Boolean,
-    onStart: () -> Unit, onAnother: () -> Unit) {
-    var liked by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
-    var playlists by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
-    LaunchedEffect(provider) {
-        launch { provider.likedSongsPage().getOrNull()?.let { liked = it.tracks.size to (it.nextToken != null) } }
-        launch { provider.libraryCatalog("Playlists").getOrNull()?.let { playlists = it.cards.size to (it.next != null) } }
-    }
+/**
+ * 6: Connected. Waits for Start listening. Q18-038: [liked] and [playlists] are the real numbers (the second value is
+ * true only past the counting limit), fetched since the account was committed; "–" until they arrive.
+ */
+@Composable internal fun ConnectedScreen(name: String, email: String?, liked: Pair<Int, Boolean>?, playlists: Pair<Int, Boolean>?,
+    reduced: Boolean, onStart: () -> Unit, onAnother: () -> Unit) {
     var shown by remember { mutableIntStateOf(if (reduced) 9 else 0) }
     LaunchedEffect(reduced) { if (!reduced) { delay(2900); for (i in 1..6) { shown = i; delay(260) } } }
     val title = if (name.isNotBlank()) string(R.string.signin_youre_in, name) else string(R.string.signin_youre_in_plain)
@@ -699,7 +721,7 @@ internal fun recordSpot(phase: SignInPhase, hasAccounts: Boolean, width: Dp, hei
     }
 }
 
-/** A number counted up from zero; "+" when YouTube has more than its first page. */
+/** A number counted up from zero, and on as more of it arrives; "+" only past the counting limit. */
 @Composable internal fun CountUp(value: Pair<Int, Boolean>?, start: Boolean, label: String, reduced: Boolean) {
     val target = if (start) value?.first ?: 0 else 0
     val counted by animateIntAsState(target, if (reduced) snap() else tween(1400), label = "count")

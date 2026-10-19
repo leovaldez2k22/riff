@@ -148,7 +148,7 @@ class SignInDesignTest {
 
     @Test fun checkingTicksItsStepsAndOffersRecoveryIfItCannotFinish() {
         var failed by mutableStateOf<String?>(null); var retries = 0
-        compose.setContent { CheckingScreen(found = true, library = false, failed = failed, onRetry = { retries++ }, onStartOver = {}) }
+        compose.setContent { CheckingScreen(ticks = 2, failed = failed, onRetry = { retries++ }, onStartOver = {}) }
         compose.onNodeWithText("Found your YouTube Music").assertExists()
         compose.onNodeWithTag("account_retry").assertDoesNotExist()
         failed = "Could not finish"

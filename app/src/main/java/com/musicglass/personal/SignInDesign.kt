@@ -126,6 +126,41 @@ internal fun signInTransitionMs(from: SignInPhase, to: SignInPhase): Int = when 
     else -> 1200
 }
 internal const val SIGN_IN_STOP_SHEET_IN_MS = 1700
+/** Q18-039: Checking's three ticks come no closer together than this, the first after Checking's own entry. */
+internal const val SIGN_IN_TICK_GAP_MS = 1200L
+internal const val SIGN_IN_CHECKING_STEPS = 3
+
+/** When step [step] (0, 1, 2) of Checking may tick at the earliest, counted from Checking's start; 0 with Remove animations. */
+internal fun signInTickSlotMs(step: Int, reduced: Boolean): Long = if (reduced) 0L else
+    signInTransitionMs(SignInPhase.Google, SignInPhase.Checking) + step * SIGN_IN_TICK_GAP_MS
+
+/** The shortest Checking: its entry, the three ticks, and a beat on the last before the record moves on (about 7.4 s). */
+internal fun signInCheckingMinimumMs(reduced: Boolean): Long =
+    if (reduced) 0L else signInTickSlotMs(SIGN_IN_CHECKING_STEPS - 1, false) + SIGN_IN_TICK_GAP_MS
+
+/**
+ * Q18-039: plays Checking at its agreed pace however quickly the real work finishes. Step [step] ticks at the later of
+ * [done] and its slot; a slow step is never made slower. Returns true once the last tick has had its beat, or false the
+ * moment [failed] says the work could not finish (the failure is shown at once, not after the animation). [now] is the
+ * clock the slots are counted on.
+ */
+internal suspend fun signInCheckingTimeline(reduced: Boolean, now: () -> Long, done: (Int) -> Boolean,
+    failed: () -> Boolean, onTick: (Int) -> Unit): Boolean {
+    val start = now()
+    for (step in 0 until SIGN_IN_CHECKING_STEPS) {
+        while (!done(step) || now() - start < signInTickSlotMs(step, reduced)) {
+            if (failed()) return false
+            kotlinx.coroutines.delay(SIGN_IN_TIMELINE_POLL_MS)
+        }
+        onTick(step + 1)
+    }
+    while (now() - start < signInCheckingMinimumMs(reduced)) {
+        if (failed()) return false
+        kotlinx.coroutines.delay(SIGN_IN_TIMELINE_POLL_MS)
+    }
+    return !failed()
+}
+private const val SIGN_IN_TIMELINE_POLL_MS = 50L
 internal const val SIGN_IN_STOP_SHEET_OUT_MS = 1100
 
 /** The colour backdrop behind every screen: pink, violet and light pink light, soft as if blurred. */

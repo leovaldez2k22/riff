@@ -108,6 +108,7 @@ internal class YouTubeMusicProvider(context: Context,
     suspend fun search(query:String)=catalog.search(query)
     suspend fun searchPage(query:String,nextToken:String?=null)=catalog.searchPage(query,nextToken)
     suspend fun likedSongsPage(nextToken:String?=null)=catalog.likedSongsPage(nextToken)
+    suspend fun likedSongsCount(onCount:(Int)->Unit={})=catalog.likedSongsCount(onCount)
     suspend fun artistFor(track:ProviderTrack)=catalog.artistFor(track)
     suspend fun albumFor(videoId:String,known:String?)=catalog.albumFor(videoId,known)
     suspend fun recommendations(videoId:String)=catalog.recommendations(videoId,null)

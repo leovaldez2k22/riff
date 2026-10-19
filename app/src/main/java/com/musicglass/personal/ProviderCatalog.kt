@@ -33,6 +33,49 @@ internal fun catalogRenderer(node: JsonElement?, key: String): JsonObject? = whe
     is JsonArray -> node.firstNotNullOfOrNull { catalogRenderer(it,key) }
     else -> null
 }
+/** Q18-038: a count of a list's songs; [complete] is false only when counting stopped at its limit. */
+internal data class LibraryCount(val total: Int, val complete: Boolean)
+/** Past this many liked songs the count stops and shows a floor ("20000+"): about 200 paced pages. */
+internal const val LIKED_SONGS_COUNT_LIMIT = 20_000
+internal const val LIBRARY_PLAYLIST_SCAN_LIMIT = 2000
+
+private val headerSongCount = Regex("""(\d[\d,.\u00A0\u202F ]*)(\+?)\s*(songs?|tracks?)\b""", RegexOption.IGNORE_CASE)
+
+/**
+ * Q18-038: the number of songs a playlist's header states ("1,234 songs" in its second subtitle), or null when it states
+ * none, or only a floor ("100+ songs"): then the songs are counted page by page instead.
+ */
+internal fun collectionHeaderSongCount(root: JsonElement): Int? {
+    for (renderer in listOf("musicResponsiveHeaderRenderer", "musicDetailHeaderRenderer")) {
+        val header = catalogRenderer(root, renderer) ?: continue
+        for (field in listOf("secondSubtitle", "subtitle")) {
+            val match = headerSongCount.find(catalogText(header[field])) ?: continue
+            if (match.groupValues[2] == "+") return null
+            return match.groupValues[1].filter(Char::isDigit).toIntOrNull()
+        }
+    }
+    return null
+}
+
+/**
+ * Q18-038: counts a list's songs to its end, [first] page then each next one; distinct songs only, stopping at a token
+ * seen before or at [limit]. [onCount] hears the count after every page.
+ */
+internal suspend fun countThroughPages(first: ProviderSearchPage, limit: Int, next: suspend (String) -> ProviderSearchPage,
+    onCount: (Int) -> Unit = {}): LibraryCount {
+    val songs = HashSet<String>(); val tokens = HashSet<String>()
+    var page = first
+    while (true) {
+        page.tracks.forEach { songs.add(it.videoId) }
+        onCount(minOf(songs.size, limit))
+        if (songs.size >= limit) return LibraryCount(limit, complete = false)
+        val token = page.nextToken ?: break
+        if (!tokens.add(token)) break
+        page = next(token)
+    }
+    return LibraryCount(songs.size, complete = true)
+}
+
 internal fun catalogContinuation(node: JsonElement): String? {
     val next = catalogRenderer(node,"nextRadioContinuationData") ?: catalogRenderer(node,"nextContinuationData") ?: catalogRenderer(node,"continuationCommand")
     return next?.get("continuation")?.textOrNull ?: next?.get("token")?.textOrNull

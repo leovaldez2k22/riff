@@ -82,7 +82,7 @@ internal class ProviderLibraryRepository(private val session: ProviderSessionMan
         val revision=authRevision
         var page=libraryCatalogFresh("Playlists").getOrThrow()
         val cards=page.cards.toMutableList();val seen=mutableSetOf<String>()
-        while(page.next!=null && seen.add(page.next!!) && cards.size<2000) {page=libraryCatalogFresh("Playlists",page.next).getOrThrow();cards.addAll(page.cards)}
+        while(page.next!=null && seen.add(page.next!!) && cards.size<LIBRARY_PLAYLIST_SCAN_LIMIT) {page=libraryCatalogFresh("Playlists",page.next).getOrThrow();cards.addAll(page.cards)}
         check(revision==authRevision) {string(R.string.account_changed_while_scanning_library)}
         val latest=libraryArtwork(CatalogPage(cards)).cards.filter {it.kind==CatalogKind.Playlist}.distinctBy {it.key()}
         val old=cachedLibrary("Playlists")?.cards.orEmpty()

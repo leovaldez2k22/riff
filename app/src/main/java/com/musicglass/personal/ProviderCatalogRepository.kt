@@ -414,6 +414,32 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
 
     /** Read-only account library browse. This does not mutate YouTube Music likes. */
     suspend fun likedSongsPage(nextToken: String? = null): Result<ProviderSearchPage> =
+        likedSongsRoot(nextToken).map { root -> ProviderSearchPage(parseTracks(root, limit = 2000), findContinuation(root)) }
+
+    /**
+     * Q18-038: how many songs Liked music holds: the number its header states, or every page counted (paced like any
+     * other library read). [onCount] hears the count so far. An account change on the way fails it.
+     */
+    suspend fun likedSongsCount(onCount: (Int) -> Unit = {}): Result<LibraryCount> = withContext(dependencies.dispatchers.io) {
+        val revision = authRevision
+        try {
+            val root = likedSongsRoot(null).getOrThrow()
+            collectionHeaderSongCount(root)?.let { onCount(it); return@withContext Result.success(LibraryCount(it, true)) }
+            val count = countThroughPages(ProviderSearchPage(parseTracks(root, limit = 2000), findContinuation(root)),
+                LIKED_SONGS_COUNT_LIMIT, { token -> likedSongsPage(token).getOrThrow() }) { so ->
+                if (authRevision == revision) onCount(so)
+            }
+            if (authRevision != revision || !signedIn) return@withContext Result.failure(
+                IllegalStateException(string(R.string.account_changed_while_loading_the_library)))
+            Result.success(count)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
+    private suspend fun likedSongsRoot(nextToken: String?): Result<JsonElement> =
         withContext(dependencies.dispatchers.io) {
             if (!signedIn) return@withContext Result.failure(
                 IllegalStateException(string(R.string.sign_in_to_view_your_youtube_music)))
@@ -427,8 +453,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                 val root = json.parseToJsonElement(response.bodyAsText())
                 if (authRevision != revision || !signedIn) return@withContext Result.failure(
                     IllegalStateException(string(R.string.account_changed_while_loading_the_library)))
-                val tracks = parseTracks(root, limit = 2000)
-                Result.success(ProviderSearchPage(tracks, findContinuation(root)))
+                Result.success(root)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
