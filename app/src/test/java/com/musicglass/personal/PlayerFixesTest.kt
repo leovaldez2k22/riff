@@ -164,8 +164,24 @@ class PlayerFixesTest {
             p += .0005f
         }
         assertEquals(0f, morphTravel(0f), 0f)
-        assertEquals(.5f, morphTravel(.48f), 1e-6f)
+        assertEquals(.5f, morphTravel(.49f), 1e-6f)
         assertEquals(0f, morphCopyAlpha(1f), 0f)
+    }
+
+    @Test fun theFlyingCopiesSitOnTheMiniPlayerThroughItsHandOver() {
+        // Q18-001: while the copies fade in over the mini player, nothing moves and the mini player stays whole, so
+        // there is one title and one cover, not two a few dp apart; it goes only once the copies cover it fully.
+        var p = 0f
+        while (p < MORPH_MINI_HANDOFF_END) {
+            assertEquals("at $p", 0f, morphGeometry(p), 0f)
+            assertEquals("at $p", 0f, morphTravel(p), 0f)
+            assertEquals("at $p", 1f, miniPlayerAlpha(p), 0f)
+            p += .0005f
+        }
+        assertEquals(1f, morphCopyAlpha(MORPH_MINI_HANDOFF_END), 0f)
+        assertEquals(0f, miniPlayerAlpha(MORPH_MINI_HANDOFF_END), 0f)
+        assertTrue("then the surface moves", morphGeometry(.035f) > 0f && morphTravel(.035f) > 0f)
+        assertEquals(1f, morphGeometry(1f), 0f)
     }
 
     @Test fun thePreparedPlayerIsKeptOnDiskAndReadBack() {

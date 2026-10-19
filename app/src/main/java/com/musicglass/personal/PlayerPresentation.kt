@@ -209,11 +209,24 @@ internal fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
 /** Progress after which the flying morph elements hand over to the real player controls. */
 private const val morphHandoffStart = .96f
 
-/** How far the flying copies have travelled at morph progress [p]: all the way by the time the hand-over starts. */
-internal fun morphTravel(p: Float): Float = (p / morphHandoffStart).coerceIn(0f, 1f)
+/**
+ * The mini-player end of the morph: over p 0 to this the flying copies fade in over the real mini player, and
+ * nothing moves. They used to travel from the first moment, while the mini player faded out where it was, and the
+ * two showed a few dp apart: two titles, a faint second cover (Q18-001).
+ */
+internal const val MORPH_MINI_HANDOFF_END = .02f
+
+/** How far the surface has grown from the mini player at [p]: not at all until the mini player has handed over. */
+internal fun morphGeometry(p: Float): Float = ((p - MORPH_MINI_HANDOFF_END) / (1f - MORPH_MINI_HANDOFF_END)).coerceIn(0f, 1f)
+
+/** How far the flying copies have travelled at [p]: from the mini player's hand-over to the player's. */
+internal fun morphTravel(p: Float): Float = ((p - MORPH_MINI_HANDOFF_END) / (morphHandoffStart - MORPH_MINI_HANDOFF_END)).coerceIn(0f, 1f)
 
 /** How much of each flying copy shows at [p]; the real element shows the rest ([morphHandoff]). */
-internal fun morphCopyAlpha(p: Float): Float = motionRamp(p, 0f, .02f) * (1f - morphHandoff(p))
+internal fun morphCopyAlpha(p: Float): Float = motionRamp(p, 0f, MORPH_MINI_HANDOFF_END) * (1f - morphHandoff(p))
+
+/** How much of the real mini player shows at [p]: all of it until the copies cover it exactly, then none. */
+internal fun miniPlayerAlpha(p: Float): Float = if (p < MORPH_MINI_HANDOFF_END) 1f else 0f
 
 /** How much of the real title, artwork and play buttons shows at [p]. */
 internal fun morphHandoff(p: Float): Float = motionRamp(p, morphHandoffStart, 1f)
@@ -245,10 +258,11 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
         val miniWidth = miniBounds?.let { with(measure) { it.width.toDp() } } ?: maxWidth - 32.dp
         val miniHeight = miniBounds?.let { with(measure) { it.height.toDp() } } ?: 62.dp
         val fullY = 0.dp
-        val x = miniX * (1f - p)
-        val y = miniY + (fullY - miniY) * p
-        val w = miniWidth + (maxWidth - miniWidth) * p
-        val h = miniHeight + (maxHeight - fullY - miniHeight) * p
+        val g = morphGeometry(p)
+        val x = miniX * (1f - g)
+        val y = miniY + (fullY - miniY) * g
+        val w = miniWidth + (maxWidth - miniWidth) * g
+        val h = miniHeight + (maxHeight - fullY - miniHeight) * g
         val handoff = morphHandoff(p)
         val movingAlpha = morphCopyAlpha(p)
         val miniOrigin = miniBounds ?: Rect(0f, 0f, 0f, 0f)
@@ -281,12 +295,12 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                             }
             }
         }
-        val shape = RoundedCornerShape(32.dp * (1f - p))
+        val shape = RoundedCornerShape(32.dp * (1f - g))
         Box(Modifier.offset(x = x, y = y).width(w).height(h)
             .clip(shape)
             .background(if (solidControls) Color(0xFF11131A) else Color.Black.copy(alpha = p))
-            .border(1.dp, White.copy(alpha = (.42f * (1f - p) + .10f * p) *
-                (p * 12f).coerceAtMost(1f)*(1f-p)), shape)) {
+            // As deep as the mini player's own border from the start: it lies exactly on it until the hand-over.
+            .border(1.dp, White.copy(alpha = (.42f * (1f - p) + .10f * p) * (1f - p)), shape)) {
             if (p > .001f) {
                 Box(Modifier.wrapContentSize(Alignment.TopStart, unbounded = true)
                     .requiredWidth(fullWidth).requiredHeight(fullHeight - fullY)

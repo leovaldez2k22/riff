@@ -84,7 +84,7 @@ internal fun ChromeBar(model: ShellModel, compact: Boolean, playback: PlaybackGa
                     alpha = if (accessibility.solidControls) .72f else .42f)),
                 modifier = Modifier.fillMaxWidth().height(62.dp).testTag("mini_player")
                     .onGloballyPositioned { if(miniProgress<.001f) onMiniBounds(it.boundsInRoot()) }
-                    .graphicsLayer { alpha = 1f - motionRamp(miniProgress, 0f, .02f) }
+                    .graphicsLayer { alpha = miniPlayerAlpha(miniProgress) }
                     .pointerInput(model) {
                         detectVerticalDragGestures(
                             onVerticalDrag = { change, amount ->

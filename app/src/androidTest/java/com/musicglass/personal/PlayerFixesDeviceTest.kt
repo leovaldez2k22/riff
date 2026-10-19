@@ -97,6 +97,8 @@ class PlayerFixesDeviceTest {
         keep("player")
         // The points the user's picture came from (just into the hand-over) and either side of it.
         for (p in listOf(.5f, .9f, .965f, .98f)) { compose.runOnIdle { progress.floatValue = p }; keep("morph-${(p * 1000).toInt()}") }
+        // The mini-player end (Q18-001): through its hand-over and just after, for review against one title and one cover.
+        for (p in listOf(.005f, .01f, .02f, .035f)) { compose.runOnIdle { progress.floatValue = p }; keep("mini-${(p * 1000).toInt()}") }
     }
 
     private fun shell(command: String) = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
