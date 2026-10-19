@@ -79,7 +79,7 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         crossfader = Crossfader(context, scope, createTail = {
             // Match the main player's frequent position updates for muted synchronization.
             val processor = VolumeBoostProcessor()
-            val tail = ExoPlayer.Builder(context, riffAudioRenderers(context, processor)).setMediaSourceFactory(mediaFactory)
+            val tail = ExoPlayer.Builder(context, riffAudioRenderers(context, processor)).setMediaSourceFactory(mediaFactory).setLoadControl(riffLoadControl())
                 .experimentalSetDynamicSchedulingEnabled(false).build()
             tail.setAudioAttributes(audioAttributes, false)
             tail.trackSelectionParameters = tail.trackSelectionParameters.buildUpon().setAudioOffloadPreferences(pcmOnly).build()

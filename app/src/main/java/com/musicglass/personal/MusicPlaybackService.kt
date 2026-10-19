@@ -118,7 +118,7 @@ class MusicPlaybackService : MediaSessionService() {
         audio.createCrossfade(mediaFactory, sleepActive = { (session?.sessionExtras?.getLong("sleepDeadlineMs") ?: 0L) > 0L },
             tailItem=queue::tailItem)
         // Crossfade synchronization requires frequent decoder-position updates.
-        val player = ExoPlayer.Builder(this, renderers).setMediaSourceFactory(mediaFactory)
+        val player = ExoPlayer.Builder(this, renderers).setMediaSourceFactory(mediaFactory).setLoadControl(riffLoadControl())
             .experimentalSetDynamicSchedulingEnabled(false)
             .build().apply {
             setAudioAttributes(AudioAttributes.Builder()

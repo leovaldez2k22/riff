@@ -83,3 +83,14 @@ internal fun riffAudioRenderers(context: android.content.Context, processor: Vol
                 .setEnableFloatOutput(false)
                 .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams).build()
     }
+
+/** How much already-played audio a player keeps: enough to seek back to the start of most songs without fetching it again. */
+internal const val RIFF_BACK_BUFFER_MS = 5*60_000
+/**
+ * Media3's default load control keeps no back buffer, so every seek back in a streamed song threw away and downloaded
+ * again what had just played (Q18-005). Five minutes of compressed audio is a few megabytes, inside the default
+ * audio target, so the forward buffer is unchanged.
+ */
+@androidx.annotation.OptIn(markerClass = [UnstableApi::class])
+internal fun riffLoadControl(): androidx.media3.exoplayer.DefaultLoadControl =
+    androidx.media3.exoplayer.DefaultLoadControl.Builder().setBackBuffer(RIFF_BACK_BUFFER_MS, true).build()
