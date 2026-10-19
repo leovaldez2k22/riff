@@ -81,6 +81,31 @@ class DownloadSchedulingTest {
         assertEquals(OfflineDownloadService::class.java.name,shadowOf(context as android.app.Application).nextStartedService.component!!.className)
         assertEquals(emptyList<String>(),events())
     }
+    /** Q18-021: a download Riff was stopped in is queued again at start, and coming to the front starts it. */
+    @Test fun aDownloadInterruptedByAKillStartsAgainWhenTheAppComesToTheFront() {
+        val scope=store.currentScope
+        store.enqueue(ProviderTrack("schedule001","Song","Artist"),scope=scope);store.update(scope,"schedule001","state" to DownloadState.Transferring.db)
+        store.enqueue(ProviderTrack("schedule002","Song","Artist"),scope=scope);store.update(scope,"schedule002","state" to DownloadState.Assets.db)
+        // The process ends with both in flight and no job left waiting; the next process opens the store again.
+        scheduler.cancelAll();storeField.set(null,null)
+        assertEquals(2,store.startupReport.requeued)
+        assertEquals(listOf(DownloadState.Queued,DownloadState.Queued),listOf("schedule001","schedule002").map {store.song(scope,it)!!.status})
+        assertTrue(DownloadCoordinator.resumeWaiting(context))
+        assertEquals(OfflineDownloadService::class.java.name,shadowOf(context as android.app.Application).nextStartedService.component!!.className)
+        assertNotNull("The job stays behind the service",job(OfflineDownloadScheduler.MANUAL))
+        assertTrue(events().contains("download_resume count=2"))
+    }
+    @Test fun comingToTheFrontStartsNothingWhenNoHandChosenSongWaits() {
+        val scope=store.currentScope
+        store.enqueue(ProviderTrack("schedule001","Song","Artist"),scope=scope);store.update(scope,"schedule001","state" to DownloadState.Paused.db)
+        store.enqueue(ProviderTrack("schedule002","Song","Artist"),scope=scope);store.update(scope,"schedule002","state" to DownloadState.Failed.db)
+        store.enqueue(ProviderTrack("schedule003","Song","Artist"),pinned=false,scope=scope)
+        store.enqueue(ProviderTrack("schedule004","Song","Artist"),scope="another-account")
+        assertEquals(0,store.manualWaiting())
+        assertFalse(DownloadCoordinator.resumeWaiting(context))
+        assertNull(shadowOf(context as android.app.Application).nextStartedService)
+        assertNull(job(OfflineDownloadScheduler.MANUAL))
+    }
     @Test fun pauseFromTheNotificationPausesWhatTheUserAskedForAndNothingElse() {
         val scope=store.currentScope
         store.enqueue(ProviderTrack("schedule001","Song","Artist"),scope=scope)

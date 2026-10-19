@@ -55,6 +55,18 @@ internal object DownloadCoordinator {
         OfflineDownloadScheduler.resumeManualLater(context)
         return started
     }
+    /**
+     * Songs asked for by hand that are waiting in the active account start again when the app comes to the
+     * front. A download that Riff was stopped in is queued again at start (OfflineMusicStore.reconcile), but
+     * the job that was waiting may have been cancelled with the process, and nothing else would take it up
+     * until the next download is asked for (Q18-021). Paused, failed and Smart Downloads songs are not started.
+     */
+    fun resumeWaiting(context:Context,store:OfflineMusicStore=OfflineMusicStore.get(context)):Boolean {
+        val waiting=store.manualWaiting()
+        if(waiting==0) return false
+        PlaybackEventLog(context).append("download_resume count=$waiting")
+        return start(context)
+    }
 }
 
 class OfflineDownloadService:Service() {

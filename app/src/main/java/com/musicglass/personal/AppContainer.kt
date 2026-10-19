@@ -149,6 +149,11 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
     val updates: UpdateChecker by lazy { UpdateChecker.android(app, runtime, eventLog::append) }
     private val stateScope = CoroutineScope(SupervisorJob() + runtime.dispatchers.io)
 
+    /** Hand-chosen downloads left waiting start again when the app comes to the front (Q18-021). Off the caller's thread. */
+    fun resumeWaitingDownloads() {
+        stateScope.launch { suspendCatching { DownloadCoordinator.resumeWaiting(app) } }
+    }
+
     /** The automatic update check, when the app comes to the front. Never on the caller's thread. */
     fun checkForUpdatesIfDue() {
         stateScope.launch { suspendCatching { updates.checkIfDue() } }

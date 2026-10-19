@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
         YouTubeMusicProvider.checkExistingSession()
         MoodPhotos.get(this).foreground()
         AppContainer.get(this).checkForUpdatesIfDue()
+        AppContainer.get(this).resumeWaitingDownloads()
     }
 
     override fun onPause() {

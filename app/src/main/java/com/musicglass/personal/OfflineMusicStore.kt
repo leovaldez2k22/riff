@@ -77,6 +77,8 @@ internal class OfflineMusicStore private constructor(private val context:Context
         db.writableDatabase.insertWithOnConflict("songs",null,ContentValues().apply {put("scope",scope);put("id",track.videoId);put("track",encode(track))},SQLiteDatabase.CONFLICT_IGNORE)
         db.writableDatabase.update("songs",ContentValues().apply {put("track",encode(track.copy(artworkUrl=validProviderArtworkUrl(track.artworkUrl)?:song(scope,track.videoId)?.track?.artworkUrl?:providerArtworkUrl(track.videoId))))},"scope=? AND id=?",arrayOf(scope,track.videoId));changed()
     }
+    /** Songs asked for by hand that wait for a run in [scope]; not paused or failed ones. */
+    @Synchronized fun manualWaiting(scope:String=currentScope):Int=rows(scope).count {it.pinned && it.status==DownloadState.Queued}
     @Synchronized fun rows(scope:String=currentScope,id:String?=null):List<OfflineSong> = db.readableDatabase.query("songs",null,if(id==null) "scope=?" else "scope=? AND id=?",if(id==null) arrayOf(scope) else arrayOf(scope,id),null,null,"lastPlayed DESC").use {c->buildList {
         fun str(k:String)=c.getString(c.getColumnIndexOrThrow(k)) ?: ""
         fun num(k:String)=c.getLong(c.getColumnIndexOrThrow(k))
