@@ -2347,6 +2347,10 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   updated); it is never logged.
 - JVM: 1,075 tests, 0 failures; lint 0 errors. Not yet run on an emulator or the phone: the sign-in needs the owner
   and a real Google account (A9).
+- Phone cleaned at the owner's request (19 Oct 2026): uninstalled Riff Preview (with its data), debug, stress,
+  benchmark, macrobenchmark, both test APKs and the test.riff.foreign fixture; deleted testing files from
+  /data/local/tmp, /sdcard/riff-play-ui.xml and the debug build's q16a/q16b/q17a outputs (already kept on the computer).
+  Only Riff (com.musicglass.personal) and its data remain; the owner's own files were not touched.
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
