@@ -37,6 +37,22 @@ internal data class AppDispatchers(
 )
 
 internal data class NetworkConditions(val wifi: Boolean, val unmetered: Boolean, val validated: Boolean)
+
+/** One network as Android describes it: what is needed to tell whether the device can really reach the internet. */
+internal data class NetworkLink(val vpn: Boolean, val wifi: Boolean, val unmetered: Boolean, val validated: Boolean)
+
+/**
+ * A VPN can stay validated after the networks under it are gone (Q18-017, NordVPN with Wi-Fi and mobile data
+ * off), so when the active network is a VPN the device counts as online only while a network other than a VPN
+ * is validated too; Wi-Fi and unmetered are read from that network.
+ */
+internal fun networkConditionsOf(active: NetworkLink?, others: List<NetworkLink>): NetworkConditions {
+    if (active == null) return NetworkConditions(false, false, false)
+    if (!active.vpn) return NetworkConditions(active.wifi, active.unmetered, active.validated)
+    val under = others.filter { !it.vpn && it.validated }
+    val carrier = under.firstOrNull { it.wifi } ?: under.firstOrNull()
+    return NetworkConditions(carrier?.wifi == true, carrier?.unmetered == true && active.unmetered, active.validated && carrier != null)
+}
 internal data class StorageCapacity(val availableBytes: Long, val totalBytes: Long)
 
 internal data class StreamRequest(
@@ -79,13 +95,15 @@ internal data class RuntimeDependencies(
             return RuntimeDependencies(
                 networkConditions = {
                     val manager = app.getSystemService(ConnectivityManager::class.java)
-                    val caps = manager.getNetworkCapabilities(manager.activeNetwork)
-                    NetworkConditions(
-                        caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true,
-                        caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == true,
-                        caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
-                            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
-                    )
+                    fun link(caps: NetworkCapabilities?) = caps?.let {
+                        NetworkLink(it.hasTransport(NetworkCapabilities.TRANSPORT_VPN), it.hasTransport(NetworkCapabilities.TRANSPORT_WIFI),
+                            it.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
+                            it.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && it.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))
+                    }
+                    val active = link(manager.getNetworkCapabilities(manager.activeNetwork))
+                    @Suppress("DEPRECATION") // getAllNetworks: the networks under a VPN, read only when the active one is a VPN.
+                    val others = if (active?.vpn == true) manager.allNetworks.mapNotNull { link(manager.getNetworkCapabilities(it)) } else emptyList()
+                    networkConditionsOf(active, others)
                 },
                 storageCapacity = { directory ->
                     StatFs(directory.absolutePath).let { StorageCapacity(it.availableBytes, it.totalBytes) }
