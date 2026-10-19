@@ -392,9 +392,27 @@ class Lane:
             names.append(result.stdout.strip())
         return tuple(names)
 
+    def network_quiet(self, settle_s=5, limit_s=300, sleep=time.sleep, clock=time.monotonic):
+        """Q18-025: on a fresh API 36 image mobile data comes up minutes after boot and a "svc data disable" made
+        before telephony is ready does not stick. The switches are set again until both read 0 and no default
+        network is up for settle_s seconds in a row."""
+        deadline, quiet_since = clock() + limit_s, None
+        while clock() < deadline:
+            self.adb("shell", "svc wifi disable; svc data disable")
+            switches = self.adb("shell", "settings get global mobile_data; settings get global wifi_on").stdout.split()
+            default = self.adb("shell", "dumpsys connectivity | grep -m 1 'Active default network'").stdout.strip()
+            if switches == ["0", "0"] and default.endswith(": none"):
+                quiet_since = clock() if quiet_since is None else quiet_since
+                if clock() - quiet_since >= settle_s:
+                    return "network off (mobile data and Wi-Fi 0, no default network)"
+            else:
+                quiet_since = None
+            sleep(1)
+        raise Failed("the emulator's network did not stay off (mobile data, Wi-Fi or a default network came back)")
+
     def install(self, app, test, network_off):
         if network_off:
-            self.adb("shell", "svc wifi disable; svc data disable")
+            self.network_quiet()
         for apk in (app, test):
             result = self.adb("install", "-r", "-t", str(apk))
             (self.evidence / "install.log").open("a", encoding="utf-8").write(result.stdout + result.stderr)
@@ -404,7 +422,7 @@ class Lane:
             ping = self.adb("shell", "ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; echo $?").stdout.strip()
             if ping == "0":
                 raise Failed("the emulator still reaches the network")
-            return "network off (ping exit " + ping + ")"
+            return self.network_quiet() + ", ping exit " + ping
 
     def instrument(self):
         app, test = self.app, self.test
@@ -442,7 +460,8 @@ class Lane:
         with DeviceLock(self.root, self.serial):
             if self.gate("pairing", self.pairing) and \
                     self.gate("install", lambda: self.install(self.app, self.test, network_off=emulator) or "installed"):
-                self.gate("instrumentation", self.instrument)
+                # Checked again just before the suite: the cellular network can come up during the install.
+                self.gate("instrumentation", lambda: (self.network_quiet() if emulator else None, self.instrument())[1])
         for name in ("install", "instrumentation"):
             self.gates.setdefault(name, dict(status="BLOCKED", reason="an earlier gate did not pass"))
 

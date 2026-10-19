@@ -175,6 +175,52 @@ class InstallTest(unittest.TestCase):
             self.assertEqual("BLOCKED", lane.gates["script-tests"]["status"])
 
 
+class NetworkGateTest(unittest.TestCase):
+    """Q18-025: the emulator lane waits until the network is really off, not just asked to be."""
+    class Result:
+        def __init__(self, out):
+            self.stdout, self.stderr, self.returncode = out, "", 0
+
+    def run_gate(self, temp, states, limit_s):
+        """states: (switches, default network) the emulator shows on each check, the last one repeating."""
+        lane = verify.Lane(Args(lane="emulator", evidence_dir=temp), root=Path(temp))
+        checks = [0]
+        def adb(*args, **kwargs):
+            command = " ".join(args)
+            if "svc" in command:
+                return self.Result("")
+            switches, default = states[min(checks[0], len(states) - 1)]
+            if "settings get" in command:
+                return self.Result(switches)
+            checks[0] += 1
+            return self.Result(default)
+        lane.adb = adb
+        now = [0.0]
+        def sleep(seconds):
+            now[0] += seconds
+        return lambda: lane.network_quiet(settle_s=5, limit_s=limit_s, sleep=sleep, clock=lambda: now[0]), now
+
+    def test_mobile_data_that_comes_back_after_boot_is_waited_for(self):
+        with tempfile.TemporaryDirectory() as temp:
+            on, off = ("1\n0", "Active default network: 100"), ("0\n0", "Active default network: none")
+            gate, now = self.run_gate(temp, [on, on, on, off], limit_s=60)
+            self.assertIn("network off", gate())
+            self.assertGreaterEqual(now[0], 3 + 5, "not before the cellular network had gone and stayed gone")
+
+    def test_switches_at_0_with_a_default_network_up_are_not_off(self):
+        with tempfile.TemporaryDirectory() as temp:
+            gate, _ = self.run_gate(temp, [("0\n0", "Active default network: 100")], limit_s=30)
+            with self.assertRaises(verify.Failed):
+                gate()
+
+    def test_a_network_that_drops_back_restarts_the_wait(self):
+        with tempfile.TemporaryDirectory() as temp:
+            on, off = ("0\n1", "Active default network: 101"), ("0\n0", "Active default network: none")
+            gate, now = self.run_gate(temp, [off, off, on, off], limit_s=60)
+            gate()
+            self.assertGreaterEqual(now[0], 3 + 5)
+
+
 class PackageTest(unittest.TestCase):
     """Q18C1: the lanes install the debug build under its own package, never over Riff or Riff Preview."""
     def test_the_runner_and_fixtures_name_the_debug_package_and_the_source_classes(self):
