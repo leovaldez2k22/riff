@@ -76,7 +76,7 @@ import kotlinx.coroutines.withContext
                     }
                     CapsuleSlider(boostLevel,{boostLevel=it},valueRange=100f..300f,
                         onValueChangeFinished={audio.updatePercent(boostLevel.toInt())},
-                        haptics=SliderHaptics.Intensity,
+                        haptics=SliderHaptics.Intensity,label=string(R.string.boost_level),spokenValue=quantity(R.plurals.n_percent,boostLevel.toInt()),
                         modifier=Modifier.fillMaxWidth().testTag("settings_boost_level"))
                 }
             }
@@ -95,7 +95,7 @@ import kotlinx.coroutines.withContext
                     }
                     CapsuleSlider(crossfadeLength,{crossfadeLength=it},valueRange=1f..12f,steps=10,
                         onValueChangeFinished={crossfade.updateSeconds(crossfadeLength.roundToInt())},
-                        haptics=SliderHaptics.Intensity,
+                        haptics=SliderHaptics.Intensity,label=string(R.string.crossfade_length),spokenValue=quantity(R.plurals.n_seconds,crossfadeLength.roundToInt()),
                         modifier=Modifier.fillMaxWidth().testTag("settings_crossfade_length"))
                 }
             }
@@ -115,7 +115,8 @@ import kotlinx.coroutines.withContext
                     Text("${(preferences.glassIntensity*100).toInt()}%",color=Muted,fontSize=13.sp)
                 }
                 CapsuleSlider(preferences.glassIntensity,preferences::updateGlassIntensity,valueRange=0f..1.5f,
-                    haptics=SliderHaptics.Intensity,modifier=Modifier.fillMaxWidth().testTag("settings_glass_intensity"))
+                    haptics=SliderHaptics.Intensity,label=string(R.string.glass_intensity),spokenValue=quantity(R.plurals.n_percent,(preferences.glassIntensity*100).toInt()),
+                    modifier=Modifier.fillMaxWidth().testTag("settings_glass_intensity"))
             }
             SettingsDivider()
             Column(Modifier.padding(vertical=8.dp)) {
@@ -124,7 +125,8 @@ import kotlinx.coroutines.withContext
                     Text("${(preferences.frostedIntensity*100).toInt()}%",color=Muted,fontSize=13.sp)
                 }
                 CapsuleSlider(preferences.frostedIntensity,preferences::updateFrostedIntensity,valueRange=0f..1.5f,
-                    haptics=SliderHaptics.Intensity,modifier=Modifier.fillMaxWidth().testTag("settings_frosted_intensity"))
+                    haptics=SliderHaptics.Intensity,label=string(R.string.frosted_glass_intensity),spokenValue=quantity(R.plurals.n_percent,(preferences.frostedIntensity*100).toInt()),
+                    modifier=Modifier.fillMaxWidth().testTag("settings_frosted_intensity"))
             }
             SettingsDivider()
             SettingsToggleRow(string(R.string.reduce_motion),preferences.reduceMotion,

@@ -136,7 +136,8 @@ internal fun BackHeading(title: String, onBack: () -> Unit, overPicture: Boolean
             verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = hapticClick(onBack), modifier = Modifier.size(RiffSpace.touch).testTag("back")) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = string(R.string.back_to_x, title), tint = White)
+                    // A screen whose heading is the word Back says "Back", not "Back to Back" (Q18-011).
+                    contentDescription = if (title == string(R.string.back)) title else string(R.string.back_to_x, title), tint = White)
             }
             Spacer(Modifier.width(RiffSpace.item))
             Text(title, color = White, fontSize = RiffType.message, maxLines = 1, overflow = TextOverflow.Ellipsis)

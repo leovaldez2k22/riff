@@ -8,13 +8,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 
-/** A continuous rounded capsule: the filled end is the handle, with no floating thumb or gap. */
+/**
+ * A continuous rounded capsule: the filled end is the handle, with no floating thumb or gap. [label] and
+ * [spokenValue] are what a screen reader says ("Crossfade length", "3 seconds") instead of an unnamed
+ * percentage (Q18-033); a caller that names the slider itself leaves both null.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun CapsuleSlider(value: Float, onValueChange: (Float)->Unit,
     valueRange: ClosedFloatingPointRange<Float>, modifier: Modifier = Modifier,
-    onValueChangeFinished: (()->Unit)? = null, enabled: Boolean = true, haptics: SliderHaptics = SliderHaptics.Seek, steps: Int = 0) {
+    onValueChangeFinished: (()->Unit)? = null, enabled: Boolean = true, haptics: SliderHaptics = SliderHaptics.Seek, steps: Int = 0,
+    label: String? = null, spokenValue: String? = null) {
     val feedback=androidx.compose.runtime.remember(haptics) {SliderHapticTracker(haptics)}
     Slider(value=value.coerceIn(valueRange.start,valueRange.endInclusive),onValueChange={feedback.change(it,valueRange)?.let(::uiHaptic);onValueChange(it)},
         valueRange=valueRange,steps=steps,onValueChangeFinished={onValueChangeFinished?.invoke();feedback.finish()?.let(::uiHaptic)},enabled=enabled,
@@ -26,5 +34,7 @@ import androidx.compose.ui.unit.dp
                 val fraction=((state.value-state.valueRange.start)/span).coerceIn(0f,1f)
                 if(fraction>0) drawRoundRect(White.copy(alpha=if(enabled) .9f else .35f),size=Size(size.width*fraction,size.height),cornerRadius=radius)
             }
-        },modifier=modifier.heightIn(min=48.dp))
+        },modifier=modifier.heightIn(min=48.dp).then(if(label==null && spokenValue==null) Modifier else Modifier.semantics {
+            label?.let {contentDescription=it};spokenValue?.let {stateDescription=it}
+        }))
 }

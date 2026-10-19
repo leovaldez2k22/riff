@@ -159,9 +159,16 @@ abstract class AccessibilitySweepCases {
                 "'$name' takes presses in ${(touch.width / scale).toInt()} x ${(touch.height / scale).toInt()} dp".takeIf { touch.width < min || touch.height < min },
                 shared?.let { "'$name' (${dp(seen)}, pressed in ${dp(touch)}) shares its press region with '${it.said().take(40).ifBlank { it.tag() }}' (${dp(it.touchBoundsInRoot)})" },
                 "'${node.tag()}' does not say what it is".takeIf { node.said().isBlank() },
+                // Q18-011: "Back to Back", a destination named after the button itself.
+                "'$name' repeats itself".takeIf { repeated.containsMatchIn(node.said()) },
                 "'$name' is outside the screen".takeIf { seen.width > 0 && (seen.right <= 0f || seen.left >= width) && !scrollsSideways(node) })
-        }
+        } + compose.onAllNodes(SemanticsMatcher("can be set") { it.config.contains(SemanticsActions.SetProgress) && !it.config.contains(SemanticsProperties.Disabled) })
+            .fetchSemanticsNodes(atLeastOneRootRequired = false)
+            // Q18-033: a slider says what it sets and its value in words, not only a percentage.
+            .filter { it.config.getOrNull(SemanticsProperties.ContentDescription).isNullOrEmpty() || it.config.getOrNull(SemanticsProperties.StateDescription).isNullOrBlank() }
+            .map { "slider '${it.tag()}' has no name or no spoken value" }
     }
+    private val repeated = Regex("""\b(\w+) to \1\b""", RegexOption.IGNORE_CASE)
     /** Not words of ours: the fixture's own titles and names, and names that are the same in every language. */
     private val data = listOf(Regex("Fixture Song With A Title Long Enough To Be Cut Off At Any Size"), Regex("Fixture (Song|Artist|list)( \\d)?"), Regex("Row \\d"), Regex("YouTube Music"), Regex("Riff"))
     private val marked = Regex("\\[[^\\[\\]]*]")
