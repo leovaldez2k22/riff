@@ -35,6 +35,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.FocusRequester
@@ -131,16 +137,29 @@ internal fun ToolLink(title: String, onClick: () -> Unit) {
 @Composable
 internal fun BackHeading(title: String, onBack: () -> Unit, overPicture: Boolean = false) {
     Row(Modifier.fillMaxWidth()) {
-        // Over a picture the arrow and the word get their own patch of scrim; a white cover would hide them (Q13).
-        Row(if (overPicture) Modifier.scrimPatch(RiffContrast.scrimForText).padding(end = RiffSpace.block) else Modifier,
-            verticalAlignment = Alignment.CenterVertically) {
+        // Over a picture the arrow and the word carry their own shadows, no patch under them (Q18-008).
+        Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = hapticClick(onBack), modifier = Modifier.size(RiffSpace.touch).testTag("back")) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack,
-                    // A screen whose heading is the word Back says "Back", not "Back to Back" (Q18-011).
-                    contentDescription = if (title == string(R.string.back)) title else string(R.string.back_to_x, title), tint = White)
+                // A screen whose heading is the word Back says "Back", not "Back to Back" (Q18-011).
+                val name = if (title == string(R.string.back)) title else string(R.string.back_to_x, title)
+                if (overPicture) OverPictureIcon(Icons.AutoMirrored.Filled.ArrowBack, name)
+                else Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = name, tint = White)
             }
             Spacer(Modifier.width(RiffSpace.item))
-            Text(title, color = White, fontSize = RiffType.message, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, color = White, fontSize = RiffType.message, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = if (overPicture) TextStyle(shadow = RiffOverPicture.textShadow) else TextStyle.Default)
         }
+    }
+}
+
+/** A white icon set straight over a picture: two dark copies under it, which a screen reader does not hear (Q18-002, Q18-008). */
+@Composable
+internal fun OverPictureIcon(icon: ImageVector, contentDescription: String?) {
+    Box(contentAlignment = Alignment.Center) {
+        Icon(icon, contentDescription = null, tint = Color.Black.copy(alpha = RiffOverPicture.iconHaloAlpha),
+            modifier = Modifier.blur(RiffOverPicture.iconHalo, BlurredEdgeTreatment.Unbounded))
+        Icon(icon, contentDescription = null, tint = Color.Black.copy(alpha = RiffOverPicture.iconEdgeAlpha),
+            modifier = Modifier.blur(RiffOverPicture.iconEdge, BlurredEdgeTreatment.Unbounded))
+        Icon(icon, contentDescription = contentDescription, tint = White)
     }
 }

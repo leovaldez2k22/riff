@@ -47,13 +47,22 @@ the target.
 | A screen coloured from its artwork (queue, collection, Downloads) | 48% of the artwork colour, darkened further until Pink reaches 4.5:1 | Pink, Muted, White and White at 60% all at least 4.5:1; the drag handle (White 45%) at least 3:1 |
 | White words over a picture | Black at 58% | 4.5:1 needs 55.1% |
 | Muted words over a picture (Home over a photograph) | Black at 74% | 4.5:1 needs 73.2% |
-| A white icon over a picture (back; the player's close button, on a shade at 46% across the top fifth of the artwork, not a patch of its own) | Black at 46% | 3:1 needs 43.5% |
+| A white icon over a picture, where a backing is drawn | Black at 46% | 3:1 needs 43.5% |
 | Title block over a cover (collection, Downloads) | The cover's tone at 90% | title at least 3:1 (it is 28 sp), artist and description at least 4.5:1 |
 | Speed-dial tile title | A 42 dp gradient, 62% black by the title's top edge | at least 4.5:1 over a white cover |
 | Ambient backdrop | Every palette, at 441 points of an upright and a sideways phone | Muted and White at least 4.5:1, Pink at least 3:1 |
 | High-contrast controls (solid fallback) | Ink, Raised and the chip colour with nothing showing through | White, Muted and Pink at least 4.5:1 |
 
 Each scrim is close to the least that will do, and the test fails if one is made 5 points shallower.
+
+**Over artwork with no backing (Q18-002, Q18-008, the owner's choice, 19 Oct 2026).** The player's close
+button and NOW PLAYING, and the back arrow and its word at the top of album, artist, playlist and Downloads
+pages, sit straight on the picture: no fade across the top of the player and no patch under the arrow. Each
+carries its own dark edge instead (`RiffOverPicture`: a tight black copy of the icon at 90% blurred by 1.5 dp
+and a soft one at 55% blurred by 6 dp; under words one black shadow at 90%, 8 px). This is a trade-off: the
+3:1 and 4.5:1 figures above are worked out against a backing of known depth, and a shadow has no single
+depth to work out, so these four controls have no arithmetic figure. They are checked by eye over a pure
+white cover on the device (Q18F's B13 and A9), with PlayerFixesDeviceTest's white fixture cover as the picture.
 
 Not covered by arithmetic: the glass bars and chips over moving content. What is behind them is whatever
 the screen is showing, bent by a shader. The **High-contrast controls** setting replaces them with solid

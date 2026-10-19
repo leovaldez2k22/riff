@@ -1,7 +1,5 @@
 package com.musicglass.personal
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -11,6 +9,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -102,14 +101,27 @@ internal object RiffContrast {
     const val scrimForText = .58f
     /** Under [Muted] words: 4.5:1 needs 0.732. */
     const val scrimForMutedText = .74f
-    /** Under a [White] icon (the player's close button sits on a shade this deep): 3:1 needs 0.435. */
+    /** Under a [White] icon: 3:1 needs 0.435. Icons and words over artwork now carry [RiffOverPicture]'s shadows instead. */
     const val scrimForControl = .46f
     /** How much of an artwork's tone goes under words set over the artwork itself. */
     const val toneUnderWords = .9f
 }
 
-/** A patch of scrim under one icon or a few words set over a picture; [alpha] is one of [RiffContrast]'s. */
-internal fun Modifier.scrimPatch(alpha: Float): Modifier = background(Color.Black.copy(alpha = alpha), RoundedCornerShape(50))
+/**
+ * Icons and words set straight over a picture, with no fade or patch under them: the owner did not want the
+ * player's fade or the back arrow's patch (Q18-002, Q18-008). Each carries its own dark edge instead, which reads
+ * over a white cover; accessibility.md records what this gives up against a measured backing.
+ */
+internal object RiffOverPicture {
+    /** A tight dark copy under an icon: an edge round its strokes. */
+    val iconEdge = 1.5.dp
+    /** A wider, softer copy that carries the edge out over a white picture. */
+    val iconHalo = 6.dp
+    const val iconEdgeAlpha = .9f
+    const val iconHaloAlpha = .55f
+    /** Under words: one close, deep shadow that edges each letter. */
+    val textShadow = Shadow(Color.Black.copy(alpha = .9f), Offset.Zero, blurRadius = 8f)
+}
 
 /** Behind words set over a picture: [tone] at [RiffContrast.toneUnderWords], eased in over the first 24 dp so that it has no edge. */
 internal fun Modifier.wordsOverPicture(tone: Color): Modifier = drawBehind {

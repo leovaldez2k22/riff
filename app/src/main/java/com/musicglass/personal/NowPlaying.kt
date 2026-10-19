@@ -80,7 +80,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.preferredFrameRate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -99,7 +98,6 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -314,28 +312,17 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     SeekNudgeOverlay(seekNudge)
                 }
             }
-            // The close button and the heading sit on this shade, not on patches of their own, which read as
-            // outlines around them. Down to below the close button it is as deep as an icon's patch was (Q13),
-            // so the button still reads over white artwork; then it fades out.
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
-                0f to Color.Black.copy(alpha = RiffContrast.scrimForControl),
-                PLAYER_TOP_SHADE_END to Color.Black.copy(alpha = RiffContrast.scrimForControl),
-                .42f to Color.Transparent)))
+            // No fade over the artwork (Q18-002, the owner's choice): the close button and the heading carry their own shadows.
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 .padding(top = statusInset + 2.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = hapticClick(onClose),enabled=!queueOpen, modifier = Modifier.testTag("player_close")) {
-                    Box(contentAlignment = Alignment.Center) {
-                        // A soft shadow, not an outline.
-                        Icon(Icons.Rounded.Close, contentDescription = null, tint = Color.Black.copy(alpha = .5f),
-                            modifier = Modifier.blur(3.dp))
-                        Icon(Icons.Rounded.Close, contentDescription = string(R.string.close_player), tint = White)
-                    }
+                    OverPictureIcon(Icons.Rounded.Close, string(R.string.close_player))
                 }
                 Box(Modifier.weight(1f)) {
                     Text(string(R.string.now_playing), color = White, fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, maxLines = 1,
-                        style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .6f), blurRadius = 6f)))
+                        style = TextStyle(shadow = RiffOverPicture.textShadow))
                 }
             }
         }
@@ -472,9 +459,6 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         } },
         containerColor = Raised)
 }
-
-/** How far down the artwork (a share of its height) the shade under the close button stays at its full depth. */
-internal const val PLAYER_TOP_SHADE_END = .2f
 
 private fun collectionsCanSave(collections: LocalCollections) = collections.canSave
 

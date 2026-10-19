@@ -88,12 +88,23 @@ class PlayerFixesTest {
         assertEquals(listOf("Close player"), close[SemanticsProperties.ContentDescription])
     }
 
-    @Test fun theShadeUnderTheCloseButtonIsAsDeepAsItsPatchWas() {
-        // Deep enough for 3:1 over a white picture (ContrastTest), down to below the button on a 640 dp screen.
-        assertEquals(.46f, RiffContrast.scrimForControl, 0f)
-        // The artwork is half the screen; the icon is 24 dp, centred in a 48 dp button 2 dp under a 24 dp status bar.
-        val hero = 640f / 2; val iconBottom = 24f + 2f + (48f - 24f) / 2 + 24f
-        assertTrue(PLAYER_TOP_SHADE_END * hero >= iconBottom)
+    @Test fun noFadeOrPatchSitsOverTheArtworkAndTheControlsCarryTheirOwnShadows() {
+        // Q18-002 and Q18-008, the owner's choice: no dark fade across the top of the player, no patch under a back arrow.
+        val source = java.io.File("src/main/java/com/musicglass/personal")
+        val player = java.io.File(source, "NowPlaying.kt").readText()
+        assertFalse(player.contains("scrimForControl"))
+        assertTrue(player.contains("OverPictureIcon(Icons.Rounded.Close"))
+        assertTrue(player.contains("TextStyle(shadow = RiffOverPicture.textShadow)"))
+        val parts = java.io.File(source, "ScreenParts.kt").readText()
+        assertFalse(parts.contains("scrimPatch"))
+        assertTrue(parts.contains("if (overPicture) OverPictureIcon(Icons.AutoMirrored.Filled.ArrowBack"))
+        assertTrue("The shadow is close and deep", RiffOverPicture.textShadow.color.alpha >= .85f && RiffOverPicture.iconEdgeAlpha >= .85f)
+    }
+
+    @Test fun theBackArrowOverAPictureIsOneButtonWithOneName() {
+        compose.setContent { BackHeading("Fixture Album", {}, overPicture = true) }
+        val back = compose.onNodeWithTag("back", useUnmergedTree = false).fetchSemanticsNode().config
+        assertEquals("Its shadows are drawings a screen reader does not hear", listOf("Back to Fixture Album"), back[SemanticsProperties.ContentDescription])
     }
 
     @Test fun shuffleAndRepeatHaveRoundEndsAndCorners() {
