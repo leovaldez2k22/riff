@@ -85,7 +85,7 @@ internal class PlaybackPersistence(private val scope: CoroutineScope, private va
         val current = ticket ?: return null
         val snapshot = PlaybackSnapshot(cachedQueue, player.currentMediaItemIndex.coerceAtLeast(0),
             player.currentPosition.coerceAtLeast(0), player.shuffleModeEnabled, player.repeatMode, radioSeed(),
-            player.playlistMetadata.title?.toString().orEmpty())
+            player.playlistMetadata.title?.toString().orEmpty(), knownDurationMs(player))
         val saved = sequence.incrementAndGet(); lastSave[current.scope] = saved
         return PendingSnapshot(saved, current, snapshot)
     }
@@ -128,3 +128,7 @@ internal class PlaybackPersistence(private val scope: CoroutineScope, private va
 
     private companion object { const val FLUSH_WAIT_MS = 1500L }
 }
+
+/** The selected song's length: the player's once it knows it, else the one the restored item carries (Q18-019); 0 when neither does. */
+internal fun knownDurationMs(player: androidx.media3.common.Player): Long =
+    player.duration.takeIf { it > 0 } ?: player.currentMediaItem?.mediaMetadata?.durationMs?.takeIf { it > 0 } ?: 0

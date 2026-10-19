@@ -7,11 +7,15 @@ internal data class SavedQueueItem(val mediaId: String, val title: String, val a
     val artworkUrl: String? = null, val album: String = "", val artistId: String? = null,
     val albumId: String? = null, val live: Boolean = false, val localUri: String? = null,val music:Boolean=true)
 internal data class PlaybackSnapshot(val queue: List<SavedQueueItem>, val index: Int,
-    val positionMs: Long, val shuffle: Boolean = false, val repeat: Int = 0,val radioSeed:String?=null,val collectionTitle:String="")
+    val positionMs: Long, val shuffle: Boolean = false, val repeat: Int = 0,val radioSeed:String?=null,val collectionTitle:String="",
+    /** The selected song's length, so a restored queue that is not prepared yet can show where it is (Q18-019). 0 when unknown. */
+    val durationMs: Long = 0)
 
 /** One ceiling for a queue sent to the service and for a queue kept on disk, measured in UTF-8 bytes. */
 internal const val MAX_SNAPSHOT_BYTES = 6 * 1024 * 1024
 internal const val MAX_SNAPSHOT_ITEMS = 2000
+/** Longer than any song; a saved length past it is not believed. */
+internal const val MAX_SAVED_DURATION_MS = 24*3600_000L
 internal const val SNAPSHOT_FORMAT = "riff.playback-snapshot"
 /** Version 1 had no format name. It is still read; only version 2 is written. */
 internal const val SNAPSHOT_VERSION = 2
@@ -37,6 +41,7 @@ internal fun utf8Size(text: String): Long {
 internal fun encodePlaybackSnapshot(s: PlaybackSnapshot): String = buildJsonObject {
     put("format",SNAPSHOT_FORMAT);put("version",SNAPSHOT_VERSION)
     put("index",s.index);put("position",s.positionMs);put("shuffle",s.shuffle);put("repeat",s.repeat);put("radioSeed",s.radioSeed);put("collectionTitle",s.collectionTitle.take(MAX_TEXT))
+    if(s.durationMs>0) put("duration",s.durationMs)
     putJsonArray("queue") {s.queue.take(MAX_SNAPSHOT_ITEMS).forEach {q->add(buildJsonObject {
         put("id",q.mediaId);put("title",q.title.take(MAX_TEXT));put("artist",q.artist.take(MAX_TEXT));put("art",q.artworkUrl)
         put("album",q.album.take(MAX_TEXT));put("artistId",q.artistId);put("albumId",q.albumId);put("live",q.live);put("local",q.localUri);put("music",q.music)
@@ -78,7 +83,8 @@ internal fun decodePlaybackSnapshotDetailed(text: String): SnapshotDecode {
     return runCatching {
         val index=o.getValue("index").jsonPrimitive.int.coerceIn(queue.indices)
         SnapshotDecode.Ok(deduplicateRadioSnapshot(PlaybackSnapshot(queue,index,if(queue[index].live) 0 else o.getValue("position").jsonPrimitive.long.coerceAtLeast(0),
-            o["shuffle"]?.jsonPrimitive?.booleanOrNull==true,o["repeat"]?.jsonPrimitive?.intOrNull?.coerceIn(0,2)?:0,o["radioSeed"]?.jsonPrimitive?.contentOrNull?.takeIf {it.matches(Regex("[A-Za-z0-9_-]{11}"))},o["collectionTitle"]?.jsonPrimitive?.contentOrNull.orEmpty().take(MAX_TEXT))))
+            o["shuffle"]?.jsonPrimitive?.booleanOrNull==true,o["repeat"]?.jsonPrimitive?.intOrNull?.coerceIn(0,2)?:0,o["radioSeed"]?.jsonPrimitive?.contentOrNull?.takeIf {it.matches(Regex("[A-Za-z0-9_-]{11}"))},o["collectionTitle"]?.jsonPrimitive?.contentOrNull.orEmpty().take(MAX_TEXT),
+            if(queue[index].live) 0 else o["duration"]?.jsonPrimitive?.longOrNull?.takeIf {it in 1..MAX_SAVED_DURATION_MS}?:0)))
     }.getOrElse {SnapshotDecode.Invalid("item")}
 }
 
