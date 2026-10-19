@@ -35,6 +35,7 @@ import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -81,7 +82,7 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
     var feedReady by remember(mood,provider.authRevision,epoch) {mutableStateOf(provider.cachedFeed("home:$mood")!=null)}
     var loading by remember(mood,provider.authRevision,epoch) { mutableStateOf(!feedReady) }
     var error by remember { mutableStateOf<String?>(null) }
-    var refresh by remember { mutableStateOf(0) }
+    var refresh by remember { mutableIntStateOf(0) }
     LaunchedEffect(provider.authRevision, mood, epoch, refresh) {
         error = null; loading = provider.cachedFeed("home:$mood")==null
         provider.homeSections(mood).fold(onSuccess = { shelves = it;feedReady=true },

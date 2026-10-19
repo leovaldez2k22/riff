@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -52,7 +53,7 @@ internal fun OnDeviceScreen(model: ShellModel, bottom: androidx.compose.ui.unit.
     var loadError by remember { mutableStateOf<String?>(null) }
     var tracks by remember { mutableStateOf<List<LocalAudioTrack>>(emptyList()) }
     var query by remember { mutableStateOf("") }
-    var refreshKey by remember { mutableStateOf(0) }
+    var refreshKey by remember { mutableIntStateOf(0) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         granted = it
         denied = !it

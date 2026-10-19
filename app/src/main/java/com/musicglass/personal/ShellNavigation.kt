@@ -1,6 +1,7 @@
 package com.musicglass.personal
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.setValue
@@ -221,7 +222,7 @@ internal class ShellModel {
     var searchSort by mutableStateOf("Relevance")
     var searchFilter by mutableStateOf("All")
     var sheet by mutableStateOf("")
-    var searchFocusRequest by mutableStateOf(0)
+    var searchFocusRequest by mutableIntStateOf(0)
     private var lastTapName = ""
     private var lastTapMs: Long? = null
     var rootRevisions by mutableStateOf(mapOf<String, Int>())

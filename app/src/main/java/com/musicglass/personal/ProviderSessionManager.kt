@@ -1,5 +1,6 @@
 package com.musicglass.personal
 
+import androidx.core.content.edit
 import android.webkit.CookieManager
 import android.content.Context
 import androidx.compose.runtime.getValue
@@ -185,7 +186,7 @@ internal class ProviderSessionManager(context: Context, internal val dependencie
         } == true
         // A session from before this check is trusted once, as it is; later changes are not.
         val committed = sessionPrefs.getString(COOKIE_IDENTITY, null)
-            ?: cookieIdentityDigest(cookies)?.takeIf { valid }?.also { sessionPrefs.edit().putString(COOKIE_IDENTITY, it).apply() }
+            ?: cookieIdentityDigest(cookies)?.takeIf { valid }?.also { sessionPrefs.edit { putString(COOKIE_IDENTITY, it) } }
         val changed = valid && committed != null && cookieIdentityDigest(cookies) != committed
         detached = false
         innerTube.replaceSession(cookie = cookies.takeIf { valid }, visitorData = visitorData,
