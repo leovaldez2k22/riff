@@ -27,6 +27,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import coil3.compose.AsyncImage
 import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalContext
@@ -251,7 +254,7 @@ private data class DownloadListing(val entries:List<DownloadDisplay>,val used:Lo
                     Column(Modifier.weight(1f).padding(vertical=8.dp)) {
                         Text(song.track.title,color=White,fontSize=16.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                         Text(playerArtistLabel(song.track.artist),color=White.copy(alpha=.6f),fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
-                        if(active || !entry.ready) Text(downloadStatus(song,entry.ready),color=if(song.status==DownloadState.Failed) Pink else White.copy(alpha=.6f),fontSize=11.sp,maxLines=1)
+                        if(active || !entry.ready) DownloadPhaseLine(song,entry.ready)
                     }
                     if(entry.ready && !active && song.durationMs>0) Text("${song.durationMs/60000}:${((song.durationMs/1000)%60).toString().padStart(2,'0')}",color=White.copy(alpha=.6f),fontSize=12.sp)
                     Box {
@@ -288,6 +291,19 @@ private data class DownloadListing(val entries:List<DownloadDisplay>,val used:Lo
         }
     },confirmButton={TextButton({uiHaptic();detailsId=null}) {Text(string(R.string.done),color=Pink)}},containerColor=Raised)
 }
+/**
+ * A row's phase line. It is a polite live region whose spoken text is the phase alone, so TalkBack hears each phase
+ * once when it changes and nothing as the percentage climbs (Q18-031); the percentage stays on screen.
+ */
+@Composable
+internal fun DownloadPhaseLine(song:OfflineSong,ready:Boolean) {
+    val spoken=downloadPhaseSpoken(song,ready)
+    Text(downloadStatus(song,ready),color=if(song.status==DownloadState.Failed) Pink else White.copy(alpha=.6f),fontSize=11.sp,maxLines=1,
+        modifier=Modifier.testTag("download_phase_${song.track.videoId}").clearAndSetSemantics {contentDescription=spoken;liveRegion=LiveRegionMode.Polite})
+}
+/** What is spoken for a phase: [downloadStatus] without the percentage, which would otherwise be read at every step. */
+internal fun downloadPhaseSpoken(song:OfflineSong,ready:Boolean)=
+    if(song.status==DownloadState.Transferring) string(R.string.downloading) else downloadStatus(song,ready)
 /** [ready] is whether the audio itself is on the phone and playable; artwork and lyrics may still be wanted. */
 internal fun downloadStatus(song:OfflineSong,ready:Boolean)=when(song.status) {
     DownloadState.Queued->if(ready) string(R.string.waiting_to_save_artwork_and_lyrics) else string(R.string.waiting_to_download)
