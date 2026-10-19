@@ -2455,7 +2455,8 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   on every name: hasVisualOverflow reads an ellipsized paragraph as overflowing, since it is laid out at the full width
   allowed. The test now asks whether the line was ellipsized. Rerun on ec0f53c: 60 of 60, PASS_LOCAL, 14 classes;
   SignInScreensDeviceTest 6 of 6; the pictures show whole names and a readable remove menu. Pictures deleted from the
-  emulator afterwards; the emulator stopped.
+  emulator afterwards; the emulator stopped. Later, on ec0f53c: API 31 (riff_q02_fixture) 60 of 60 and API 36
+  (riff_q18_api36) 61 of 61, both PASS_LOCAL with LyricShareDeviceTest, so Q18-045 passes on Riff's minimum API.
 - B2: the development-key Riff Preview (rc1, code 22) uninstalled and riff-0.10.0-rc2-preview.apk installed. On the
   phone: version 0.10.0-rc2-preview, code 23; the installed base.apk is byte-identical to the release file (1a870dd1...
   e46b) and signed with the pinned certificate ac703423...f6e1. Opened signed out: Home with Speed dial and Quick picks,
