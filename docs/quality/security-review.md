@@ -212,6 +212,21 @@ in `docs/quality/local-export-import.md`. Nothing else reads a file the user or 
   `release-signing.properties`) and never goes to CI, which builds unsigned.
 - **Dependency verification:** see "Open" below.
 
+## 9. Surfaces added since Q15 (Q19F4, 19 October 2026)
+
+Reviewed on the source at 6c31a74 and the Q19F changes after it: lyric sharing (F2), the rebuilt sign-in (Q18-013),
+the settings compartments (F5), and the player-config store (plan 2 S02).
+
+| Surface | What was checked | Result |
+|---|---|---|
+| Lyric card share (FileProvider) | `res/xml/shared_files.xml` names one folder, `cache/shared_lyrics/`; the provider is `exported="false"` with `grantUriPermissions`; the intent grants read only, to the one file, through `ClipData` and the flag | Nothing else in Riff's files can be named: LyricShareDeviceTest checks a cache file outside the folder and a files-folder path are refused, and the shared address is `content://<package>.files/...`, readable as the card (run on the emulators in Q19C2) |
+| Lyric card save (MediaStore) | Inserts one picture under Pictures/Riff with `IS_PENDING` until written; no storage permission (minSdk 31); the title is reduced to letters, numbers and spaces before it becomes a file name; a failed write deletes the pending row | LyricShareDeviceTest: one picture per save, none after a failed save; every picture the test saves is deleted |
+| Links that leave the sign-in | Only a main-frame navigation with a user gesture, to an `https` address outside the sign-in hosts, opens outside Riff (`signInOutsideLink`); anything else outside the hosts is refused and stays put. The log line names only the scheme class and host class | As designed; SignInFlowTest covers the hosts, look-alikes and country domains |
+| Saved accounts | `saved_accounts` preferences hold name, email, last use and a colour, never cookies or tokens; at most 20; app backup and device transfer exclude all app data (`data_extraction_rules.xml`); "Remove from this phone" drops a row without touching Google. No log, diagnostic event or crash record contains an email: every log call in AccountScreen.kt, SignInDesign.kt and SignInFlow.kt was read, and the only email in a request is Google's own `login_hint` on accounts.google.com when an account is picked | As documented in privacy.md. "Delete local data" leaves the row, which matches its wording ("You stay signed in") |
+| Real counts on screen 6 (Q18-038) | Read-only browses of Liked music and the playlists, paced like other library reads, stopped by an account change (LikedSongsCountTest) and capped at 20,000 songs | No account change; nothing logged but the usual sanitized provider events |
+| Player config (S02) | What the main-process store would send on Riff's provider client while signed in: only `User-Agent: okhttp/5.4.0`, `Accept` and `If-None-Match`; no cookie, authorisation, visitor data or account index (cookies are added only by InnerTube's own request builder); redirects not followed; 4 MiB bound; strict parse; the last good table kept | PlayerConfigBoundaryTest (PC01, PC02). Riff's configured address is refused by the library's allow-list, so no config host is contacted at all today (Q18-041, owner decision) |
+| The solver process (S02, PC03) | `SolverService`, its player cache and the application object outside the main process create no provider, session, cookie store or WebView | PlayerConfigBoundaryTest reads the sources; the device check stays SolverIsolationInstrumentation |
+
 ## Attack cases and results
 
 | Case | Tried as | Result |

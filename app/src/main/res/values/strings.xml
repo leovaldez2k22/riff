@@ -69,7 +69,6 @@
     <string name="x_tab">%1$s tab</string>
     <string name="x_tab_selected">%1$s tab, selected</string>
     <string name="about">About</string>
-    <string name="access_your_playlists_liked_songs_and_recomm">Access your playlists, liked songs, and recommendations.</string>
     <string name="account_changed">Account changed</string>
     <string name="account_changed_while_loading">Account changed while loading</string>
     <string name="account_changed_while_loading_home">Account changed while loading home</string>
@@ -83,7 +82,6 @@
     <string name="account_changed_while_sorting">Account changed while sorting</string>
     <string name="account_changed_while_updating_playlist">Account changed while updating playlist</string>
     <string name="account_library_is_unavailable_http_x">Account library is unavailable (HTTP %1$s)</string>
-    <string name="account_picture">Account picture</string>
     <string name="account_saved_on_this_phone_connection_has">Account saved on this phone. Connection has not been verified yet.</string>
     <string name="add_and_import">Add and import</string>
     <string name="add_another_account_s_data">Add another account\'s data?</string>
@@ -145,12 +143,10 @@
     <string name="check_your_connection_and_try_again">Check your connection and try again.</string>
     <string name="checking">Checking…</string>
     <string name="checking_audio">Checking audio</string>
-    <string name="checking_your_account">Checking your account…</string>
     <string name="checking_your_account_try_again_in_a">Checking your account. Try again in a moment.</string>
     <string name="choose_an_editable_playlist">Choose an editable playlist</string>
     <string name="choose_the_original_language_to_translate_th">Choose the original language to translate these lyrics.</string>
     <string name="choose_where_to_save">Choose where to save</string>
-    <string name="choose_your_account_on_google_s_page">Choose your account on Google\'s page, then tap Continue to Riff to confirm it.</string>
     <string name="circle">Circle</string>
     <string name="clear">Clear</string>
     <string name="clear_all">Clear all</string>
@@ -169,14 +165,10 @@
     <string name="collection_order">Collection order</string>
     <string name="comedy">Comedy</string>
     <string name="compact">Compact</string>
-    <string name="complete_sign_in_on_google_s_page">Complete sign-in on Google\'s page. Once signed in, you can continue to Riff.</string>
-    <string name="connect_youtube_music">Connect YouTube Music</string>
     <string name="connected_to_youtube_music">Connected to YouTube Music</string>
-    <string name="connecting_your_account">Connecting your account…</string>
     <string name="connection_lost_waiting_to_reconnect">Connection lost; waiting to reconnect</string>
     <string name="continue_playing">Continue Playing</string>
     <string name="continue_to_riff">Continue to Riff</string>
-    <string name="continue_to_sign_in">Continue to sign-in</string>
     <string name="copy_playback_diagnostics">Copy playback diagnostics</string>
     <string name="could_not_add_to_queue">Could not add to queue</string>
     <string name="could_not_be_stored_x_import_the">Could not be stored: %1$s. Import the file again to retry.</string>
@@ -311,9 +303,6 @@
     <string name="frosted_glass_intensity">Frosted glass intensity</string>
     <string name="glass_intensity">Glass intensity</string>
     <string name="google_has_not_completed_sign_in_continue">Google has not completed sign-in. Continue in the sign-in page.</string>
-    <string name="google_refused_this_sign_in_page_retry">Google refused this sign-in page. Retry or go back.</string>
-    <string name="google_s_page_tried_to_open_x">Google\'s page tried to open %1$s. Use Continue to Riff or restart sign-in.</string>
-    <string name="google_s_sign_in_page_is_unavailable">Google\'s sign-in page is unavailable. Please retry.</string>
     <string name="got_it_riff_will_hide_this">Got it. Riff will hide this</string>
     <string name="got_it_riff_won_t_suggest_this">Got it. Riff won\'t suggest this song</string>
     <string name="got_it_youtube_music_will_suggest_this">Got it. YouTube Music will suggest this less</string>
@@ -369,7 +358,6 @@
     <string name="loading">Loading</string>
     <string name="loading_2">Loading…</string>
     <string name="loading_from_youtube_music">Loading from YouTube Music…</string>
-    <string name="loading_google_s_sign_in_page">Loading Google\'s sign-in page…</string>
     <string name="loading_home">Loading Home</string>
     <string name="loading_more_songs_x_so_far">Loading more songs… %1$s so far</string>
     <string name="loading_x">Loading %1$s</string>
@@ -449,8 +437,6 @@
     <string name="open_lyrics">Open lyrics</string>
     <string name="open_player_x">Open player: %1$s</string>
     <string name="open_queue">Open queue</string>
-    <string name="opening_google_sign_in">Opening Google sign-in…</string>
-    <string name="opening_secure_sign_in">Opening secure sign-in…</string>
     <string name="options">Options</string>
     <string name="pause">Pause</string>
     <string name="pause_download">Pause download</string>
@@ -501,7 +487,6 @@
     <string name="reduce_motion">Reduce motion</string>
     <string name="refresh">Refresh</string>
     <string name="relevance">Relevance</string>
-    <string name="reload_page">Reload page</string>
     <string name="remove">Remove</string>
     <string name="remove_all_downloaded_songs_artwork_and_lyri">Remove all downloaded songs, artwork and lyrics from this account on this phone, and cancel its pending downloads?</string>
     <string name="remove_and_keep_x">Remove and keep %1$s</string>
@@ -526,7 +511,6 @@
     <string name="repeat_one">Repeat one</string>
     <string name="reset">Reset</string>
     <string name="restart_download">Restart download</string>
-    <string name="restart_sign_in">Restart sign-in</string>
     <string name="restore">Restore</string>
     <string name="restore_it_paused">Restore it, paused</string>
     <string name="restore_the_earlier_queue">Restore the earlier queue?</string>
@@ -536,7 +520,6 @@
     <string name="retry_loading_songs">Retry loading songs</string>
     <string name="retry_missing_assets">Retry missing assets</string>
     <string name="retry_needed">Retry needed</string>
-    <string name="retrying_google_s_sign_in_page">Retrying Google\'s sign-in page…</string>
     <string name="review">Review</string>
     <string name="riff_can_suggest_this_again">Riff can suggest this again</string>
     <string name="riff_could_not_change_its_storage_nothing">Riff could not change its storage. Nothing was changed.</string>
@@ -691,8 +674,6 @@
     <string name="the_file_would_be_larger_than_128">The file would be larger than 128 MB. Choose less to export. No file was written.</string>
     <string name="the_history_period_was_kept_as_it">The history period was kept as it is, so that no plays are removed.</string>
     <string name="the_playback_cache_could_not_be_cleared">The playback cache could not be cleared. Nothing was removed from your downloads.</string>
-    <string name="the_sign_in_page_could_not_load">The sign-in page could not load. Check your connection and retry.</string>
-    <string name="the_sign_in_page_took_too_long">The sign-in page took too long to load. Check your connection and try again.</string>
     <string name="the_unassigned_copy_is_removed_from_this">The unassigned copy is removed from this phone and cannot be recovered. Plays you already imported stay. Nothing changes in YouTube Music.</string>
     <string name="the_unassigned_copy_stays_until_you_delete">" The unassigned copy stays until you delete it."</string>
     <string name="there_is_not_enough_free_space_on">There is not enough free space on this phone to read the file.</string>
@@ -716,7 +697,6 @@
     <string name="this_google_form_cannot_be_reloaded_use">This Google form cannot be reloaded. Use Restart sign-in to open a fresh page.</string>
     <string name="this_is_not_a_riff_data_file">This is not a Riff data file.</string>
     <string name="this_is_not_available_on_youtube_music">This is not available on YouTube Music.</string>
-    <string name="this_is_taking_longer_than_expected_you">This is taking longer than expected. You can retry or go back.</string>
     <string name="this_language_is_not_available_yet_try">This language is not available yet. Try typing the search.</string>
     <string name="this_language_is_not_supported_by_the">This language is not supported by the device\'s speech service.</string>
     <string name="this_on_device_audio_file_is_unavailable">This on-device audio file is unavailable</string>
@@ -778,7 +758,6 @@
     <string name="x_minutes_remaining">%1$s minutes remaining</string>
     <string name="x_x_full_contributor_credits_are_unavailable">%1$s\n%2$s\nFull contributor credits are unavailable for this source.</string>
     <string name="yesterday">Yesterday</string>
-    <string name="you_ll_sign_in_on_google_s">You\'ll sign in on Google\'s page. Your password is not stored by Riff.</string>
     <string name="you_re_at_the_end_of_this">You\'re at the end of this queue.</string>
     <string name="you_re_offline_check_your_connection_and">You\'re offline. Check your connection and try again.</string>
     <string name="your_account">Your account</string>

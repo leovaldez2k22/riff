@@ -55,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -480,7 +481,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
         val ringTarget = if (phase != SignInPhase.Checking) 0f else maxOf(ticks, 1) / SIGN_IN_CHECKING_STEPS.toFloat()
         val ring by animateFloatAsState(ringTarget, if (reduced) snap() else tween(900), label = "record ring")
         Box(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
-            RiffRecord(Modifier.offset(x - size / 2, y - size / 2).size(size)
+            RiffRecord(Modifier.offset { IntOffset((x - size / 2).roundToPx(), (y - size / 2).roundToPx()) }.size(size)
                 .graphicsLayer { scaleX = grow.value; scaleY = grow.value },
                 spinning = (phase == SignInPhase.Google && pageLoading) || (phase == SignInPhase.Checking && checkFailed == null),
                 ring = if (phase == SignInPhase.Checking) ring else null, grey = grey,

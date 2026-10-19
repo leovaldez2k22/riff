@@ -42,6 +42,23 @@ exists; upgrades are their own change with a full rerun, never a side effect of 
 | OldTargetApi | 1 | targetSdk 36 (37 available) | Accepted | Targeting 37 changes platform behaviour and needs its own pass on an API 37 device or image; 36 is tested on the owner's phone (Android 16). |
 | ChromeOsAbiSupport | 2 | release and lite ABI filters | Accepted | Riff ships arm64-v8a (Lite adds armeabi-v7a) to keep the APK small; ChromeOS and x86 phones are not targets. Debug keeps every ABI for the emulator. |
 
+## Q19F4: the warnings added since (19 October 2026)
+
+Source: the debug lint at f463a14 and 9713908 (F1 to F5, the Q18-013 sign-in and the Q19F fixes): 107 warnings, 0
+errors, against the 94 above. Only the differences are listed; every rule above keeps its disposition.
+
+| Rule | n | Where | Disposition | Reason |
+| --- | --- | --- | --- | --- |
+| UnusedResources | 21 | strings.xml: the old sign-in's texts (Opening secure sign-in, Reload page, the slow and failed page messages and others) | **Changed** in Q19F4 | Left behind by the Q18-013 rebuild; each was referenced only by its own definition (checked across app/src and scripts). Removed |
+| UseOfNonLambdaOffsetOverload | 1 | AccountScreen.kt, the travelling record | **Changed** in Q19F4 | The record's position animates every frame; the lambda `offset {}` moves it in the placement step without recomposing |
+| PluralsCandidate | 7 | strings.xml: signin_see_all, signin_used_days, signin_used_weeks, signin_x_used, x_of_y_lines, summary_x_not_interested, summary_x_widgets | Accepted | English only, and none can read wrongly at its call site: "See all" shows only past three accounts, days start at 2 and weeks at 2 (lastUsedLabel), the widgets count is the six presets, and "1 used on this phone", "1 of 5 lines" and "1 not interested" read correctly. Plurals come with translation, which Riff does not ship |
+| ModifierParameter | +1 | SignInDesign.kt, SignInTopBar | Accepted | As FrostedPopup above: internal, every caller passes it by name |
+| Recycle | +1 | LyricsShare.kt, saveLyricCard | False positive | The stream is closed by `use {}`; lint does not follow `!!.use` |
+| UseKtx | +3 | LyricsShare.kt (createBitmap, withTranslation), SignInDesign.kt (edit) | Accepted | Style only, as above |
+| GradleDependency | +1 | libs.versions.toml, Coil 3.6.3 | Upgrade | As above; no upgrade in the final stretch |
+
+After the two changes: 85 warnings, 0 errors.
+
 ## R8 Kotlin-metadata warnings
 
 Every shrunk build prints `R8: An error occurred when parsing kotlin metadata` (179 times in the Q18B7 benchmark
