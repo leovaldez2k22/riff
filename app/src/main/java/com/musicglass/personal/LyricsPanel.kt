@@ -1,6 +1,8 @@
 package com.musicglass.personal
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
@@ -17,7 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
@@ -49,6 +53,14 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
     var follow by rememberSaveable(state.mediaId) { mutableStateOf(true) }
     var offsetMs by rememberSaveable(state.mediaId) { mutableLongStateOf(DEFAULT_LYRICS_OFFSET_MS) }
     var timingDialog by remember { mutableStateOf(false) }
+    // F2: the lines chosen for a lyric card; null while not choosing. The first line held is the anchor.
+    var shareAnchor by remember(track) { mutableIntStateOf(-1) }
+    var shareRange by remember(track) { mutableStateOf<IntRange?>(null) }
+    var shareSheet by remember(track) { mutableStateOf(false) }
+    val sharing = shareRange != null
+    BackHandler(enabled = sharing) { shareRange = null }
+    val artworkTone = rememberArtworkColor(state.artworkUrl)
+    val holdConfiguration = rememberLyricHoldConfiguration()
     val context=LocalContext.current
     var translate by rememberSaveable(state.mediaId) {mutableStateOf(false)}
     var sourceLanguage by rememberSaveable(state.mediaId) {mutableStateOf<String?>(null)}
@@ -102,7 +114,18 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
             modifier = Modifier.fillMaxSize().graphicsLayer { alpha = .075f })
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-            Row(Modifier.fillMaxWidth().padding(start = 12.dp,end = 20.dp,top = 8.dp,bottom = 10.dp),
+            if (sharing) Row(Modifier.fillMaxWidth().padding(start = 12.dp,end = 20.dp,top = 8.dp,bottom = 10.dp).testTag("lyrics_share_header"),
+                verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = hapticClick { shareRange = null },modifier = Modifier.testTag("lyrics_share_cancel")) {
+                    Icon(Icons.Rounded.Close,string(R.string.stop_sharing_lyrics),tint = White)
+                }
+                Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                    Text(string(R.string.share_lyrics),color = Pink,fontSize = 11.sp,letterSpacing = 2.sp,fontWeight = FontWeight.SemiBold)
+                    Text(string(R.string.x_of_y_lines,shareRange?.count() ?: 0,LYRIC_SHARE_MAX_LINES),color = White,fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,modifier = Modifier.testTag("lyrics_share_count"))
+                    Text(string(R.string.share_lyrics_hint),color = Muted,fontSize = 13.sp,maxLines = 1,overflow = TextOverflow.Ellipsis)
+                }
+            } else Row(Modifier.fillMaxWidth().padding(start = 12.dp,end = 20.dp,top = 8.dp,bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = hapticClick(onBack),modifier = Modifier.testTag("lyrics_back")) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack,string(R.string.back_to_player),tint = White)
@@ -143,12 +166,26 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                                 val active by remember(songLyrics,index) { derivedStateOf { index in activeLines } }
                                 val backingActive by remember(songLyrics,index) { derivedStateOf {
                                     line.backing?.let { (position+offsetMs) in it.startMs until it.endMs } == true } }
-                                KaraokeLine(line,active,backingActive,{ position+offsetMs },motion,"lyric_backing_$index",
-                                    modifier = Modifier.testTag("lyric_line_$index")
-                                        .then(if (line.startMs >= 0) Modifier.clickable { uiHaptic(); 
-                                            playback.seekTo((line.startMs-offsetMs).coerceAtLeast(0))
-                                            position = playback.currentPositionMs(); follow = true
-                                        } else Modifier))
+                                val chosen = shareRange?.contains(index) == true
+                                val shareable = lyricShareText(line) != null
+                                // F2: a tap seeks as before, or chooses lines while sharing; a hold starts choosing.
+                                val choose = { uiHaptic(HapticCue.Selection); shareRange = lyricShareSelection(shareAnchor,index,songLyrics.lines.size) }
+                                val seek = { uiHaptic()
+                                    playback.seekTo((line.startMs-offsetMs).coerceAtLeast(0))
+                                    position = playback.currentPositionMs(); follow = true }
+                                val hold = { uiHaptic(HapticCue.Confirm); shareAnchor = index; shareRange = index..index; follow = false }
+                                CompositionLocalProvider(LocalViewConfiguration provides holdConfiguration) {
+                                    KaraokeLine(line,active && !sharing,backingActive && !sharing,{ position+offsetMs },motion,"lyric_backing_$index",
+                                        modifier = Modifier.testTag("lyric_line_$index")
+                                            .graphicsLayer { alpha = if (sharing && !chosen) .4f else 1f }
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(if (chosen) Pink.copy(alpha = .16f) else Color.Transparent)
+                                            .lyricLineTouch(
+                                                onTap = when { sharing -> choose; line.startMs >= 0 -> seek; else -> null },
+                                                tapLabel = string(if (sharing) R.string.choose_this_line else R.string.play_from_this_line),
+                                                onLongPress = if (shareable) { if (sharing) choose else hold } else null,
+                                                longPressLabel = string(R.string.share_lyrics)))
+                                }
                                 if(translate) translation.english.getOrNull(index)?.let {english->Text(english,color=if(active) White else Muted,fontSize=18.sp,
                                     modifier=Modifier.padding(top=8.dp).testTag("lyric_english_$index"))}
                             }
@@ -182,7 +219,13 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                     modifier = Modifier.clickable { uiHaptic();  runCatching { uri.openUri(songLyrics.sourceUrl) } }
                         .testTag("lyrics_source"))
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 8.dp),
+            if (sharing) Button(hapticClick { shareSheet = true },
+                colors = ButtonDefaults.buttonColors(containerColor = Pink,contentColor = Color.Black),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 12.dp).heightIn(min = 52.dp)
+                    .testTag("lyrics_share_open")) {
+                Icon(Icons.Rounded.Share,null,modifier = Modifier.size(20.dp)); Spacer(Modifier.width(8.dp))
+                Text(string(R.string.share_these_lines),fontWeight = FontWeight.SemiBold)
+            } else Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 8.dp),
                 horizontalArrangement = Arrangement.Center,verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = hapticClick(playback::previous),enabled = state.queue.size > 1) { Icon(Icons.Rounded.FastRewind,string(R.string.previous_track),tint = Muted) }
                 IconButton(onClick = hapticClick(playback::toggle),modifier = Modifier.size(56.dp).testTag("lyrics_toggle")) {
@@ -193,6 +236,9 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
             }
         }
     }
+    val shareLines = remember(songLyrics,shareRange) { shareRange?.let { range -> songLyrics?.lines?.slice(range)?.mapNotNull(::lyricShareText) }.orEmpty() }
+    if (shareSheet && shareLines.isNotEmpty()) LyricShareSheet(shareLines,state.title,playerArtistLabel(state.artist),artworkTone) {
+        shareSheet = false; shareRange = null }
     if (timingDialog) LyricsTimingDialog(offsetMs, { offsetMs = it }) { timingDialog = false }
 }
 
