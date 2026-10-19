@@ -2435,6 +2435,70 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   af42ab2d...908a, commit 195bac93...cd43), recorded in dependency-license-inventory.md; the allow-list read from the
   source matches the compiled classes. Nothing from the archive was built or run.
 
+### Q19 night: B1, B2, B4 and B5 without an account, B6, and Q19G G1 (20 October 2026)
+- Under the owner's overnight grant (00:05 to 06:30): B1, B2, the parts of B4 and B5 that need no account, B6, phone
+  awake while charging, test apps kept, airplane mode briefly, and the Q19G G1 fixes with local commits. Not done, as
+  not granted: signing in, B3, the B5 capture, B7 to B9, anything on com.musicglass.personal, any push. Evidence in
+  artifacts/quality/q19/{b1,b1-run2,b2,b4,b5,b6,g1} (local, not committed).
+- Q19G G1 (6bcce26, 71efa28, ec0f53c): Q18-042 (sizes into RiffSignIn and RiffLyrics; the sign-in screens moved to
+  SignInScreens.kt; AccountScreen.kt 513 lines), Q18-043 (only the reviewed share provider passes), Q18-044 (every
+  device-test class placed in a lane or named with its reason), Q18-045 (IntentCompat in the test), Q18-046 (a popup
+  with nothing to blur gets a near-solid backing; names have the row's width), Q18-047 (apksigner decides whether an
+  APK is signed), D3 (references/ left out of the source archive). Static checks 0 findings; script tests 151 of 151;
+  JVM tests, lint (0 errors) and the androidTest compile pass. Both signed rc2 APKs now pass every release-content
+  check including the pinned certificate; the benchmark APK fails the certificate, as it should.
+- B1, device lane on the phone (I2217, Android 16, tier R). The first run, during my edits, failed artifact identity
+  (the tree changed under it) and 2 DownloadLifecycleDeviceTest cases that need the network off (the case map says B1
+  runs offline). Rerun on 6bcce26 with airplane mode on and confirmed unreachable: 54 of 54, PASS_LOCAL, 13 classes
+  including LyricShareDeviceTest (app APK 5fe4523d...aef, test APK 970d1ddc...12e). Airplane mode off afterwards.
+- Emulator lane, API 33 (riff_q18_api33, network off): the new check that no account name is cut short first failed
+  on every name: hasVisualOverflow reads an ellipsized paragraph as overflowing, since it is laid out at the full width
+  allowed. The test now asks whether the line was ellipsized. Rerun on ec0f53c: 60 of 60, PASS_LOCAL, 14 classes;
+  SignInScreensDeviceTest 6 of 6; the pictures show whole names and a readable remove menu. Pictures deleted from the
+  emulator afterwards; the emulator stopped.
+- B2: the development-key Riff Preview (rc1, code 22) uninstalled and riff-0.10.0-rc2-preview.apk installed. On the
+  phone: version 0.10.0-rc2-preview, code 23; the installed base.apk is byte-identical to the release file (1a870dd1...
+  e46b) and signed with the pinned certificate ac703423...f6e1. Opened signed out: Home with Speed dial and Quick picks,
+  no crash. Its version line reads "cc56bee6a8dc · dirty": rc2 was built with -AllowDirty while the owner's own change
+  to scripts/download_favourites.py was uncommitted. Worth a clean tree (or that file set aside) for rc3 in G2.
+- B4 without an account, on the signed rc2 Preview with media volume at 0: a song played signed out; lyrics came from
+  LRCLIB, line synced; holding a line started sharing ("1 of 5 lines"), a tap added the next; the four looks render and
+  read well; Save wrote Pictures/Riff/Riff lyrics Todo Lo Fue <time>.png, which was pulled as evidence and deleted
+  (MediaStore row and file gone; the empty Pictures/Riff folder left, as it may predate tonight). Share opened
+  Android's share sheet, cancelled with Back. Its preview was an older card from the rc1 Preview (another song,
+  6 lines): Q18-048, Medium, fixed in code (each card its own file; LyricShareDeviceTest checks it). The share-sheet
+  picture is kept with the contacts row cropped out. Settings: all six sections open with their content.
+- B5 without an account: first-run Welcome ("Bring your music"); Continue with Google opens Google's page in Riff's
+  frame, the bar reads accounts.google.com, the footer "Step 1 of 2 · Google" and the password line; ✕ gives "Stop
+  signing in?", Keep returns to the page, Stop to Welcome; in airplane mode "Google's page didn't load" with Try again
+  and Start over. Nothing was typed. The country host, outside links and Back over a loaded page need the email step:
+  A2. All accounts needs saved accounts: covered on the emulator.
+- Found on the phone: Q18-049, Medium. With a fresh install's settings (frosted glass off, glass 100%), the mini player
+  and the bottom bar let the words beneath show through at rest (Home, Settings), and the stop sheet's lower edge the
+  footer's. Logged for the owner's choice of backing, not changed overnight.
+- B6 (artifacts/quality/q19/b6): the benchmark lane stopped before reaching the phone: Gradle's connected-test task
+  needs 42 Android test-platform artifacts that are not in the dependency-verification list (Q18-050, Low, logged for
+  the owner's choice; adding them is a trust decision). Riff Benchmark and the macrobenchmark APK were then built and
+  installed directly (their own packages, debug key) and JourneyCheck run with am instrument: the app launched to its
+  fixture Home and the runner logged nothing more for 10 minutes, so it was stopped. Q18-023 is not fixed by
+  androidx.benchmark 1.6.0-alpha01. The Q18 fallback, offline, display at 120 Hz, battery 84 %, 38-39 C:
+  cold start, 15 launches each, Fully drawn median 1606 ms (min 1550, max 1823) compiled verify, and 1521 ms (min 1498,
+  max 1565) with the Baseline Profile (speed-profile): about 5 % saved; TotalTime median 246 and 245 ms. Q18's figures on
+  older code were 1503 and 1457 ms, so tonight's are 4 to 7 % slower, both still over the 1.2 s Tier R budget the owner
+  already judged in A8. Home scroll, 5 loops of 3 flings each way after a warm-up: 2,212 frames, 41 missed their
+  deadline (1.85 %, budget 3 % at high refresh), p50 13 ms, p95 17 ms, p99 20 ms, no missed vsync. 60 Hz not measured
+  (the phone stays at 120 Hz, as in Q18). For Q18-030 a 12 s Perfetto trace of Home scrolling was kept
+  (q19-home-scroll.pftrace, 25 MB) but not read: no trace processor is installed, and fetching one is the owner's call.
+  The trace file was deleted from the phone.
+- Case map: REL01 PASS on rc2 (repeat on rc3); F3 compartments, F5, SGN02, SGN04 and Q18-042 to Q18-047 PASS; Q18-041
+  DECLINED (owner's decision); F1, F3 share, SGN03, SGN05 BLOCKED with their reruns; Q18-048 and Q18-049 added.
+- B10 at 01:33 (artifacts/quality/q19/b0/phone-after-night.txt): every setting as in phone-before.txt. Auto-rotate had
+  been turned on during the runs (the benchmark runner's UiAutomator, most likely) and was set back to off; airplane
+  mode off; media volume 0, as found. Riff (rc20) untouched, last updated 7 Oct. Test apps kept, as agreed for the later
+  B steps: Riff Debug and its test APK, Riff Benchmark and the macrobenchmark APK; Riff Preview is now the signed rc2.
+  Files testing made on the phone were removed (the saved card, the UI dump, the trace); the empty Pictures/Riff
+  folder was left. Riff Preview holds one song paused in its player and nothing signed in.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):

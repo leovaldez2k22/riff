@@ -123,7 +123,7 @@ section 18); C9 reruns them on the final candidate.
 | SEC01 host lookalike, intent, TLS | WebBoundariesTest (JVM) | B11 sign-in browser; one blocked host during a sign-in that succeeded | PASS | Q18-027, Q18-028 (Low) |
 | SEC02 foreign custom command | WebBoundariesTest | C3 emulator and B11 phone with test.riff.foreign: queue edits refused, transport allowed | PASS | |
 | SEC03 adversarial diagnostics | DiagnosticEventTest, ExitDiagnosticsTest, ServiceStopDiagnosticsTest | Q15A ring read back; C7 sweep of repo, APK, archive | PASS | |
-| REL01 candidate APK | check_release_content.py (18 checks), test_check_release_content.py | Q17: 0.10.0-rc1 signed, certificate equal to rc20, non-debuggable, no fixtures. Must be repeated on the final candidate | FAIL | Q18-043 (the share provider) on the unsigned build and on the signed 0.10.0-rc2; Q18-047: the check never compares a v2-signed APK's certificate. The signed rc2 and rc2-preview carry the pinned certificate (apksigner and the release script, Q19C4); version 23, arm64-v8a, not debuggable |
+| REL01 candidate APK | check_release_content.py (18 checks), test_check_release_content.py | Q17: 0.10.0-rc1 signed, certificate equal to rc20, non-debuggable, no fixtures. Must be repeated on the final candidate | PASS | on the signed 0.10.0-rc2 and rc2-preview with Q18-043 and Q18-047 fixed (6bcce26): every check including the pinned certificate; repeat on rc3 (G2) |
 | REL02 in-place upgrade | LegacyUpgradeDeviceTest (emulator, B1) | Q17 packaging lane: rc20 to rc1 on the emulator, data kept. Over the owner's real rc20: A7 | DEFERRED | emulator half PASS (Q19C6: rc20 with its data, then the signed rc2 over it on a fresh API 36 emulator: first-install time kept, no file lost, the retired-content migration ran, Home opens); over the owner's real rc20: R3 |
 | REL03 evidence mismatch | test_collect_results.py (stale, mismatched, incomplete rejected), test_verify.py | Seen working: q04-debug-04/05, q07 fixture, q16a, q17a runs refused | PASS | |
 | REL04 interim release R1 | none | Q05R declined by the owner on 19 October 2026: no interim release; only the final candidate is prepared | DECLINED | none |
@@ -133,7 +133,7 @@ section 18); C9 reruns them on the final candidate.
 | UPD01 update feed | UpdateNoticeTest (12, scripted feed) | No public release feed exists | BLOCKED | publication decision; Q12A rerun steps |
 | UPD02 update check off | UpdateNoticeTest (zero requests) | none needed | PASS | |
 | DIAG01 exit diagnostics | ExitDiagnosticsTest, DiagnosticsScreenTest; Q15A on the emulator (crash in each process, force-stop, SIGKILL) | ANR and low memory by scripted records only; Diagnostics screen not looked at on the phone | PASS | |
-| PERF01 Baseline Profile | release-content check (profile packaged), Q14 baseline-prof.txt | B7 fallback: 1457 against 1503 ms median Fully drawn with and without; Macrobenchmark's own comparison hangs | BLOCKED | Q18-023 partly fixed; Macrobenchmark with 1.6.0-alpha01 on the phone: B6 |
+| PERF01 Baseline Profile | release-content check (profile packaged), Q14 baseline-prof.txt | Q19B6 fallback on rc2 code (Macrobenchmark still hangs, Q18-023): Fully drawn median 1521 ms with the profile, 1606 without (15 cold starts each; Q18: 1457 and 1503) | BLOCKED | Q18-023, Q18-050; the Macrobenchmark comparison |
 
 ## 2. Journeys UX01-UX10 (plan Q12 and Q13)
 
@@ -141,7 +141,7 @@ Tests per journey are listed in `core-journeys.md`. The phone walk-through is A4
 
 | Journey | Phone evidence | Status | Open |
 |---|---|---|---|
-| UX01 first launch, sign-in | A4: Home read in order. A6: Change account cannot finish; the owner asked for a new sign-in page | BLOCKED | Q18-009 fixed and Q18-013 built in Q18F; the screens without an account PASS on API 33 and 36 (Q19C3, section 7) except Q18-046 (Low, looks); signing in for real: A2 |
+| UX01 first launch, sign-in | A4: Home read in order. A6: Change account cannot finish; the owner asked for a new sign-in page | BLOCKED | Q18-009 fixed and Q18-013 built in Q18F; the screens without an account PASS on API 33 and 36 (Q19C3) and on the phone (Q19B5, signed rc2 Preview); Q18-046 fixed in Q19G; signing in for real: A2 |
 | UX02 search, play, queue | A4 | PASS | Q18-018 (Low) |
 | UX03 filter, sort, play | A4 | PASS | |
 | UX04 download, restart offline, play | A4 follow-up and B5 | BLOCKED | Q18-021, Q18-031 fixed in Q18F (JVM); download, restart offline and play on the phone: B3 |
@@ -217,12 +217,12 @@ Each is read as follows; none is counted as PASS.
 
 | Case | Tests | Device and manual | Status | Open |
 |---|---|---|---|---|
-| F1 lyric lines not clipped; the Aurora look (Q18-037, Q18-036) | LyricsShareTest (the clip, the tint behind the line, four looks), artifacts/quality/q19/f1/aurora-card.png | The hold-and-pop and the four looks by eye: B4, A3 (the owner names the look) | BLOCKED | B4, A3 |
+| F1 lyric lines not clipped; the Aurora look (Q18-037, Q18-036) | LyricsShareTest (the clip, the tint behind the line, four looks), artifacts/quality/q19/f1/aurora-card.png | B4 on the phone (signed rc2 Preview, signed out): hold picks a line with the tint, a second line added, the four looks readable (artifacts/quality/q19/b4/06-looks-strip.png). The owner names the look: A3 | BLOCKED | A3 (the owner names the look) |
 | F2 real counts on screen 6; Checking plays in full (Q18-038, Q18-039) | SignInCountsTest, LikedSongsCountTest, SignInDesignTest (JVM) | Real numbers need a signed-in account: A2, A3 | BLOCKED | A2, A3 |
-| F3 lyric card share and save on a device | LyricShareDeviceTest: API 33 3 of 3; API 36 3 of 3; API 31 2 of 3 (Q18-045, a test fault); not in the lane's list (Q18-044) | The share sheet opening and cancelled, one picture saved then removed: B4 | FAIL | Q18-044, Q18-045 (Q19G) |
-| F3 settings compartments | SettingsCompartmentsTest (JVM) | On the phone with the device lane: B1 | BLOCKED | B1 |
+| F3 lyric card share and save on a device | LyricShareDeviceTest: API 33 3 of 3; API 36 3 of 3; API 31 2 of 3 (Q18-045, a test fault); not in the lane's list (Q18-044) | B4 on the phone: Save wrote Pictures/Riff, pulled then deleted; the share sheet opened and was cancelled, but its preview was an older card (Q18-048, fixed in code in ec0f53c). LyricShareDeviceTest 3 of 3 on the phone (B1 lane) and on API 33 | BLOCKED | Q18-048: the device check of the fix with rc3 (B4 rerun) |
+| F3 settings compartments | SettingsCompartmentsTest (JVM) | B1 device lane PASS on the phone; B4: all six sections open with their content (artifacts/quality/q19/b4/settings-strip.png) | PASS |  |
 | F4 lint and the new surfaces | lint 0 errors (Q19C1); lint-triage.md Q19F4; security-review.md section 9 | none needed | PASS | |
-| F5 plan 2 supplement (S00, S02, S03) | PlayerConfigBoundaryTest (PC01 to PC03, JVM); S00 in the ledger | S03 needs a GitHub fetch the owner has not approved; Q18-041 needs the owner's choice | BLOCKED | S03 fetch approval; Q18-041 |
+| F5 plan 2 supplement (S00, S02, S03) | PlayerConfigBoundaryTest (PC01 to PC03, JVM); S00 in the ledger | S03 fetched and recorded with the owner's approval (8de0f4e); Q18-041 left as it is by the owner's decision | PASS |  |
 
 ### Sign-in screens without an account (Q19C3, SignInScreensDeviceTest)
 
@@ -232,10 +232,10 @@ artifacts/quality/q19/c3 (no personal data).
 | Case | Tests | Device and manual | Status | Open |
 |---|---|---|---|---|
 | SGN01 welcome: first run, and the three latest of five saved accounts with See all | aFirstRunSaysBringYourMusic, welcomeShowsTheThreeLatest... (API 33 6 of 6; API 36 3 of 3) | Pictures 1-welcome-first-run, 1-welcome-saved | PASS | |
-| SGN02 all accounts: search and "Remove from this phone" | welcomeShowsTheThreeLatestAndAllAccountsSearchesAndRemoves: the search keeps one row, removing the latest drops it from the screen and the stored list, and only it | The menu is too clear to read and names are cut short | FAIL | Q18-046 (Low, Q19G) |
-| SGN03 Google's page in Riff's frame | googlesPageOpens...: the frame asks only for Google's sign-in hosts; the bar reads accounts.google.com | A page that loads, the country host in the bar, outside links: B5 (the network is off here) | BLOCKED | B5 |
-| SGN04 "didn't load" with the network off | googlesPageOpens...: the card appears with Try again and Start over; Start over and Back return to Welcome with the browser gone | Picture 4-didnt-load | PASS | |
-| SGN05 Back through every step | backWalksEveryStepToTheStart: All accounts, its back arrow, "didn't load" | The stop sheet on Back over a page that loaded: B5 | BLOCKED | B5 |
+| SGN02 all accounts: search and "Remove from this phone" | welcomeShowsTheThreeLatestAndAllAccountsSearchesAndRemoves: the search keeps one row, removing the latest drops it from the screen and the stored list, and only it | Q18-046 fixed: names whole, the menu readable (artifacts/quality/q19/g1/api33-pics/strip-1b.png); the test now checks no name is ellipsized | PASS |  |
+| SGN03 Google's page in Riff's frame | googlesPageOpens...: the frame asks only for Google's sign-in hosts; the bar reads accounts.google.com | B5 on the phone: Google's page loads in the frame, the bar reads accounts.google.com, Step 1 of 2 and the password line in the footer. The country host comes only after the email step, and outside links were not tried without an account: A2 | BLOCKED | A2 |
+| SGN04 "didn't load" with the network off | googlesPageOpens...: the card appears with Try again and Start over; Start over and Back return to Welcome with the browser gone | B5 on the phone in airplane mode: the card with Try again and Start over | PASS |  |
+| SGN05 Back through every step | backWalksEveryStepToTheStart: All accounts, its back arrow, "didn't load" | B5 on the phone over a page that loaded: the stop sheet's Keep signing in returns to the page and Stop to Welcome. Back over a loaded page: A2 | BLOCKED | A2 |
 | SGN06 Remove animations: every transition a cut | withReducedMotionEveryTransitionIsACut, and withFullMotionTheSameTransitionOverlaps as its control | none needed | PASS | |
 | SGN07 Checking and Connected with a real account | SignInDesignTest, SignInCountsTest (JVM) | A2, A3 | BLOCKED | A2, A3 |
 
@@ -244,13 +244,16 @@ artifacts/quality/q19/c3 (no personal data).
 | Case | Tests | Device and manual | Status | Open |
 |---|---|---|---|---|
 | Q18-040 | see q18-bugs.md | One redacted account-menu capture: B5 (asked) | BLOCKED | B5 |
-| Q18-041 player config never fetched | PlayerConfigBoundaryTest | Owner's choice of (a), (b) or (c); timing in B3 | BLOCKED | owner decision |
-| Q18-042 static check | test_static_checks | none | FAIL | Q19G |
-| Q18-043 release-content check and the share provider | check_release_content.py | none | FAIL | Q19G |
-| Q18-044 lane omits LyricShareDeviceTest | verify.py | none | FAIL | Q19G |
-| Q18-045 LyricShareDeviceTest on API 31 | LyricShareDeviceTest | none | FAIL | Q19G |
-| Q18-046 Accounts screen looks | SignInScreensDeviceTest pictures | none | FAIL | Q19G |
-| Q18-047 release-content check skips the certificate of a v2-signed APK | check_release_content.py | none | FAIL | Q19G |
+| Q18-041 player config never fetched | PlayerConfigBoundaryTest | Owner's choice of (a), (b) or (c); timing in B3 | DECLINED | owner's decision 19 Oct 2026: left as it is |
+| Q18-042 static check | test_static_checks | none | PASS | fixed in Q19G (6bcce26) |
+| Q18-043 release-content check and the share provider | check_release_content.py | none | PASS | fixed in Q19G (6bcce26) |
+| Q18-044 lane omits LyricShareDeviceTest | verify.py | none | PASS | fixed in Q19G (6bcce26) |
+| Q18-045 LyricShareDeviceTest on API 31 | LyricShareDeviceTest | none | PASS | fixed in Q19G (6bcce26) |
+| Q18-046 Accounts screen looks | SignInScreensDeviceTest pictures | none | PASS | fixed in Q19G (6bcce26) |
+| Q18-047 release-content check skips the certificate of a v2-signed APK | check_release_content.py | none | PASS | fixed in Q19G (6bcce26) |
+| Q18-048 share sheet shows an older card | LyricShareDeviceTest (the next card's address differs, one file kept) | B4 rerun with rc3 | BLOCKED | the phone check with rc3 |
+| Q18-049 glass bars too clear over text | none yet | Home and Settings pictures (artifacts/quality/q19/b5) | FAIL | the owner's choice of backing, then Q19G |
+| Q18-050 benchmark lane stops on dependency verification | verify.py --lane benchmark | none | FAIL | the owner's choice |
 
 ## 6. Totals
 
@@ -261,3 +264,7 @@ included, as retired in Q18-029; the first pass's 42 left it out), FAIL 1 (REL01
 DECLINED 1 (REL04). Section 7 adds 21 rows: PASS 4, FAIL 8, BLOCKED 9. Every FAIL has its bug and Q19G;
 every BLOCKED names its rerun (B1 to B7, A1 to A5, the owner's candidate in C4, or an owner decision). G01 cannot
 pass until Q19G fixes the FAIL rows and Q19B and Q19A run the BLOCKED ones.
+
+Night of 20 October (Q19B1, B2, B4 and B5 without an account, B6, Q19G G1): the 72 rows PASS 44 (REL01 on the signed
+rc2), FAIL 0, BLOCKED 21, DEFERRED 6, DECLINED 1. Section 7, 24 rows: PASS 13, FAIL 2 (Q18-049 and Q18-050, both
+waiting for the owner's choice), BLOCKED 8, DECLINED 1 (Q18-041).
