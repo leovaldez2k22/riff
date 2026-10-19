@@ -2056,15 +2056,26 @@ was not run: 4 hours no longer fitted before 06:00, and a shorter one on the dum
 started, when the session's auto-mode safety check refused the tap that would have begun streaming on the
 unattended phone. It remains open for a session with the owner.
 
-### Q18B11 foreign controller on the owner's phone (19 October 2026, overnight; partial)
+### Q18B11 foreign controller and sign-in browser on the owner's phone (19 October 2026)
 
 The throwaway controller app from Q18C3 (`test.riff.foreign`, its own key, no relation to Riff) installed on the
 I2217 and pointed at Riff Preview's media session while the dummy account's 13-song queue was loaded
 (`artifacts/quality/q18b/b11-foreign-phone.txt`). **PASS**: the session reports can_change_items=false and
 can_set_item=false to it; its removeMediaItem left the queue at 13 of 13; it could read the timeline, skip, play
 (playing true) and pause (playing false). Same result as the emulator in Q18C3. Riff Preview kept the same process
-throughout. Not done: content access in the sign-in browser, which needs the sign-in pages on screen with the
-owner present. `test.riff.foreign` stays installed until the Q18B12 clean-up.
+throughout. `test.riff.foreign` stays installed until the Q18B12 clean-up.
+
+Sign-in browser half (19 October 2026, 06:30-07:35, with the owner): the open item from security-review.md
+section 2, whether the sign-in browser needs allowContentAccess for a profile-picture upload. The owner signed
+in to Riff Stress with the dummy account (no screenshots of the sign-in pages; the owner drove them), opened
+Change account, went from Google's Help page to Manage your Google Account, Personal info, Profile picture,
+upload from device, and picked a plain test image pushed to Download for this. **With content access on**
+(committed code) the image reached Google's crop and rotate screen. **With it off** (a local build of Riff Stress,
+installed over the first with its session kept, source reverted straight after and never committed) it reached
+the same screen. Both times cancelled, nothing saved to the account. So the setting is not needed: Q18-027 for
+the fix package. One sign-in-time block of a main-frame address outside the allowed domains was logged
+just before the sign-in succeeded (host not recorded by design): Q18-028. The committed Riff Stress was
+reinstalled afterwards, still signed in, for Q18B4. **B11 PASS** (both halves).
 
 ### Q18C3 foreign controller on the emulator (19 October 2026, overnight)
 
