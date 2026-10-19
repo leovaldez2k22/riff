@@ -2384,6 +2384,38 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
 - JVM: 1,097 tests, 0 failures; lint 0 errors, 85 warnings; device tests compile. Nothing ran on an emulator or the
   phone in Q19F.
 
+### Q19C computer checks (19 October 2026)
+- Started at the owner's word ("Start q19c"). Source 6328a8d, then the rc2 version bump; evidence in
+  artifacts/quality/q19 (local, not committed). Bugs found are logged and left for Q19G, as agreed.
+- C1, pr lane (artifacts/quality/q19/c1): build, artifact identity, JVM, lint, APK and solver seam PASS; script tests,
+  static and release content FAIL. The static check finds six raw sizes and AccountScreen.kt past its line limit, all
+  in code added since Q18F (Q18-042); the release-content check refuses F2's share provider, which grants URI access
+  by design (Q18-043). The other 17 release-content checks pass on the unsigned build.
+- C2, emulator lanes, network off and confirmed unreachable before and after each run (artifacts/quality/q19/c2):
+  API 31 (riff_q02_fixture) 51 of 51, API 33 51 of 51, API 36 52 of 52, all PASS_LOCAL. The lane's class list does not
+  include LyricShareDeviceTest (Q18-044), so it was run by hand: API 33 and 36 3 of 3; API 31 2 of 3, the test reading
+  the shared address with an API 33 call (Q18-045, a test fault; the app does not use that call). No picture was left
+  in MediaStore. The first API 36 attempt failed before building because my shell passed the Gradle home as a POSIX
+  path; it made a stray C:\c folder holding two empty wrapper download stubs, which the owner can delete (the removal
+  was refused by a safety check). The rerun is the one recorded.
+- C3, SignInScreensDeviceTest (new): the welcome on a first run and with five made-up saved accounts, all accounts with
+  search and "Remove from this phone", Google's frame and "didn't load" with the network off, Back through every
+  step, and Remove animations giving cuts (with a full-motion control). API 33 6 of 6, API 36 6 of 6 after the test
+  closed the keyboard (from API 35 the keyboard shrinks the list, and a lazy list holds only the rows on screen; the
+  API 33 run was on the version before that change). Pictures in artifacts/quality/q19/c3, no personal data. Found
+  Q18-046 (Low): the row menu is too clear to read and names are cut short. A page that loads and the stop sheet over
+  it need the network: Q19B5. Pictures the tests left on the emulators were deleted.
+- C4: version 0.10.0-rc2, code 23 (D10). Built side by side (artifacts/quality/q19/c4/candidates.txt, copies in
+  c4/apks): Riff Debug and its test APK, Riff Stress, the benchmarkRelease app and the macrobenchmark APK, all on the
+  debug key 932eb205...04e0. The signed Riff Preview 0.10.0-rc2 waits for the owner to run
+  scripts/build-release-candidate.ps1 -Preview -Offline -AllowDirty; its certificate, ABI, size and version are then
+  checked against docs/release-signing.md.
+- C5: case-map.md second pass. No TODO left; FAIL rows whose bugs were fixed in Q18F are BLOCKED with the Q19B or Q19A
+  run that checks them on the phone; section 7 adds F1 to F5, the sign-in screens and Q18-040 to Q18-046. The plan's
+  B3 gained A11Y02 (largest font, landscape) so that row has a run.
+- C6: BLOCKED until the owner builds the signed candidate (the certificate check and the emulator upgrade from rc20).
+- After the bump: JVM 1,097 tests, 0 failures; lint 0 errors, 85 warnings; script tests 143 of 144 (Q18-042).
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
