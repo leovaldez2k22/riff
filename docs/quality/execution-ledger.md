@@ -1827,6 +1827,20 @@ Results:
 Device state: TalkBack off again, accessibility off (read back: services null, accessibility_enabled 0); aeroplane mode off. Before A4 the only service on was Microsoft's screen-mirroring service; it is no longer listed, and was not touched by me. Test download removed. No file created on the phone by this sub-phase. /data/local/tmp holds dump.xml, riff-ui.xml, riff-monkey-watchdog.log and riff-rc20-original.json from earlier work (not this session's); they are to be raised with the owner under the clean-up rule when testing ends.
 Next exact action: ask the owner before the next sub-phase (A3, A5, A6 or A8).
 
+Follow-up on 19 October 2026 (Riff Stress, dummy test account, TalkBack on, done by me while the owner was away
+from the phone; music muted during it and set back to 15 afterwards):
+- UX04 download announcements, completed: **FAIL on "announced once", PASS on "not continuously".** One song and then
+  an album (41 songs queued) downloaded while accessibility events were recorded with `uiautomator events`. The
+  start notice is a Material snackbar, read once. The phases shown on the song's row in Downloads (Preparing,
+  Downloading N%, Checking audio, Saving artwork and lyrics) send no announcement and are in no live region, so
+  TalkBack reads them only when the user moves onto the row: 4 events in 150 s while 14 to 15 songs finished.
+  Q18-031. The album page's back button also reads "Back to Back" (Q18-011 widened).
+  `artifacts/quality/q18b/a4-ux04/`. Riff Stress keeps the 42 downloaded songs until Q18B12.
+- UX07 account switch: DEFERRED by the owner to after the fix package (Change account is broken, Q18-009).
+- Home-screen widgets: the six widgets the owner placed belong to the main Riff app (rc20), which the owner wants
+  left untouched (A7), and would test rc20 rather than the candidate; not pressed. Waiting for Riff Stress or Riff
+  Preview widgets.
+
 ### Q18A5 keyboard walk-through (18 October 2026)
 Status: BLOCKED on the phone: the owner has no physical or Bluetooth keyboard. Partial evidence: step 5 (with the on-screen keyboard open, the field and its action stay visible) was seen in A4 UX10 for the sleep timer (artifacts/quality/q18a/a4/ux10-02-sleep-typed.png); not checked for Search.
 Alternative proposed to the owner: steps 1-4 (Tab reaches every control with visible focus; Enter and Space activate; Back or Escape closes in order; focus never sticks) can run on the API 31 fixture emulator with the computer's keyboard, which needs no phone and no owner; that would move them into Q18C. Not started.
