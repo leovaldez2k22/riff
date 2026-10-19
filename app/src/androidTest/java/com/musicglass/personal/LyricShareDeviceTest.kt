@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
+import androidx.core.content.IntentCompat
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.*
@@ -40,7 +41,8 @@ class LyricShareDeviceTest {
     @Test fun theSharedCardIsAReadableContentPictureOfTheCard() {
         val image = card()
         val intent = lyricCardShareIntent(context, image)
-        val uri = intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)!!
+        // Q18-045: IntentCompat, since the two-argument getParcelableExtra exists only from API 33 and Riff starts at 31.
+        val uri = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)!!
         assertEquals("content", uri.scheme)
         assertEquals("${context.packageName}.files", uri.authority)
         assertEquals("image/png", intent.type)

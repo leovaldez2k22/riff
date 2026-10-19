@@ -88,7 +88,7 @@ this source and the hashed AAR rests on JitPack building the tag.
 
 Not in the APK: the generated test audio (`app/src/androidTest/assets/quality/audio`, made by `scripts/quality/generate_audio_fixtures.py`, test APK only), the fixture provider answers (`scripts/quality/generate_provider_fixtures.py`), the design reference images (`references/`), and the rc20 screenshots (`docs/images/`). Home mood photographs are fetched at run time from Openverse and Wikimedia Commons with their creator and license (CC0, public domain, CC BY, CC BY-SA) and are not bundled.
 
-**Open item:** the four design reference images in `references/` (R01 to R04) were supplied by the owner on 27 September 2026 as visual references. They are tracked, so they are in the source archive, and their copyright holder is not recorded. Before the source archive is published, confirm they may be shared or remove them from the repository.
+**Decided (D3, 19 October 2026):** the four design reference images in `references/` (R01 to R04), supplied by the owner on 27 September 2026 as visual references with no recorded copyright holder, stay tracked for the owner's use but are left out of the source archive: `scripts/package-source.ps1` skips them and the packaging lane refuses an archive that contains them (Q19G).
 
 Earlier versions of this file listed generated demo audio and a motion loop. Neither is in the source or the APK any more.
 

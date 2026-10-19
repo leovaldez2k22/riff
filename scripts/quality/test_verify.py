@@ -229,6 +229,21 @@ class PackageTest(unittest.TestCase):
         self.assertTrue(all(name.startswith("com.musicglass.personal.") and ".debug." not in name
                             for name in verify.FIXTURE_CLASSES))
 
+    def test_every_device_test_class_is_placed_on_purpose(self):
+        """Q18-044: a DeviceTest class is in the fixture suite, emulator-only, or outside the lanes with a reason."""
+        folder = Path(__file__).resolve().parents[2] / "app/src/androidTest/java/com/musicglass/personal"
+        found = {path.stem for path in folder.glob("*DeviceTest.kt")}
+        placed = {name.rsplit(".", 1)[1] for name in verify.FIXTURE_CLASSES} |             {name.rsplit(".", 1)[1] for name in verify.EMULATOR_CLASSES} | set(verify.OUTSIDE_THE_LANES)
+        self.assertEqual(set(), found - placed, "place these in verify.py")
+        self.assertEqual(set(), set(verify.OUTSIDE_THE_LANES) - found, "no longer exist")
+        self.assertTrue(all(reason.strip() for reason in verify.OUTSIDE_THE_LANES.values()))
+        self.assertIn("com.musicglass.personal.LyricShareDeviceTest", verify.FIXTURE_CLASSES)
+
+    def test_the_sign_in_screens_run_only_on_emulators(self):
+        name = "com.musicglass.personal.SignInScreensDeviceTest"
+        self.assertIn(name, verify.fixture_classes("emulator", 31))
+        self.assertNotIn(name, verify.fixture_classes("device", 36), "Google's page loads on a phone with its network on")
+
     def test_the_time_limit_test_runs_only_on_emulators_from_api_35(self):
         name = "com.musicglass.personal.DownloadTimeLimitDeviceTest"
         self.assertNotIn(name, verify.FIXTURE_CLASSES)
@@ -280,9 +295,12 @@ class SourceArchiveTest(unittest.TestCase):
     def test_keys_settings_builds_and_evidence_are_refused(self):
         for bad in ("release.jks", "app/upload.keystore", "local.properties", "app/build/outputs/x.apk", ".toolchain/sdk/a",
                     "artifacts/quality/x/manifest.json", ".env", ".env.local", "release-signing.properties", "cookies.txt",
-                    "../escape.kt", "certs/key.pem"):
+                    "../escape.kt", "certs/key.pem", "references/R01-player-and-library-sheet.png", "references/manifest.md"):
             problems = verify.check_source_archive(self.archive(verify.SOURCE_REQUIRED + [bad]))
             self.assertTrue(problems, bad)
+
+    def test_references_elsewhere_in_a_path_are_not_refused(self):
+        self.assertEqual([], verify.check_source_archive(self.archive(verify.SOURCE_REQUIRED + ["app/src/main/res/references/a.xml"])))
 
     def test_a_missing_required_file_is_reported(self):
         problems = verify.check_source_archive(self.archive(verify.SOURCE_REQUIRED[1:]))

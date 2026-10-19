@@ -66,10 +66,22 @@ BUILD_TOOLS = "36.0.0"
 FIXTURE_CLASSES = [f"{PACKAGE}.{name}" for name in (
     "AccountSwitchDeviceTest", "CrossfadeFixtureDeviceTest", "DownloadLifecycleDeviceTest", "FixturePlaybackTest",
     "LegacyUpgradeDeviceTest", "LocalDataDeviceTest", "LocalDataTransferDeviceTest", "NormalizationDeviceTest",
-    "PlaybackOrderDeviceTest", "RecoveryDeviceTest", "LyricsKaraokeDeviceTest", "PlayerFixesDeviceTest")]
+    "PlaybackOrderDeviceTest", "RecoveryDeviceTest", "LyricsKaraokeDeviceTest", "PlayerFixesDeviceTest",
+    "LyricShareDeviceTest")]
 # Run only where they apply, never skipped: a skip is not a pass. DownloadTimeLimitDeviceTest shortens Android 15's
-# dataSync time limit with device_config, so emulators only, from API 35 (Q18-026).
-EMULATOR_CLASSES = {f"{PACKAGE}.DownloadTimeLimitDeviceTest": 35}
+# dataSync time limit with device_config, so emulators only, from API 35 (Q18-026). SignInScreensDeviceTest needs
+# the network off for Google's page not to load, which only the emulator lane guarantees (Q19C3, Q18-044).
+EMULATOR_CLASSES = {f"{PACKAGE}.DownloadTimeLimitDeviceTest": 35, f"{PACKAGE}.SignInScreensDeviceTest": 31}
+# Device tests kept out of both lists, each with its reason (Q18-044: a new class must be placed on purpose).
+OUTSIDE_THE_LANES = {
+    "CrossfadeDeviceTest": "two real players and decoders, about 3.5 minutes; run beside the lane by hand (Q08 to Q10)",
+    "SongFadeDeviceTest": "run with CrossfadeDeviceTest beside the lane by hand (Q08 to Q10)",
+    "CrossfadeServiceDeviceTest": "drives the real playback service, effects and media controller; run by hand on the phone",
+    "FrostedPopupDeviceTest": "a pixel test of the platform's window blur, which differs by device; run by hand",
+    "PodcastMetadataDeviceTest": "the player's lazy stream resolution with the real service; run by hand",
+    "PlaylistSortDeviceTest": "live: needs a signed-in account and changes a playlist preference (case map CAT04)",
+    "ProviderCanaryDeviceTest": "live: sends real provider requests, only when asked for (Q10A)",
+}
 
 
 def fixture_classes(lane, api):
@@ -88,7 +100,11 @@ INSTALLING = {"emulator", "device", "benchmark"}
 # Never inside a source archive: build output, local tools and settings, keys, credentials, evidence.
 FORBIDDEN_IN_SOURCE = re.compile(
     r"(^|/)(build|\.gradle|\.toolchain|artifacts|\.idea|\.kotlin)/|(^|/)local\.properties$|"
-    r"\.(jks|keystore|p12|pfx|pem|key)$|(^|/)\.env(\.|$)|release-signing\.properties$|(^|/)cookies?(\.|$)", re.I)
+    r"\.(jks|keystore|p12|pfx|pem|key)$|(^|/)\.env(\.|$)|release-signing\.properties$|(^|/)cookies?(\.|$)|"
+    r"^references/", re.I)
+# D3 (owner, 19 October 2026): the design reference pictures are tracked but are not Riff's work, so they stay out
+# of the source archive.
+LEFT_OUT_OF_SOURCE = ("references/",)
 SOURCE_REQUIRED = ["app/build.gradle.kts", "settings.gradle.kts", "gradlew", "gradle/wrapper/gradle-wrapper.properties",
                    "gradle/verification-metadata.xml", "app/src/main/AndroidManifest.xml", "LICENSE", "README.md"]
 
@@ -511,7 +527,7 @@ class Lane:
 
     def source_archive(self):
         identity = collect_results.source_identity(self.root)
-        files = [p for p in self.tracked_files() if (self.root / p).is_file()]
+        files = [p for p in self.tracked_files() if (self.root / p).is_file() and not p.startswith(LEFT_OUT_OF_SOURCE)]
         archive = self.evidence / "source.zip"
         with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as out:
             for name in files:

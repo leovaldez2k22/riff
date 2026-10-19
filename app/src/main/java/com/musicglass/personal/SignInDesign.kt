@@ -177,10 +177,10 @@ internal const val SIGN_IN_STOP_SHEET_OUT_MS = 1100
 }
 
 /** Riff's frosted glass, as on its panels: a dark tint, a sheen from the top left and a thin light edge. */
-internal fun Modifier.signInGlass(shape: Shape = RoundedCornerShape(28.dp)): Modifier = clip(shape)
+internal fun Modifier.signInGlass(shape: Shape = RoundedCornerShape(RiffSignIn.glass)): Modifier = clip(shape)
     .background(Color(0xFF171C27).copy(alpha = .63f))
     .background(Brush.linearGradient(listOf(White.copy(alpha = .13f), Color.Transparent), Offset.Zero, Offset(700f, 700f)))
-    .border(.7.dp, White.copy(alpha = .15f), shape)
+    .border(RiffSignIn.glassEdge, White.copy(alpha = .15f), shape)
 
 /**
  * The record: black grooves, a pink label reading "Riff", a small hole. It spins while something is working and
@@ -243,37 +243,44 @@ internal fun Modifier.signInGlass(shape: Shape = RoundedCornerShape(28.dp)): Mod
 /** Pink, black text, a soft pink glow: the main action on every screen. */
 @Composable internal fun SignInPinkButton(text: String, tag: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Button(hapticClick(onClick), colors = ButtonDefaults.buttonColors(containerColor = Pink, contentColor = Color.Black),
-        shape = RoundedCornerShape(18.dp),
-        modifier = modifier.fillMaxWidth().heightIn(min = 52.dp).shadow(18.dp, RoundedCornerShape(18.dp), ambientColor = Pink, spotColor = Pink)
-            .testTag(tag)) { Text(text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp) }
+        shape = RoundedCornerShape(RiffSignIn.corner),
+        modifier = modifier.fillMaxWidth().heightIn(min = RiffSignIn.button)
+            .shadow(RiffSignIn.buttonGlow, RoundedCornerShape(RiffSignIn.corner), ambientColor = Pink, spotColor = Pink)
+            .testTag(tag)) { Text(text, fontWeight = FontWeight.SemiBold, fontSize = RiffSignIn.buttonText) }
 }
 
 /** Glass: the second action. */
 @Composable internal fun SignInGlassButton(text: String, tag: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    TextButton(hapticClick(onClick), shape = RoundedCornerShape(18.dp),
-        modifier = modifier.fillMaxWidth().heightIn(min = 52.dp).signInGlass(RoundedCornerShape(18.dp)).testTag(tag)) {
-        Text(text, color = White, fontWeight = FontWeight.Medium, fontSize = 15.sp)
+    TextButton(hapticClick(onClick), shape = RoundedCornerShape(RiffSignIn.corner),
+        modifier = modifier.fillMaxWidth().heightIn(min = RiffSignIn.button).signInGlass(RoundedCornerShape(RiffSignIn.corner)).testTag(tag)) {
+        Text(text, color = White, fontWeight = FontWeight.Medium, fontSize = RiffSignIn.buttonText)
     }
 }
 
-/** One saved account: avatar colour and initial, name, shortened email, and "Current" or when it was last used. */
+/**
+ * One saved account: avatar colour and initial, name, shortened email, and "Current" or when it was last used.
+ * Q18-046: the name has the row's full width; the time sits on the second line beside the email.
+ */
 @Composable internal fun SavedAccountRow(account: SavedAccount, current: Boolean, nowMs: Long, onPick: () -> Unit,
     onRemove: (() -> Unit)? = null) {
     var menu by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(RoundedCornerShape(18.dp))
-        .clickable(role = Role.Button, onClick = hapticClick(onPick)).padding(horizontal = 10.dp, vertical = 8.dp)
+    Row(Modifier.fillMaxWidth().heightIn(min = RiffSpace.listRow).clip(RoundedCornerShape(RiffSignIn.corner))
+        .clickable(role = Role.Button, onClick = hapticClick(onPick)).padding(horizontal = RiffSignIn.rowSide, vertical = RiffSpace.item)
         .testTag("signin_account_${account.key.hashCode().toUInt()}"),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.size(40.dp).clip(CircleShape).background(avatarColor(account.key)), contentAlignment = Alignment.Center) {
-            Text(account.name.trim().take(1).uppercase().ifBlank { "?" }, color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RiffSpace.rowGap)) {
+        Box(Modifier.size(RiffSignIn.avatar).clip(CircleShape).background(avatarColor(account.key)), contentAlignment = Alignment.Center) {
+            Text(account.name.trim().take(1).uppercase().ifBlank { "?" }, color = Color.Black, fontWeight = FontWeight.Bold, fontSize = RiffSignIn.avatarText)
         }
         Column(Modifier.weight(1f)) {
-            Text(account.name.ifBlank { string(R.string.your_youtube_music_account) }, color = White, fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (account.email != null) Text(shortEmail(account.email), color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(account.name.ifBlank { string(R.string.your_youtube_music_account) }, color = White, fontSize = RiffSignIn.rowTitle,
+                fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("signin_account_name"))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RiffSpace.item)) {
+                if (account.email != null) Text(shortEmail(account.email), color = Muted, fontSize = RiffType.detail, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Text(if (current) string(R.string.signin_current) else lastUsedLabel(nowMs, account.lastUsedMs),
+                    color = if (current) Pink else Muted, fontSize = RiffType.detail, maxLines = 1, softWrap = false)
+            }
         }
-        Text(if (current) string(R.string.signin_current) else lastUsedLabel(nowMs, account.lastUsedMs),
-            color = if (current) Pink else Muted, fontSize = 12.sp)
         if (onRemove != null) Box {
             IconButton({ uiHaptic(); menu = true }, Modifier.testTag("signin_account_menu")) {
                 Icon(Icons.Rounded.MoreVert, string(R.string.signin_account_options, account.name), tint = Muted)
@@ -288,32 +295,32 @@ internal fun Modifier.signInGlass(shape: Shape = RoundedCornerShape(28.dp)): Mod
 
 /** A step on the checking screen: a ring that fills with a tick when the step is done. */
 @Composable internal fun SignInStepRow(text: String, done: Boolean, current: Boolean) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.size(22.dp).clip(CircleShape).background(if (done) Pink else Color.Transparent)
-            .border(1.5.dp, if (done || current) Pink else White.copy(alpha = .25f), CircleShape), contentAlignment = Alignment.Center) {
-            if (done) Icon(Icons.Rounded.Check, null, tint = Color.Black, modifier = Modifier.size(15.dp))
+    Row(Modifier.fillMaxWidth().padding(vertical = RiffSignIn.stepPad), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(RiffSpace.rowGap)) {
+        Box(Modifier.size(RiffSignIn.stepRing).clip(CircleShape).background(if (done) Pink else Color.Transparent)
+            .border(RiffSignIn.stepRingLine, if (done || current) Pink else White.copy(alpha = .25f), CircleShape), contentAlignment = Alignment.Center) {
+            if (done) Icon(Icons.Rounded.Check, null, tint = Color.Black, modifier = Modifier.size(RiffSignIn.stepTick))
         }
-        Text(text, color = if (done || current) White else Muted, fontSize = 15.sp)
+        Text(text, color = if (done || current) White else Muted, fontSize = RiffSignIn.rowTitle)
     }
 }
 
 /** The top bar on Google's page and the accounts page: back, the small record's place, a title and a subtitle. */
 @Composable internal fun SignInTopBar(title: String, subtitle: String?, onBack: () -> Unit, backLabel: String,
     trailing: (@Composable () -> Unit)? = null, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().height(SIGN_IN_BAR_HEIGHT).padding(horizontal = 6.dp).signInGlass(RoundedCornerShape(22.dp)),
+    Row(modifier.fillMaxWidth().height(SIGN_IN_BAR_HEIGHT).padding(horizontal = RiffSignIn.barSide).signInGlass(RoundedCornerShape(RiffSignIn.barCorner)),
         verticalAlignment = Alignment.CenterVertically) {
         IconButton(hapticClick(onBack), Modifier.testTag("signin_back")) {
             Icon(Icons.AutoMirrored.Rounded.ArrowBack, backLabel, tint = White)
         }
         Spacer(Modifier.width(SIGN_IN_BAR_RECORD))
-        Column(Modifier.weight(1f).padding(start = 8.dp)) {
-            Text(title, color = White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (subtitle != null) Text(subtitle, color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.weight(1f).padding(start = RiffSpace.item)) {
+            Text(title, color = White, fontSize = RiffSignIn.barTitle, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (subtitle != null) Text(subtitle, color = Muted, fontSize = RiffType.detail, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         trailing?.invoke()
     }
 }
 
-internal val SIGN_IN_BAR_HEIGHT: Dp = 64.dp
-internal val SIGN_IN_BAR_RECORD: Dp = 44.dp
+internal val SIGN_IN_BAR_HEIGHT: Dp = RiffSignIn.barHeight
+internal val SIGN_IN_BAR_RECORD: Dp = RiffSignIn.barRecord

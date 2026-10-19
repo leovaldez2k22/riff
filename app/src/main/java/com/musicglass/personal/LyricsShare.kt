@@ -88,12 +88,10 @@ internal fun Modifier.lyricLineLook(dim: Boolean, chosen: Boolean): Modifier =
     graphicsLayer { alpha = if (dim) .4f else 1f }
         .drawBehind {
             if (!chosen) return@drawBehind
-            val side = LYRIC_TINT_SIDE.toPx(); val end = LYRIC_TINT_END.toPx()
+            val side = RiffLyrics.chosenSide.toPx(); val end = RiffLyrics.chosenEnd.toPx()
             drawRoundRect(Pink.copy(alpha = .16f), Offset(-side, -end), Size(size.width + 2 * side, size.height + 2 * end),
-                CornerRadius(16.dp.toPx()))
+                CornerRadius(RiffLyrics.chosenCorner.toPx()))
         }
-private val LYRIC_TINT_SIDE = 10.dp
-private val LYRIC_TINT_END = 2.dp
 
 /** Riff's two waves (res/drawable/ic_launcher_foreground.xml), drawn in the card's corner instead of the record. */
 private const val RIFF_WAVES = "M27,49 C37,57 43,41 51,34 C61,25 71,30 78,41 C66,34 61,43 53,51 C43,61 34,60 27,49 Z " +
@@ -279,13 +277,13 @@ internal fun saveLyricCard(context: Context, card: Bitmap, title: String): Boole
     FrostedAlertDialog(onDismissRequest = onDismiss, modifier = Modifier.testTag("lyrics_share_sheet"),
         title = { Text(string(R.string.share_lyrics)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(RiffLyrics.sheetGap)) {
                 Box(Modifier.fillMaxWidth().aspectRatio(card?.let { it.width / it.height.toFloat() } ?: 1f)
-                    .clip(RoundedCornerShape(18.dp)).testTag("lyrics_share_preview")) {
+                    .clip(RoundedCornerShape(RiffLyrics.cardCorner)).testTag("lyrics_share_preview")) {
                     card?.let { Image(it.asImageBitmap(), string(R.string.lyric_card_preview), contentScale = ContentScale.Fit,
                         modifier = Modifier.fillMaxSize()) }
                 }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(RiffSpace.item)) {
                     LyricCardLook.entries.forEach { option ->
                         FilterChip(look == option, { uiHaptic(HapticCue.Selection); look = option; status = null },
                             label = { Text(string(when (option) {

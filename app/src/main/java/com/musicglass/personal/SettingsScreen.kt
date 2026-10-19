@@ -65,10 +65,10 @@ import kotlinx.coroutines.withContext
     ScreenList(model,bottom) {
         item {BackHeading(string(R.string.back),model::back);ScreenTitle(string(R.string.settings))}
         item {
-            Surface(Modifier.fillMaxWidth().padding(vertical=8.dp).testTag("settings_account")
+            Surface(Modifier.fillMaxWidth().padding(vertical=RiffSpace.item).testTag("settings_account")
                 .clickable(onClick=hapticClick {model.push(Route.Account)}),shape=RoundedCornerShape(24.dp),
                 color=White.copy(alpha=.06f)) {
-                Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically) {
+                Row(Modifier.padding(RiffSpace.block),verticalAlignment=Alignment.CenterVertically) {
                     val image=provider.accountProfile?.artworkUrl
                     if(image!=null) AsyncImage(image,null,contentScale=ContentScale.Crop,
                         modifier=Modifier.size(48.dp).clip(CircleShape))
@@ -76,7 +76,7 @@ import kotlinx.coroutines.withContext
                     Column(Modifier.weight(1f).padding(horizontal=14.dp)) {
                         Text(provider.accountProfile?.name ?: if(provider.signedIn) string(R.string.your_account) else "YouTube Music",
                             color=White,fontSize=17.sp,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
-                        Text(if(provider.signedIn) string(R.string.manage_account) else string(R.string.sign_in),color=Muted,fontSize=12.sp)
+                        Text(if(provider.signedIn) string(R.string.manage_account) else string(R.string.sign_in),color=Muted,fontSize=RiffType.detail)
                     }
                     Icon(Icons.Rounded.ChevronRight,null,tint=Muted)
                 }
@@ -90,7 +90,7 @@ import kotlinx.coroutines.withContext
                 Icons.AutoMirrored.Rounded.VolumeUp,"settings_volume_boost", string(R.string.amplify_riff_playback_up_to_300))
             if(audio.enabled) {
                 SettingsDivider()
-                Column(Modifier.padding(vertical=8.dp)) {
+                Column(Modifier.padding(vertical=RiffSpace.item)) {
                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                         Text(string(R.string.boost_level),color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
                         Text("${boostLevel.toInt()}%",color=White,fontSize=13.sp)
@@ -109,7 +109,7 @@ import kotlinx.coroutines.withContext
                 Icons.Rounded.Shuffle,"settings_crossfade",string(R.string.blend_the_end_of_each_song_into))
             if(crossfade.enabled) {
                 SettingsDivider()
-                Column(Modifier.padding(vertical=8.dp)) {
+                Column(Modifier.padding(vertical=RiffSpace.item)) {
                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                         Text(string(R.string.crossfade_length),color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
                         Text("${crossfadeLength.roundToInt()} s",color=White,fontSize=13.sp)
@@ -128,7 +128,7 @@ import kotlinx.coroutines.withContext
             SettingsToggleRow(string(R.string.frosted_glass),preferences.frostedGlass,
                 hapticToggle(preferences::updateFrostedGlass),Icons.Rounded.BlurOn,"settings_frosted_glass")
             SettingsDivider()
-            Column(Modifier.padding(vertical=8.dp)) {
+            Column(Modifier.padding(vertical=RiffSpace.item)) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                     Text(string(R.string.glass_intensity),color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
                     Text("${(preferences.glassIntensity*100).toInt()}%",color=Muted,fontSize=13.sp)
@@ -138,7 +138,7 @@ import kotlinx.coroutines.withContext
                     modifier=Modifier.fillMaxWidth().testTag("settings_glass_intensity"))
             }
             SettingsDivider()
-            Column(Modifier.padding(vertical=8.dp)) {
+            Column(Modifier.padding(vertical=RiffSpace.item)) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                     Text(string(R.string.frosted_glass_intensity),color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
                     Text("${(preferences.frostedIntensity*100).toInt()}%",color=Muted,fontSize=13.sp)
@@ -201,7 +201,7 @@ import kotlinx.coroutines.withContext
                 model.push(Route.Settings(SettingsSection.Diagnostics))
             }
         }}
-        item {Text(androidx.compose.ui.res.stringResource(R.string.about_build_identity, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildIdentity.current().shortId),color=Muted,fontSize=12.sp,
+        item {Text(androidx.compose.ui.res.stringResource(R.string.about_build_identity, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildIdentity.current().shortId),color=Muted,fontSize=RiffType.detail,
             modifier=Modifier.fillMaxWidth().padding(vertical=20.dp),textAlign=androidx.compose.ui.text.style.TextAlign.Center)}
     }
 }
@@ -218,39 +218,39 @@ import kotlinx.coroutines.withContext
     val turn by animateFloatAsState(if(open) 180f else 0f,GlassMotion.timed(GlassMotion.screenMs,motion),label="compartment chevron")
     val openText=string(R.string.settings_group_open);val closedText=string(R.string.settings_group_closed)
     val shape=RoundedCornerShape(24.dp)
-    Column(Modifier.fillMaxWidth().padding(vertical=4.dp).clip(shape)
+    Column(Modifier.fillMaxWidth().padding(vertical=RiffSpace.tight).clip(shape)
         .background(Brush.linearGradient(listOf(White.copy(alpha=.10f),White.copy(alpha=.035f))))
         .border(.6.dp,edge,shape)) {
         Row(Modifier.fillMaxWidth().heightIn(min=64.dp).testTag("settings_group_$id")
             .clickable(role=Role.Button,onClick=hapticClick(onToggle))
             .semantics {heading();stateDescription=if(open) openText else closedText}
-            .padding(horizontal=16.dp,vertical=12.dp),
-            verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+            .padding(horizontal=RiffSpace.block,vertical=RiffSpace.rowGap),
+            verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(RiffSpace.rowGap)) {
             Box(Modifier.size(36.dp).clip(CircleShape).background(Pink.copy(alpha=.14f)).border(.6.dp,Pink.copy(alpha=.35f),CircleShape),
                 contentAlignment=Alignment.Center) {Icon(icon,null,tint=Pink,modifier=Modifier.size(19.dp))}
             Column(Modifier.weight(1f)) {
-                Text(title,color=White,fontSize=16.sp,fontWeight=FontWeight.SemiBold)
+                Text(title,color=White,fontSize=RiffType.message,fontWeight=FontWeight.SemiBold)
                 AnimatedVisibility(!open,enter=fadeIn(GlassMotion.timed(GlassMotion.selectionMs,motion)),
                     exit=fadeOut(GlassMotion.timed(GlassMotion.selectionMs,motion))) {
-                    Text(summary,color=Muted,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis,modifier=Modifier.padding(top=2.dp))
+                    Text(summary,color=Muted,fontSize=RiffType.detail,maxLines=1,overflow=TextOverflow.Ellipsis,modifier=Modifier.padding(top=2.dp))
                 }
             }
             Icon(Icons.Rounded.ExpandMore,null,tint=if(open) Pink else Muted,modifier=Modifier.rotate(turn))
         }
         AnimatedVisibility(open,enter=expandVertically(GlassMotion.timed(GlassMotion.screenMs,motion))+fadeIn(GlassMotion.timed(GlassMotion.screenMs,motion)),
             exit=shrinkVertically(GlassMotion.timed(GlassMotion.screenMs,motion))+fadeOut(GlassMotion.timed(GlassMotion.selectionMs,motion))) {
-            Column(Modifier.padding(start=16.dp,end=16.dp,bottom=8.dp)) {SettingsDivider();content()}
+            Column(Modifier.padding(start=RiffSpace.block,end=RiffSpace.block,bottom=RiffSpace.item)) {SettingsDivider();content()}
         }
     }
 }
 
 @Composable internal fun SettingsSection(title:String,content:@Composable ColumnScope.()->Unit) {
-    Column(Modifier.fillMaxWidth().padding(top=10.dp,bottom=4.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text(title.uppercase(),color=Muted,fontSize=12.sp,fontWeight=FontWeight.SemiBold,letterSpacing=.8.sp,
-            modifier=Modifier.padding(start=8.dp).semantics {heading()})
+    Column(Modifier.fillMaxWidth().padding(top=10.dp,bottom=RiffSpace.tight),verticalArrangement=Arrangement.spacedBy(RiffSpace.item)) {
+        Text(title.uppercase(),color=Muted,fontSize=RiffType.detail,fontWeight=FontWeight.SemiBold,letterSpacing=.8.sp,
+            modifier=Modifier.padding(start=RiffSpace.item).semantics {heading()})
         Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(24.dp),color=White.copy(alpha=.045f),
             border=BorderStroke(.6.dp,White.copy(alpha=.08f))) {
-            Column(Modifier.padding(horizontal=16.dp,vertical=4.dp),content=content)
+            Column(Modifier.padding(horizontal=RiffSpace.block,vertical=RiffSpace.tight),content=content)
         }
     }
 }
@@ -258,22 +258,22 @@ import kotlinx.coroutines.withContext
 @Composable internal fun SettingsToggleRow(title:String,checked:Boolean,onChange:(Boolean)->Unit,
     icon:ImageVector,tag:String,subtitle:String?=null) {
     Row(Modifier.fillMaxWidth().heightIn(min=58.dp).testTag(tag)
-        .toggleable(checked,role=Role.Switch,onValueChange=onChange).padding(vertical=8.dp),
-        verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+        .toggleable(checked,role=Role.Switch,onValueChange=onChange).padding(vertical=RiffSpace.item),
+        verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(RiffSpace.rowGap)) {
         Icon(icon,null,tint=Muted,modifier=Modifier.size(21.dp))
         Column(Modifier.weight(1f)) {
             Text(title,color=White,fontSize=15.sp)
-            if(subtitle!=null) Text(subtitle,color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=3.dp))
+            if(subtitle!=null) Text(subtitle,color=Muted,fontSize=RiffType.detail,modifier=Modifier.padding(top=3.dp))
         }
         Switch(checked,onCheckedChange=null)
     }
 }
 @Composable internal fun SettingsLinkRow(title:String,value:String?=null,icon:ImageVector,tag:String,onClick:()->Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min=56.dp).testTag(tag).clickable(onClick=hapticClick(onClick))
-        .padding(vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+        .padding(vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(RiffSpace.rowGap)) {
         Icon(icon,null,tint=Muted,modifier=Modifier.size(21.dp))
         Text(title,color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
-        if(value!=null) Text(value,color=Muted,fontSize=12.sp)
+        if(value!=null) Text(value,color=Muted,fontSize=RiffType.detail)
         Icon(Icons.Rounded.ChevronRight,null,tint=Muted,modifier=Modifier.size(18.dp))
     }
 }

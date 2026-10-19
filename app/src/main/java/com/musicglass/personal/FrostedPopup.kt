@@ -60,7 +60,7 @@ internal fun Modifier.frostedBackdropSource(backdrop:FrostedBackdrop):Modifier =
                     translate(offset.x,offset.y) {drawLayer(backdrop.layer)}
                 }
                 drawLayer(blurred)
-            }
+            } else drawRect(Color(0xFF171C27).copy(alpha=.92f)) // Q18-046: nothing to blur, so the words beneath would show through.
             // A translucent tint keeps controls readable over bright covers, including at zero blur.
             drawRect(Color(0xFF171C27).copy(alpha=.64f))
             drawRect(Brush.linearGradient(listOf(White.copy(alpha=.06f+.10f*intensity.coerceIn(0f,1.5f)),Color.Transparent)))

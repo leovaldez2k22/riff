@@ -20,7 +20,8 @@ if ($status -and -not $AllowDirty) {
 }
 $tracked = git -C $project -c core.quotepath=off ls-files
 if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed.' }
-$files = @($tracked | Where-Object { $_ } |
+# D3 (owner, 19 October 2026): the design reference pictures in references/ are tracked but are not Riff's work.
+$files = @($tracked | Where-Object { $_ -and -not $_.StartsWith('references/') } |
     ForEach-Object { Join-Path $project $_ } | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
     ForEach-Object { Get-Item -LiteralPath $_ })
 $required = @('app/build.gradle.kts', 'settings.gradle.kts', 'gradlew', 'gradlew.bat',

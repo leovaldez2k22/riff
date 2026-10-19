@@ -77,6 +77,65 @@ internal object RiffLyrics {
     val heldShake = .25.dp
     /** The glow: a lighter pink than [Pink], so the white letters stay readable on it. */
     val glow = Color(0xFFFF9BD3)
+    /** Q18-037: the tint behind a line chosen for a card, reaching past the line at its sides and ends, and its corner. */
+    val chosenSide = 10.dp
+    val chosenEnd = 2.dp
+    val chosenCorner = 16.dp
+    /** F2: the share sheet's card preview corner and the space between the preview and the looks. */
+    val cardCorner = 18.dp
+    val sheetGap = 14.dp
+}
+
+/** Q18-013, Q18-042: the sign-in screens' glass, buttons, account rows, steps and bar (docs/quality/sign-in-design.md). */
+internal object RiffSignIn {
+    /** The glass of a screen's card. Buttons, rows and the footer use [corner]; the bar uses [barCorner]. */
+    val glass = 28.dp
+    val glassEdge = .7.dp
+    val corner = 18.dp
+    /** A button's least height, the reach of the pink button's glow, and its words. */
+    val button = 52.dp
+    val buttonGlow = 18.dp
+    val buttonText = 15.sp
+    /** A saved account: its coloured circle, the initial in it, the name, and the space at the row's sides. */
+    val avatar = 40.dp
+    val avatarText = 17.sp
+    val rowTitle = 15.sp
+    val rowSide = 10.dp
+    /** A step of Checking: its ring, the ring's line, the tick inside it, and the space above and below. */
+    val stepRing = 22.dp
+    val stepRingLine = 1.5.dp
+    val stepTick = 15.dp
+    val stepPad = 7.dp
+    /** The bar over Google's page and the accounts page: its height, the small record beside back, its corner and title. */
+    val barHeight = 64.dp
+    val barRecord = 44.dp
+    val barSide = 6.dp
+    val barCorner = 22.dp
+    val barTitle = 16.sp
+    /** A screen's title, a note under it, and the footer under Google's page with its button's greatest height. */
+    val title = 26.sp
+    val note = 13.sp
+    val footer = 60.dp
+    val footerButton = 44.dp
+    /** Inside a card, between its items, around a card that fills the width, and below the last card. */
+    val cardPad = 22.dp
+    /** Welcome's card has a little less space inside than the others (as designed before Q18-042). */
+    val welcomePad = 20.dp
+    val cardGap = 10.dp
+    val cardMargin = 10.dp
+    val cardBottom = 24.dp
+    /** The accounts page's search: the space inside its card and its corner; the lock beside Google's address. */
+    val fieldPad = 14.dp
+    val fieldCorner = 16.dp
+    val lock = 14.dp
+    /** Room above each screen's card for the record (recordSpot in AccountScreen.kt), and the record on Stop signing in. */
+    val manageTop = 150.dp
+    val welcomeTop = 130.dp
+    val firstRunTop = 232.dp
+    val connectedTop = 250.dp
+    val stopRecord = 64.dp
+    /** How far each part of Connected rises as it appears. */
+    val itemRise = 18.dp
 }
 
 /**

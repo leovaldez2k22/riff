@@ -107,6 +107,43 @@ class ManifestChecks(unittest.TestCase):
         self.assertTrue(any("provider" in text for text in failures(manifest(body=granting))))
         self.assertEqual([], failures(manifest(body=component("provider", "androidx.startup.InitializationProvider", "false"))))
 
+    # Q18-043: the lyric card's share provider is the one that may grant access, and only as reviewed.
+    @staticmethod
+    def share(name="androidx.core.content.FileProvider", authority="com.musicglass.personal.files", exported="false"):
+        extra = "\n".join([f"            A: {A}authorities(0x01010018)=\"{authority}\" (Raw: \"{authority}\")",
+                           f"            A: {A}grantUriPermissions(0x0101001b)=true",
+                           "            E: meta-data (line=40)",
+                           f"              A: {A}name(0x01010003)=\"android.support.FILE_PROVIDER_PATHS\" (Raw: \"android.support.FILE_PROVIDER_PATHS\")",
+                           f"              A: {A}resource(0x01010025)=@0x7f150004"])
+        return component("provider", name, exported, extra=extra)
+
+    @staticmethod
+    def paths(*entries):
+        lines = ["E: paths (line=3)"]
+        for kind, name, path in entries:
+            lines += [f"  E: {kind} (line=4)", f'    A: name="{name}" (Raw: "{name}")', f'    A: path="{path}" (Raw: "{path}")']
+        return content.parse_tree("\n".join(lines))
+
+    def provider_failures(self, body, paths):
+        return [text for ok, text in content.check_manifest(manifest(body=body), "com.musicglass.personal", RULES, paths) if not ok]
+
+    def test_the_reviewed_share_provider_passes(self):
+        reviewed = self.paths(("cache-path", "shared_lyrics", "shared_lyrics/"))
+        self.assertEqual([], self.provider_failures(self.share(), reviewed))
+        ok = [text for good, text in content.check_manifest(manifest(body=self.share()), "com.musicglass.personal", RULES, reviewed) if good]
+        self.assertTrue(any("reviewed: cache/shared_lyrics only" in text for text in ok))
+
+    def test_a_wider_or_different_share_fails(self):
+        reviewed = self.paths(("cache-path", "shared_lyrics", "shared_lyrics/"))
+        for paths in (self.paths(("cache-path", "shared_lyrics", ".")), self.paths(("files-path", "shared_lyrics", "shared_lyrics/")),
+                      self.paths(("cache-path", "shared_lyrics", "shared_lyrics/"), ("root-path", "all", "/")), None):
+            self.assertTrue(any("share provider" in text for text in self.provider_failures(self.share(), paths)), paths)
+        self.assertTrue(any("share provider" in text for text in self.provider_failures(self.share(authority="x.files"), reviewed)))
+        self.assertTrue(any("share provider" in text for text in self.provider_failures(self.share(name="x.MyProvider"), reviewed)))
+        self.assertTrue(any("exported" in text for text in self.provider_failures(self.share(exported="true"), reviewed)))
+        two = self.share() + "\n" + component("provider", "x.Other", "false", extra=f"            A: {A}grantUriPermissions(0x0101001b)=true")
+        self.assertTrue(any("share provider" in text for text in self.provider_failures(two, reviewed)))
+
     def test_permissions_must_be_exactly_the_reviewed_list(self):
         wanted = sorted(name.format(package="com.musicglass.personal") for name in content.PERMISSIONS)
         self.assertTrue(any("added ['android.permission.READ_CONTACTS']" in text for text in failures(manifest(permissions=wanted + ["android.permission.READ_CONTACTS"]))))
@@ -161,6 +198,22 @@ class CertificateChecks(unittest.TestCase):
         self.assertEqual(False, content.check_certificate("", True, self.PIN)[0])
         two = line + self.PIN + "\nSigner #2 certificate SHA-256 digest: " + "bd" * 32
         self.assertEqual(False, content.check_certificate(two, True, self.PIN)[0])
+
+    # Q18-047: a v2-only signature leaves no META-INF signature file; apksigner decides when it is given.
+    def test_apksigner_decides_whether_an_apk_is_signed(self):
+        line = "Signer #1 certificate SHA-256 digest: " + self.PIN
+        self.assertEqual((True, None), content.signature_state(False, True, line))
+        self.assertEqual((True, None), content.signature_state(True, True, line))
+        self.assertEqual((False, None), content.signature_state(False, False, "DOES NOT VERIFY\nERROR: Missing META-INF/MANIFEST.MF"))
+        signed, problem = content.signature_state(True, False, "DOES NOT VERIFY")
+        self.assertTrue(signed); self.assertIn("does not verify", problem)
+        self.assertEqual((False, None), content.signature_state(False, None, ""))
+        self.assertEqual((True, "apksigner is given for a signed APK"), content.signature_state(True, None, ""))
+
+    def test_a_v2_signed_apk_with_another_key_fails(self):
+        signed, problem = content.signature_state(False, True, "Signer #1 certificate SHA-256 digest: " + "bd" * 32)
+        self.assertTrue(signed); self.assertIsNone(problem)
+        self.assertEqual(False, content.check_certificate("Signer #1 certificate SHA-256 digest: " + "bd" * 32, signed, self.PIN)[0])
 
     def test_the_pin_is_read_from_the_signing_document(self):
         self.assertEqual(self.PIN, content.pinned_certificate("text\nCertificate SHA-256: " + self.PIN + "\nmore"))

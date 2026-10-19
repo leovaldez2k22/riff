@@ -112,23 +112,23 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
             modifier = Modifier.fillMaxSize().graphicsLayer { alpha = .075f })
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-            if (sharing) Row(Modifier.fillMaxWidth().padding(start = 12.dp,end = 20.dp,top = 8.dp,bottom = 10.dp).testTag("lyrics_share_header"),
+            if (sharing) Row(Modifier.fillMaxWidth().padding(start = RiffSpace.rowGap,end = 20.dp,top = RiffSpace.item,bottom = 10.dp).testTag("lyrics_share_header"),
                 verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = hapticClick { shareRange = null },modifier = Modifier.testTag("lyrics_share_cancel")) {
                     Icon(Icons.Rounded.Close,string(R.string.stop_sharing_lyrics),tint = White)
                 }
-                Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                Column(Modifier.weight(1f).padding(start = RiffSpace.item)) {
                     Text(string(R.string.share_lyrics),color = Pink,fontSize = 11.sp,letterSpacing = 2.sp,fontWeight = FontWeight.SemiBold)
                     Text(string(R.string.x_of_y_lines,shareRange?.count() ?: 0,LYRIC_SHARE_MAX_LINES),color = White,fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,modifier = Modifier.testTag("lyrics_share_count"))
                     Text(string(R.string.share_lyrics_hint),color = Muted,fontSize = 13.sp,maxLines = 1,overflow = TextOverflow.Ellipsis)
                 }
-            } else Row(Modifier.fillMaxWidth().padding(start = 12.dp,end = 20.dp,top = 8.dp,bottom = 10.dp),
+            } else Row(Modifier.fillMaxWidth().padding(start = RiffSpace.rowGap,end = 20.dp,top = RiffSpace.item,bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = hapticClick(onBack),modifier = Modifier.testTag("lyrics_back")) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack,string(R.string.back_to_player),tint = White)
                 }
-                Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                Column(Modifier.weight(1f).padding(start = RiffSpace.item)) {
                     Text(string(R.string.lyrics),color = Pink,fontSize = 11.sp,letterSpacing = 2.sp,fontWeight = FontWeight.SemiBold)
                     Text(state.title.ifBlank { string(R.string.nothing_playing) },color = White,fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,maxLines = 1,overflow = TextOverflow.Ellipsis,
@@ -143,7 +143,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
             Row(Modifier.fillMaxWidth().padding(horizontal=24.dp),verticalAlignment=Alignment.CenterVertically) {
                 FilterChip(translate,{ uiHaptic(HapticCue.Selection); translate=!translate},enabled=songLyrics?.lines?.isNotEmpty()==true,label={Text(string(R.string.english_translation))},
                     leadingIcon={Icon(Icons.Rounded.Translate,null,modifier=Modifier.size(18.dp))},modifier=Modifier.testTag("lyrics_translate"))
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(RiffSpace.item))
                 Box {TextButton({ uiHaptic(); languageMenu=true}) {Text(sourceLanguage?.let {java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.ENGLISH)}?:string(R.string.auto_language),maxLines=1)}
                     SongActionMenu(languageMenu,{languageMenu=false},modifier=Modifier.heightIn(max=340.dp)) {
                         DropdownMenuItem(text={Text(string(R.string.auto_detect))},onClick={ uiHaptic(); sourceLanguage=null;languageMenu=false})
@@ -151,7 +151,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                     }
                 }
             }
-            if(translate && translation.status.isNotBlank()) Text(translation.status,color=Muted,fontSize=12.sp,modifier=Modifier.padding(horizontal=28.dp,vertical=4.dp))
+            if(translate && translation.status.isNotBlank()) Text(translation.status,color=Muted,fontSize=RiffType.detail,modifier=Modifier.padding(horizontal=28.dp,vertical=RiffSpace.tight))
             when {
                 songLyrics?.instrumental == true -> LyricsMessage(string(R.string.instrumental),string(R.string.this_recording_has_no_sung_lyrics),Modifier.weight(1f))
                 songLyrics != null && songLyrics.lines.isNotEmpty() -> {
@@ -183,7 +183,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                                                 longPressLabel = string(R.string.share_lyrics)))
                                 }
                                 if(translate) translation.english.getOrNull(index)?.let {english->Text(english,color=if(active) White else Muted,fontSize=18.sp,
-                                    modifier=Modifier.padding(top=8.dp).testTag("lyric_english_$index"))}
+                                    modifier=Modifier.padding(top=RiffSpace.item).testTag("lyric_english_$index"))}
                             }
                         }
                     }
@@ -193,22 +193,22 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                     if (!motion.reduced) CircularProgressIndicator(color = Pink,modifier = Modifier.size(26.dp))
                     Spacer(Modifier.height(20.dp))
                     Text(string(R.string.finding_the_best_lyrics),color = White,fontSize = 20.sp)
-                    Text(string(R.string.looking_for_word_and_line_timing),color = Muted,fontSize = 14.sp)
+                    Text(string(R.string.looking_for_word_and_line_timing),color = Muted,fontSize = RiffType.body)
                 }
                 else -> Column(Modifier.weight(1f).fillMaxWidth().padding(28.dp),verticalArrangement = Arrangement.Center) {
                     Text(if (failed) string(R.string.couldn_t_load_lyrics) else string(R.string.no_lyrics_found),color = White,fontSize = 26.sp,fontWeight = FontWeight.Bold)
                     Text(if (failed) string(R.string.check_your_connection_and_try_again) else string(R.string.lyrics_aren_t_available_for_this_recording),
-                        color = Muted,fontSize = 15.sp,modifier = Modifier.padding(top = 10.dp,bottom = 16.dp))
+                        color = Muted,fontSize = 15.sp,modifier = Modifier.padding(top = 10.dp,bottom = RiffSpace.block))
                     TextButton(onClick = { uiHaptic();  refresh++ },modifier = Modifier.testTag("lyrics_retry")) { Text(string(R.string.try_again),color = Pink) }
                 }
             }
             if (!follow && timed) TextButton(onClick = { uiHaptic();  follow = true },
                 modifier = Modifier.align(Alignment.CenterHorizontally).testTag("lyrics_follow")) { Text(string(R.string.follow_lyrics),color = Pink) }
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp,vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                verticalAlignment = Alignment.CenterVertically,horizontalArrangement = Arrangement.spacedBy(RiffSpace.item)) {
                 Text(when { songLyrics?.wordTimed == true -> string(R.string.word_synced); timed -> string(R.string.line_synced)
                     songLyrics?.instrumental == true -> string(R.string.instrumental); songLyrics != null -> string(R.string.text_lyrics); else -> "" },
-                    color = Pink,fontSize = 12.sp,modifier = Modifier.testTag("lyrics_sync_level"))
+                    color = Pink,fontSize = RiffType.detail,modifier = Modifier.testTag("lyrics_sync_level"))
                 if (loading && songLyrics != null) Text(string(R.string.finding_finer_timing),color = Muted,fontSize = 11.sp,
                     modifier = Modifier.weight(1f)) else Spacer(Modifier.weight(1f))
                 if (songLyrics != null) Text(songLyrics.source,color = Muted,fontSize = 11.sp,maxLines = 1,
@@ -217,11 +217,11 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
             }
             if (sharing) Button(hapticClick { shareSheet = true },
                 colors = ButtonDefaults.buttonColors(containerColor = Pink,contentColor = Color.Black),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 12.dp).heightIn(min = 52.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = RiffSpace.rowGap).heightIn(min = 52.dp)
                     .testTag("lyrics_share_open")) {
-                Icon(Icons.Rounded.Share,null,modifier = Modifier.size(20.dp)); Spacer(Modifier.width(8.dp))
+                Icon(Icons.Rounded.Share,null,modifier = Modifier.size(20.dp)); Spacer(Modifier.width(RiffSpace.item))
                 Text(string(R.string.share_these_lines),fontWeight = FontWeight.SemiBold)
-            } else Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 8.dp),
+            } else Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = RiffSpace.item),
                 horizontalArrangement = Arrangement.Center,verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = hapticClick(playback::previous),enabled = state.queue.size > 1) { Icon(Icons.Rounded.FastRewind,string(R.string.previous_track),tint = Muted) }
                 IconButton(onClick = hapticClick(playback::toggle),modifier = Modifier.size(56.dp).testTag("lyrics_toggle")) {
@@ -268,6 +268,6 @@ internal fun LyricsTimingDialog(offsetMs: Long, onOffset: (Long) -> Unit, onDism
 private fun LyricsMessage(title: String,subtitle: String,modifier: Modifier) {
     Column(modifier.fillMaxWidth().padding(28.dp),verticalArrangement = Arrangement.Center) {
         Text(title,color = White,fontSize = 28.sp,fontWeight = FontWeight.Bold)
-        Text(subtitle,color = Muted,fontSize = 16.sp,modifier = Modifier.padding(top = 12.dp))
+        Text(subtitle,color = Muted,fontSize = RiffType.message,modifier = Modifier.padding(top = RiffSpace.rowGap))
     }
 }

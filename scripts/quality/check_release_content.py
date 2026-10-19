@@ -6,10 +6,12 @@
 
 Checks, each printed as "ok" or "FAIL": backup and device transfer excluded, cleartext off with no network
 security override, not debuggable and not test-only, the exported components and the permissions are exactly
-the reviewed lists below, no provider is exported or grants URI access, nothing from the stress, fixture or
-benchmark builds is inside, no key or credential file is inside, and, for a signed APK, the certificate is the
-one pinned in docs/release-signing.md. An unsigned APK (every local and CI build) reports the certificate as
-"not checked": that is not a pass for the certificate.
+the reviewed lists below, no provider is exported and only the reviewed share provider grants URI access (Q18-043),
+nothing from the stress, fixture or benchmark builds is inside, no key or credential file is inside, and, for a
+signed APK, the certificate is the one pinned in docs/release-signing.md. With --apksigner, apksigner decides
+whether the APK is signed, under any scheme (Q18-047: Riff's releases carry a v2 signature only). An unsigned APK
+(every local and CI build), or one checked without --apksigner, reports the certificate as "not checked": that is
+not a pass for the certificate.
 
 The lists are the review. A new exported component or permission fails here until someone adds it on purpose.
 Exit status: 0 every check ok, 2 a check failed, 3 the tools could not read the APK.
@@ -38,6 +40,10 @@ PERMISSIONS = {
     "android.permission.READ_MEDIA_AUDIO", "android.permission.READ_EXTERNAL_STORAGE",
     "android.permission.WAKE_LOCK", "{package}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
 }
+# Q18-043: the one provider that may grant URI access, the lyric card's share (F2): androidx's FileProvider at
+# <package>.files, not exported, whose paths file names only the shared_lyrics folder of the cache.
+SHARE_PROVIDER = "androidx.core.content.FileProvider"
+SHARE_PATHS = [("cache-path", "shared_lyrics", "shared_lyrics/")]
 # Names that exist only in test, stress, fixture or benchmark code.
 FOREIGN_MANIFEST = ("FeatureTestActivity", "FeaturePreviewActivity", "StressDiagnostics", "BenchmarkFeed",
                     "benchmark-feed", "androidx.test", "android.test.runner", "instrumentation")
@@ -119,8 +125,26 @@ def excludes_everything(rules):
     return True
 
 
-def check_manifest(manifest, package, rules):
-    """(ok, text) for every manifest check. `rules` is the parsed data extraction rules, or None when absent."""
+def share_paths_reference(provider):
+    """The FILE_PROVIDER_PATHS resource a provider names, or None."""
+    for item in provider.all("meta-data"):
+        if item.get("name") == "android.support.FILE_PROVIDER_PATHS":
+            return item.get("resource")
+    return None
+
+
+def is_reviewed_share(provider, package, paths):
+    """True for the reviewed share provider only: see SHARE_PROVIDER. `paths` is its parsed paths file, or None."""
+    if provider.get("name") != SHARE_PROVIDER or provider.get("authorities") != package + ".files":
+        return False
+    if provider.get("exported") != "false" or paths is None or paths.name != "paths":
+        return False
+    return [(child.name, child.get("name"), child.get("path")) for child in paths.children] == SHARE_PATHS
+
+
+def check_manifest(manifest, package, rules, share_paths=None):
+    """(ok, text) for every manifest check. `rules` is the parsed data extraction rules, or None when absent;
+    `share_paths` the parsed paths file of the share provider, or None."""
     results = []
 
     def add(ok, text):
@@ -155,8 +179,12 @@ def check_manifest(manifest, package, rules):
     add(exported == EXPORTED, "exported components are the reviewed four: " +
         ("yes" if exported == EXPORTED else "found " + ", ".join(sorted(f"{k} [{v}]" for k, v in exported.items()))))
     providers = manifest.all("provider")
-    add(all(item.get("exported") == "false" and item.get("grantUriPermissions") in (None, "false") for item in providers),
-        f"no provider is exported or grants URI access ({len(providers)} providers)")
+    granting = [item for item in providers if item.get("grantUriPermissions") not in (None, "false")]
+    add(all(item.get("exported") == "false" for item in providers), f"no provider is exported ({len(providers)} providers)")
+    add(len(granting) <= 1 and all(is_reviewed_share(item, package, share_paths) for item in granting),
+        "only the reviewed share provider grants URI access: " + ("yes" if not granting else ", ".join(
+            f"{item.get('name')} [{item.get('authorities')}]" for item in granting) +
+            (" (reviewed: cache/shared_lyrics only)" if len(granting) == 1 and is_reviewed_share(granting[0], package, share_paths) else " (not reviewed)")))
     wanted = {name.format(package=package) for name in PERMISSIONS}
     asked = {item.get("name") for item in manifest.all("uses-permission") + manifest.all("uses-permission-sdk-23")}
     add(asked == wanted, "permissions are the reviewed list: " + ("yes" if asked == wanted else
@@ -198,7 +226,30 @@ def check_certificate(signer_output, signed, pinned):
 
 
 def is_signed(names):
+    """A v1 (JAR) signature file is inside. A v2 or v3 signature leaves none, so this is only a hint (Q18-047)."""
     return any(re.match(r"META-INF/[^/]+\.(RSA|DSA|EC)$", name) for name in names)
+
+
+def signature_state(v1_files, verified, output):
+    """(signed, problem) from the v1 hint and an apksigner run: `verified` is None when apksigner was not given,
+    else whether `apksigner verify` succeeded, with its `output`. Without apksigner a v2-only APK cannot be told
+    from an unsigned one, so it is reported as not checked, never as a pass."""
+    if verified is None:
+        return (True, "apksigner is given for a signed APK") if v1_files else (False, None)
+    if verified:
+        return True, None
+    if v1_files or "Signer #" in output:
+        return True, "the signature does not verify: " + output.strip()[:160]
+    return False, None
+
+
+def run_status(tool, *arguments):
+    """(succeeded, stdout and stderr) of a tool that is allowed to fail."""
+    try:
+        done = subprocess.run([str(Path(str(tool)).resolve()), *arguments], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ContentError(f"{Path(str(tool)).name} could not run: {error.__class__.__name__}")
+    return done.returncode == 0, done.stdout + done.stderr
 
 
 def run(tool, *arguments):
@@ -223,14 +274,20 @@ def audit(args):
     with zipfile.ZipFile(apk) as archive:
         names = archive.namelist()
         dex = [archive.read(name) for name in names if re.fullmatch(r"classes\d*\.dex", name)]
-    results = check_manifest(manifest, args.package, rules) + check_files(names, dex)
-    signed = is_signed(names)
+    share_paths = None
+    granting = [item for item in manifest.all("provider") if item.get("grantUriPermissions") not in (None, "false")]
+    reference = share_paths_reference(granting[0]) if len(granting) == 1 else None
+    if reference:
+        share_paths = parse_tree(run(args.aapt2, "dump", "xmltree", str(apk), "--file",
+                                     resource_file(run(args.aapt2, "dump", "resources", str(apk)), reference)))
+    results = check_manifest(manifest, args.package, rules, share_paths) + check_files(names, dex)
     pinned = pinned_certificate(Path(args.signing_doc).read_text(encoding="utf-8"))
-    if signed and not args.apksigner:
-        results.append((False, "apksigner is given for a signed APK"))
+    verified, output = run_status(args.apksigner, "verify", "--print-certs", str(apk)) if args.apksigner else (None, "")
+    signed, problem = signature_state(is_signed(names), verified, output)
+    if problem:
+        results.append((False, problem))
     else:
-        output = run(args.apksigner, "verify", "--print-certs", str(apk)) if signed else ""
-        results.append(check_certificate(output, signed, pinned))
+        results.append(check_certificate(output if signed else "", signed, pinned))
     return results
 
 
