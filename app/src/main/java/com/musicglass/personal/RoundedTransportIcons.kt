@@ -7,7 +7,6 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
-import androidx.compose.ui.unit.dp
 
 /**
  * Shuffle and repeat drawn as strokes with round ends and corners, so they match the rounded play, skip and rewind
@@ -47,7 +46,7 @@ internal object RoundedTransportIcons {
     }
 
     private fun icon(name: String, data: PathBuilder.() -> Unit): ImageVector =
-        ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f)
+        ImageVector.Builder(name, RiffSpace.icon, RiffSpace.icon, 24f, 24f)
             .path(stroke = SolidColor(Color.White), strokeLineWidth = STROKE,
                 strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round, pathBuilder = data)
             .build()

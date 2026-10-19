@@ -36,6 +36,8 @@ internal object RiffSpace {
     /** A list row with artwork: one line of title and one of detail. */
     val listRow = 60.dp
     val listArtwork = 48.dp
+    /** The size an icon is drawn for on its own: Material's 24 dp grid (RoundedTransportIcons, Q18-016). */
+    val icon = 24.dp
 }
 
 internal object RiffRadius {
