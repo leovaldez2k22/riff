@@ -95,6 +95,7 @@ internal fun Modifier.blockTouchesBelow(): Modifier = pointerInput(Unit) {
 
 internal suspend fun playRealTrack(provider: YouTubeMusicProvider, playback: PlaybackGateway,
     track: ProviderTrack, onNotice: (String) -> Unit,video:Boolean=false) {
+    SongTaps.tapped("yt:${track.videoId}")
     if(!video && !track.isLive) {playback.playSong(track);return}
     val revision = provider.authRevision
     kotlinx.coroutines.withTimeoutOrNull(if(track.isLive) 60_000 else 30_000) {provider.resolve(track.videoId,track.isLive,video=video || track.isLive)}.let {result->

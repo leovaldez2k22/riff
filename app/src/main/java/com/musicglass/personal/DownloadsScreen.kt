@@ -198,7 +198,7 @@ private data class DownloadListing(val entries:List<DownloadDisplay>,val used:Lo
     fun play(id:String?=null,shuffle:Boolean=false) {
         if(tracks.isEmpty()) return
         val index=if(shuffle) tracks.indices.random() else if(id==null) 0 else tracks.indexOfFirst {it.videoId==id}
-        if(index>=0) {uiHaptic();playback.playCollection(tracks,index,string(R.string.downloads),shuffle)}
+        if(index>=0) {uiHaptic();if(id!=null && !shuffle) SongTaps.tapped("yt:$id");playback.playCollection(tracks,index,string(R.string.downloads),shuffle)}
     }
     LazyColumn(state=listState,modifier=Modifier.fillMaxSize().background(tone).testTag("downloads_detail"),
         contentPadding=PaddingValues(bottom=bottom)) {

@@ -135,6 +135,11 @@ internal fun RiffApp() {
         PerfTrace.shown("skip")
         model.miniVisible = playback.state.mediaId.isNotBlank()
         if (!model.miniVisible) model.sheet = ""
+        model.mediaChanged(playback.state.mediaId, System.currentTimeMillis())
+    }
+    DisposableEffect(model, playback) {
+        SongTaps.listener = { id -> model.songTapped(id, playback.state.mediaId, System.currentTimeMillis()) }
+        onDispose { SongTaps.listener = null }
     }
     LaunchedEffect(playback.state.mediaId,playback.state.title,playback.state.artist,playback.state.durationMs,playback.state.playing) {
         val state=playback.state

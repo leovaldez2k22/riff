@@ -134,7 +134,7 @@ internal fun OnDeviceScreen(model: ShellModel, bottom: androidx.compose.ui.unit.
                 val track = tracks[position]
                 Row(Modifier.fillMaxWidth().height(64.dp)
                     .then(if (motion.reduced) Modifier else Modifier.animateItem())
-                    .motionClickable { playback.playLocal(track) }
+                    .motionClickable { SongTaps.tapped("local:${track.id}"); playback.playLocal(track) }
                     .testTag("local_track_${track.id}"),
                     verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.PlayArrow, contentDescription = string(R.string.play_x, track.title),

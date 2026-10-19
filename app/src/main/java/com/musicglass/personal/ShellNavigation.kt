@@ -172,6 +172,15 @@ internal data class ShellScreen(val tab: String, val depth: Int, val route: Rout
 }
 
 /** Where the user is in the shell, and the few things about a root that outlive leaving it. */
+/** F1: a song that takes longer than this to start (a slow stream, a failure) no longer pulls the player open. */
+internal const val SONG_TAP_OPENS_PLAYER_WITHIN_MS = 30_000L
+
+/** F1: screens that start a song the owner tapped tell the shell here; RiffApp listens while it is shown. */
+internal object SongTaps {
+    @Volatile internal var listener: ((String) -> Unit)? = null
+    fun tapped(mediaId: String) { listener?.invoke(mediaId) }
+}
+
 internal class ShellModel {
     private var root by mutableStateOf(RootTab.Home)
     private var routes by mutableStateOf(mapOf<RootTab, List<Route>>())
@@ -214,6 +223,19 @@ internal class ShellModel {
     val selectedCollectionTitle: String get() = shownCollection?.title ?: string(R.string.collection)
 
     var miniVisible by mutableStateOf(false)
+    /** F1: when the owner last tapped a song to play it; the full player opens once that song is the one playing. */
+    private var playerWantedAtMs: Long? = null
+    fun songTapped(mediaId: String, currentMediaId: String, nowMs: Long) {
+        if (mediaId == currentMediaId && miniVisible) openPlayer() else playerWantedAtMs = nowMs
+    }
+    /** The playing song changed (or the first one started). A recent tap opens the player; a stale one is dropped. */
+    fun mediaChanged(mediaId: String, nowMs: Long) {
+        val wanted = playerWantedAtMs ?: return
+        if (mediaId.isBlank()) return
+        playerWantedAtMs = null
+        if (nowMs - wanted in 0..SONG_TAP_OPENS_PLAYER_WITHIN_MS && miniVisible) openPlayer()
+    }
+    private fun openPlayer() { if (sheet.isEmpty()) sheet = "mini" }
     var searchQuery by mutableStateOf("")
     var homeMood by mutableStateOf("")
     var podcastGenre by mutableStateOf("For you")

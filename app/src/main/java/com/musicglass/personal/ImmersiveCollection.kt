@@ -77,6 +77,7 @@ import kotlinx.coroutines.launch
         if(!complete) {pendingPlay=index to shuffle;onNotice(string(R.string.starting_once_all_songs_load));return}
         val queue=ordered.mapNotNull {tracks.getOrNull(it.index)}
         val start=if(index==null) 0 else ordered.indexOfFirst {it.index==index}.coerceAtLeast(0)
+        if(index!=null && !shuffle) queue.getOrNull(start)?.let {SongTaps.tapped("yt:${it.videoId}")}
         playback.playCollection(queue,start,data.title,shuffle)
     }
     LaunchedEffect(complete,pendingPlay) {

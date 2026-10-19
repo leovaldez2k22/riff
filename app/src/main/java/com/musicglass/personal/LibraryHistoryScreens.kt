@@ -78,7 +78,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
         scope.launch {
             // The name must match too: after an import from another phone the same number can be a different file.
             val local = LocalAudioRepository(context).list().getOrNull()?.firstOrNull { it.id == id && it.title.take(180) == entry.title }
-            if (local != null) playback.playLocal(local) else onNotice(string(R.string.this_file_is_no_longer_on_your))
+            if (local != null) { SongTaps.tapped(entry.mediaId); playback.playLocal(local) } else onNotice(string(R.string.this_file_is_no_longer_on_your))
         }
     }
     val shown = entries
