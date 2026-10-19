@@ -76,7 +76,7 @@ import kotlinx.coroutines.withContext
                     }
                     CapsuleSlider(boostLevel,{boostLevel=it},valueRange=100f..300f,
                         onValueChangeFinished={audio.updatePercent(boostLevel.toInt())},
-                        haptics=SliderHaptics.Intensity,label=string(R.string.boost_level),spokenValue=quantity(R.plurals.n_percent,boostLevel.toInt()),
+                        haptics=SliderHaptics.Boost,label=string(R.string.boost_level),spokenValue=quantity(R.plurals.n_percent,boostLevel.toInt()),
                         modifier=Modifier.fillMaxWidth().testTag("settings_boost_level"))
                 }
             }
@@ -95,7 +95,7 @@ import kotlinx.coroutines.withContext
                     }
                     CapsuleSlider(crossfadeLength,{crossfadeLength=it},valueRange=1f..12f,steps=10,
                         onValueChangeFinished={crossfade.updateSeconds(crossfadeLength.roundToInt())},
-                        haptics=SliderHaptics.Intensity,label=string(R.string.crossfade_length),spokenValue=quantity(R.plurals.n_seconds,crossfadeLength.roundToInt()),
+                        haptics=SliderHaptics.Seconds,label=string(R.string.crossfade_length),spokenValue=quantity(R.plurals.n_seconds,crossfadeLength.roundToInt()),
                         modifier=Modifier.fillMaxWidth().testTag("settings_crossfade_length"))
                 }
             }

@@ -163,7 +163,8 @@ class AccessibilitySemanticsTest {
     @Test fun everyCueHasAConstantAnOlderPhoneKnows() {
         // API 31-33 know none of the four constants added in 34; given one, the view does nothing at all.
         val before34 = setOf(HapticFeedbackConstants.CONFIRM, HapticFeedbackConstants.REJECT, HapticFeedbackConstants.GESTURE_END,
-            HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.CLOCK_TICK, HapticFeedbackConstants.CONTEXT_CLICK)
+            HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.CLOCK_TICK, HapticFeedbackConstants.CONTEXT_CLICK,
+            HapticFeedbackConstants.VIRTUAL_KEY)
         for (sdk in 31..33) HapticCue.entries.forEach { assertTrue("$it on API $sdk", hapticConstant(it, sdk) in before34) }
         assertEquals(HapticFeedbackConstants.CLOCK_TICK, hapticConstant(HapticCue.Threshold, 33))
         assertEquals(HapticFeedbackConstants.GESTURE_THRESHOLD_ACTIVATE, hapticConstant(HapticCue.Threshold, 34))
