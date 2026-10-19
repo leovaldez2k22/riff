@@ -107,13 +107,13 @@ Rough times are in brackets.
 
 | No. | Decision | Blocks |
 |---|---|---|
-| D1 | Publishing: personal use only, source only, or source plus signed APKs; and whether anything is pushed | R6, G10, G12 |
-| D2 | ML Kit translation under Google's terms in a GPL-3.0 app: keep (after a qualified review) or remove | R1, G07, G11 |
-| D3 | The four reference images in `references/`: in the source archive or not | R2 |
-| D4 | The jsDelivr pre-processed player script: keep or turn off | R1, G07 |
-| D5 | The 1.15 s logo against the 1.2 s cold-start budget: accept or shorten | G05 |
-| D6 | Darker scrims and black text on pink buttons (chosen by arithmetic): accept or ask for a design pass | G06 |
-| D7 | "Remove download" while a download is queued or running: keep or narrow | none |
+| D1 | Publishing: personal use only, source only, or source plus signed APKs; and whether anything is pushed. **Decided 19 Oct 2026:** personal use only; nothing is pushed or published. R6 records no publication; G10 and G12 note it. Publishing later reopens D2 and D3 | R6, G10, G12 |
+| D2 | ML Kit translation under Google's terms in a GPL-3.0 app: keep (after a qualified review) or remove. **Decided 19 Oct 2026:** keep ML Kit translation (personal use, no distribution). If Riff is ever published, remove it or get a qualified licence review first | R1, G07, G11 |
+| D3 | The four reference images in `references/`: in the source archive or not. **Decided 19 Oct 2026:** the four reference images stay out of the source archive | R2 |
+| D4 | The jsDelivr pre-processed player script: keep or turn off. **Decided 19 Oct 2026 (Q18, confirmed again in Q19D):** keep the jsDelivr fallback; it runs only in the sandboxed :solver process when the challenge is not solved otherwise, keeps playback working after a YouTube player change, and stays disclosed in privacy.md. It does not speed up normal song starts | R1, G07 |
+| D5 | The 1.15 s logo against the 1.2 s cold-start budget: accept or shorten. **Decided 19 Oct 2026:** accept the 1.15 s logo for now; the owner judges it by eye in A4, and it is shortened in Q19G if it feels long | G05 |
+| D6 | Darker scrims and black text on pink buttons (chosen by arithmetic): accept or ask for a design pass. **Decided 19 Oct 2026:** accept the darker scrims and black text on pink buttons; no design pass | G06 |
+| D7 | "Remove download" while a download is queued or running: keep or narrow. **Decided 19 Oct 2026:** keep "Remove download" while a download is queued or running | none |
 | D8 | AGP upgrade to a release that bundles R8 9.1.29 or newer (Q18-024). **Decided 19 Oct 2026: no.** The 179 warnings stay, documented as a known limitation with the reason (a major toolchain change at the end would put every tested build at risk; nothing visible traced to the warnings). Revisit after the stretch, or if D1 publishes signed APKs | G08 |
 | D9 | Plan 2's supplement (S00 to S07). **Decided 19 Oct 2026, package by package:** S00 in scope; S01 declined (follows D8); S02 in scope for its tests and checks (no credential to the config hosts; bad, oversized, redirected and wrong-host files rejected with the last good copy kept; nothing evaluated outside :solver where the library allows), with anything the library blocks written down; S03 in scope for artifact fingerprints and the source archive only (the build-from-source fallback declined); S04 as the D1 decision record (the distribution-risk document and sign-in notice only if D1 publishes); S05, S06 and S07 declined. Each declined package is named in the final report as a known limitation | Q19F5, G01 |
 | D10 | Final version name and code. **Decided 19 Oct 2026:** test candidates 0.10.0-rc2 (then rc3 and on, if Q19G needs a rebuild), each with a higher version code; the final candidate in R2 is 0.10.0 with a code above every earlier build. Before A7 (R3), the main app's version code on the phone is checked to be lower | Q19C4, R2, G10 |
@@ -195,7 +195,7 @@ performance.md as known limitations (owner agrees).
 
 | No. | Work |
 |---|---|
-| G1 | Log and fix (computer), C10 per bug, JVM, lint, emulator lane on API 36 |
+| G1 | Log and fix (computer), C10 per bug, JVM, lint, emulator lane on API 36. Also D3: leave `references/` out of the source archive (the archive builder and the packaging lane's check; today the four images are tracked and would be included) |
 | G2 | New candidate (owner signs) |
 | G3 | The affected B13 and A9 rows again on the phone |
 
