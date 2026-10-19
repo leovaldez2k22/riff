@@ -88,13 +88,15 @@ the content happened to look like a word. That is a review rule the test cannot 
 - The live player's video identifier is checked (11 characters of the identifier alphabet) before it is
   written into the address.
 
-**Open, low severity: content addresses in the sign-in browser.** `allowContentAccess` is on there, with a
-comment that the system picker's result needs it when the user sets a profile picture inside Google's pages.
-I believe an upload through the file chooser does not need it, but that can only be shown on a device and I
-did not change sign-in behaviour blind. While it is on, a page on one of the four allowed domains could ask
-the browser to load a `content://` address the app can read. Only Google's own pages can be the main frame;
-the exposure is to them. To close it: set it to `false`, sign in on a test device, change the profile picture
-from Google's page, and keep the change if the upload works.
+**Closed in Q18F (Q18-027): content addresses in the sign-in browser.** `allowContentAccess` was on there for
+a profile-picture upload inside Google's pages. Q18B11 showed on the owner's phone that the upload reaches
+Google's crop screen with it off as well, so it is now `false`; WebBoundariesTest checks that no browser turns
+it on. The upload is repeated once on the final candidate (A9).
+
+**Q18F (Q18-009): Google's country domains.** Google's sign-in moves to the user's country domain
+(accounts.google.co.in and others), which the allow-list refused. The list now adds Google's own country
+domains, fixed from google.com/supported_domains (GoogleDomains.kt), not a pattern: a google.<suffix> that
+Google does not list, and every lookalike already refused, stays refused (WebBoundariesTest).
 
 **Not a finding, recorded:** the request to Google's attestation service carries an API key that is written
 in the source. It is the public key of YouTube's own web client, the same for every user; it is not a

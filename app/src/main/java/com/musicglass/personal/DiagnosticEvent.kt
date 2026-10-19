@@ -124,7 +124,7 @@ internal fun hostClass(host: String?): String {
         under("googlevideo.com") -> "googlevideo"
         under("youtube.com") || under("youtu.be") || under("youtube-nocookie.com") -> "youtube"
         under("ytimg.com") || under("ggpht.com") || under("googleusercontent.com") -> "google_images"
-        under("google.com") || under("gstatic.com") || under("googleapis.com") -> "google"
+        under("google.com") || under("gstatic.com") || under("googleapis.com") || googleCountryDomains.any(::under) -> "google"
         else -> "other"
     }
 }

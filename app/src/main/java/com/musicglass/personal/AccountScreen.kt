@@ -267,7 +267,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     settings.allowFileAccess = false
-                    settings.allowContentAccess = true // Scoped system-picker content URIs for profile images.
+                    settings.allowContentAccess = false // The picker's result reaches the page through onShowFileChooser; checked in Q18B11 (Q18-027).
                     CookieManager.getInstance().setAcceptCookie(true)
                     CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                     webChromeClient = object : WebChromeClient() {
@@ -404,6 +404,6 @@ internal fun SignInBrowserActions(verifying: Boolean, onContinue: () -> Unit,
     }
 }
 
-internal val signInDomains = listOf("youtube.com", "google.com", "googleusercontent.com", "gstatic.com")
+internal val signInDomains = listOf("youtube.com", "google.com", "googleusercontent.com", "gstatic.com") + googleCountryDomains
 
 internal fun allowedSignInUrl(url: String): Boolean = httpsAddressOn(url, signInDomains) != null

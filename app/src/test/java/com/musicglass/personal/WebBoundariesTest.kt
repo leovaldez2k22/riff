@@ -51,6 +51,20 @@ class WebBoundariesTest {
             assertTrue(address, allowedSignInUrl(address))
     }
 
+    /** Q18-009: Google's sign-in moves to the user's country domain; those are Google's, lookalikes of them are not. */
+    @Test fun googlesOwnCountryDomainsAreAllowedForSignInAndLookalikesOfThemAreNot() {
+        for (address in listOf("https://accounts.google.co.in/accounts/SetSID", "https://www.google.co.in/", "https://accounts.google.com.br/",
+            "https://accounts.google.co.uk/", "https://accounts.google.de/", "https://ACCOUNTS.GOOGLE.CO.IN/"))
+            assertTrue(address, allowedSignInUrl(address))
+        for (address in listOf("https://accounts.google.co.in.attacker.example/", "https://google.co.in.attacker.example/",
+            "https://googlex.co.in/", "https://notgoogle.co.in/", "https://google.evil/", "https://google.co.zz/", "https://google.com.zz/",
+            "http://accounts.google.co.in/", "https://accounts.google.co.in:8443/", "https://accounts.google.co.in@attacker.example/",
+            "https://co.in/", "https://google.co/x"))
+            assertFalse(address, allowedSignInUrl(address))
+        assertTrue("Every listed domain is a google.<suffix>", googleCountryDomains.all { it.matches(Regex("""google\.[a-z]{2,3}(\.[a-z]{2})?""")) })
+        assertTrue(googleCountryDomains.size > 150)
+    }
+
     @Test fun anAppLinkIsNeverExecutedAndItsFallbackMustBeAnApprovedHttpsAddress() {
         fun link(fallback: String, scheme: String = "https", host: String = "accounts.google.com") =
             "intent://$host/setup#Intent;scheme=$scheme;package=com.attacker;component=com.attacker/.Steal;" +
@@ -115,8 +129,9 @@ class WebBoundariesTest {
             assertTrue(name, "StrictWebViewClient()" in text)
             assertTrue(name, Regex("allowFileAccess\\s*=\\s*false").containsMatchIn(text))
         }
-        // Content addresses stay open in one browser only, for the system picker's result (see security-review.md).
-        assertEquals(listOf("AccountScreen.kt"), all.filter { Regex("allowContentAccess\\s*=\\s*true").containsMatchIn(it.value) }.keys.toList())
+        // No browser opens content addresses: the picker's result reaches the sign-in page without it (Q18B11, Q18-027).
+        assertEquals(emptyList<String>(), all.filter { Regex("allowContentAccess\\s*=\\s*true").containsMatchIn(it.value) }.keys.toList())
+        assertTrue(Regex("allowContentAccess\\s*=\\s*false").containsMatchIn(all.getValue("AccountScreen.kt")))
     }
 
     @Test fun onlyAVideoIdentifierIsWrittenIntoThePlayerAddress() {

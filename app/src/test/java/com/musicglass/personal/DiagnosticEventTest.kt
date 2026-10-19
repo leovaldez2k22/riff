@@ -131,6 +131,8 @@ class DiagnosticEventTest {
         assertEquals("googlevideo", hostClass("rr4---sn-abc.googlevideo.com"))
         assertEquals("youtube", hostClass("music.youtube.com")); assertEquals("youtube", hostClass("YouTube.com."))
         assertEquals("google_images", hostClass("i.ytimg.com")); assertEquals("google", hostClass("accounts.google.com"))
+        // Q18-028: Google's country domains are Google's; a lookalike of one is not.
+        assertEquals("google", hostClass("accounts.google.co.in")); assertEquals("other", hostClass("accounts.google.co.in.attacker.example"))
         assertEquals("other", hostClass("accounts.google.com.attacker.example")); assertEquals("other", hostClass("notgooglevideo.com"))
         assertEquals("none", hostClass(null)); assertEquals("none", hostClass(""))
         assertEquals("intent", schemeClass("INTENT")); assertEquals("other", schemeClass("myapp-9f8e7d")); assertEquals("none", schemeClass(null))
