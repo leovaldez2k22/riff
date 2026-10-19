@@ -2158,8 +2158,9 @@ scripts read the passwords from DPAPI, none is written down; no key or keystore 
 address. APK: the same public key in classes.dex; two e-mail-like strings inside Google's ML Kit native library
 (`libtranslate_jni.so`), third-party and not project data. Account names: neither test account's name appears in
 the APK; the source mentions only the project's own GitHub handle (repository, issue and CI links) and one author
-credit. Linux dependency checksums: BLOCKED (no Linux machine, CI not pushed); rerun the CI workflow's dependency
-verification on the first push. Medium items: the jsDelivr fallback is kept, by the owner's decision on 19 October 2026
+credit. Linux dependency checksums: BLOCKED (no Linux machine; on 19 October 2026 the remote leovaldez2k21/riff was
+not reachable from this computer's GitHub login, and the owner chose to leave this BLOCKED rather than push); rerun
+the CI workflow's dependency verification on the first push. Medium items: the jsDelivr fallback is kept, by the owner's decision on 19 October 2026
 (playback after a YouTube player change outweighs the third-party script, which runs only in the sandboxed
 :solver process; still disclosed in docs/privacy.md); the foreign controller on the phone passed in Q18B11.
 
