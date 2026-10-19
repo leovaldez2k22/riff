@@ -150,6 +150,7 @@ the phone (B2).
 | Q18-022 | B4's solver kept down again: the resolver-unavailable message |
 | Q18-023, Q18-030 | B7b: Macrobenchmark's full run, frames at 60 Hz (the owner sets Standard at hand-over) and 120 Hz |
 | Q18-031 | The A4 method: accessibility events recorded while an album downloads; one announcement per phase change, none per percentage |
+| Q18-011 | Settings and album trees: the back buttons named "Back" once |
 | Q18-032 | Widget tree read paused and playing: "Play" and "Pause" |
 | Q18-033 | Settings tree: the four sliders named with their values |
 | Q18-034 | A song translated; Wi-Fi and mobile data off during the model download; Back while translating; the timed lyrics stay |
@@ -168,7 +169,6 @@ Moved here from before the fix package, on the same build: B10 (live checks, lik
 | Q18-004 | "Dancing Queen" at 1:36: "queen" glows and grows |
 | Q18-005 | Seek back and ahead by ear: no long silence |
 | Q18-009, Q18-010, Q18-013 | Sign in through the new page with the dummy account; Change account to the owner's account and back (UX07, ACC02, ACC04 at swapped chooser positions); an abandoned change leaves Riff and Google's list in agreement |
-| Q18-011, Q18-031, Q18-033 | With TalkBack: the Settings and album back buttons, one download's phases, the four sliders |
 | Q18-012 | During UX07: a search under one account is not on the other's Search tab or in its recent searches |
 | Q18-014, Q18-015 | A8 again: cold start feel and first song |
 | Q18-027 | The profile-picture upload from B11 once on the final candidate |
