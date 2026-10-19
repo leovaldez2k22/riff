@@ -159,6 +159,8 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
     }
     private suspend fun resolveUsingExtractor(request:StreamRequest):Result<ProviderStream> = withContext(dependencies.dispatchers.io) {
         val (videoId,live,excludedProfiles,video,download,quality)=request
+        val solverFailures=remoteCipher.unavailableCount
+        fun failure(error:Throwable)=Result.failure<ProviderStream>(keepSolverCause(error,remoteCipher.unavailableCount!=solverFailures))
         try {
             val revision = authRevision
             require(videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) { "Invalid video ID" }
@@ -171,7 +173,7 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
                     allowHls = !download && (video || live), allowSabr = video || live || download, allowBoundedRange = download),
                 excludedClients = excludedProfiles + if(live || video) setOf("WEB_REMIX","WEB_REMIX_SABR","ANDROID_MUSIC","IOS_MUSIC") else emptySet(),
                 audioQuality = quality,
-            ) ?: return@withContext Result.failure(
+            ) ?: return@withContext failure(
                 IllegalStateException("No playable audio stream is available for this track"))
             if (authRevision != revision) return@withContext Result.failure(
                 IllegalStateException("Account changed while preparing the track"))
@@ -202,16 +204,17 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
         } catch (error: CancellationException) {
             throw error
         } catch (error: StreamResolveException) {
-            Result.failure(IllegalStateException(if (error.reason ==
+            failure(IllegalStateException(if (error.reason ==
                     StreamResolveException.Reason.NO_PLAYABLE_STREAM)
                 "No supported audio stream is available for this track"
             else "Track unavailable: ${error.reason}"))
         } catch (error: Exception) {
             playbackEvents.append("stream_prepare_failed type=${error::class.simpleName}")
             // The cause is kept for recovery to classify; it is never shown or logged.
-            Result.failure(IllegalStateException("Could not prepare this track (${error::class.simpleName})",error))
+            failure(IllegalStateException("Could not prepare this track (${error::class.simpleName})",error))
         }
     }
+
 
     fun close() { streamTokens.dispose() }
 }
@@ -221,3 +224,12 @@ internal const val STREAM_REWARM_INTERVAL_MS = 5 * 60_000L
 
 internal fun streamRewarmDue(lastMs: Long?, nowMs: Long, intervalMs: Long = STREAM_REWARM_INTERVAL_MS) =
     lastMs == null || nowMs - lastMs >= intervalMs
+
+/**
+ * The extraction library catches a solver failure inside its own steps and reports a generic one, so recovery
+ * would class a solver that is down as a timeout (Q18-022). When the solver failed during the lookup, the
+ * failure carries [SolverUnavailableException] so recovery says the resolver is unavailable and offers Retry.
+ */
+internal fun keepSolverCause(failure:Throwable,solverFailed:Boolean):Throwable =
+    if(!solverFailed || generateSequence(failure) {it.cause}.take(16).any {it is SolverUnavailableException}) failure
+    else SolverUnavailableException("Online playback resolver unavailable",failure)

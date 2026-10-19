@@ -56,7 +56,14 @@ internal class RemoteCipherClient(context: Context, private val onEvent: (String
     override suspend fun processNParameter(playerUrl: String, url: String): String? =
         call(SolverProtocol.PROCESS_N) { it.writeString(playerUrl); it.writeString(url) }
 
-    private suspend fun call(code: Int, write: (Parcel) -> Unit): String? = withContext(Dispatchers.IO) {
+    /** How many requests have ended as [SolverUnavailableException]; the resolver reads it around a lookup (Q18-022). */
+    @Volatile internal var unavailableCount = 0L
+        private set
+
+    private suspend fun call(code: Int, write: (Parcel) -> Unit): String? =
+        try { callOnce(code, write) } catch (e: SolverUnavailableException) { unavailableCount++; throw e }
+
+    private suspend fun callOnce(code: Int, write: (Parcel) -> Unit): String? = withContext(Dispatchers.IO) {
         var lost: DeadObjectException? = null
         repeat(2) { attempt ->
             val target = connect()

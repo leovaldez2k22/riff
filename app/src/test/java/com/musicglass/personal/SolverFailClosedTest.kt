@@ -121,5 +121,21 @@ class SolverFailClosedTest {
         assertEquals(RecoveryClass.SolverUnavailable, classifyFault("ERROR_CODE_IO_UNSPECIFIED",
             generateSequence<Throwable>(IllegalStateException("Could not prepare this track", failures.last())) { it.cause }.toList(),
             FaultSource.Provider, online = true, sessionExpired = false).kind)
+        assertEquals("Each typed failure is counted for the resolver", 4L, client.unavailableCount)
+    }
+
+    /** Q18-022: the library reports a solver that is down as a generic failure; the resolver puts the type back. */
+    @Test fun aLookupDuringWhichTheSolverFailedIsClassedAsResolverUnavailable() {
+        val generic = IllegalStateException("Track unavailable: OTHER")
+        val kept = keepSolverCause(generic, solverFailed = true)
+        assertTrue(kept is SolverUnavailableException); assertSame(generic, kept.cause)
+        val chain = generateSequence<Throwable>(java.io.IOException("Source error", kept)) { it.cause }.toList()
+        assertEquals(RecoveryClass.SolverUnavailable, classifyFault("ERROR_CODE_IO_UNSPECIFIED", chain, FaultSource.Provider, online = true, sessionExpired = false).kind)
+        assertSame("A failure without a solver failure is left as it is", generic, keepSolverCause(generic, solverFailed = false))
+        val typed = SolverUnavailableException("Solver paused after repeated crashes")
+        val already = IllegalStateException("Could not prepare this track", typed)
+        assertSame("Not wrapped twice", already, keepSolverCause(already, solverFailed = true))
+        assertEquals("The class without the solver failure is still a timeout", RecoveryClass.Timeout,
+            classifyFault("ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT", listOf(generic), FaultSource.Provider, online = true, sessionExpired = false).kind)
     }
 }
