@@ -15,7 +15,7 @@ Next action: ask user permission for Q01; after approval inspect app/build.gradl
 Blockers: physical/device/live checks unavailable; sandbox requires escalation for builds and documentation writes.
 
 ## Q03-Q18
-Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q10A PASS locally with open items (see the Q10A section, which follows Q11); Q12 PASS locally with open items, device walk-through BLOCKED (see the Q12 section); Q13 PASS locally with open items, TalkBack and keyboard walk-throughs BLOCKED (see the Q13 section); Q14 PASS locally for tooling, Baseline Profile and APK checks, every physical-tier budget BLOCKED and one open finding awaiting a product decision (see the Q14 section); Q15 PASS locally with open items, two of them medium (see the Q15 section); Q16 PASS locally with open items, API 33/36, device, benchmark and hosted CI BLOCKED (see the Q16 section); Q16A PASS locally and on the emulator with open items, phone and real songs not yet checked (see the Q16A section); Q16B PASS locally and on the emulator with open items, phone not yet checked (see the Q16B section); Q17 PASS locally and on the emulator with open items, candidate prepared and not published (see the Q17 section); Q17A PASS locally and on the emulator with open items, phone not yet checked (see the Q17A section); Q18 TODO, waiting for the user's phone. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections); Q12A PASS locally with open items, live feed BLOCKED (see the Q12A section); Q15A PASS locally with open items (see the Q15A section)
+Status: Q03 PASS (see the Q03 section); Q04 PASS locally with open items (see the Q04 section); Q05 PASS locally with open items (see the Q05 section); Q06 PASS locally with open items (see the Q06 section); Q07 PASS locally with open items (see the Q07 section); Q08 PASS locally with open items (see the Q08 section); Q09 PASS locally with open items (see the Q09 section); Q10 PASS locally with open items (see the Q10 section); Q11 PASS locally with open items (see the Q11 section); Q10A PASS locally with open items (see the Q10A section, which follows Q11); Q12 PASS locally with open items, device walk-through BLOCKED (see the Q12 section); Q13 PASS locally with open items, TalkBack and keyboard walk-throughs BLOCKED (see the Q13 section); Q14 PASS locally for tooling, Baseline Profile and APK checks, every physical-tier budget BLOCKED and one open finding awaiting a product decision (see the Q14 section); Q15 PASS locally with open items, two of them medium (see the Q15 section); Q16 PASS locally with open items, API 33/36, device, benchmark and hosted CI BLOCKED (see the Q16 section); Q16A PASS locally and on the emulator with open items, phone and real songs not yet checked (see the Q16A section); Q16B PASS locally and on the emulator with open items, phone not yet checked (see the Q16B section); Q17 PASS locally and on the emulator with open items, candidate prepared and not published (see the Q17 section); Q17A PASS locally and on the emulator with open items, phone not yet checked (see the Q17A section); Q18 IN_PROGRESS: split in q18-split.md, sub-phase entries below, case map in docs/quality/case-map.md. Lettered packages Q05A and Q08A PASS locally with open items (see the Q05A and Q08A sections); Q12A PASS locally with open items, live feed BLOCKED (see the Q12A section); Q15A PASS locally with open items (see the Q15A section)
 Authorization: granted 9 October 2026 for Q03-Q18 in dependency order (see Authorization section).
 
 
@@ -2214,6 +2214,21 @@ not reachable from this computer's GitHub login, and the owner chose to leave th
 the CI workflow's dependency verification on the first push. Medium items: the jsDelivr fallback is kept, by the owner's decision on 19 October 2026
 (playback after a YouTube player change outweighs the third-party script, which runs only in the sandboxed
 :solver process; still disclosed in docs/privacy.md); the foreign controller on the phone passed in Q18B11.
+
+### Q18C5 case map, first pass (19 October 2026)
+
+docs/quality/case-map.md maps every required case to its tests, its run on the phone or its BLOCKED entry: the 62
+cases of the plan's acceptance matrix, UX01-UX10, the twelve invariants and every package, with one status each
+from PASS, FAIL, BLOCKED, DEFERRED (the owner's choice) and TODO (scheduled in Q18, not yet run). Each test name
+cited was checked to exist. First pass, before the fix package: of 72 case and journey rows, 42 PASS, 12 FAIL (each
+with its Q18 bug), 3 BLOCKED (PLY05 Q18-029, UPD01 no release feed, PERF01 Q18-023), 6 DEFERRED (UX07, ACC02, ACC04,
+DAT01, DAT02, REL02: A7 and the account switch) and 9 TODO (B10 live rows, REL01 and REL04, A11Y02 on the phone,
+UX10's lock screen). One case had no evidence at all: LYR02, a translation that fails or is cancelled; logged as
+Q18-034 (test gap). Labels outside the status words (PARTIAL, PARTLY, NOT DONE, NOT VERIFIED, NOT DECIDED, done)
+are each read in section 5 of the map; none counts as PASS. G01 also needs the owner's decision on Q05R (interim
+release R1), which was never authorized: run it or decline it. Not covered by any sub-phase of the split and added
+to the post-fix phone session: largest font size and landscape on the phone (A11Y02), lock-screen controls (UX10).
+The second pass, after the fix package, updates the rows the fixes touch and feeds C9.
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
