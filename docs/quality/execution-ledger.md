@@ -1844,6 +1844,13 @@ reads "Back to Back" (Q18-011). The owner could not recall the other points wher
 complete overhaul of the sign-in page, logged as Q18-013 for the fix package. No screenshots kept of pages showing
 a password; a6 evidence that shows e-mail addresses is local only. Riff Preview left on the dummy account.
 
+### Q18A7 owner decisions on the phone: deferred (19 October 2026)
+
+The owner decided not to touch the main Riff app (com.musicglass.personal, rc20 with real history) yet: the
+upgrade over it to the candidate happens only after every Q18 bug is fixed and every test has run, as the last
+step before the closing record in Q18C9. Until then A7 is DEFERRED by the owner, not BLOCKED; nothing on the main
+app was changed.
+
 ### Q18A8 feel checks (18 October 2026)
 
 Riff Preview 7f7ab8e on the owner's phone, on mains power, Wi-Fi. Cold start, three runs recorded over adb
