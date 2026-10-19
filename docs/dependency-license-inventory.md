@@ -60,10 +60,22 @@ the build instead of being used:
 | innertubex-android-0.7.2.pom (not verified by Gradle; recorded here) | `76bba4251a1f238a0d5f8e52343ca39bb4bfd7114b743a71ddbba4d424297016` |
 | innertubex-0.7.2.pom (as above) | `69eb404da7fe7e9cec19e8adec8e3edeef4b29f78916543c1e49d7e768ad1a4d` |
 
-The cached files on this computer match the recorded hashes. Still open: the upstream commit behind tag 0.7.2 and a
-source archive of that tag beside the candidate. Both need the local checkout (`.toolchain/innertubex`, at v0.7.1)
-fetched from GitHub, a download asked for before it is made. The build-from-source fallback (S03 action 3) was
-declined by the owner (D9).
+The cached files on this computer match the recorded hashes.
+
+Upstream source, fetched with the owner's approval on 20 October 2026:
+
+| Item | Value |
+|---|---|
+| Tag | `v0.7.2` of github.com/MetrolistGroup/innertubex (GitHub tags API) |
+| Commit | `195bac930073233fd2450edc5589033528cccd43` (the tag's commit; also the archive's zip comment) |
+| Source archive | `innertubex-0.7.2.zip` from github.com/MetrolistGroup/innertubex/archive/refs/tags/v0.7.2.zip, 516,084 bytes, SHA-256 `af42ab2d091b5e378f44555b03283a9407136c4e07ca6565a9e39079674f908a`; 249 entries, no unsafe paths; `VERSION_NAME=v0.7.2` |
+| Kept at | `.toolchain/innertubex-0.7.2-src/` (not tracked; nothing in it was built or run) |
+
+Read from that source: `RemotePlayerConfigStore.validatedSourceUrlOrNull` accepts only HTTPS addresses under
+`MetrolistGroup/faraday` on raw.githubusercontent.com, cdn.jsdelivr.net and github.com (releases), as the compiled
+0.7.2 classes showed; Riff's ZemerTeam address is refused (Q18-041, left as it is by the owner). The JitPack AAR
+is not rebuilt from this source: that fallback (S03 action 3) was declined by the owner (D9), so the link between
+this source and the hashed AAR rests on JitPack building the tag.
 
 ## Assets in the APK
 

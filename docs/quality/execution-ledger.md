@@ -2427,6 +2427,14 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   (Q18-047, Medium, logged for Q19G); the certificate was checked with apksigner instead.
 - After the bump: JVM 1,097 tests, 0 failures; lint 0 errors, 85 warnings; script tests 143 of 144 (Q18-042).
 
+### Q19D owner decisions and S03 (19 to 20 October 2026)
+- D1 personal use only, nothing pushed; D2 keep ML Kit; D3 reference images out of the source archive (the archive
+  builder change is in G1); D4 keep the jsDelivr fallback, as decided in Q18; D5 accept the logo, judged in A4; D6
+  accept; D7 keep. Q18-041 closed: the config address stays, since its one effect selects the fallback D4 keeps.
+- S03, with the owner's approval of the named download: innertubex v0.7.2 source archive fetched (516,084 bytes, SHA-256
+  af42ab2d...908a, commit 195bac93...cd43), recorded in dependency-license-inventory.md; the allow-list read from the
+  source matches the compiled classes. Nothing from the archive was built or run.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
