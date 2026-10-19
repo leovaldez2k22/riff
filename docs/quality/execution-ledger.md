@@ -1804,6 +1804,30 @@ Network use: none from the computer.
 Device state: Riff Preview audio settings restored and checked by screenshot; no file created on the phone; nothing installed or removed.
 Next exact action: ask the owner before A3 (audio interruptions).
 
+### Q18A3 audio focus and routes on the owner's phone (19 October 2026)
+
+Riff Preview 7f7ab8e, dummy test account, the owner's realme Buds Air7 over Bluetooth at volume 15, crossfade set to
+12 s for the test (from 3 s; set back to 3 s afterwards). A helper kept seeking the playing song to 18 s before its
+end, so a 12 s blend ran about half the time; the owner acted whenever two songs overlapped and reported what they
+heard; each step was matched to Riff's log and Android's audio focus history (`artifacts/quality/q18a/a3/`).
+1. Notification during a blend: system notification sounds asked to duck at 09:43:13 and 09:43:39, inside blends
+   (09:43:09-19, 09:43:36-48). The owner heard both songs go down and come back. **PASS** (Android ducks the
+   fading-out player too).
+2. Real incoming call during a blend: blend from 09:45:01; the ringtone took focus at 09:45:05.07 and Riff released
+   the fading-out song 54 ms later; the call ended 09:45:20.5 and Riff took focus back and carried on with one
+   song. Owner: music stopped when it rang and resumed after. **PASS**.
+3. Earbud controls during a blend: pause at 09:46:28.10 (blend from 09:46:23), fading-out song released within
+   9 ms, play resumed one song; next track at 09:48:20.26, 2.4 s into a blend, fading-out song released 17 ms
+   later, clean skip. A first next-track press landed outside a blend (the helper had stopped while the call
+   screen was in front) and was redone. **PASS**.
+4. Earbuds into the case during a blend: at 09:49:15.70, 4 s into a blend, Riff paused as audio becoming noisy
+   (reason 3) and released the fading-out song; nothing from the speaker; stayed paused on reconnect. **PASS**.
+5. Bluetooth off during a blend: at 09:49:57.88, 9 s into a blend, paused as becoming noisy, fading-out song
+   released 20 ms later, nothing from the speaker; stayed paused when the earbuds came back. **PASS**.
+Also seen: WhatsApp took transient focus for 2 s at 09:40:11 while Riff was paused (no effect); every other pause
+was the owner's. Car head unit: none available, BLOCKED. New, from the crossfade slider: four Settings sliders
+have no accessible name (Q18-033). Riff Preview left paused, volume 15, crossfade 3 s.
+
 ### Q18A4 TalkBack walk-through on the owner's phone (18 October 2026)
 Status: done. UX01-UX06 and UX08-UX10 PASS; UX04's spoken announcements not heard; UX07 BLOCKED (needs a second account); home-screen widgets not checked. No bug stands: two suspected from the accessibility tree (Q18-006, Q18-007) were withdrawn after the owner listened with TalkBack.
 Authorization: the owner asked whether A4 could go before A3, then said "start a4". Later the owner asked me to drive the phone and confirm results ("can you do it yourself, and i can just confirm the results?", then "can you do the spot check yourself too?").
