@@ -192,14 +192,18 @@ private fun lyricCardFile(context: Context): File =
 
 /** F2: hands the card to Android's share sheet through Riff's file provider; the file lives in the cache only. */
 internal fun shareLyricCard(context: Context, card: Bitmap): Boolean = runCatching {
-    val file = lyricCardFile(context)
-    file.outputStream().use { card.compress(Bitmap.CompressFormat.PNG, 100, it) }
-    val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
-    val send = Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM, uri)
-        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    send.clipData = ClipData.newRawUri(null, uri)
-    context.startActivity(Intent.createChooser(send, string(R.string.share_lyrics)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+    context.startActivity(Intent.createChooser(lyricCardShareIntent(context, card), string(R.string.share_lyrics))
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
 }.isSuccess
+
+/** The card written to the cache and the intent that offers it: a content:// address the receiver may only read. */
+internal fun lyricCardShareIntent(context: Context, card: Bitmap): Intent {
+    val file = lyricCardFile(context)
+    file.outputStream().use { check(card.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+    return Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM, uri)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION).also { it.clipData = ClipData.newRawUri(null, uri) }
+}
 
 /** F2: saves the card to Pictures/Riff. Needs no permission: Riff only adds its own picture (Android 10 and later). */
 internal fun saveLyricCard(context: Context, card: Bitmap, title: String): Boolean = runCatching {
