@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
@@ -14,6 +15,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -117,6 +119,12 @@ class SignInScreensDeviceTest {
         compose.onNodeWithTag("signin_see_all").performClick()
         waitFor { shows(text(R.string.signin_accounts)) && !shows(text(R.string.signin_welcome_back)) }
         assertEquals(5, rows())
+        // Q18-046: a name has the row's whole width, so none is cut short.
+        compose.onAllNodesWithTag("signin_account_name", useUnmergedTree = true).fetchSemanticsNodes().forEach { node ->
+            val layout = mutableListOf<TextLayoutResult>()
+            node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(layout)
+            assertFalse("${layout.single().layoutInput.text} is cut short", layout.single().hasVisualOverflow)
+        }
         keep("1b-all-accounts")
 
         compose.onNodeWithTag("signin_search").performTextInput("three")
