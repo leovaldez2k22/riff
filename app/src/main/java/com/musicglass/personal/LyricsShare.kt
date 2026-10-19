@@ -185,8 +185,15 @@ private fun drawAurora(canvas: Canvas, width: Int, height: Int) {
     })
 }
 
-private fun lyricCardFile(context: Context): File =
-    File(context.cacheDir, "shared_lyrics").apply { mkdirs() }.resolve("riff-lyrics.png")
+/**
+ * Q18-048: a new name for every card, and the earlier cards removed. Android's share sheet keeps the preview of an
+ * address it has shown, so one fixed name made it show an older card in place of this one.
+ */
+private fun lyricCardFile(context: Context): File {
+    val folder = File(context.cacheDir, "shared_lyrics").apply { mkdirs() }
+    folder.listFiles()?.forEach { it.delete() }
+    return folder.resolve("riff-lyrics-${System.currentTimeMillis()}.png")
+}
 
 /** F2: hands the card to Android's share sheet through Riff's file provider; the file lives in the cache only. */
 internal fun shareLyricCard(context: Context, card: Bitmap): Boolean = runCatching {

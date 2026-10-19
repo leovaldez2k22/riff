@@ -50,6 +50,12 @@ class LyricShareDeviceTest {
         assertEquals(uri, intent.clipData!!.getItemAt(0).uri)
         val read = context.contentResolver.openInputStream(uri)!!.use(BitmapFactory::decodeStream)
         assertEquals(image.width to image.height, read.width to read.height)
+
+        // Q18-048: the next card has its own address, and only it is kept.
+        Thread.sleep(5)
+        val next = IntentCompat.getParcelableExtra(lyricCardShareIntent(context, card()), Intent.EXTRA_STREAM, Uri::class.java)!!
+        assertNotEquals(uri, next)
+        assertEquals(listOf(next.lastPathSegment), File(context.cacheDir, "shared_lyrics").list()!!.toList())
     }
 
     @Test fun nothingOutsideTheSharedLyricsFolderCanBeShared() {

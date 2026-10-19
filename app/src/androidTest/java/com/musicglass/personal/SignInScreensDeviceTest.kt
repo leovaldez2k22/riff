@@ -123,7 +123,9 @@ class SignInScreensDeviceTest {
         compose.onAllNodesWithTag("signin_account_name", useUnmergedTree = true).fetchSemanticsNodes().forEach { node ->
             val layout = mutableListOf<TextLayoutResult>()
             node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(layout)
-            assertFalse("${layout.single().layoutInput.text} is cut short", layout.single().hasVisualOverflow)
+            // An ellipsis, not hasVisualOverflow: an ellipsized paragraph is laid out at the full width allowed.
+            val line = layout.single()
+            assertFalse("${line.layoutInput.text} is cut short", line.isLineEllipsized(line.lineCount - 1))
         }
         keep("1b-all-accounts")
 
