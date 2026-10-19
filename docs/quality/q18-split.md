@@ -80,3 +80,102 @@ These need the owner, not the phone, so they fit none of the three. They do not 
 ## Order I would suggest
 
 C1 first (it unblocks B1). Then the rest of C while you are away from the phone. One sitting for A1-A6 and A8 (about 2.5 hours, can be split). A7 only if you choose. B runs whenever you can leave the phone with me: B1-B7 in one day, B8 and B9 overnight or across days. C9 last. If a fix is needed on the way (as in Q17A), it becomes its own lettered package, and the affected evidence is rerun before C9.
+
+## Q18F: the fix package, and the tests that check each fix (added 19 October 2026)
+
+The owner decided on 19 October 2026, while working by remote control with no phone at hand, to start the fix
+package now instead of after all testing. B8's live soak, B9 and B10 move to after it and run once, on the fixed
+build, rather than twice. Bugs that B8, B9 and B10 find become a second, smaller fix round.
+
+Q18F fixes the open bugs in docs/quality/q18-bugs.md: High first (Q18-021, Q18-009, Q18-010), then Medium, then
+Low. Q18-013 (the sign-in overhaul) waits for the owner's description of how the page should look and work; Q18-009
+is fixed on its own before it. Every fix gets its own test in Q18F (C10 below); the phone checks follow in B13 and
+A9. Each bug logged from now on names its C10, B13 and A9 check when it is logged.
+
+### C10: fix tests on this computer (part of Q18F; JVM, Robolectric and the API 31, 33 and 36 emulators)
+
+| Bug | Test that shows the fix |
+|---|---|
+| Q18-001 | The mini-player end of the morph: JVM, the flying copies sit on the mini player's own elements through the cross-fade window; PlayerFixesDeviceTest draws p = 0.005, 0.01, 0.02 and 0.035 and finds one title and one cover in each |
+| Q18-002, Q18-008 | Robolectric pictures of the player and an album page over a pure white cover: no gradient or patch pixels behind the close button, heading and back arrow; the shadowed icon and text stand out from white by a recorded margin; PlayerFixesTest's shade-depth test replaced |
+| Q18-003 | LyricsRepository: a word-timed source that answers after the line-timed one is still preferred; a cached line-timed result is asked again for word timing (with a limit), and the word-timed answer replaces it |
+| Q18-004 | heldLyricWords with the "Dancing queen" timing from A1: "queen" is held; the median no longer includes the word itself; earlier held-word cases unchanged |
+| Q18-005 | Load-control settings (back buffer) in a JVM test; an emulator test seeks back and ahead in a fixture song and in a download and records the time to playing again |
+| Q18-009 | The sign-in host rule (WebBoundariesTest, SEC01): Google's country domains (google.co.in, google.com.br, google.co.uk) allowed; lookalikes (google.co.in.example.com, googlex.com, google.evil) still refused |
+| Q18-010 | ProviderSessionManager: cookies of a different account in the shared store are never adopted under the committed account (a dataSyncId or authUser mismatch makes the account unverified and asks); an abandoned Change account leaves the live session and the cookie store in agreement |
+| Q18-011 | A sweep over every screen's semantics: no label repeats a word ("Back to Back"); every back arrow names a destination or says "Back" |
+| Q18-012 | An account change clears the held search (query, results, filter, sort); AccountSwitchDeviceTest gains a case: search under A, switch to B, B's Search is empty and B's recent searches do not gain A's query |
+| Q18-013 | Written with the new design: SignInFlowTest for every stage, cancel and slow network; no state needs a hidden button to finish |
+| Q18-014 | Home feed store: per owner, dropped on an account change, shown at once on start, refreshed in the background, swapped without a jump; placeholders only when nothing is stored |
+| Q18-015 | No fix test before it is broken down; the timing is checked in B13 |
+| Q18-016 | The pr lane's static gate passes |
+| Q18-017 | networkConditions with a fake VPN whose underlying networks are gone reads offline; with a validated underlying network, online |
+| Q18-018 | The queue answers added, moved or unchanged; the notice says "Already in the queue" when nothing was added |
+| Q18-019 | A restored queue that is not prepared shows the saved position and the saved duration; a seek before Play moves the saved position |
+| Q18-020 | RecoveryDeviceTest: the media session reports buffering (not ERROR) while waiting for a connection, PAUSED once paused, and stays paused when the connection returns |
+| Q18-021 | Reconcile that requeues a hand-chosen song starts the download again (service started or MANUAL job scheduled afresh); DownloadLifecycleDeviceTest: kill during a fixture download, reopen, the song finishes without another request |
+| Q18-022 | A solver that stays down reaches the player as SolverUnavailable: the "Online playback resolver unavailable" text, class solver, Retry only |
+| Q18-023 | Macrobenchmark: a new androidx.benchmark or runner change; JourneyCheck runs to the end on the API 31 emulator first (as far as an emulator allows) |
+| Q18-024 | Lint: the widget string, paddingEnd and int-state warnings gone; the pseudo-locale sweep reaches the widgets; the shrunk build prints no Kotlin-metadata warning |
+| Q18-025 | Emulator lane on API 36, two cold boots: the network gate waits until mobile data and Wi-Fi read 0 and no default network is up |
+| Q18-026 | The Android 15 daily limit, on the API 36 emulator with the shortened timeout: download_foreground_timeout logged, service stopped, the job holds the rest |
+| Q18-027 | The sign-in browser's settings: allowContentAccess false |
+| Q18-028 | The blocked-host event names the host's class (Google, other) without the address |
+| Q18-029 | Per the decision in Q18F: the hook covers the SABR reads that happen, with an emulator fixture, or PLY05 is retired as a device case with the reason |
+| Q18-030 | No fix test; the render-thread work found by the trace is changed and FrameBenchmark decides (B7b) |
+| Q18-031 | Compose: the active download's phase is a polite live region keyed on the phase; a percentage change sends nothing, a phase change one announcement |
+| Q18-032 | Widget update: the toggle is "Play" when paused and "Pause" when playing |
+| Q18-033 | The four Settings sliders have a name and a value with its unit ("Crossfade length", "3 seconds"); a sweep finds no unnamed slider anywhere |
+| Q18-034 | A fake translator that fails, one cancelled mid-way, and a model download refused offline: the timed lines, their timing and the karaoke stay; nothing is cached as translated |
+
+C10 ends with the full pr lane, the emulator lane on API 31, 33 and 36, and a new Riff Preview candidate built for
+the phone (B2).
+
+### B13: fix checks on the phone, without the owner (after Q18F, on the new Riff Preview)
+
+| Bug | Check |
+|---|---|
+| Q18-001 | screenrecord of opening and closing the player five times; frames at the mini-player end show one title and one cover |
+| Q18-003 | "Delicate" (Taylor Swift) reads Word synced on the lyrics page |
+| Q18-005 | Seeks back and ahead on a streamed and a downloaded song, timed from the media session: back in a download under 0.5 s, in a stream under 1.5 s |
+| Q18-012 | With the dummy account only: search, sign out to signed-out use and back; nothing crosses (the two-account part is A9) |
+| Q18-014 | Three cold starts recorded: real Home content when the logo ends, no placeholder rows |
+| Q18-015 | First song cold and after 10 minutes away, with stream_prewarm and selected_stream_ready (as B4) |
+| Q18-017 | B1's three offline tests with the owner's VPN connected (the owner connects it at hand-over) |
+| Q18-018 | Add to queue on a queued song says "Already in the queue" |
+| Q18-019 | B3 step 4 again: after a force-stop the player shows the saved time and length before Play |
+| Q18-020 | B3 step 6 again with the media session state logged: no ERROR through wait, pause and reconnect |
+| Q18-021 | B5 again: kill while Downloading and while Saving artwork and lyrics, reopen, the song finishes by itself; and the reboot run |
+| Q18-022 | B4's solver kept down again: the resolver-unavailable message |
+| Q18-023, Q18-030 | B7b: Macrobenchmark's full run, frames at 60 Hz (the owner sets Standard at hand-over) and 120 Hz |
+| Q18-029 | PLY05 on the phone, if the hook was moved |
+| Q18-031 | The A4 method: accessibility events recorded while an album downloads; one announcement per phase change, none per percentage |
+| Q18-032 | Widget tree read paused and playing: "Play" and "Pause" |
+| Q18-033 | Settings tree: the four sliders named with their values |
+| Q18-034 | A song translated; Wi-Fi and mobile data off during the model download; Back while translating; the timed lyrics stay |
+| C5 additions | Largest font size and landscape on Home, player, queue, lyrics and Settings (A11Y02; settings restored); lock-screen media controls read from the session (UX10) |
+
+Moved here from before the fix package, on the same build: B10 (live checks, likes and edits asked first), B9
+(battery), and B8's 4-hour live soak (the owner starts the streaming).
+
+### A9: fix checks with the owner (after Q18F)
+
+| Bug | Check |
+|---|---|
+| Q18-001 | Open and close the player by eye: no doubled title or see-through mini player |
+| Q18-002, Q18-008 | The player over a white cover and an album page: no dark fade or patch; the x, NOW PLAYING and the back arrow readable |
+| Q18-004 | "Dancing Queen" at 1:36: "queen" glows and grows |
+| Q18-005 | Seek back and ahead by ear: no long silence |
+| Q18-009, Q18-010, Q18-013 | Sign in through the new page with the dummy account; Change account to the owner's account and back (UX07, ACC02, ACC04 at swapped chooser positions); an abandoned change leaves Riff and Google's list in agreement |
+| Q18-011, Q18-031, Q18-033 | With TalkBack: the Settings and album back buttons, one download's phases, the four sliders |
+| Q18-012 | During UX07: a search under one account is not on the other's Search tab or in its recent searches |
+| Q18-014, Q18-015 | A8 again: cold start feel and first song |
+| Q18-027 | The profile-picture upload from B11 once on the final candidate |
+| Q18-028 | If a "Google's page tried to open" message appears anywhere, the owner says what it named |
+| C5 addition | Lock-screen controls by hand: play, pause, next from the lock screen (UX10) |
+
+### New order from 19 October 2026
+
+Q18F with C10 now (no phone needed) -> B2 (new candidate on the phone) -> B13, A9, B10, B7b, B9 and B8's live soak
+(any order the phone allows) -> a second fix round for what they find, with its own C10, B13 and A9 lines -> C5
+second pass, C6 leftovers, C8 -> A7 (the owner upgrades the main app) -> B12 -> C9.
