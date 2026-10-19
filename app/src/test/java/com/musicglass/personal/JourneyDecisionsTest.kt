@@ -103,6 +103,16 @@ class JourneyDecisionsTest {
         assertEquals(R.drawable.widget_toggle, shadowOf(paused.findViewById<ImageView>(R.id.widget_toggle).drawable).createdFromResId)
         assertEquals("No next song is not written as one", "", paused.findViewById<TextView>(R.id.widget_up_next).text.toString())
     }
+    @Test fun everyWidgetsPlayButtonIsNamedForWhatATapDoesNow() {
+        // Q18-032: it was "Play or pause" in every state.
+        riffWidgetPresets.indices.forEach { preset ->
+            for (playing in listOf(true, false)) {
+                val view = widget(preset, RiffWidgets.WidgetState("Fixture Song", "Fixture Artist", null, playing = playing, available = true))
+                assertEquals("preset $preset playing=$playing", if (playing) "Pause" else "Play", view.findViewById<ImageView>(R.id.widget_toggle).contentDescription.toString())
+            }
+            assertEquals("Nothing selected", "Play", widget(preset, RiffWidgets.WidgetState()).findViewById<ImageView>(R.id.widget_toggle).contentDescription.toString())
+        }
+    }
     @Test fun aWidgetWithNothingSelectedSaysSoAndShowsPlayNotPause() {
         riffWidgetPresets.indices.forEach { preset ->
             val idle = widget(preset, RiffWidgets.WidgetState())

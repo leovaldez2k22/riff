@@ -72,6 +72,8 @@ internal object RiffWidgets {
         if(bitmap!=null) views.setImageViewBitmap(R.id.widget_art,rounded(bitmap,preset==5))
         else views.setImageViewResource(R.id.widget_art,R.drawable.ic_launcher_foreground)
         views.setImageViewResource(R.id.widget_toggle,if(state.playing) R.drawable.widget_pause else R.drawable.widget_toggle)
+        // Named for what a tap does now, in the same update that swaps the icon (Q18-032).
+        views.setContentDescription(R.id.widget_toggle,string(if(state.playing) R.string.pause else R.string.play))
         val open=PendingIntent.getActivity(context,id,Intent(context,MainActivity::class.java).apply {flags=Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP},PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         views.setOnClickPendingIntent(R.id.widget_root,open)
         listOf("toggle" to R.id.widget_toggle,"previous" to R.id.widget_previous,"next" to R.id.widget_next).forEachIndexed {offset,(command,viewId)->
