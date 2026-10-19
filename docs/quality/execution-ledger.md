@@ -2230,6 +2230,68 @@ declined it the same day, so REL04 is DECLINED and the TODO rows are 8. Not cove
 to the post-fix phone session: largest font size and landscape on the phone (A11Y02), lock-screen controls (UX10).
 The second pass, after the fix package, updates the rows the fixes touch and feeds C9.
 
+### Q18F fix package, first pass (19 October 2026)
+
+Authorized by the owner on 19 October 2026, working by remote control with no phone: the fix package runs before
+B8's live soak, B9 and B10, and each fix gets a C10 test (JVM or emulator) plus its B13 or A9 device check in the
+split. Q18-013 (the sign-in overhaul) is on hold for the owner. Commits 2a83c85 to the R8 and benchmark commit, all
+local; nothing pushed. Owner decisions the same day: no stored Home feed (Q18-014), PLY05 retired as a device case
+(Q18-029), download R8 and a newer androidx.benchmark (Q18-023, Q18-024), boot the disposable emulators.
+
+Result, of 34 bugs: 25 fixed and waiting for their device checks; 3 partly fixed (Q18-005, the downloaded-song seek
+gap, unmeasured; Q18-023, tried with an alpha runner, decided on the phone; Q18-026, the emulator test through the
+real service not written); 1 closed by decision (Q18-029); 3 open (Q18-013 on hold; Q18-015 measure first; Q18-030
+needs a trace); 2 withdrawn on 18 October (Q18-006, Q18-007). docs/quality/q18-bugs.md holds each status with its test.
+(The status commit 592abad says 25 fixed in its message; the correct count then was 23.)
+
+Behaviour changes the owner should know about:
+- Q18-020: tapping play or pause during a network wait now pauses (it used to start a retry); Android, the lock
+  screen, a watch or a car see buffering or paused, never ERROR, while Riff is still recovering.
+- Q18-001: the first 2% of a drag on the mini player moves nothing on screen (the hand-over to the morph).
+- Q18-002, Q18-008: no fade or patch over artwork; the close button, back arrow and heading carry their own dark
+  edges. They have no measured contrast figure any more; accessibility.md records the trade-off and the check by eye
+  over a white cover.
+- Q18-034: cancelling a translation clears its progress line.
+- Q18-014: Home still shows placeholders until the fresh feed arrives (the owner's choice); the request now starts
+  in onCreate, about 0.74 s earlier.
+
+Per fix (commit, test):
+- Q18-021 2a83c85: downloads left waiting start again on MainActivity.onResume; DownloadSchedulingTest (2).
+- Q18-009, 027, 028 b41fc0c: Google's country domains (google.com/supported_domains, 186 plus google.com) allowed
+  for sign-in only, look-alikes blocked; allowContentAccess false; the blocked-host event names the class only.
+- Q18-010 2b978d1: a digest of the sign-in cookies (no cookie value stored) ties them to the committed account.
+- Q18-012 b1b8655, Q18-017 ef1ada0, Q18-022 badd785, Q18-033 and Q18-011 76fab2a, Q18-031 15fa18b, Q18-032 93cc434,
+  Q18-034 176d2ef, Q18-003 a8c0727, Q18-005 0e3aa4f (part), Q18-014 fec4282, Q18-018 d2d49ad (also carries
+  Q18-019's restore hunk, said in fe05485's message), Q18-004 41bca06, Q18-016 2b70181, Q18-019 fe05485, Q18-020
+  2184a14, Q18-024 9f92e30 and the R8 pin, Q18-025 3ee8e59, Q18-002 and Q18-008 067abc6, Q18-001 c9b3123, Q18-026
+  be835ba (part). The test for each is in its q18-bugs.md row.
+- Q18-024: R8 9.1.56 pinned in the root buildscript (9.1.29 is the first that reads Kotlin 2.4 metadata; 9.1.56 is
+  that line's newest patch). The 179 "error occurred when parsing kotlin metadata" lines per shrunk build are now 0;
+  the new R8 prints two "Class file resource provider does not support async parsing" notices instead (AGP 8.13's
+  provider with a newer R8; harmless). Jar SHA-1 checked against dl.google.com.
+- Q18-023: androidx.benchmark 1.6.0-alpha01, the only release newer than 1.5.0 on 19 October 2026, for the runner
+  that waits for ever after the first launch on the owner's Android 16 phone. Builds offline; whether it fixes the
+  hang is decided on the phone (B7b). Back to a stable release once one ships.
+- Downloads: only R8 and the benchmark artifacts (with wire-runtime 6.4.7, a new dependency of the benchmark trace
+  processor) were added to verification-metadata.xml. Gradle's --write-verification-metadata also wanted to add
+  about 100 unrelated test-runner and Kotlin-daemon entries; those were left out, so strict verification is as
+  narrow as before.
+
+Verification:
+- JVM: the full suite, 1034 tests, 0 failures (after fec4282); each later fix ran its own tests and the pr lane.
+- Emulator lane, source at f4681d2 with the fixes, network off, one emulator at a time: API 36 PASS (51 of 51,
+  emulator-20261019T072519Z), API 33 PASS (51 of 51, emulator-20261019T073512Z), API 31 PASS (51 of 51,
+  emulator-20261019T074257Z). These include Q18-020's RecoveryDeviceTest assertions and Q18-025's network gate
+  (passed on the first boot of each). The source state reads "dirty" only for the owner's uncommitted
+  scripts/download_favourites.py.
+- PR lane after the R8 pin and the benchmark change: PASS_LOCAL on every gate (pr-20261019T080727Z).
+- Flake seen once: AccessibilitySweepLargeWindowTest.searchResults ("performMeasureAndLayout called during measure
+  layout", 60.9 s) in a 76-test run; passed alone and in every later run. Not logged as a bug unless it recurs.
+
+Still to do: the Q18-026 emulator test; Q18-005's downloaded-song seek after B13 measures it; Q18-013 with the owner;
+then on the phone B2 (new Riff Preview candidate), B13, A9, B10, B7b, B9, B8, C5's second pass, C6's signed
+packaging lanes, C8, A7, B12, C9. The owner deletes C:\q18c6 and sets the refresh rate back to high.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
