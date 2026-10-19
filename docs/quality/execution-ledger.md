@@ -2083,6 +2083,20 @@ the fix package. One sign-in-time block of a main-frame address outside the allo
 just before the sign-in succeeded (host not recorded by design): Q18-028. The committed Riff Stress was
 reinstalled afterwards, still signed in, for Q18B4. **B11 PASS** (both halves).
 
+### Q18B7a frames at 60 Hz on the owner's phone (19 October 2026)
+
+The 60 Hz half of the frame budget that Q18B7 could not reach overnight (the phone ignores peak and min refresh
+settings from adb). The owner set Settings, Display, Screen refresh rate to Standard; SurfaceFlinger then reported
+vsyncRate 60.00 Hz and the display mActiveRenderFrameRate 60. Aeroplane mode on, animations at 1.0, battery 99%
+and charging, 37.5 C. Riff Benchmark (the fixture-fed benchmarkRelease from Q18B7), the same fallback as the 120 Hz
+run because Macrobenchmark still hangs (Q18-023): Home, one warm-up loop, gfxinfo reset, 5 loops of 3 flings each
+way. Run 1: 1,578 frames, 36 past their deadline (2.28%); run 2: 1,575 frames, 35 (2.22%); p50 14 ms, p90 16 ms,
+p99 21-23 ms; Slow UI thread 0, every miss a slow issue-draw-commands frame. **FAIL against tier R (2%), PASS
+against tier L (5%)**, by a small margin and repeatably: Q18-030. At 120 Hz the same scroll passed (1.11% against
+3%). Fallback numbers, not FrameBenchmark's missedDeadlinePercent; the full run waits for Q18-023 (after the fix
+package). `artifacts/quality/q18b/b7/frames-60hz-b7a.txt`, `frames-60hz-b7a-run2.txt`. Aeroplane mode turned off
+afterwards, Riff Benchmark stopped; the owner set the refresh rate back.
+
 ### Q18C3 foreign controller on the emulator (19 October 2026, overnight)
 
 A throwaway app, test.riff.foreign (built in the scratchpad from 40 lines of Kotlin against media3-session 1.11.1,
