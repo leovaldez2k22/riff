@@ -127,6 +127,7 @@ A9. Each bug logged from now on names its C10, B13 and A9 check when it is logge
 | Q18-032 | Widget update: the toggle is "Play" when paused and "Pause" when playing |
 | Q18-033 | The four Settings sliders have a name and a value with its unit ("Crossfade length", "3 seconds"); a sweep finds no unnamed slider anywhere |
 | Q18-034 | A fake translator that fails, one cancelled mid-way, and a model download refused offline: the timed lines, their timing and the karaoke stay; nothing is cached as translated |
+| Q18-035 | DownloadTimeLimitDeviceTest: after the cancelled run the engine's gate is free; the emulator lane's download tests pass after it |
 
 C10 ends with the full pr lane, the emulator lane on API 31, 33 and 36, and a new Riff Preview candidate built for
 the phone (B2).
@@ -152,6 +153,7 @@ the phone (B2).
 | Q18-032 | Widget tree read paused and playing: "Play" and "Pause" |
 | Q18-033 | Settings tree: the four sliders named with their values |
 | Q18-034 | A song translated; Wi-Fi and mobile data off during the model download; Back while translating; the timed lyrics stay |
+| Q18-035 | Side-by-side debug build: pause a download from its notification, then download another song; it starts and finishes |
 | C5 additions | Largest font size and landscape on Home, player, queue, lyrics and Settings (A11Y02; settings restored); lock-screen media controls read from the session (UX10) |
 
 Moved here from before the fix package, on the same build: B10 (live checks, likes and edits asked first), B9

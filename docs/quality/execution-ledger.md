@@ -2292,6 +2292,39 @@ Still to do: the Q18-026 emulator test; Q18-005's downloaded-song seek after B13
 then on the phone B2 (new Riff Preview candidate), B13, A9, B10, B7b, B9, B8, C5's second pass, C6's signed
 packaging lanes, C8, A7, B12, C9. The owner deletes C:\q18c6 and sets the refresh rate back to high.
 
+### Q18F Q18-026 emulator test; Q18-035 found and fixed; R8 pin withdrawn (19 October 2026)
+
+Asked by the owner the same day ("Yes write the q18-026 test now").
+- DownloadTimeLimitDeviceTest (a6233aa): the real download service, two songs queued, a stream that never answers
+  (OfflineDownloadService.runtimeFor, the process's runtime unless a test replaces it). The test shortens the dataSync
+  limit (device_config activity_manager data_sync_fgs_timeout_duration 10000) and turns on FGS_INTRODUCE_TIME_LIMITS for
+  the debug package (am compat enable --no-kill), and puts both back afterwards. It checks download_foreground_timeout,
+  that the service stopped, that onTimeout alone rescheduled the job (the job the start scheduled is cancelled first),
+  that both songs are still queued and that the engine is free again. verify.py runs it only on emulators from API 35
+  (fixture_classes): it changes system settings, and the lane's strict reader rightly counts a skip as not passed.
+- The R8 9.1.56 pin (32fc7e3) is withdrawn (968a6b1). Its D8 also compiles debug builds; with it the first run of
+  the test aborted the runtime when the cancelled run rethrew ("Check failed: throw_dex_pc < InsnsSizeInCodeUnits").
+  Without the pin the test passed. Q18-024 is partly fixed again; the 179 R8 warnings return until an AGP that bundles
+  R8 9.1.29 or newer is adopted (an AGP upgrade, for the owner).
+- Q18-035 (Medium), found by the test in the emulator lane: after a cancelled run the engine's gate stayed locked, so
+  every later run in the process returned at once (the six DownloadLifecycleDeviceTest cases after the new test failed
+  at their first download; lanes emulator-20261019T085411Z and emulator-20261019T090403Z, 52 tests, 6 failures). Traced
+  with temporary logs, removed before committing: the song's cancellation handler ran to its rethrow and the run's
+  finally never ran. The run's coroutine was one method of 71,252 dex code units in a debug build (7.6 KB of JVM
+  bytecode; D8's debug translation keeps every local alive across each catch region), past 65,535. The shrunk release
+  build has no method over 30,000 units, so Riff Preview is not known to be affected. Fixed (8985304): one song of a run
+  is its own function (41,440 units), and the run's closes are one function.
+- Verification: download JVM tests 135, 0 failures; script tests 29 OK; emulator lane API 36 PASS 52 of 52
+  (emulator-20261019T094812Z), API 33 PASS 51 of 51 (emulator-20261019T102310Z), API 31 PASS 51 of 51
+  (emulator-20261019T103119Z); pr lane PASS_LOCAL on every gate (pr-20261019T101034Z, before the API filter in
+  verify.py, which only the script tests cover; script-tests and static PASS after it, pr-20261019T103827Z).
+- The earlier Q18F entry's line on the R8 pin and its pr lane result (pr-20261019T080727Z) describe a build that is no
+  longer the branch's. Bug count now: 35 logged; 26 fixed (Q18-026 and Q18-035 added, Q18-024 out), 3 partly fixed
+  (Q18-005, Q18-023, Q18-024), 1 closed by decision, 3 open, 2 withdrawn.
+- Emulator state: on the API 36 AVD one stray install of com.musicglass.personal (a debug build without the
+  side-by-side flag, 19 Oct) is left, since nothing touches that package name by rule; it is a disposable emulator.
+  The three emulators are shut down.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
