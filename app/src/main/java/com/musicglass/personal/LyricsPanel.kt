@@ -30,7 +30,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import coil3.compose.AsyncImage
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 
@@ -53,16 +52,10 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
     val context=LocalContext.current
     var translate by rememberSaveable(state.mediaId) {mutableStateOf(false)}
     var sourceLanguage by rememberSaveable(state.mediaId) {mutableStateOf<String?>(null)}
-    var translated by remember(state.mediaId) {mutableStateOf<List<String>>(emptyList())}
-    var translationStatus by remember(state.mediaId) {mutableStateOf("")}
+    val translation=remember(state.mediaId) {LyricTranslationRun {lines,source,status->englishLyrics(context,lines,source,status)}}
     var languageMenu by remember {mutableStateOf(false)}
     val languages=remember {com.google.mlkit.nl.translate.TranslateLanguage.getAllLanguages().sortedBy {java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.ENGLISH)}}
-    LaunchedEffect(translate,document,sourceLanguage) {
-        translated=emptyList();translationStatus=""
-        if(translate && document?.lines?.isNotEmpty()==true) try {
-            translated=englishLyrics(context,document!!.lines,sourceLanguage) {translationStatus=it};translationStatus=""
-        } catch(e:CancellationException) {throw e} catch(e:Exception) {translationStatus=e.message?:string(R.string.translation_unavailable_try_again)}
-    }
+    LaunchedEffect(translate,document,sourceLanguage) {translation.run(translate,document?.lines,sourceLanguage)}
     val motion = LocalMotionPolicy.current
     val list = rememberLazyListState()
     val dragged by list.interactionSource.collectIsDraggedAsState()
@@ -137,7 +130,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                     }
                 }
             }
-            if(translate && translationStatus.isNotBlank()) Text(translationStatus,color=Muted,fontSize=12.sp,modifier=Modifier.padding(horizontal=28.dp,vertical=4.dp))
+            if(translate && translation.status.isNotBlank()) Text(translation.status,color=Muted,fontSize=12.sp,modifier=Modifier.padding(horizontal=28.dp,vertical=4.dp))
             when {
                 songLyrics?.instrumental == true -> LyricsMessage(string(R.string.instrumental),string(R.string.this_recording_has_no_sung_lyrics),Modifier.weight(1f))
                 songLyrics != null && songLyrics.lines.isNotEmpty() -> {
@@ -156,7 +149,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                                             playback.seekTo((line.startMs-offsetMs).coerceAtLeast(0))
                                             position = playback.currentPositionMs(); follow = true
                                         } else Modifier))
-                                if(translate) translated.getOrNull(index)?.let {english->Text(english,color=if(active) White else Muted,fontSize=18.sp,
+                                if(translate) translation.english.getOrNull(index)?.let {english->Text(english,color=if(active) White else Muted,fontSize=18.sp,
                                     modifier=Modifier.padding(top=8.dp).testTag("lyric_english_$index"))}
                             }
                         }
