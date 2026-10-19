@@ -121,7 +121,7 @@ A9. Each bug logged from now on names its C10, B13 and A9 check when it is logge
 | Q18-026 | The Android 15 daily limit, on the API 36 emulator with the shortened timeout: download_foreground_timeout logged, service stopped, the job holds the rest |
 | Q18-027 | The sign-in browser's settings: allowContentAccess false |
 | Q18-028 | The blocked-host event names the host's class (Google, other) without the address |
-| Q18-029 | Per the decision in Q18F: the hook covers the SABR reads that happen, with an emulator fixture, or PLY05 is retired as a device case with the reason |
+| Q18-029 | None: PLY05 is retired as a device case (owner, 19 Oct 2026); the JVM tests stay its evidence |
 | Q18-030 | No fix test; the render-thread work found by the trace is changed and FrameBenchmark decides (B7b) |
 | Q18-031 | Compose: the active download's phase is a polite live region keyed on the phase; a percentage change sends nothing, a phase change one announcement |
 | Q18-032 | Widget update: the toggle is "Play" when paused and "Pause" when playing |
@@ -148,7 +148,6 @@ the phone (B2).
 | Q18-021 | B5 again: kill while Downloading and while Saving artwork and lyrics, reopen, the song finishes by itself; and the reboot run |
 | Q18-022 | B4's solver kept down again: the resolver-unavailable message |
 | Q18-023, Q18-030 | B7b: Macrobenchmark's full run, frames at 60 Hz (the owner sets Standard at hand-over) and 120 Hz |
-| Q18-029 | PLY05 on the phone, if the hook was moved |
 | Q18-031 | The A4 method: accessibility events recorded while an album downloads; one announcement per phase change, none per percentage |
 | Q18-032 | Widget tree read paused and playing: "Play" and "Pause" |
 | Q18-033 | Settings tree: the four sliders named with their values |
