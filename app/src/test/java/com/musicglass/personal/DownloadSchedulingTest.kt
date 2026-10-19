@@ -106,6 +106,19 @@ class DownloadSchedulingTest {
         assertNull(shadowOf(context as android.app.Application).nextStartedService)
         assertNull(job(OfflineDownloadScheduler.MANUAL))
     }
+    @Test fun whenAndroid15sDailyLimitEndsTheServiceWhatIsLeftWaitsForTheJob() {
+        // Q18-026: onTimeout is all Android gives once the dataSync allowance is used up. The run stops, the songs keep
+        // their place in the queue, and the job carries on with them.
+        val scope=store.currentScope
+        store.enqueue(ProviderTrack("schedule001","Song","Artist"),scope=scope)
+        store.enqueue(ProviderTrack("schedule002","Song","Artist"),scope=scope)
+        val service=Robolectric.buildService(OfflineDownloadService::class.java).create()
+        service.get().onTimeout(1,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        assertEquals(listOf("download_foreground_timeout"),events())
+        assertNotNull("the job holds the rest",job(OfflineDownloadScheduler.MANUAL))
+        assertEquals(listOf(DownloadState.Queued,DownloadState.Queued),listOf("schedule001","schedule002").map {store.song(scope,it)!!.status})
+        assertTrue(shadowOf(service.get()).isStoppedBySelf)
+    }
     @Test fun pauseFromTheNotificationPausesWhatTheUserAskedForAndNothingElse() {
         val scope=store.currentScope
         store.enqueue(ProviderTrack("schedule001","Song","Artist"),scope=scope)
