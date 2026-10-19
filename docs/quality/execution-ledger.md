@@ -2159,8 +2159,9 @@ address. APK: the same public key in classes.dex; two e-mail-like strings inside
 (`libtranslate_jni.so`), third-party and not project data. Account names: neither test account's name appears in
 the APK; the source mentions only the project's own GitHub handle (repository, issue and CI links) and one author
 credit. Linux dependency checksums: BLOCKED (no Linux machine, CI not pushed); rerun the CI workflow's dependency
-verification on the first push. Open medium items: the jsDelivr fallback stays an owner decision; the foreign
-controller on the phone is Q18B11.
+verification on the first push. Medium items: the jsDelivr fallback is kept, by the owner's decision on 19 October 2026
+(playback after a YouTube player change outweighs the third-party script, which runs only in the sandboxed
+:solver process; still disclosed in docs/privacy.md); the foreign controller on the phone passed in Q18B11.
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
