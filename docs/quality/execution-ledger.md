@@ -2003,12 +2003,18 @@ from the app's own user with run-as (the receivers are not exported). Evidence i
   the SolverUnavailableException does not reach the player. Retry during the 10-minute pause failed the same way;
   Retry after it recovered on the first attempt (recovery_done attempts=1). solver-kill-loop.txt,
   retry-after-pause.txt, after-10-min.txt, s8-player-solver-down.png.
-- Attestation fault during playback (PLY05), BLOCKED. Armed (FAIL_SABR delivered), but signed out every stream was
-  DIRECT (every song tried, ten lookups), and the fault only applies to SABR audio, which the signed-in sessions get. Signing Riff
-  Stress in needs a password typed on the phone, which I do not do. Rerun: the owner signs Riff Stress in to the
-  dummy account; then run-as com.musicglass.personal.stress am broadcast --user 0 -a
-  com.musicglass.personal.stress.FAIL_SABR -p com.musicglass.personal.stress --ei count 1 while a SABR song plays,
-  and expect one "recovery class=attestation attempt=1 action=attestation" line and playback continuing.
+- Attestation fault during playback (PLY05): **not reachable on a device in this build; covered by JVM tests.**
+  Overnight it was recorded as BLOCKED because Riff Stress was signed out; that reason was wrong. Rerun signed in
+  (19 October 2026, 07:55-08:05; the owner signed Riff Stress in to the dummy account during Q18B11), music muted:
+  a Home song streamed DIRECT (selected_stream_ready ms=2516) and a live Radio station came as HLS. The code
+  explains it: ProviderStreamResolver asks for SABR only for video, live or download (allowSabr = video || live
+  || download), playback passes video only for live items, live items get HLS when YouTube offers it, and downloads
+  read SABR through SabrAudioStream directly, not through SabrPlaybackTransport, where the stress fault hook
+  (SabrFaultInjection) sits. So no ordinary playback reaches the hook. The recovery itself is tested on the JVM:
+  PlaybackRecoveryTest classifies an attestation failure as AttestationExpired, SabrRecoveryPolicyTest covers the
+  policy and the hook's cap. Logged as Q18-029 (the device case and its hook no longer match the code).
+  `artifacts/quality/q18b/b4-signed-in/` (logcat.txt, screen trees). No crash. Riff Stress left paused, signed in,
+  volume set back to 15 (the owner's earphones).
 - No crash of the app process (no AndroidRuntime lines in logcat-b4.txt).
 - New bug: Q18-022 (Medium), logged, not fixed.
 - Left on the phone: Riff Stress (com.musicglass.personal.stress), signed out, a search for "Beat It" in its own
