@@ -625,6 +625,7 @@
     <string name="lyric_card_cover">Cover</string>
     <string name="lyric_card_dark">Dark</string>
     <string name="lyric_card_pink">Riff pink</string>
+    <string name="lyric_card_aurora">Aurora</string>
     <string name="save_to_photos">Save</string>
     <string name="lyric_card_saved">Saved to Pictures › Riff</string>
     <string name="couldn_t_save_lyric_card">Couldn\'t save the picture</string>

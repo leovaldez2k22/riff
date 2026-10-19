@@ -1,13 +1,20 @@
 package com.musicglass.personal
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.view.View
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
@@ -73,6 +80,22 @@ class LyricsShareTest {
         assertTrue(long.height > long.width)
     }
 
+    /** Q18-036: the owner's blue-to-pink card (sampled from the mockup): blue top left, pink bottom right, navy between. */
+    @Test fun theAuroraLookGoesFromBlueTopLeftToPinkBottomRightOverNavy() {
+        val card = renderLyricCard(listOf("Hold this moment"), "Song", "Artist", LyricCardLook.Aurora, 0)
+        fun rgb(x: Int, y: Int) = card.getPixel(x, y).let { Triple(it shr 16 and 255, it shr 8 and 255, it and 255) }
+        val (r1, g1, b1) = rgb(30, 30)
+        assertTrue("top left is blue: $r1,$g1,$b1", b1 > 170 && b1 > r1 + 80 && b1 > g1 + 60)
+        val (r2, g2, b2) = rgb(1050, 1050)
+        assertTrue("bottom right is pink: $r2,$g2,$b2", r2 > 170 && r2 > g2 + 80 && b2 > g2)
+        for ((x, y) in listOf(1050 to 30, 30 to 1050)) {
+            val (r, g, b) = rgb(x, y)
+            assertTrue("$x,$y is deep navy: $r,$g,$b", r < 70 && g < 70 && b in 50..130 && b > r)
+        }
+        // White words.
+        assertTrue(count(card, 0, 1080, 200, 860) { r, g, b -> r > 230 && g > 230 && b > 230 } > 2_000)
+    }
+
     @Test fun aTapStillSeeksAndOnlyAHoldStartsSharing() {
         var taps = 0; var holds = 0
         compose.setContent {
@@ -105,6 +128,28 @@ class LyricsShareTest {
         compose.onNodeWithTag("line").performTouchInput { down(center); advanceEventTime(450); up() }
         compose.waitForIdle()
         assertEquals(0, holds)
+    }
+
+    /** Q18-037: the sung line grows a little from its middle; a line's look, chosen or not, must never cut that off. */
+    @Test fun theSungLinesFirstLetterIsNeverCutChosenOrNot() {
+        val chosen = mutableStateOf(false)
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            Box(Modifier.fillMaxSize().background(Color.Black).padding(horizontal = 28.dp)) {
+                KaraokeLine(LyricLine(0, 60_000, "Cinnamon in my teeth"), active = true, backingActive = false,
+                    position = { 1_000 }, motion = MotionPolicy(false, 1f), backingTag = "backing",
+                    modifier = Modifier.testTag("line").lyricLineLook(dim = false, chosen = chosen.value))
+            }
+        }
+        for (isChosen in listOf(false, true)) {
+            chosen.value = isChosen
+            compose.mainClock.advanceTimeBy(2_000)
+            val left = compose.onNodeWithTag("line").fetchSemanticsNode().boundsInRoot.left.toInt()
+            val view = compose.activity.findViewById<View>(android.R.id.content)
+            val image = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) }
+            val outside = count(image, 0, left, 0, image.height) { r, g, b -> minOf(r, g, b) > 150 }
+            assertTrue("chosen=$isChosen: the C reaches left of the line's edge ($outside px)", outside > 0)
+        }
     }
 
     private fun count(bitmap: Bitmap, x0: Int, x1: Int, y0: Int, y1: Int, test: (Int, Int, Int) -> Boolean): Int {

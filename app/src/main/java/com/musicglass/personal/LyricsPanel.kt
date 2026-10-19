@@ -2,7 +2,6 @@ package com.musicglass.personal
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
@@ -19,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -177,9 +175,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                                 CompositionLocalProvider(LocalViewConfiguration provides holdConfiguration) {
                                     KaraokeLine(line,active && !sharing,backingActive && !sharing,{ position+offsetMs },motion,"lyric_backing_$index",
                                         modifier = Modifier.testTag("lyric_line_$index")
-                                            .graphicsLayer { alpha = if (sharing && !chosen) .4f else 1f }
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(if (chosen) Pink.copy(alpha = .16f) else Color.Transparent)
+                                            .lyricLineLook(dim = sharing && !chosen, chosen = chosen)
                                             .lyricLineTouch(
                                                 onTap = when { sharing -> choose; line.startMs >= 0 -> seek; else -> null },
                                                 tapLabel = string(if (sharing) R.string.choose_this_line else R.string.play_from_this_line),

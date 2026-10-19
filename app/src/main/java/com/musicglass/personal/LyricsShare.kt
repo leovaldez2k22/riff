@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.graphics.Typeface
 import android.provider.MediaStore
@@ -29,6 +30,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
@@ -72,7 +77,23 @@ internal fun lyricShareText(line: LyricLine): String? =
     line.text.trim().ifBlank { line.backing?.text?.trim().orEmpty() }.takeIf { it.isNotBlank() }
 
 /** F2: the card's three looks, picked on the share sheet. */
-internal enum class LyricCardLook { Cover, Dark, Pink }
+internal enum class LyricCardLook { Cover, Dark, Pink, Aurora }
+
+/**
+ * F2: a lyric line while sharing: dimmed when not chosen, a rounded pink tint behind it when chosen. Q18-037: nothing
+ * is clipped, so the sung line's grow and a held word's pop and glow can reach past the line's edges; the tint is drawn
+ * a little larger than the line instead, so the words never touch its edge.
+ */
+internal fun Modifier.lyricLineLook(dim: Boolean, chosen: Boolean): Modifier =
+    graphicsLayer { alpha = if (dim) .4f else 1f }
+        .drawBehind {
+            if (!chosen) return@drawBehind
+            val side = LYRIC_TINT_SIDE.toPx(); val end = LYRIC_TINT_END.toPx()
+            drawRoundRect(Pink.copy(alpha = .16f), Offset(-side, -end), Size(size.width + 2 * side, size.height + 2 * end),
+                CornerRadius(16.dp.toPx()))
+        }
+private val LYRIC_TINT_SIDE = 10.dp
+private val LYRIC_TINT_END = 2.dp
 
 /** Riff's two waves (res/drawable/ic_launcher_foreground.xml), drawn in the card's corner instead of the record. */
 private const val RIFF_WAVES = "M27,49 C37,57 43,41 51,34 C61,25 71,30 78,41 C66,34 61,43 53,51 C43,61 34,60 27,49 Z " +
@@ -88,7 +109,8 @@ internal fun renderLyricCard(lines: List<String>, title: String, artist: String,
     val textWidth = (width - 2 * pad).toInt()
     val ink = if (look == LyricCardLook.Pink) 0xFF14070D.toInt() else 0xFFFFFFFF.toInt()
     val soft = if (look == LyricCardLook.Pink) 0xB314070D.toInt() else 0xB3FFFFFF.toInt()
-    val accent = if (look == LyricCardLook.Pink) 0xFF14070D.toInt() else Pink.toArgb()
+    // Riff pink would vanish on the Aurora look's pink corner, so its waves are white.
+    val accent = when (look) { LyricCardLook.Pink -> 0xFF14070D.toInt(); LyricCardLook.Aurora -> 0xFFFFFFFF.toInt(); else -> Pink.toArgb() }
     val lyricPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         color = ink; textSize = width * .062f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     }
@@ -99,17 +121,19 @@ internal fun renderLyricCard(lines: List<String>, title: String, artist: String,
     val height = maxOf(width, (pad * 1.4f + lyrics.height + pad + footer + pad).toInt())
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
-    val (top, bottom) = when (look) {
-        LyricCardLook.Cover -> {
-            val tone = Color(cover).readableArtworkTone()
-            tone.toArgb() to Color(tone.red * .35f, tone.green * .35f, tone.blue * .35f).toArgb()
+    if (look == LyricCardLook.Aurora) drawAurora(canvas, width, height) else {
+        val (top, bottom) = when (look) {
+            LyricCardLook.Cover -> {
+                val tone = Color(cover).readableArtworkTone()
+                tone.toArgb() to Color(tone.red * .35f, tone.green * .35f, tone.blue * .35f).toArgb()
+            }
+            LyricCardLook.Dark -> 0xFF231524.toInt() to 0xFF0B0C12.toInt()
+            else -> 0xFFFF7DBD.toInt() to 0xFFF45B9A.toInt()
         }
-        LyricCardLook.Dark -> 0xFF231524.toInt() to 0xFF0B0C12.toInt()
-        LyricCardLook.Pink -> 0xFFFF7DBD.toInt() to 0xFFF45B9A.toInt()
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), Paint().apply {
+            shader = LinearGradient(0f, 0f, 0f, height.toFloat(), top, bottom, Shader.TileMode.CLAMP)
+        })
     }
-    canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), Paint().apply {
-        shader = LinearGradient(0f, 0f, 0f, height.toFloat(), top, bottom, Shader.TileMode.CLAMP)
-    })
     // The glass sheen Riff's panels have: light from the top left, gone by the middle.
     canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), Paint().apply {
         shader = LinearGradient(0f, 0f, width * .6f, height * .6f, 0x24FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP)
@@ -147,6 +171,20 @@ internal fun renderLyricCard(lines: List<String>, title: String, artist: String,
     canvas.drawText(TextUtils.ellipsize(artist, artistPaint, labelWidth, TextUtils.TruncateAt.END).toString(),
         pad, baseline, artistPaint)
     return bitmap
+}
+
+/** Q18-036: the owner's mockup card: deep navy, blue light from the top left, pink from the bottom right, violet between. */
+private fun drawAurora(canvas: Canvas, width: Int, height: Int) {
+    val w = width.toFloat(); val h = height.toFloat(); val reach = maxOf(w, h)
+    canvas.drawColor(0xFF10143A.toInt())
+    canvas.drawRect(0f, 0f, w, h, Paint().apply {
+        shader = RadialGradient(w * .04f, h * .04f, reach * .85f, intArrayOf(0xFF295AD9.toInt(), 0x8C2A4FC4.toInt(), 0x002A4FC4),
+            floatArrayOf(0f, .5f, 1f), Shader.TileMode.CLAMP)
+    })
+    canvas.drawRect(0f, 0f, w, h, Paint().apply {
+        shader = RadialGradient(w * .98f, h * .98f, reach * .95f,
+            intArrayOf(0xFFC44B8E.toInt(), 0xD9A4468F.toInt(), 0x805E3F8B.toInt(), 0x005E3F8B), floatArrayOf(0f, .3f, .65f, 1f), Shader.TileMode.CLAMP)
+    })
 }
 
 private fun lyricCardFile(context: Context): File =
@@ -224,7 +262,7 @@ internal fun saveLyricCard(context: Context, card: Bitmap, title: String): Boole
         }
 }
 
-/** F2: the share sheet: the card as it will look, its three looks, Save and Share. */
+/** F2: the share sheet: the card as it will look, its four looks, Save and Share. */
 @Composable internal fun LyricShareSheet(lines: List<String>, title: String, artist: String, cover: Color, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -243,13 +281,14 @@ internal fun saveLyricCard(context: Context, card: Bitmap, title: String): Boole
                     card?.let { Image(it.asImageBitmap(), string(R.string.lyric_card_preview), contentScale = ContentScale.Fit,
                         modifier = Modifier.fillMaxSize()) }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     LyricCardLook.entries.forEach { option ->
                         FilterChip(look == option, { uiHaptic(HapticCue.Selection); look = option; status = null },
                             label = { Text(string(when (option) {
                                 LyricCardLook.Cover -> R.string.lyric_card_cover
                                 LyricCardLook.Dark -> R.string.lyric_card_dark
                                 LyricCardLook.Pink -> R.string.lyric_card_pink
+                                LyricCardLook.Aurora -> R.string.lyric_card_aurora
                             })) }, modifier = Modifier.testTag("lyrics_share_look_${option.name.lowercase()}"))
                     }
                 }
