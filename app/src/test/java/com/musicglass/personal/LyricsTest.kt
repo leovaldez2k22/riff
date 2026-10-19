@@ -234,6 +234,14 @@ class LyricsTest {
         // Line-synced lyrics have no words to hold.
         assertEquals(emptyList<LyricWord>(),heldLyricWords("Line only",emptyList()))
     }
+    @Test fun aHeldWordInATwoWordLineIsMeasuredAgainstTheOtherWord() {
+        // ABBA, "Dancing Queen" at 1:36 (BetterLyrics, A1): Dan 1:36.443-1:36.859, cing -1:37.273, queen -1:38.406.
+        val text = "Dancing queen"
+        val parts = listOf(LyricPart(96_443,96_859,0,3),LyricPart(96_859,97_273,3,7),LyricPart(97_273,98_406,8,13))
+        assertEquals("queen: 1,133 ms, 227 ms a letter against 119 (Q18-004)",listOf(LyricWord(8,13,97_273,98_406)),heldLyricWords(text,parts))
+        // Two words sung alike: neither stands out against the other.
+        assertEquals(emptyList<LyricWord>(),heldLyricWords("Hold on",listOf(LyricPart(0,1000,0,4),LyricPart(1000,1500,5,7))))
+    }
     @Test fun aHeldWordGrowsWhileSungAndSettlesAfter() {
         val word = LyricWord(0,4,1000,2200)
         assertEquals(0f,heldEmphasis(999,word),0f)

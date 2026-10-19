@@ -308,11 +308,13 @@ internal fun heldLyricWords(text: String, parts: List<LyricPart>): List<LyricWor
     val words = lyricWords(text, parts)
     if (words.isEmpty()) return emptyList()
     fun letters(word: LyricWord) = text.substring(word.from, word.to).count { !it.isWhitespace() }.coerceAtLeast(1)
-    val perLetter = words.map { it.durationMs.toDouble() / letters(it) }.sorted()
-    val median = perLetter[perLetter.size / 2]
-    return words.filter { word ->
-        word.durationMs >= LONG_HELD_WORD_MS ||
-            (word.durationMs >= HELD_WORD_MS && word.durationMs.toDouble() / letters(word) >= median * HELD_WORD_RATIO)
+    val perLetter = words.map { it.durationMs.toDouble() / letters(it) }
+    return words.filterIndexed { index, word ->
+        // Against the rest of the line: a median that holds the word itself is that word in a two-word line,
+        // and "queen" in "Dancing queen" could never stand out (Q18-004). A word alone has only the long rule.
+        val others = perLetter.filterIndexed { other, _ -> other != index }.sorted()
+        word.durationMs >= LONG_HELD_WORD_MS || (others.isNotEmpty() && word.durationMs >= HELD_WORD_MS &&
+            perLetter[index] >= others[others.size / 2] * HELD_WORD_RATIO)
     }
 }
 
