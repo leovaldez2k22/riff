@@ -123,6 +123,7 @@ class MusicPlaybackService : MediaSessionService() {
             tailItem=queue::tailItem)
         // Crossfade synchronization requires frequent decoder-position updates.
         val player = ExoPlayer.Builder(this, renderers).setMediaSourceFactory(mediaFactory).setLoadControl(riffLoadControl())
+            .setMaxSeekToPreviousPositionMs(PREVIOUS_RESTARTS_AFTER_MS)
             .experimentalSetDynamicSchedulingEnabled(false)
             .build().apply {
             setAudioAttributes(AudioAttributes.Builder()
@@ -308,7 +309,7 @@ class MusicPlaybackService : MediaSessionService() {
             if(player.mediaItemCount==0) return result
             when(intent.getStringExtra("command")) {
                 "toggle"->if(toggleShouldPause(player.isPlaying,player.playWhenReady,player.playbackState==Player.STATE_IDLE)) player.pause() else retryPlayback(player)
-                "previous"->{player.seekToPreviousMediaItem();if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
+                "previous"->{player.previousOrRestart();if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
                 "next"->{player.seekToNextMediaItem();if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
             }
         }

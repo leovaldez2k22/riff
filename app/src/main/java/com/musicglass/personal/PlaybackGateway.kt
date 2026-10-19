@@ -251,7 +251,7 @@ internal class MusicPlaybackGateway(context: Context,
     override fun pause() { transport(false); withPlayer { it.pause();if(state.embedded) embeddedControl?.invoke(false) } }
     override fun resume() { transport(true); withPlayer { start(it) } }
     override fun next() { PerfTrace.began("skip"); transport(true); withPlayer { commandError = null; it.seekToNextMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
-    override fun previous() { transport(true); withPlayer { commandError = null; it.seekToPreviousMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
+    override fun previous() { transport(true); withPlayer { commandError = null; it.previousOrRestart(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
     override fun currentPositionMs(): Long = controller?.currentPosition?.coerceAtLeast(0) ?: positionMs
     override fun seekTo(positionMs: Long) = withPlayer {
         it.seekTo(positionMs.coerceAtLeast(0))
@@ -452,6 +452,15 @@ internal class MusicPlaybackGateway(context: Context,
  */
 internal fun toggleShouldPause(isPlaying: Boolean, playWhenReady: Boolean, idle: Boolean): Boolean =
     !idle && (isPlaying || playWhenReady)
+
+/** F3: once a song has played past this, Previous starts it again instead of going to the song before. */
+internal const val PREVIOUS_RESTARTS_AFTER_MS = 10_000L
+internal fun previousRestartsSong(positionMs: Long, hasPrevious: Boolean): Boolean =
+    !hasPrevious || positionMs > PREVIOUS_RESTARTS_AFTER_MS
+/** Previous from Riff's own buttons and widgets; the notification and headsets get the same rule from the player (setMaxSeekToPreviousPositionMs). */
+internal fun Player.previousOrRestart() {
+    if (previousRestartsSong(currentPosition, hasPreviousMediaItem())) seekTo(0) else seekToPreviousMediaItem()
+}
 
 /**
  * Deleting the only item leaves an empty, paused queue. Deleting the current item when nothing follows
