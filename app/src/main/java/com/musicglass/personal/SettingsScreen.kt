@@ -2,7 +2,16 @@ package com.musicglass.personal
 
 import kotlin.math.roundToInt
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
@@ -16,15 +25,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -40,6 +54,14 @@ import kotlinx.coroutines.withContext
     var crossfadeLength by remember(crossfade) {mutableFloatStateOf(crossfade.seconds.toFloat())}
     val dataSaver=remember(context) {DataSaverSettings(context)}
     val scope=rememberCoroutineScope()
+    val store=remember(context) {OfflineMusicStore.get(context)}
+    val storeRevision by store.revision.collectAsStateWithLifecycle()
+    val smartDownloads=remember(storeRevision) {store.smartEnabled}
+    val hidden=remember(context) {NotInterestedStore.get(context)}
+    val updates=remember(context) {AppContainer.get(context).updates}
+    // F5: the settings sit in compartments, one open at a time; a closed one says in a line what is set inside.
+    var open by rememberSaveable {mutableStateOf<String?>(null)}
+    fun toggle(id:String) {open=if(open==id) null else id}
     ScreenList(model,bottom) {
         item {BackHeading(string(R.string.back),model::back);ScreenTitle(string(R.string.settings))}
         item {
@@ -60,11 +82,10 @@ import kotlinx.coroutines.withContext
                 }
             }
         }
-        item {SettingsSection(string(R.string.interaction)) {
-            SettingsToggleRow(string(R.string.haptic_feedback),preferences.hapticFeedback,
-                hapticToggle(preferences::updateHapticFeedback),Icons.Rounded.Vibration,"settings_haptics")
-        }}
-        item {SettingsSection(string(R.string.audio)) {
+        item {SettingsCompartment("sound",string(R.string.settings_sound),Icons.AutoMirrored.Rounded.VolumeUp,
+            listOf(if(audio.enabled) string(R.string.summary_boost_x,boostLevel.toInt()) else string(R.string.summary_no_boost),
+                if(crossfade.enabled) string(R.string.summary_crossfade_x,crossfadeLength.roundToInt()) else string(R.string.summary_no_crossfade)).joinToString(" · "),
+            open=="sound",{toggle("sound")}) {
             SettingsToggleRow(string(R.string.volume_booster),audio.enabled,hapticToggle(audio::updateEnabled),
                 Icons.AutoMirrored.Rounded.VolumeUp,"settings_volume_boost", string(R.string.amplify_riff_playback_up_to_300))
             if(audio.enabled) {
@@ -100,12 +121,10 @@ import kotlinx.coroutines.withContext
                 }
             }
         }}
-        item {SettingsSection(string(R.string.data_usage)) {
-            SettingsToggleRow(string(R.string.data_saver),dataSaver.enabled,hapticToggle(dataSaver::updateEnabled),
-                Icons.Rounded.DataSaverOn,"settings_data_saver",
-                string(R.string.lower_bitrate_audio_and_up_to_360p))
-        }}
-        item {SettingsSection(string(R.string.appearance)) {
+        item {SettingsCompartment("look",string(R.string.settings_look_and_feel),Icons.Rounded.BlurOn,
+            listOf(string(if(preferences.frostedGlass) R.string.summary_frosted_glass_on else R.string.summary_frosted_glass_off),
+                string(R.string.summary_glass_x,(preferences.glassIntensity*100).toInt())).joinToString(" · "),
+            open=="look",{toggle("look")}) {
             SettingsToggleRow(string(R.string.frosted_glass),preferences.frostedGlass,
                 hapticToggle(preferences::updateFrostedGlass),Icons.Rounded.BlurOn,"settings_frosted_glass")
             SettingsDivider()
@@ -134,20 +153,35 @@ import kotlinx.coroutines.withContext
             SettingsDivider()
             SettingsToggleRow(string(R.string.high_contrast_controls),preferences.solidControls,
                 hapticToggle(preferences::updateSolidControls),Icons.Rounded.Contrast,"settings_solid_controls")
+            SettingsDivider()
+            SettingsToggleRow(string(R.string.haptic_feedback),preferences.hapticFeedback,
+                hapticToggle(preferences::updateHapticFeedback),Icons.Rounded.Vibration,"settings_haptics")
         }}
-        item {SettingsSection(string(R.string.downloads)) {DownloadSettings(model,onNotice)}}
-        item {SettingsSection(string(R.string.widgets)) {WidgetSettings(onNotice)}}
-        item {SettingsSection(string(R.string.library)) {
+        item {SettingsCompartment("downloads",string(R.string.settings_downloads_and_data),Icons.Rounded.DownloadDone,
+            listOf(string(if(smartDownloads) R.string.summary_smart_downloads_on else R.string.summary_smart_downloads_off),
+                string(if(dataSaver.enabled) R.string.summary_data_saver_on else R.string.summary_data_saver_off)).joinToString(" · "),
+            open=="downloads",{toggle("downloads")}) {
+            SettingsToggleRow(string(R.string.data_saver),dataSaver.enabled,hapticToggle(dataSaver::updateEnabled),
+                Icons.Rounded.DataSaverOn,"settings_data_saver",
+                string(R.string.lower_bitrate_audio_and_up_to_360p))
+            SettingsDivider()
+            DownloadSettings(model,onNotice)
+        }}
+        item {SettingsCompartment("library",string(R.string.settings_library_and_privacy),Icons.Rounded.Lock,
+            listOfNotNull(string(R.string.privacy_and_data),hidden.entries.size.takeIf {it>0}?.let {string(R.string.summary_x_not_interested,it)}).joinToString(" · "),
+            open=="library",{toggle("library")}) {
             SettingsLinkRow(string(R.string.privacy_and_data),null,Icons.Rounded.Lock,"settings_privacy_data") {model.push(Route.Settings(SettingsSection.PrivacyData))}
             SettingsDivider()
-            val hidden=remember(context) {NotInterestedStore.get(context)}
             SettingsLinkRow(string(R.string.not_interested),hidden.entries.size.takeIf {it>0}?.toString(),Icons.Rounded.Block,"settings_not_interested") {
                 model.push(Route.Settings(SettingsSection.NotInterested))
             }
         }}
-        item {SettingsSection(string(R.string.about)) {
+        item {SettingsCompartment("widgets",string(R.string.widgets),Icons.Rounded.Widgets,
+            string(R.string.summary_x_widgets,riffWidgetPresets.size),open=="widgets",{toggle("widgets")}) {WidgetSettings(onNotice)}}
+        item {SettingsCompartment("about",string(R.string.about),Icons.Rounded.Info,
+            listOfNotNull(string(R.string.summary_updates).takeIf {updates.configured},string(R.string.diagnostics)).joinToString(" · "),
+            open=="about",{toggle("about")}) {
             // Q12A: shown only in a build that has a release feed. Off sends nothing, the manual check included.
-            val updates=remember(context) {AppContainer.get(context).updates}
             if(updates.configured) {
                 SettingsToggleRow(string(R.string.check_for_updates),updates.enabled,hapticToggle(updates::updateEnabled),
                     Icons.Rounded.SystemUpdate,"settings_check_updates",string(R.string.check_for_updates_detail,updates.feedHost.orEmpty()))
@@ -169,6 +203,44 @@ import kotlinx.coroutines.withContext
         }}
         item {Text(androidx.compose.ui.res.stringResource(R.string.about_build_identity, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildIdentity.current().shortId),color=Muted,fontSize=12.sp,
             modifier=Modifier.fillMaxWidth().padding(vertical=20.dp),textAlign=androidx.compose.ui.text.style.TextAlign.Center)}
+    }
+}
+
+/**
+ * F5: one settings compartment. The header names it and, while closed, sums up what is set inside; a tap opens or
+ * closes it. Frosted like Riff's other glass: a light sheen over a faint fill, a thin edge that turns pink when open.
+ */
+@Composable internal fun SettingsCompartment(id:String,title:String,icon:ImageVector,summary:String,open:Boolean,
+    onToggle:()->Unit,content:@Composable ColumnScope.()->Unit) {
+    val motion=LocalMotionPolicy.current
+    val edge by animateColorAsState(if(open) Pink.copy(alpha=.5f) else White.copy(alpha=.12f),
+        GlassMotion.timed(GlassMotion.selectionMs,motion),label="compartment edge")
+    val turn by animateFloatAsState(if(open) 180f else 0f,GlassMotion.timed(GlassMotion.screenMs,motion),label="compartment chevron")
+    val openText=string(R.string.settings_group_open);val closedText=string(R.string.settings_group_closed)
+    val shape=RoundedCornerShape(24.dp)
+    Column(Modifier.fillMaxWidth().padding(vertical=4.dp).clip(shape)
+        .background(Brush.linearGradient(listOf(White.copy(alpha=.10f),White.copy(alpha=.035f))))
+        .border(.6.dp,edge,shape)) {
+        Row(Modifier.fillMaxWidth().heightIn(min=64.dp).testTag("settings_group_$id")
+            .clickable(role=Role.Button,onClick=hapticClick(onToggle))
+            .semantics {heading();stateDescription=if(open) openText else closedText}
+            .padding(horizontal=16.dp,vertical=12.dp),
+            verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(36.dp).clip(CircleShape).background(Pink.copy(alpha=.14f)).border(.6.dp,Pink.copy(alpha=.35f),CircleShape),
+                contentAlignment=Alignment.Center) {Icon(icon,null,tint=Pink,modifier=Modifier.size(19.dp))}
+            Column(Modifier.weight(1f)) {
+                Text(title,color=White,fontSize=16.sp,fontWeight=FontWeight.SemiBold)
+                AnimatedVisibility(!open,enter=fadeIn(GlassMotion.timed(GlassMotion.selectionMs,motion)),
+                    exit=fadeOut(GlassMotion.timed(GlassMotion.selectionMs,motion))) {
+                    Text(summary,color=Muted,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis,modifier=Modifier.padding(top=2.dp))
+                }
+            }
+            Icon(Icons.Rounded.ExpandMore,null,tint=if(open) Pink else Muted,modifier=Modifier.rotate(turn))
+        }
+        AnimatedVisibility(open,enter=expandVertically(GlassMotion.timed(GlassMotion.screenMs,motion))+fadeIn(GlassMotion.timed(GlassMotion.screenMs,motion)),
+            exit=shrinkVertically(GlassMotion.timed(GlassMotion.screenMs,motion))+fadeOut(GlassMotion.timed(GlassMotion.selectionMs,motion))) {
+            Column(Modifier.padding(start=16.dp,end=16.dp,bottom=8.dp)) {SettingsDivider();content()}
+        }
     }
 }
 

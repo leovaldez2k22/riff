@@ -116,7 +116,6 @@
     <string name="amplify_riff_playback_up_to_300" formatted="false">Amplify Riff playback up to 300%</string>
     <string name="another_account_used_on_this_phone_x">Another account used on this phone (%1$s)</string>
     <string name="app_saved_online_tracks_stay_on_this">App-saved online tracks stay on this phone and are hidden after sign-out.</string>
-    <string name="appearance">Appearance</string>
     <string name="artist">Artist</string>
     <string name="artist_is_unavailable">Artist is unavailable</string>
     <string name="artist_profile_is_unavailable_for_this_recor">Artist profile is unavailable for this recording</string>
@@ -124,7 +123,6 @@
     <string name="artwork">Artwork</string>
     <string name="artwork_or_lyrics_missing">Artwork or lyrics missing</string>
     <string name="artwork_x">Artwork: %1$s</string>
-    <string name="audio">Audio</string>
     <string name="audio_access_was_denied_you_can_allow">Audio access was denied. You can allow it when ready.</string>
     <string name="audio_files_indexed_by_android_on_this">Audio files indexed by Android on this phone</string>
     <string name="audio_output">Audio output</string>
@@ -232,7 +230,6 @@
     <string name="custom_minutes_1_1440">Custom minutes (1–1440)</string>
     <string name="data">Data</string>
     <string name="data_saver">Data saver</string>
-    <string name="data_usage">Data usage</string>
     <string name="dates_not_supplied_for_this_collection">Dates not supplied for this collection</string>
     <string name="delete">Delete</string>
     <string name="delete_all_downloads">Delete all downloads?</string>
@@ -343,7 +340,6 @@
     <string name="importing">Importing</string>
     <string name="importing_adds_to_what_is_on_this">Importing adds to what is on this phone and removes nothing. Nothing is played or downloaded, and nothing changes in YouTube Music.</string>
     <string name="instrumental">Instrumental</string>
-    <string name="interaction">Interaction</string>
     <string name="invalid_playlist_sort_preference">Invalid playlist sort preference</string>
     <string name="it_is_removed_from_this_phone_and">It is removed from this phone and cannot be recovered.</string>
     <string name="it_replaces_the_queue_you_have_now">It replaces the queue you have now and loads paused, as the queue of %1$s. It may have been made while another account was signed in.</string>
@@ -804,4 +800,25 @@
     <string name="exit_permission_change">Closed after a permission changed</string>
     <string name="exit_other">Closed by Android, or swiped away</string>
     <plurals name="n_times"><item quantity="one">%1$d time</item><item quantity="other">%1$d times</item></plurals>
+    <!-- F5: settings compartments -->
+    <string name="settings_sound">Sound</string>
+    <string name="settings_look_and_feel">Look &amp; feel</string>
+    <string name="settings_downloads_and_data">Downloads &amp; data</string>
+    <string name="settings_library_and_privacy">Library &amp; privacy</string>
+    <string name="settings_group_open">Open</string>
+    <string name="settings_group_closed">Closed</string>
+    <string name="summary_boost_x">Boost %1$d%%</string>
+    <string name="summary_no_boost">No boost</string>
+    <string name="summary_crossfade_x">Crossfade %1$d s</string>
+    <string name="summary_no_crossfade">No crossfade</string>
+    <string name="summary_frosted_glass_on">Frosted glass on</string>
+    <string name="summary_frosted_glass_off">Frosted glass off</string>
+    <string name="summary_glass_x">Glass %1$d%%</string>
+    <string name="summary_smart_downloads_on">Smart Downloads on</string>
+    <string name="summary_smart_downloads_off">Smart Downloads off</string>
+    <string name="summary_data_saver_on">Data saver on</string>
+    <string name="summary_data_saver_off">Data saver off</string>
+    <string name="summary_x_not_interested">%1$d not interested</string>
+    <string name="summary_x_widgets">%1$d widgets for your home screen</string>
+    <string name="summary_updates">Updates</string>
 </resources>

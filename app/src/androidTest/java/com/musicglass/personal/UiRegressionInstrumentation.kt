@@ -134,7 +134,16 @@ class UiRegressionInstrumentation {
         settle()
     }
 
-    private fun scrollToDataSaver() = scrollTo("settings_data_saver")
+    private fun scrollToDataSaver() = scrollTo("settings_data_saver","downloads")
+
+    // F5: settings sit in compartments; open the one holding the row (if it is not open yet) before scrolling to it.
+    private fun scrollTo(tag:String,group:String) {
+        if(compose.onAllNodesWithTag(tag,useUnmergedTree=true).fetchSemanticsNodes().isEmpty()) {
+            scrollTo("settings_group_$group")
+            compose.onNodeWithTag("settings_group_$group").performSemanticsAction(SemanticsActions.OnClick) {it()};settle()
+        }
+        scrollTo(tag)
+    }
 
     private fun scrollTo(tag:String) {
         val metrics=compose.activity.resources.displayMetrics
@@ -182,20 +191,20 @@ class UiRegressionInstrumentation {
         try {
             openTab("home");openTab("home")
             compose.onNodeWithTag("home_settings").performClick();settle()
-            scrollTo("settings_frosted_intensity")
+            scrollTo("settings_frosted_intensity","look")
             compose.onNodeWithTag("settings_frosted_intensity").performSemanticsAction(SemanticsActions.SetProgress) {it(.35f)}
             settle()
             assertEquals(.35f,prefs.getFloat("frosted_intensity",1f),.02f)
             assertEquals(glass,prefs.getFloat("glass_intensity",1f),.001f)
             compose.onNodeWithTag("settings_frosted_intensity").performSemanticsAction(SemanticsActions.SetProgress) {it(original)}
-            scrollTo("settings_download_budget")
+            scrollTo("settings_download_budget","downloads")
             compose.onNodeWithTag("settings_download_budget").performSemanticsAction(SemanticsActions.SetProgress) {it(downloadBudgets.lastIndex.toFloat())}
             waitFor {offline.getLong("budget_bytes",0)==Long.MAX_VALUE}
             settle()
             compose.onNodeWithTag("settings_download_budget_value").assertTextContains("Unlimited")
             compose.onNodeWithTag("settings_download_budget").performSemanticsAction(SemanticsActions.SetProgress) {it(downloadBudgetIndex(budget).toFloat())}
             waitFor {offline.getLong("budget_bytes",0)==budget}
-            scrollTo("settings_clear_cache")
+            scrollTo("settings_clear_cache","downloads")
             compose.onNodeWithTag("settings_clear_cache").assertIsDisplayed()
             compose.onNodeWithTag("settings_clear_cache").performSemanticsAction(SemanticsActions.OnClick) {it()};settle()
             compose.onNodeWithText("Clear playback cache?").assertIsDisplayed()
