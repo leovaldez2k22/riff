@@ -167,6 +167,14 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
     val updates: UpdateChecker by lazy { UpdateChecker.android(app, runtime, eventLog::append) }
     private val stateScope = CoroutineScope(SupervisorJob() + runtime.dispatchers.io)
 
+    /**
+     * Asks for Home's fresh feed as the app opens rather than when the logo hands over to it 0.74 s later (Q18-014).
+     * Home still shows only a fresh feed, as the owner chose on 3 Oct 2026: nothing is stored, and Home's own request
+     * joins this one while it is in flight. Off the caller's thread; a failure is left for Home to show.
+     */
+    fun prefetchHome() {
+        stateScope.launch { suspendCatching { provider.homeSections("") } }
+    }
     /** Hand-chosen downloads left waiting start again when the app comes to the front (Q18-021). Off the caller's thread. */
     fun resumeWaitingDownloads() {
         stateScope.launch { suspendCatching { DownloadCoordinator.resumeWaiting(app) } }

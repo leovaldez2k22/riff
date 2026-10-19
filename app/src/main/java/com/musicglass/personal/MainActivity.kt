@@ -10,6 +10,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         removeRetiredContent(this)
         AppContainer.get(this).stateReady // Starts on IO; nothing here waits for it.
+        AppContainer.get(this).prefetchHome()
         configureArtworkLoader(this)
         requestSmoothRefreshRate()
         window.setDecorFitsSystemWindows(false)
