@@ -93,6 +93,7 @@
     <string name="add_to_queue">Add to queue</string>
     <string name="add_to_x_playlists">Add to %1$s playlists</string>
     <string name="added_to_queue">Added to queue</string>
+    <string name="already_in_the_queue">Already in the queue</string>
     <string name="added_x">Added: %1$s.</string>
     <string name="adding_youtube_music_recommendations">Adding YouTube Music recommendations…</string>
     <string name="adjust_lyrics_timing">Adjust lyrics timing</string>

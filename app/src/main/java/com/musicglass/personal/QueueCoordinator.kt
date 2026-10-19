@@ -158,7 +158,10 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         val items = saved.queue.map { q -> if (q.mediaId.startsWith("yt:")) catalogItem(ProviderTrack(q.mediaId.removePrefix("yt:"),
             q.title, q.artist, q.artworkUrl, q.artistId, q.albumId, q.album, q.live, q.music)) else MediaItem.Builder().setMediaId(q.mediaId).setUri(q.localUri)
             .setMediaMetadata(MediaMetadata.Builder().setTitle(q.title).setArtist(q.artist).setAlbumTitle(q.album).setExtras(Bundle().apply { putString(ENTRY_ID, newEntryId()) }).build()).build() }
-        player.setMediaItems(items, saved.index, saved.positionMs)
+        // The selected song carries its saved length: nothing is prepared before Play, so the player has none (Q18-019).
+        val shown = items.mapIndexed { i, item -> if (i != saved.index || saved.durationMs <= 0) item
+            else item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon().setDurationMs(saved.durationMs).build()).build() }
+        player.setMediaItems(shown, saved.index, saved.positionMs)
         player.shuffleModeEnabled = saved.shuffle; player.repeatMode = saved.repeat; player.playWhenReady = false
         radioSeed = saved.radioSeed; queuedIds.addAll(saved.queue.filter { it.mediaId.startsWith("yt:") }.map { it.mediaId.removePrefix("yt:") })
         player.setPlaylistMetadata(MediaMetadata.Builder().setSubtitle(if (radioSeed == null) "Album order" else string(R.string.restored_queue_paused)).build())
@@ -246,7 +249,7 @@ internal class QueueCoordinator(private val context: Context, private val scope:
     /** Where the same video or the same recording already is in the queue. */
     private fun indexOfRecording(player: Player, track: ProviderTrack) = (0 until player.mediaItemCount).firstOrNull {
         val item = player.getMediaItemAt(it); val m = item.mediaMetadata
-        item.mediaId == "yt:${track.videoId}" || queueRecordingKey(m.title.toString(), m.artist.toString()) == queueRecordingKey(track.title, track.artist)
+        sameRecording(item.mediaId, m.title.toString(), m.artist.toString(), track)
     }
     /** The index that puts the entry now at [existing] directly after the selected one. */
     private fun afterCurrent(player: Player, existing: Int) =
@@ -332,4 +335,27 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         selfChange.run { player.seekToNextMediaItem(); player.prepare() }
         return true
     }
+}
+
+/** One recording in the queue: the same video, or the same song by the same main artist from another upload. */
+internal fun sameRecording(mediaId: String, title: String, artist: String, track: ProviderTrack) =
+    mediaId == "yt:${track.videoId}" || queueRecordingKey(title, artist) == queueRecordingKey(track.title, track.artist)
+
+internal enum class EnqueueOutcome { Added, Moved, AlreadyQueued }
+/**
+ * What Add to queue or Play next does to [queue] with [current] selected, by the rule the service follows: a
+ * recording already queued is never added twice; Play next moves it after the selected one (Q18-018).
+ */
+internal fun enqueueOutcome(queue: List<QueueEntry>, current: Int, track: ProviderTrack, next: Boolean): EnqueueOutcome {
+    val existing = queue.indexOfFirst { sameRecording(it.mediaId, it.title, it.artist, track) }
+    return when {
+        existing < 0 -> EnqueueOutcome.Added
+        next && existing != current -> EnqueueOutcome.Moved
+        else -> EnqueueOutcome.AlreadyQueued
+    }
+}
+/** The notice for [outcome]: it says what happened, and nothing when nothing did. */
+internal fun enqueueNotice(outcome: EnqueueOutcome, next: Boolean) = when (outcome) {
+    EnqueueOutcome.AlreadyQueued -> string(R.string.already_in_the_queue)
+    else -> if (next) string(R.string.playing_next) else string(R.string.added_to_queue)
 }

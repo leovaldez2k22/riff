@@ -278,7 +278,10 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
 internal suspend fun enqueueRealTrack(provider:YouTubeMusicProvider,playback:PlaybackGateway,
     card:ProviderHomeCard,next:Boolean,onNotice:(String)->Unit) {
     val track=card.track()?:return
-    if(playback is MusicPlaybackGateway) {playback.enqueueSong(track,next);uiHaptic(HapticCue.Confirm);onNotice(if(next) string(R.string.playing_next) else string(R.string.added_to_queue));return}
+    if(playback is MusicPlaybackGateway) {
+        val outcome=if(playback.state.queue.isEmpty()) EnqueueOutcome.Added else enqueueOutcome(playback.state.queue,playback.state.index,track,next)
+        playback.enqueueSong(track,next);uiHaptic(HapticCue.Confirm);onNotice(enqueueNotice(outcome,next));return
+    }
     val revision=provider.authRevision
     provider.resolve(track.videoId,track.isLive).fold(onSuccess={stream->
         if(revision==provider.authRevision) {
