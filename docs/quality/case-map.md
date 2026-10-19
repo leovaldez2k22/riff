@@ -15,8 +15,9 @@ Status words, and only these:
   rerun is named.
 - **DEFERRED**: the owner chose to run it after the fix package.
 - **TODO**: can be run, is scheduled in Q18 (B2, B8, B9, B10, C9) and has not run yet.
+- **DECLINED**: the owner decided the case or package is not done at all (recorded with the date).
 
-A row's status is its weakest part, in the order FAIL, BLOCKED, DEFERRED, TODO, PASS. "JVM" means JVM or
+A row's status is its weakest part, in the order FAIL, BLOCKED, DEFERRED, TODO, PASS. DECLINED rows are counted apart. "JVM" means JVM or
 Robolectric tests in the pull-request lane (1006 tests at C6, 0 failures); "emulator" means the fixture lane on
 API 31, 33 and 36 (51 tests each, C2); "phone" means the owner's I2217, Android 16, Riff Preview 7f7ab8e unless
 stated; "B1" means the same 51 instrumented tests on that phone (Riff Debug, 51 of 51).
@@ -119,7 +120,7 @@ section 18); C9 reruns them on the final candidate.
 | REL01 candidate APK | check_release_content.py (18 checks), test_check_release_content.py | Q17: 0.10.0-rc1 signed, certificate equal to rc20, non-debuggable, no fixtures. Must be repeated on the final candidate | TODO | B2, C9 (C6 release-identity BLOCKED on an unsigned clone) |
 | REL02 in-place upgrade | LegacyUpgradeDeviceTest (emulator, B1) | Q17 packaging lane: rc20 to rc1 on the emulator, data kept. Over the owner's real rc20: A7 | DEFERRED | A7, by the owner, after all fixes and tests |
 | REL03 evidence mismatch | test_collect_results.py (stale, mismatched, incomplete rejected), test_verify.py | Seen working: q04-debug-04/05, q07 fixture, q16a, q17a runs refused | PASS | |
-| REL04 interim release R1 | none | Q05R never authorized or started | TODO | owner decision: run Q05R or decline it (section 3) |
+| REL04 interim release R1 | none | Q05R declined by the owner on 19 October 2026: no interim release; only the final candidate is prepared | DECLINED | none |
 | EXP01 export then import | LocalDataTransferTest.aCleanInstallMatchesTheSourceForEverythingIncluded; LocalDataTransferDeviceTest (emulator, B1) | B6: export through the picker, file checked, import preview. Between two phones: BLOCKED (one phone) | PASS | two-phone transfer BLOCKED |
 | EXP02 bad import files | LocalDataTransferTest (corrupt, truncated, newer, oversized, mismatched), LocalDataTransferDeviceTest | none needed | PASS | |
 | OPS01 canary | ProviderCanaryTest, test_provider_canary.py; two live canary runs (Q10A) | The scheduled workflow never ran: nothing pushed, by the owner's choice | PASS | workflow run BLOCKED (no push) |
@@ -170,7 +171,7 @@ Tests per journey are listed in `core-journeys.md`. The phone walk-through is A4
 | Q03 | PASS; physical two-account check open | ACC04 (deferred) |
 | Q04, Q05 | PASS locally; phone upgrade and privacy actions | A7 (deferred) |
 | Q05A | PASS locally; picker done in B6 | two-phone transfer BLOCKED |
-| Q05R | **TODO, never authorized** | owner decision: run or decline |
+| Q05R | DECLINED by the owner, 19 October 2026 | none; the final report lists it as declined |
 | Q06, Q07 | PASS locally; phone checks done in B3 and B4 | Q18-017, Q18-022 |
 | Q08, Q08A | PASS locally; listening done in A2 and A3 | live loudness value (B10) |
 | Q09 | PASS locally; phone kill done in B5 | Q18-021, Q18-026 |
@@ -206,6 +207,6 @@ Each is read as follows; none is counted as PASS.
 
 ## 6. Totals
 
-Matrix and journeys, 72 rows: PASS 42, FAIL 12, BLOCKED 3, DEFERRED 6, TODO 9. No row is unmapped: LYR02 is
+Matrix and journeys, 72 rows: PASS 42, FAIL 12, BLOCKED 3, DEFERRED 6, TODO 8, DECLINED 1 (REL04). No row is unmapped: LYR02 is
 FAIL with Q18-034 because it has no test. G01 cannot pass until the FAIL rows are fixed and rerun, the TODO rows
-run, and the owner decides Q05R.
+run.

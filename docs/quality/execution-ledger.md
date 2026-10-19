@@ -2225,8 +2225,8 @@ with its Q18 bug), 3 BLOCKED (PLY05 Q18-029, UPD01 no release feed, PERF01 Q18-0
 DAT01, DAT02, REL02: A7 and the account switch) and 9 TODO (B10 live rows, REL01 and REL04, A11Y02 on the phone,
 UX10's lock screen). One case had no evidence at all: LYR02, a translation that fails or is cancelled; logged as
 Q18-034 (test gap). Labels outside the status words (PARTIAL, PARTLY, NOT DONE, NOT VERIFIED, NOT DECIDED, done)
-are each read in section 5 of the map; none counts as PASS. G01 also needs the owner's decision on Q05R (interim
-release R1), which was never authorized: run it or decline it. Not covered by any sub-phase of the split and added
+are each read in section 5 of the map; none counts as PASS. Q05R (interim release R1) was never authorized; the owner
+declined it the same day, so REL04 is DECLINED and the TODO rows are 8. Not covered by any sub-phase of the split and added
 to the post-fix phone session: largest font size and landscape on the phone (A11Y02), lock-screen controls (UX10).
 The second pass, after the fix package, updates the rows the fixes touch and feeds C9.
 
@@ -2234,7 +2234,7 @@ The second pass, after the fix package, updates the rows the fixes touch and fee
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
 - Q05A local export/import. Dependencies: Q03, Q04, Q05. Authorized by the user on 11 October 2026 ("start Q05A"). Status: PASS locally with open items (see the Q05A section).
-- Q05R interim release R1. Dependencies: Q00-Q05 PASS.
+- Q05R interim release R1. Dependencies: Q00-Q05 PASS. Status: DECLINED by the owner on 19 October 2026 ("Decline interim release"): no interim release is prepared; only the final candidate is. REL04 is declined with it. The plan text is unchanged; G01 records Q05R as declined, not complete.
 - Q08A loudness normalization. Dependencies: Q08. Authorized by the user on 11 October 2026 ("start q08 followed by q08a"). Status: PASS locally with open items (see the Q08A section).
 - Q10A provider canary and response runbook. Dependencies: Q10. Authorized by the user on 12 October 2026 ("do q08a and q10a"). Status: PASS locally with open items (see the Q10A section).
 - Q12A update notice. Dependencies: Q01, Q12. Authorized by the user on 14 October 2026 ("start q12a, then a15a then complete q16"). Status: PASS locally with open items, live feed BLOCKED (see the Q12A section).
