@@ -55,7 +55,7 @@ The excellence plan (docs/RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md, sections 18 an
 | Q18-005 seek gap on downloaded songs | Partly fixed | Q19B3 (measure), Q19G |
 | Q18-023 Macrobenchmark stops after the first launch | Partly fixed (1.6.0-alpha01) | Q19B6 |
 | Q18-030 Home scroll at 60 Hz just over budget | Open: needs a trace | Q19B6, Q19G |
-| Q18-024 R8 metadata warnings | Partly fixed; needs an AGP upgrade | Q19D (decision), Q19F5 (if yes) |
+| Q18-024 R8 metadata warnings | Partly fixed; the AGP upgrade declined (D8) | Known limitation in R1 and R5 (G08) |
 | Q18-001 to Q18-035, the rest | Fixed in Q18F; waiting for their phone checks | Q19B3 (B13 rows), Q19A1 (A9 rows) |
 
 ### 3.2 Built but not checked on a device
@@ -78,7 +78,7 @@ B12 (restore and record), C9 (closing gates).
 From q18-split.md: publishing; ML Kit translation in a GPL-3.0 app; the four reference images; the jsDelivr player
 script; the 1.15 s logo against the 1.2 s budget; darker scrims and black text on pink chosen by arithmetic;
 "Remove download" on queued downloads. New since: the AGP upgrade for Q18-024; whether plan 2's supplement
-(S00 to S07) is in scope; the version name of the final candidate.
+(S00 to S07) is in scope; the version name of the final candidate (these three decided on 19 October 2026: D8 to D10).
 
 ### 3.5 Housekeeping
 
@@ -114,9 +114,9 @@ Rough times are in brackets.
 | D5 | The 1.15 s logo against the 1.2 s cold-start budget: accept or shorten | G05 |
 | D6 | Darker scrims and black text on pink buttons (chosen by arithmetic): accept or ask for a design pass | G06 |
 | D7 | "Remove download" while a download is queued or running: keep or narrow | none |
-| D8 | AGP upgrade to a release that bundles R8 9.1.29 or newer (Q18-024): yes (download asked first) or leave the 179 warnings documented | Q19F5, G08 |
-| D9 | Plan 2's supplement (S00 to S07): bring into scope, decline each, or decline all. Its G01 counts each as done or declined by an explicit decision | G01 |
-| D10 | Final version name and code (0.10.0, or another rc) | Q19C4, R2, G10 |
+| D8 | AGP upgrade to a release that bundles R8 9.1.29 or newer (Q18-024). **Decided 19 Oct 2026: no.** The 179 warnings stay, documented as a known limitation with the reason (a major toolchain change at the end would put every tested build at risk; nothing visible traced to the warnings). Revisit after the stretch, or if D1 publishes signed APKs | G08 |
+| D9 | Plan 2's supplement (S00 to S07). **Decided 19 Oct 2026, package by package:** S00 in scope; S01 declined (follows D8); S02 in scope for its tests and checks (no credential to the config hosts; bad, oversized, redirected and wrong-host files rejected with the last good copy kept; nothing evaluated outside :solver where the library allows), with anything the library blocks written down; S03 in scope for artifact fingerprints and the source archive only (the build-from-source fallback declined); S04 as the D1 decision record (the distribution-risk document and sign-in notice only if D1 publishes); S05, S06 and S07 declined. Each declined package is named in the final report as a known limitation | Q19F5, G01 |
+| D10 | Final version name and code. **Decided 19 Oct 2026:** test candidates 0.10.0-rc2 (then rc3 and on, if Q19G needs a rebuild), each with a higher version code; the final candidate in R2 is 0.10.0 with a code above every earlier build. Before A7 (R3), the main app's version code on the phone is checked to be lower | Q19C4, R2, G10 |
 
 ### Q19F: fix round 2 (this computer)
 
@@ -128,7 +128,7 @@ Each fix gets its C10 test (written in the bug's row), then the full JVM suite a
 | F2 | Q18-038: real counts. First read a liked-songs response's header for a total (fixture only, no live call); if none, count through the continuations in the background, paced, cancelled on an account change. Playlists: confirm the count leaves out non-playlist cards. Q18-039: the minimum timeline for Checking and 5 to 6, real work inside it, counts fetched from the commit and counted up when they float in, failure shown at once, nothing added with Remove animations on | Count fixtures (header total; three continuation pages); the test-clock timeline tests in Q18-039's row [3 h] |
 | F3 | Hardening the new features where tests are thin: an instrumented test that the lyric card's share intent carries a content:// URI readable by the receiver and nothing outside `shared_lyrics/`; Save writes one picture to Pictures/Riff and nothing on failure (emulator); the settings compartments keep each row's test tag and open state; F1 does not open the player for Play and Shuffle buttons | New device tests run in Q19C2 [2 h] |
 | F4 | Lint: triage the 29 new warnings from F2, F5 and the sign-in (lint-triage.md), fix what is real, no blanket suppression. Security pass on the new surfaces: FileProvider paths, MediaStore insert, links that open outside Riff (gesture only, https only), the saved-accounts store (no cookies; email never logged: a grep of every log call in the new code and of the diagnostics ring) | lint 0 errors; security-review.md section added [2 h] |
-| F5 | Only if D8 is yes: the AGP upgrade (download asked first), the R8 9.1.29+ shrinker, the 179 warnings checked gone, and the Q18-035 regression check (a cancelled download frees the engine in a debug build) | Full JVM, emulator lane on API 36, DownloadTimeLimitDeviceTest [3 h] |
+| F5 | Plan 2 supplement work (D9): S00 reconcile (check each package against plan 1, record the outcome in the ledger, one line in plan 1 section 22); S02 fixture-server tests that config requests carry no cookie, authorization header, visitor data or account identifier, validation before caching (HTTPS, the two known hosts, no cross-host redirect, 4 MiB bound, strict parse) with last-known-good kept, and a test that no provider or CookieManager is created in :solver; S03 the commit behind innertubex 0.7.2 and the SHA-256 of every resolved artifact in dependency-license-inventory.md, enforced by the verification metadata, and the source archive listed for the release package; S04 the D1 decision recorded | PC01 to PC03, DA02 from the supplement's matrix; ledger entries for S00 to S07 [1 day] |
 
 Exit: JVM suite green, lint 0 errors, every commit with its test, ledger section.
 
@@ -139,7 +139,7 @@ Exit: JVM suite green, lint 0 errors, every commit with its test, ledger section
 | C1 | The pr lane (`verify.py --lane pr`), static checks, script tests on the fixed code | 0 failures, 0 findings [30 min] |
 | C2 | Emulator lanes on API 31, 33 and 36 (the disposable AVDs; network off): every instrumented test including the settings compartment changes, Q19F3's new tests, the Q18 device tests | All pass, or each failure logged as a bug [2 to 3 h, one emulator at a time] |
 | C3 | Sign-in screens on the emulator without any account: welcome with seeded saved accounts, all accounts (search, remove), Google's page loads accounts.google.com in its frame, the stop sheet on Back, "didn't load" with the network off, Back through every step; with Remove animations on, every transition a cut. Screenshots kept (no account, so no personal data) | A device test per screen; screenshots in artifacts [2 h] |
-| C4 | Candidates: the side-by-side debug build and its test APK (Q19B1), stress and benchmark builds (Q19B3, B6), and the release candidate built by the owner with `scripts/build-release-candidate.ps1 -Preview -Offline -AllowDirty` (version from D10). I check its certificate digest against release-signing.md and its ABI, size and version | A signed Riff Preview with a recorded digest [owner 5 min; checks 15 min] |
+| C4 | Candidates: the side-by-side debug build and its test APK (Q19B1), stress and benchmark builds (Q19B3, B6), and the release candidate built by the owner with `scripts/build-release-candidate.ps1 -Preview -Offline -AllowDirty` (version 0.10.0-rc2 from D10). I check its certificate digest against release-signing.md and its ABI, size and version | A signed Riff Preview with a recorded digest [owner 5 min; checks 15 min] |
 | C5 | Case map second pass: add F1 to F5, the sign-in screens and Q18-036 to Q18-040 as cases; every TODO row becomes PASS, FAIL, BLOCKED, DEFERRED or DECLINED as the B and A runs report | case-map.md with no TODO [1 h, then updated after B and A] |
 | C6 | Clean-checkout leftovers: with the signed candidate, the certificate check and the upgrade from rc20 on the emulator (an rc20 install with fixture data, then the candidate over it: data kept, migration lines in the log) | Both PASS or BLOCKED with reason [1 h] |
 
@@ -213,7 +213,7 @@ performance.md as known limitations (owner agrees).
 ## 5. Order
 
 ```
-Q19D (any time; D8, D9, D10 early)
+Q19D (D8, D9, D10 decided 19 Oct 2026; the rest any time)
    |
 Q19F  ->  Q19C1, C2, C3  ->  C4 (owner signs)  ->  C6
                                   |
@@ -241,7 +241,6 @@ Suggested sittings:
 |---|---|
 | Before every sub-phase | Permission to start it (the Q18 rule) |
 | C2 | Booting the disposable emulators (approved for the Q18F lanes; asked again for Q19) |
-| F5 | The AGP download (name, source, size), only after D8 |
 | B2, R2 | Uninstalling the development-key Riff Preview (deletes its data); installing the candidate |
 | B4, B5 | Turning airplane mode on and off; saving one card picture and removing it |
 | B5 | Saving one redacted account-menu capture |
