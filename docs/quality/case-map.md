@@ -123,8 +123,8 @@ section 18); C9 reruns them on the final candidate.
 | SEC01 host lookalike, intent, TLS | WebBoundariesTest (JVM) | B11 sign-in browser; one blocked host during a sign-in that succeeded | PASS | Q18-027, Q18-028 (Low) |
 | SEC02 foreign custom command | WebBoundariesTest | C3 emulator and B11 phone with test.riff.foreign: queue edits refused, transport allowed | PASS | |
 | SEC03 adversarial diagnostics | DiagnosticEventTest, ExitDiagnosticsTest, ServiceStopDiagnosticsTest | Q15A ring read back; C7 sweep of repo, APK, archive | PASS | |
-| REL01 candidate APK | check_release_content.py (18 checks), test_check_release_content.py | Q17: 0.10.0-rc1 signed, certificate equal to rc20, non-debuggable, no fixtures. Must be repeated on the final candidate | FAIL | Q18-043: the release-content check refuses F2's share provider on the unsigned build of 6328a8d (Q19C1); the 17 other checks pass; the signed 0.10.0-rc2 waits for the owner (C4) |
-| REL02 in-place upgrade | LegacyUpgradeDeviceTest (emulator, B1) | Q17 packaging lane: rc20 to rc1 on the emulator, data kept. Over the owner's real rc20: A7 | DEFERRED | R3, by the owner; the emulator upgrade from rc20 to the signed candidate is C6 (BLOCKED until C4) |
+| REL01 candidate APK | check_release_content.py (18 checks), test_check_release_content.py | Q17: 0.10.0-rc1 signed, certificate equal to rc20, non-debuggable, no fixtures. Must be repeated on the final candidate | FAIL | Q18-043 (the share provider) on the unsigned build and on the signed 0.10.0-rc2; Q18-047: the check never compares a v2-signed APK's certificate. The signed rc2 and rc2-preview carry the pinned certificate (apksigner and the release script, Q19C4); version 23, arm64-v8a, not debuggable |
+| REL02 in-place upgrade | LegacyUpgradeDeviceTest (emulator, B1) | Q17 packaging lane: rc20 to rc1 on the emulator, data kept. Over the owner's real rc20: A7 | DEFERRED | emulator half PASS (Q19C6: rc20 with its data, then the signed rc2 over it on a fresh API 36 emulator: first-install time kept, no file lost, the retired-content migration ran, Home opens); over the owner's real rc20: R3 |
 | REL03 evidence mismatch | test_collect_results.py (stale, mismatched, incomplete rejected), test_verify.py | Seen working: q04-debug-04/05, q07 fixture, q16a, q17a runs refused | PASS | |
 | REL04 interim release R1 | none | Q05R declined by the owner on 19 October 2026: no interim release; only the final candidate is prepared | DECLINED | none |
 | EXP01 export then import | LocalDataTransferTest.aCleanInstallMatchesTheSourceForEverythingIncluded; LocalDataTransferDeviceTest (emulator, B1) | B6: export through the picker, file checked, import preview. Between two phones: BLOCKED (one phone) | PASS | two-phone transfer BLOCKED |
@@ -164,7 +164,7 @@ Tests per journey are listed in `core-journeys.md`. The phone walk-through is A4
 | I06 cache clearing keeps downloads; deletion in owned paths | DLD04; OfflineMusicStore.deleteScope canonical parent tests | PASS |
 | I07 one crossfade gain owner | XFD04, AUD01 | PASS |
 | I08 states truthful and actionable | UX09; B4 shows the wrong message when the solver stays down | FAIL (Q18-022) |
-| I09 release has no stress or fixture entry points | REL01 release-content check | PASS on rc1 and on the unsigned build of 6328a8d (Q19C1: no test, stress, fixture or benchmark entry, file or class); BLOCKED on the signed 0.10.0-rc2 until the owner builds it (C4) |
+| I09 release has no stress or fixture entry points | REL01 release-content check | PASS on rc1, on the unsigned build of 6328a8d (Q19C1) and on the signed 0.10.0-rc2 and rc2-preview (Q19C6): no test, stress, fixture or benchmark entry, file or class |
 | I10 ambiguous legacy data preserved | DAT04 | PASS |
 | I11 complete offline bundles need no provider | DLD03, B8 | PASS |
 | I12 local deletion never changes the provider | Q05 by construction (no provider dependency); Q05A import has no network client | PASS (by construction) |
@@ -250,6 +250,7 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-044 lane omits LyricShareDeviceTest | verify.py | none | FAIL | Q19G |
 | Q18-045 LyricShareDeviceTest on API 31 | LyricShareDeviceTest | none | FAIL | Q19G |
 | Q18-046 Accounts screen looks | SignInScreensDeviceTest pictures | none | FAIL | Q19G |
+| Q18-047 release-content check skips the certificate of a v2-signed APK | check_release_content.py | none | FAIL | Q19G |
 
 ## 6. Totals
 
@@ -257,6 +258,6 @@ First pass (Q18C5): 72 rows, PASS 42, FAIL 12, BLOCKED 3, DEFERRED 6, TODO 8, DE
 
 Second pass (Q19C5), the 72 matrix and journey rows, counted from the table cells: PASS 43 (PLY05 "PASS (JVM only)"
 included, as retired in Q18-029; the first pass's 42 left it out), FAIL 1 (REL01, Q18-043), BLOCKED 21, DEFERRED 6, TODO 0,
-DECLINED 1 (REL04). Section 7 adds 20 rows: PASS 4, FAIL 7, BLOCKED 9. Every FAIL has its bug and Q19G;
+DECLINED 1 (REL04). Section 7 adds 21 rows: PASS 4, FAIL 8, BLOCKED 9. Every FAIL has its bug and Q19G;
 every BLOCKED names its rerun (B1 to B7, A1 to A5, the owner's candidate in C4, or an owner decision). G01 cannot
 pass until Q19G fixes the FAIL rows and Q19B and Q19A run the BLOCKED ones.

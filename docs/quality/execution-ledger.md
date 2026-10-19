@@ -2407,13 +2407,24 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   it need the network: Q19B5. Pictures the tests left on the emulators were deleted.
 - C4: version 0.10.0-rc2, code 23 (D10). Built side by side (artifacts/quality/q19/c4/candidates.txt, copies in
   c4/apks): Riff Debug and its test APK, Riff Stress, the benchmarkRelease app and the macrobenchmark APK, all on the
-  debug key 932eb205...04e0. The signed Riff Preview 0.10.0-rc2 waits for the owner to run
-  scripts/build-release-candidate.ps1 -Preview -Offline -AllowDirty; its certificate, ABI, size and version are then
-  checked against docs/release-signing.md.
+  debug key 932eb205...04e0. The owner ran scripts/build-release-candidate.ps1 -Preview -Offline -AllowDirty (a first
+  run without -Preview, then again with -ExecutionPolicy Bypass for that one process). artifacts/release:
+  riff-0.10.0-rc2.apk (f88f4e5c...db88, 28,449,250 bytes, com.musicglass.personal, Riff) and riff-0.10.0-rc2-preview.apk
+  (1a870dd1...e46b, 28,449,650 bytes, com.musicglass.personal.preview, Riff Preview); both version 23, arm64-v8a only,
+  not debuggable, one signer (v2), certificate ac70342323a39eb9...f6e1 as pinned in docs/release-signing.md;
+  SHA256SUMS.txt matches; the script's release evidence PASS_LOCAL.
 - C5: case-map.md second pass. No TODO left; FAIL rows whose bugs were fixed in Q18F are BLOCKED with the Q19B or Q19A
   run that checks them on the phone; section 7 adds F1 to F5, the sign-in screens and Q18-040 to Q18-046. The plan's
   B3 gained A11Y02 (largest font, landscape) so that row has a run.
-- C6: BLOCKED until the owner builds the signed candidate (the certificate check and the emulator upgrade from rc20).
+- C6 (artifacts/quality/q19/c6): the two older emulators already held rc1 builds that rc20 cannot install over, so
+  nothing was uninstalled; a fresh disposable emulator was made from the API 36 image (.toolchain/q19-avd/riff_q19_c6,
+  network off and confirmed). rc20 installed and opened once (18 data files: offline-music.db, the collections and
+  playback preferences); then the packaging lane with --previous-apk rc20: source archive, release identity, checksums
+  and upgrade PASS (PASS_LOCAL). After the upgrade: first-install time unchanged, none of rc20's files lost, the
+  retired-content migration ran (retired_content_removed set, the old demo stores emptied), library-state.db created,
+  Home opens with the honest offline message and no crash. The release-content check on both signed APKs fails only
+  on Q18-043 and reports the certificate as not checked: it detects signing only by v1 files and rc2 is v2-signed
+  (Q18-047, Medium, logged for Q19G); the certificate was checked with apksigner instead.
 - After the bump: JVM 1,097 tests, 0 failures; lint 0 errors, 85 warnings; script tests 143 of 144 (Q18-042).
 
 ## Plan v1.1 additions (11 October 2026)
