@@ -25,11 +25,14 @@ import okhttp3.Response
 
 /** Public metadata only. This client never receives YouTube/account cookies. */
 internal class LyricsRepository(private val directory: File,
+    /** How long one provider (search plus candidates) may take before the next is asked. */
+    private val providerLimitMs: Long = 15_000,
     private val transport: (suspend (String,Map<String,String>) -> JsonElement?)? = null) {
     private constructor(context: Context): this(File(context.cacheDir,"timed-lyrics-v1")) {
         offlineReader={track->if(track.mediaId.startsWith("yt:")) OfflineMusicStore.get(context).let {it.lyrics(it.currentScope,track.mediaId.removePrefix("yt:"))} else null}
     }
     companion object {
+        internal const val WORD_RETRY_MS = 12*3600_000L
         @Volatile private var shared: LyricsRepository? = null
         /**
          * One per process. Building it (an OkHttp client) on every activity recreation (rotation, dark
@@ -75,23 +78,24 @@ internal class LyricsRepository(private val directory: File,
     fun lyrics(track: LyricsTrack, force: Boolean = false,
         youtube: suspend () -> LyricsDocument?): Flow<LyricsDocument> = channelFlow {
         if (track.title.isBlank() || track.artist.isBlank() || track.durationMs <= 0) return@channelFlow
-        val offline = offlineReader?.invoke(track)
-        offline?.let {
-            send(it)
-            if (it.timed || it.instrumental) return@channelFlow
-        }
         val key = cacheKey(track)
-        var cachedFallback: LyricsDocument? = offline
-        if (!force) {
+        val offline = offlineReader?.invoke(track)
+        offline?.let { send(it) }
+        var known: LyricsDocument? = offline
+        if (!force && offline?.timed != true && offline?.instrumental != true) {
             val cached = withContext(Dispatchers.IO) { readCache(key) }
-            if (cached != null) {
-                send(cached)
-                if (cached.timed || cached.instrumental) return@channelFlow
-                cachedFallback = cached
-            }
-            if (synchronized(missing) { (missing[key] ?: 0) > (System.nanoTime()/1_000_000) }) return@channelFlow
+            if (cached != null) { send(cached); known = cached }
+        } else if (!force && offline?.timed == true) {
+            // A download's line-timed lyrics may have been bettered since (Q18-003).
+            withContext(Dispatchers.IO) { readCache(key) }?.takeIf { it.quality > offline.quality }?.let { send(it); known = it }
         }
-        var best: LyricsDocument? = cachedFallback
+        if (known?.wordTimed == true || known?.instrumental == true) return@channelFlow
+        // Line timing is shown at once, but word timing may exist and have been slow or missing then: ask the
+        // word-timed sources again, no more often than every 12 hours (Q18-003).
+        val upgrading = known?.timed == true
+        if (upgrading && !force && !withContext(Dispatchers.IO) { wordRetryDue(key) }) return@channelFlow
+        if (!force && !upgrading && synchronized(missing) { (missing[key] ?: 0) > (System.nanoTime()/1_000_000) }) return@channelFlow
+        var best: LyricsDocument? = known
         var errors = 0
         var answered = 0
         suspend fun offer(doc: LyricsDocument?) {
@@ -106,57 +110,66 @@ internal class LyricsRepository(private val directory: File,
             get(url,params).also { answered++ }
         } catch (e: CancellationException) { throw e }
         catch (_: Exception) { errors++; null }
-        suspend fun provider(block: suspend () -> Unit) {
-            if (best?.wordTimed == true) return
+        /** Runs [block] unless word timing is already found; true when it ran out of time. */
+        suspend fun provider(block: suspend () -> Unit): Boolean {
+            if (best?.wordTimed == true) return false
             // Bound a whole provider (search plus candidates), not just each HTTP call.
-            try {
-                if (withTimeoutOrNull(15_000) { block(); true } == null) errors++
+            return try {
+                (withTimeoutOrNull(providerLimitMs) { block(); true } == null).also { if (it) errors++ }
             } catch (e: CancellationException) { throw e }
-            catch (_: Exception) { errors++ }
+            catch (_: Exception) { errors++; false }
         }
         val title = lyricsQueryTitle(track.title)
         val artist = playerArtistLabel(track.artist).removeSuffix(" - Topic")
         val params = mapOf("s" to title, "a" to artist, "al" to track.album,
             "d" to ((track.durationMs + 500)/1000).toString())
-        provider {
+        val wordSources: List<suspend () -> Unit> = listOf({
             val row = request("https://api.betterlyrics.org/getLyrics",params) as? JsonObject
             val score = row?.get("score")?.jsonPrimitive?.doubleOrNull
             offer(row?.get("ttml")?.jsonPrimitive?.contentOrNull?.takeIf { score == null || score >= .8 }
                 ?.let { parseTtml(it,track.durationMs) })
-        }
-        provider {
+        },{
             val row = request("https://api.betterlyrics.org/qq/getLyrics",params) as? JsonObject
             val score = row?.get("score")?.jsonPrimitive?.doubleOrNull
             offer(row?.get("lyrics")?.jsonPrimitive?.contentOrNull?.takeIf { score == null || score >= .8 }
                 ?.let { parseQrc(it,track.durationMs,track.title,track.artist) })
-        }
-        provider { offer(netEase(track,::request)) }
-        provider {
-            val row = request("https://api.betterlyrics.org/kugou/getLyrics",params) as? JsonObject
-            val score = row?.get("score")?.jsonPrimitive?.doubleOrNull
-            offer(row?.get("lyrics")?.jsonPrimitive?.contentOrNull?.takeIf { score == null || score >= .8 }
-                ?.let { parseLrc(it,track.durationMs,"Better Lyrics · Kugou","https://betterlyrics.org") })
-        }
-        provider {
-            val query = mutableMapOf("track_name" to title, "artist_name" to artist,
-                "duration" to (track.durationMs/1000.0).toString())
-            if (track.album.isNotBlank()) query["album_name"] = track.album
-            val exact = request("https://lrclib.net/api/get",query) as? JsonObject
-            val doc = exact?.let { fromLrclib(it,track) }
-            offer(doc)
-            if (doc?.wordTimed != true && doc?.instrumental != true) {
-                val results = request("https://lrclib.net/api/search",query.filterKeys { it != "duration" }) as? JsonArray
-                results.orEmpty().mapNotNull { it as? JsonObject }.sortedByDescending { score(it,track) }
-                    .filter { score(it,track) > 0 }.forEach { offer(fromLrclib(it,track)) }
+        },{ offer(netEase(track,::request)) })
+        val slow = wordSources.filter { provider(it) }
+        if (!upgrading) {
+            provider {
+                val row = request("https://api.betterlyrics.org/kugou/getLyrics",params) as? JsonObject
+                val score = row?.get("score")?.jsonPrimitive?.doubleOrNull
+                offer(row?.get("lyrics")?.jsonPrimitive?.contentOrNull?.takeIf { score == null || score >= .8 }
+                    ?.let { parseLrc(it,track.durationMs,"Better Lyrics · Kugou","https://betterlyrics.org") })
+            }
+            provider {
+                val query = mutableMapOf("track_name" to title, "artist_name" to artist,
+                    "duration" to (track.durationMs/1000.0).toString())
+                if (track.album.isNotBlank()) query["album_name"] = track.album
+                val exact = request("https://lrclib.net/api/get",query) as? JsonObject
+                val doc = exact?.let { fromLrclib(it,track) }
+                offer(doc)
+                if (doc?.wordTimed != true && doc?.instrumental != true) {
+                    val results = request("https://lrclib.net/api/search",query.filterKeys { it != "duration" }) as? JsonArray
+                    results.orEmpty().mapNotNull { it as? JsonObject }.sortedByDescending { score(it,track) }
+                        .filter { score(it,track) > 0 }.forEach { offer(fromLrclib(it,track)) }
+                }
+            }
+            if (track.mediaId.startsWith("yt:")) provider {
+                try { offer(youtube()); answered++ } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { errors++ }
+            }
+            // This provider supplies plain text, so there is no benefit in requesting it after synced lyrics.
+            if (best?.timed != true && best?.instrumental != true) provider {
+                offer(ovh(track,::request))
             }
         }
-        if (track.mediaId.startsWith("yt:")) provider {
-            try { offer(youtube()); answered++ } catch (e: CancellationException) { throw e }
-            catch (_: Exception) { errors++ }
-        }
-        // This provider supplies plain text, so there is no benefit in requesting it after synced lyrics.
-        if (best?.timed != true && best?.instrumental != true) provider {
-            offer(ovh(track,::request))
+        // A word-timed source that answered too slowly the first time (BetterLyrics on a song's first request can
+        // take longer than the limit) gets one more turn; its answer replaces the line timing already shown.
+        if (best?.wordTimed != true) slow.forEach { provider(it) }
+        if (upgrading) {
+            withContext(Dispatchers.IO) { if (best !== known) writeCache(key,best!!) else markWordRetry(key) }
+            return@channelFlow
         }
         val found = best
         if (found != null) withContext(Dispatchers.IO) { writeCache(key,found) }
@@ -275,6 +288,17 @@ internal class LyricsRepository(private val directory: File,
         if (!file.exists() || System.currentTimeMillis()-file.lastModified() > 7*86400_000L || file.length() > 1_000_000) return null
         decodeLyricsDocument(json.parseToJsonElement(file.readText()) as JsonObject)
     }.getOrNull()
+    /** Word timing is asked for again once 12 hours have passed since the last search for this song. */
+    private fun wordRetryDue(key: String): Boolean {
+        val last = maxOf(File(directory,"$key.retry").lastModified(),File(directory,"$key.json").lastModified())
+        return System.currentTimeMillis()-last >= WORD_RETRY_MS
+    }
+    private fun markWordRetry(key: String) = runCatching {
+        directory.mkdirs()
+        val marker = File(directory,"$key.retry")
+        if (!marker.createNewFile()) marker.setLastModified(System.currentTimeMillis())
+        directory.listFiles()?.filter { it.extension == "retry" }?.sortedByDescending(File::lastModified)?.drop(80)?.forEach(File::delete)
+    }
     private fun writeCache(key: String, doc: LyricsDocument) = runCatching {
         directory.mkdirs()
         val target = File(directory,"$key.json"); val temporary = File(directory,"$key.tmp")
