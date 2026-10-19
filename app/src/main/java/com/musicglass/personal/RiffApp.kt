@@ -107,6 +107,7 @@ internal fun RiffApp() {
     DisposableEffect(playback) { onDispose { playback.close() } }
     
     LaunchedEffect(provider.authRevision, provider.storageRevision) {
+        model.searchOwnerIs(provider.storageScopeKey())
         collections.bindAccountScope(provider.accountScopeKey()); collections.refresh()
     }
     val sessions = remember(context) { AppContainer.get(context).sessions }

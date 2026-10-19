@@ -43,6 +43,18 @@ class ShellNavigationTest {
         model.select("Library"); model.back(); assertEquals("Back at a root other than Home goes Home", "Home", model.tab)
         model.back(); assertEquals("Home", model.tab)
     }
+    /** Q18-012: the search on screen is dropped when the account changes, and kept while it does not. */
+    @Test fun theSearchOnScreenIsDroppedWhenTheOwnerChanges() {
+        val model = ShellModel()
+        model.searchOwnerIs("owner-a")
+        model.searchQuery = "aaa"; model.searchFilter = "Songs"; model.searchSort = "Title"
+        model.searchSnapshot = SearchSnapshot("aaa", "Songs", 1, emptyList(), null, PageTokens())
+        model.searchOwnerIs("owner-a")
+        assertEquals("aaa", model.searchQuery); assertNotNull(model.searchSnapshot)
+        model.searchOwnerIs("owner-b")
+        assertEquals("", model.searchQuery); assertEquals("All", model.searchFilter); assertEquals("Relevance", model.searchSort)
+        assertNull(model.searchSnapshot)
+    }
     @Test fun backClosesThePlayerBeforeItClosesAScreen() {
         val model = ShellModel(); model.push(Route.Account)
         model.sheet = "lyrics"; model.back(); assertEquals("mini", model.sheet)

@@ -195,6 +195,18 @@ internal class ShellModel {
     }
     /** The last search shown, kept in memory so that coming back to Search shows it again where it was. Never saved. */
     var searchSnapshot: SearchSnapshot? = null
+    private var searchOwner: String? = null
+    /**
+     * The search on screen belongs to the owner it was made under. When the owner changes, the query, its
+     * filter, sort and results are dropped, so they are neither shown to the next account nor saved to its
+     * recent searches (Q18-012).
+     */
+    fun searchOwnerIs(owner: String) {
+        if (searchOwner != null && searchOwner != owner) {
+            searchQuery = ""; searchFilter = "All"; searchSort = "Relevance"; searchSnapshot = null
+        }
+        searchOwner = owner
+    }
     /** The collection on screen, or the one last left, which is still drawn while its screen animates away. */
     private val shownCollection: Route.Collection? get() = routes[root]?.lastOrNull { it is Route.Collection } as? Route.Collection ?: lastCollection
     val selectedPlaylistId: String get() = shownCollection?.id.orEmpty()
