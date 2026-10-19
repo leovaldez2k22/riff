@@ -2325,6 +2325,16 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   side-by-side flag, 19 Oct) is left, since nothing touches that package name by rule; it is a disposable emulator.
   The three emulators are shut down.
 
+### Q18-013 sign-in design agreed; new feature requests (19 October 2026)
+- The owner reviewed animated mockups of the sign-in page in the session and agreed a design: the record concept with
+  Riff's frosted glass, a welcome that lists the accounts used on this phone (three, then an all-accounts page), and a
+  transition for every step, at 1.5 times the first draft's pace. Written to docs/quality/sign-in-design.md; Q18-013
+  now reads "design agreed", still open. Nothing is built: building waits for the owner's go-ahead.
+- The owner also asked for five features (docs/quality/feature-requests.md, F1 to F5: open the player when a song is
+  tapped, share lyrics as an image, Previous restarts a song after 10 s, graded slider haptics, settings in expandable
+  compartments). Not started, by the owner's instruction; mockups were shown for F2 and F5.
+- No application code changed.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
