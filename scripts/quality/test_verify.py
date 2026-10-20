@@ -2,8 +2,10 @@
 import json
 import os
 import shutil
+import sys
 from pathlib import Path
 import tempfile
+import time
 import unittest
 import zipfile
 
@@ -167,6 +169,24 @@ class InstallTest(unittest.TestCase):
             lane.benchmark()
             self.assertEqual("BLOCKED", lane.gates["device"]["status"])
             self.assertEqual("BLOCKED", lane.gates["benchmark"]["status"])
+
+    def test_a_quiet_runner_is_stopped_and_a_talking_one_finishes(self):
+        # Q18-023, Q18-050: the benchmark lane runs am instrument itself and ends a run that stops talking.
+        with tempfile.TemporaryDirectory() as temp:
+            log = Path(temp) / "run.log"
+            quiet = [sys.executable, "-c", "import time; print('started', flush=True); time.sleep(60)"]
+            started = time.monotonic()
+            self.assertEqual((None, True), verify.watched(quiet, log, quiet_seconds=2, total_seconds=30))
+            self.assertLess(time.monotonic() - started, 20)
+            self.assertIn("started", log.read_text(encoding="utf-8"))
+            talking = [sys.executable, "-c", "print('OK (1 test)')"]
+            self.assertEqual((0, False), verify.watched(talking, log, quiet_seconds=2, total_seconds=30))
+            self.assertIn("OK (1 test)", log.read_text(encoding="utf-8"))
+
+    def test_the_benchmark_lane_needs_no_gradle_test_platform(self):
+        source = (Path(verify.__file__)).read_text(encoding="utf-8")
+        self.assertNotIn("connectedBenchmarkReleaseAndroidTest", source)
+        self.assertIn("additionalTestOutputDir", source)
 
     def test_unselected_checks_are_blocked_not_passed(self):
         with tempfile.TemporaryDirectory() as temp:

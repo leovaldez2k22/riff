@@ -61,6 +61,15 @@ DEBUG_PACKAGE = f"{PACKAGE}.debug"
 TEST_PACKAGE = f"{DEBUG_PACKAGE}.test"
 RUNNER = f"{TEST_PACKAGE}/androidx.test.runner.AndroidJUnitRunner"
 BUILD_TOOLS = "36.0.0"
+# Q18-050: the benchmark lane installs these two itself and runs am instrument, rather than Gradle's connected task,
+# which needs Android's test platform (42 artifacts outside the dependency-verification list). Both have their own
+# package ids and the fixture feed, so neither can install over Riff or reach a provider.
+BENCHMARK_APP = f"{PACKAGE}.benchmark"
+MACROBENCHMARK = f"{PACKAGE}.macrobenchmark"
+BENCHMARK_RUNNER = f"{MACROBENCHMARK}/androidx.test.runner.AndroidJUnitRunner"
+BENCHMARK_OUTPUT = f"/sdcard/Android/media/{MACROBENCHMARK}/additional_test_output"
+# Q18-023: on the owner's phone the runner can stop after a launch and wait for ever. Silence this long ends the run.
+BENCHMARK_QUIET_SECONDS = 15 * 60
 
 # The fixture suite: no account, no provider, synthetic audio and identities (docs/quality/deterministic-harness.md).
 FIXTURE_CLASSES = [f"{PACKAGE}.{name}" for name in (
@@ -166,6 +175,31 @@ def tool_environment(root=ROOT, env=None):
     if not env.get("GRADLE_USER_HOME") and (root / ".toolchain/gradle-user-home").is_dir():
         env["GRADLE_USER_HOME"] = str(root / ".toolchain/gradle-user-home")
     return env
+
+
+def watched(command, log, quiet_seconds, total_seconds, cwd=None, env=None):
+    """Runs command, writing its output to log; stops it after quiet_seconds without a line. (exit code, stalled)."""
+    import queue
+    import threading
+    lines = queue.Queue()
+    process = subprocess.Popen([str(c) for c in command], cwd=cwd, env=env, stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT, text=True, errors="replace")
+    threading.Thread(target=lambda: [lines.put(line) for line in process.stdout] + [lines.put(None)], daemon=True).start()
+    start = last = time.monotonic()
+    with Path(log).open("w", encoding="utf-8", errors="replace") as out:
+        while True:
+            try:
+                line = lines.get(timeout=5)
+            except queue.Empty:
+                line = ""
+            if line is None:
+                return process.wait(), False
+            if line:
+                out.write(line); out.flush(); last = time.monotonic()
+            now = time.monotonic()
+            if now - last > quiet_seconds or now - start > total_seconds:
+                process.kill(); process.wait()
+                return None, True
 
 
 def gradle(root=ROOT):
@@ -498,14 +532,34 @@ class Lane:
             self.gates["benchmark"] = dict(status="BLOCKED", reason="no physical R or L device")
             return
         def measure():
-            env_serial = dict(self.env, ANDROID_SERIAL=self.serial)
-            command = [gradle(self.root), ":benchmark:connectedBenchmarkReleaseAndroidTest", "--console=plain"]
-            with (self.evidence / "benchmark.log").open("w", encoding="utf-8") as out:
-                code = subprocess.run([str(c) for c in command], cwd=self.root, env=env_serial, stdout=out,
-                                      stderr=subprocess.STDOUT, timeout=4 * 3600, check=False).returncode
-            if code:
+            command = [gradle(self.root), ":app:assembleBenchmarkRelease", ":benchmark:assembleBenchmarkRelease",
+                       "--console=plain"] + (["--offline"] if self.args.offline else [])
+            self.run(command, "benchmark-build.log", timeout=3600)
+            app = sorted((self.root / "app/build/outputs/apk/benchmarkRelease").glob("*.apk"))
+            test = sorted((self.root / "benchmark/build/outputs/apk/benchmarkRelease").glob("*.apk"))
+            if len(app) != 1 or len(test) != 1:
+                raise Failed("exactly one Riff Benchmark APK and one macrobenchmark APK are required")
+            for apk in (app[0], test[0]):
+                result = self.adb("install", "-r", "-t", str(apk))
+                (self.evidence / "install.log").open("a", encoding="utf-8").write(result.stdout + result.stderr)
+                if result.returncode or "Success" not in result.stdout:
+                    raise Failed("install failed; never uninstall to get past a certificate mismatch (see install.log)")
+            self.adb("shell", "rm", "-rf", BENCHMARK_OUTPUT)
+            adb = [self.sdk_tool("platform-tools", "adb"), "-s", self.serial]
+            code, stalled = watched(adb + ["shell", "am", "instrument", "-w", "-r", "-e", "additionalTestOutputDir",
+                                           BENCHMARK_OUTPUT, BENCHMARK_RUNNER], self.evidence / "benchmark.log",
+                                    BENCHMARK_QUIET_SECONDS, 4 * 3600, cwd=self.root, env=self.env)
+            if stalled:
+                self.adb("shell", "am", "force-stop", MACROBENCHMARK); self.adb("shell", "am", "force-stop", BENCHMARK_APP)
+                raise Blocked(f"the runner went quiet for {BENCHMARK_QUIET_SECONDS // 60} minutes (Q18-023; see benchmark.log)")
+            results_dir = self.evidence / "benchmark-results"
+            results_dir.mkdir(exist_ok=True)
+            self.adb("pull", BENCHMARK_OUTPUT + "/.", str(results_dir), timeout=1800)
+            self.adb("shell", "rm", "-rf", BENCHMARK_OUTPUT)
+            log = (self.evidence / "benchmark.log").read_text(encoding="utf-8", errors="replace")
+            if code or "FAILURES!!!" in log or "INSTRUMENTATION_FAILED" in log:
                 raise Failed("the benchmark run failed (see benchmark.log)")
-            results = sorted(self.root.glob("benchmark/build/outputs/connected_android_test_additional_output/**/*benchmarkData.json"))
+            results = sorted(results_dir.glob("**/*benchmarkData.json"))
             if not results:
                 raise Failed("the benchmark wrote no results")
             status = self.run([self.python, "scripts/quality/check_performance.py", "summary", "--tier", self.args.tier, *results],
