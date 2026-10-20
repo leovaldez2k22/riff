@@ -184,6 +184,8 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
             SongActionItem("Open") { peek.openCard() }
             held.browseId?.let { id -> SongActionItem("Share") { peek.dismiss(); share("${held.title}\n${collectionLink(id)}") } }
         }
+        if (held.pinnable()) SongActionItem(if (held.key() in SpeedDialPins.get(context)) "Unpin from speed dial" else "Pin to speed dial") {
+            peek.dismiss(); toggleSpeedDialPin(context, held, onNotice) }
         if (track?.isLive != true && (track != null || held.notInterestedToken != null))
             SongActionItem("Not interested") { act { markNotInterested(context, provider, playback,
                 NotInterestedEntry(held.key(), held.title, held.subtitle, held.artworkUrl, track != null), held.notInterestedToken, onNotice) } }

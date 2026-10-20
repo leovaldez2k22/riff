@@ -107,9 +107,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 
-private fun clock(ms: Long): String {
+/** 2:13, or 1:43:39 from an hour up. */
+internal fun playerClock(ms: Long): String {
     val seconds = (ms.coerceAtLeast(0) / 1000).toInt()
-    return "%d:%02d".format(seconds / 60, seconds % 60)
+    val hours = seconds / 3600
+    return if (hours > 0) "%d:%02d:%02d".format(hours, seconds % 3600 / 60, seconds % 60)
+        else "%d:%02d".format(seconds / 60, seconds % 60)
 }
 
 @Composable
@@ -158,11 +161,11 @@ internal fun SeekControl(playback: PlaybackGateway, mediaId: String, durationMs:
             // Said as a time, not as a percentage; a live stream says why it cannot be moved.
             modifier=Modifier.fillMaxWidth().testTag("playback_seek").semantics {
                 contentDescription=string(R.string.position)
-                stateDescription=if(live) LIVE_SEEK_EXPLANATION else string(R.string.position_x_of_x, clock(position.toLong()), clock(duration))
+                stateDescription=if(live) LIVE_SEEK_EXPLANATION else string(R.string.position_x_of_x, playerClock(position.toLong()), playerClock(duration))
             })
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(if(playback.state.live) string(R.string.live) else clock(position.toLong()), color = if(playback.state.live) Pink else Muted, fontSize = 12.sp)
-            Text(if(playback.state.live) LIVE_SEEK_EXPLANATION else "−${clock((duration - position.toLong()).coerceAtLeast(0))}",
+            Text(if(playback.state.live) string(R.string.live) else playerClock(position.toLong()), color = if(playback.state.live) Pink else Muted, fontSize = 12.sp)
+            Text(if(playback.state.live) LIVE_SEEK_EXPLANATION else "−${playerClock((duration - position.toLong()).coerceAtLeast(0))}",
                 color = Muted, fontSize = 12.sp)
         }
     }
@@ -203,6 +206,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     var creditsVisible by remember(state.mediaId) { mutableStateOf(false) }
     fun providerTrack() = ProviderTrack(state.mediaId.removePrefix("yt:"),
         state.title,state.artist,state.artworkUrl,state.artistId,state.albumId,state.album,state.live,state.music)
+    val pins = remember(context) { SpeedDialPins.get(context) }
     fun addToLibrary() {
         collections.setOnlineFavorite(providerTrack(),true)
         uiHaptic(HapticCue.Confirm)
@@ -385,7 +389,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 PlayerActionMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }, anchorBounds=moreAnchor) {
                     if(state.source=="YouTube Music") DownloadSongAction(providerTrack(),onNotice,onDismiss={moreExpanded=false})
                     val options = if (state.source == "YouTube Music")
-                        listOf("View credits", "Add to playlist", "Share song", "View album", "View artist", "Favorite", "Play next", "Add to queue", "Save on this phone", "Library shortcuts", "Sleep timer") + (if(hasQueue) listOf("Remove from queue") else emptyList()) + (if(state.live) emptyList() else listOf("Not interested"))
+                        listOf("View credits", "Add to playlist", "Share song", "View album", "View artist", "Favorite", "Play next", "Add to queue", "Save on this phone", "Library shortcuts", "Sleep timer", if(providerTrack().videoId in pins) "Unpin from speed dial" else "Pin to speed dial") + (if(hasQueue) listOf("Remove from queue") else emptyList()) + (if(state.live) emptyList() else listOf("Not interested"))
                         else listOf("Library shortcuts", "View credits", "Sleep timer")
                     options.forEach { option ->
                         SongActionItem(if(option=="Sleep timer" && state.sleepDeadlineMs>0) string(R.string.sleep_timer_x_min, sleepMinutesRemaining(state.sleepDeadlineMs,android.os.SystemClock.elapsedRealtime())) else option, onClick = { 
@@ -408,6 +412,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                                 "Library shortcuts" -> onLibrary()
                                 "Share song" -> share("${state.title} \u00B7 ${state.artist}\nhttps://music.youtube.com/watch?v=${providerTrack().videoId}")
                                 "View credits" -> creditsVisible = true
+                                "Pin to speed dial", "Unpin from speed dial" -> toggleSpeedDialPin(context, providerTrack().homeCard(), onNotice)
                             }
                         })
                     }

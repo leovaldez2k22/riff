@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -101,7 +102,10 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
     val photoContext=androidx.compose.ui.platform.LocalContext.current
     val hidden = remember(photoContext) { NotInterestedStore.get(photoContext) }
     val musicShelves = shelves.filterNot(::podcastShelf).withoutNotInterestedCards(hidden)
-    val speed = if(feedReady) homeSpeedDialCandidates(recent,musicShelves).withoutNotInterested(hidden) else emptyList()
+    // Pins are stored on the phone, so they show with the feed or, when the feed cannot load, on their own (All only).
+    val pins = remember(photoContext) { SpeedDialPins.get(photoContext) }
+    val pinned = if(mood.isBlank() && (feedReady || error != null)) pins.cards.withoutNotInterested(hidden) else emptyList()
+    val speed = withSpeedDialPins(pinned, if(feedReady) homeSpeedDialCandidates(recent,musicShelves).withoutNotInterested(hidden) else emptyList())
     val photoRepository=remember(photoContext) {MoodPhotos.get(photoContext)}
     val photos by photoRepository.photos.collectAsStateWithLifecycle()
     var photoCredits by remember {mutableStateOf(false)}
@@ -155,7 +159,7 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
                 HomeHeading(string(R.string.speed_dial))
             }
             Spacer(Modifier.height(16.dp))
-            HomeSpeedDial(speed, ::open)
+            HomeSpeedDial(speed, pinned.mapTo(HashSet()) { it.key() }, ::open)
         }
         if (recent.isNotEmpty() && musicShelves.none {it.title.contains("listen again",true)}) item { HomeRowShelf(string(R.string.recently_played), recent, ::open) }
         val shown=homeDiscoveryShelves(musicShelves)+if(mood.isBlank() && !loading && error==null && musicShelves.none {it.title.contains("forgotten fav",true)}) listOf(ProviderHomeSection(string(R.string.forgotten_favourites),emptyList())) else emptyList()
@@ -192,7 +196,7 @@ private fun HomeHeading(title: String, action: (() -> Unit)? = null,
 }
 
 @Composable
-private fun HomeSpeedDial(cards: List<ProviderHomeCard>, onOpen: (ProviderHomeCard) -> Unit) {
+private fun HomeSpeedDial(cards: List<ProviderHomeCard>, pinned: Set<String>, onOpen: (ProviderHomeCard) -> Unit) {
     val pages = ((cards.size + 8) / 9).coerceAtLeast(1)
     val pager = rememberPagerState(pageCount = { pages })
     val pagerDragged by pager.interactionSource.collectIsDraggedAsState()
@@ -218,6 +222,9 @@ private fun HomeSpeedDial(cards: List<ProviderHomeCard>, onOpen: (ProviderHomeCa
                                     Box(Modifier.fillMaxWidth().height(SPEED_DIAL_SCRIM_DP.dp)
                                         .background(Brush.verticalGradient(*speedDialScrim))
                                         .align(Alignment.BottomCenter))
+                                    if (card.key() in pinned) Icon(Icons.Rounded.PushPin, string(R.string.pinned), tint = White,
+                                        modifier = Modifier.align(Alignment.TopEnd).padding(RiffSpace.tight).size(RiffSpace.icon).clip(CircleShape)
+                                            .background(Color.Black.copy(alpha = .55f)).padding(RiffSpace.tight))
                                     Text(card.title, color = White, fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold, maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,

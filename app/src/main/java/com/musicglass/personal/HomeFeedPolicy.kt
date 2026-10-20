@@ -13,6 +13,10 @@ internal fun homeDiscoveryShelves(shelves: List<ProviderHomeSection>) = shelves.
 /** Speed dial pages: three grids of nine. */
 internal const val SPEED_DIAL_SIZE = 27
 
+/** Pinned cards come first, in the order they were pinned; the rest of speed dial fills in behind them. */
+internal fun withSpeedDialPins(pins: List<ProviderHomeCard>, candidates: List<ProviderHomeCard>) =
+    (pins + candidates).distinctBy { it.key() }.take(SPEED_DIAL_SIZE)
+
 /** Three pages of Listen again songs; a short shelf is topped up with other songs, never podcasts or collections. */
 internal fun homeSpeedDialCandidates(recent: List<ProviderHomeCard>, shelves: List<ProviderHomeSection>): List<ProviderHomeCard> {
     fun ProviderHomeCard.playableSong() = kind == CatalogKind.Song && videoId != null && !podcastLike()

@@ -445,6 +445,9 @@
     <string name="pending">Pending</string>
     <string name="phone_speaker">Phone speaker</string>
     <string name="photo_credits">Photo credits</string>
+    <string name="pin_to_speed_dial">Pin to speed dial</string>
+    <string name="pinned">Pinned</string>
+    <string name="pinned_to_speed_dial">Pinned to speed dial</string>
     <string name="play">Play</string>
     <string name="play_all">Play all</string>
     <string name="play_counts">play counts</string>
@@ -499,6 +502,7 @@
     <string name="remove_x_from_queue">Remove %1$s from queue</string>
     <string name="remove_x_from_search_history">Remove %1$s from search history</string>
     <string name="removed_from_playlist">Removed from playlist</string>
+    <string name="removed_from_speed_dial">Removed from speed dial</string>
     <string name="removed_from_youtube_music_liked_songs">Removed from YouTube Music liked songs</string>
     <string name="removes_everything_riff_keeps_on_this_phone">Removes everything Riff keeps on this phone for %1$s: listening history, searches, the saved queue, tracks saved in Riff and downloads. Playback from this account stops. Settings, other accounts\' data and the audio files stored on this phone are kept. You stay signed in, and nothing changes in YouTube Music. This cannot be undone.</string>
     <string name="removes_the_downloaded_songs_artwork_and_lyr">Removes the downloaded songs, artwork and lyrics of %1$s from this phone and cancels its waiting downloads. This cannot be undone, but the songs can be downloaded again. Your YouTube Music library is not changed.</string>
@@ -658,6 +662,7 @@
     <string name="sort_x">Sort: %1$s</string>
     <string name="sorting_playlist">Sorting playlist…</string>
     <string name="speed_dial">Speed dial</string>
+    <string name="speed_dial_is_full">Speed dial is full. Unpin something first.</string>
     <string name="sports">Sports</string>
     <string name="starting_once_all_songs_load">Starting once all songs load</string>
     <string name="starting_voice_search">Starting voice search…</string>
@@ -725,6 +730,7 @@
     <string name="unknown_track">Unknown track</string>
     <string name="unlimited">Unlimited</string>
     <string name="unmetered_wi_fi_only">Unmetered Wi-Fi only</string>
+    <string name="unpin_from_speed_dial">Unpin from speed dial</string>
     <string name="until_cleared">Until cleared</string>
     <string name="up_next">Up next</string>
     <string name="up_next_is_unavailable">Up next is unavailable</string>
