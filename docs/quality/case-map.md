@@ -252,7 +252,7 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-046 Accounts screen looks | SignInScreensDeviceTest pictures | none | PASS | fixed in Q19G (6bcce26) |
 | Q18-047 release-content check skips the certificate of a v2-signed APK | check_release_content.py | none | PASS | fixed in Q19G (6bcce26) |
 | Q18-048 share sheet shows an older card | LyricShareDeviceTest (the next card's address differs, one file kept) | B4 rerun with rc3 | BLOCKED | the phone check with rc3 |
-| Q18-049 glass bars too clear over text | none yet | Home and Settings pictures (artifacts/quality/q19/b5) | DECLINED | not a bug (owner); remedy 2ac10a8: frosted by default, wrapping at the rim; the look by eye in A3 |
+| Q18-049 glass bars too clear over text | none yet | Home and Settings pictures (artifacts/quality/q19/b5) | DECLINED | not a bug (owner); remedy: frosted by default at 20 %, frost to the edges and bending at the rim; the look by eye in A3 |
 | Q18-050 benchmark lane stops on dependency verification | verify.py --lane benchmark | none | BLOCKED | fixed in 10b96ac; the lane on the phone: next B6 |
 
 ## 6. Totals

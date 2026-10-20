@@ -2517,6 +2517,14 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   plus glyph uploads. Frosted glass by default adds a full-screen blur, so the next B6 measures Home scroll with
   frosted on and off before rc3.
 
+### Q18-049 remedy, second version (20 October 2026, later)
+- The owner turned down the first remedy: frost thinning at the rim left the edges unfrosted. Now the frost covers the
+  whole glass to its edge and bends itself at the rim: the frosted pass refracts its blurred backdrop with three times
+  the liquid refraction (a smaller bend is smoothed away by the blur). Frosted intensity defaults to 20 % at the
+  owner's request; a choice already made in Settings is kept. Checked on the API 36 emulator
+  (artifacts/quality/q19/glass/bar-liquid-vs-frosted20-bend.png). JVM tests, lint, androidTest compile and static
+  checks pass. The look on the phone stays with A3.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):

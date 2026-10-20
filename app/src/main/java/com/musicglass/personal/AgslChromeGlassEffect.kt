@@ -37,19 +37,21 @@ internal object AgslChromeGlassEffect {
         shader.setFloatUniform("viewport",width.toFloat(),height.toFloat())
         shader.setFloatUniform("bevel",14f*density)
         shader.setFloatUniform("refraction",3f*density*warp)
-        shader.setFloatUniform("warp",warp.coerceIn(0f,1f))
         shader.setFloatUniform("frosted",frost)
         shader.setFloatUniform("intensity",strength)
         }
         configure(liquidShader,0f,intensity,intensity)
         val liquid=RenderEffect.createRuntimeShaderEffect(liquidShader,"backdrop")
         if(!frosted || frostIntensity<=0f) return liquid
-        configure(frostedShader,1f,frostIntensity,intensity)
+        // The frost bends further than clear glass: a blur of its own size would otherwise smooth the bend away.
+        configure(frostedShader,1f,frostIntensity,intensity*FROST_BEND)
         val mask=RenderEffect.createRuntimeShaderEffect(frostedShader,"backdrop")
         val radius=22f*density*frostIntensity
         val blur=RenderEffect.createBlurEffect(radius,radius,Shader.TileMode.CLAMP)
         return RenderEffect.createBlendModeEffect(liquid,RenderEffect.createChainEffect(mask,blur),BlendMode.SRC_OVER)
     }
+
+private const val FROST_BEND = 3f
 
 private const val SHADER = """
     uniform shader backdrop;
@@ -71,7 +73,6 @@ private const val SHADER = """
     uniform float refraction;
     uniform float frosted;
     uniform float intensity;
-    uniform float warp;
 
     float distanceTo(float2 p, float2 origin, float2 dimensions, float radius) {
         if (p.x < origin.x - 1.0 || p.y < origin.y - 1.0 ||
@@ -131,17 +132,14 @@ private const val SHADER = """
         float2 normal = gradient / max(length(gradient), 0.001);
         float rim = 1.0 - smoothstep(0.0, activeBevel, max(-d, 0.0));
         // Clamped: a shape running off-screen would otherwise refract in transparent black from outside the view.
-        // Frosted glass bends its blurred backdrop at the rim the same way, then takes the frost's tint.
+        // Frosted glass bends its own frost at the rim the same way (its backdrop is the blurred one), then takes the tint.
         half4 sampled = backdrop.eval(clamp(p + normal * refraction * rim, float2(0.5), viewport - float2(0.5)));
         if(frosted>0.5) sampled.rgb=mix(sampled.rgb,half3(0.70,0.76,0.84),half(0.18*min(intensity,1.0)));
         float light = pow(max(dot(normal, normalize(float2(-0.7, -0.7))), 0.0), 2.0);
         float specular = rim * light * 0.26 * intensity;
         half3 rgb = clamp(sampled.rgb + half3(specular), half3(0.0), half3(1.0));
         float mask = 1.0 - smoothstep(-1.0, 1.0, d);
-        // The frost thins toward the rim so the liquid layer beneath, which bends the sharp backdrop, shows at the edge:
-        // the middle stays frosted and the edge wraps like liquid glass. With no warp the frost stays whole.
-        half clear = half(0.7 * rim * warp);
-        return frosted>0.5 ? half4(rgb,sampled.a)*half(mask)*(1.0-clear) : mix(original, half4(rgb, sampled.a), half(mask));
+        return frosted>0.5 ? half4(rgb,sampled.a)*half(mask) : mix(original, half4(rgb, sampled.a), half(mask));
     }
 """
 }

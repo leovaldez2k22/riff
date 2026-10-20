@@ -26,7 +26,7 @@ internal class AccessibilitySettings(context: Context) {
         private set
     var glassIntensity by mutableStateOf(prefs.getFloat("glass_intensity",1f).coerceIn(0f,1.5f))
         private set
-    var frostedIntensity by mutableStateOf(prefs.getFloat("frosted_intensity",1f).coerceIn(0f,1.5f))
+    var frostedIntensity by mutableStateOf(prefs.getFloat("frosted_intensity",FROSTED_INTENSITY_DEFAULT).coerceIn(0f,1.5f))
         private set
     fun updateFrostedIntensity(value:Float) {frostedIntensity=value.coerceIn(0f,1.5f);prefs.edit().putFloat("frosted_intensity",frostedIntensity).apply()}
     fun updateFrostedGlass(enabled:Boolean) {frostedGlass=enabled;prefs.edit().putBoolean("frosted_glass",enabled).apply()}
@@ -39,7 +39,7 @@ internal class AccessibilitySettings(context: Context) {
         reduceMotion = runCatching { prefs.getBoolean("reduce_motion", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE)
         frostedGlass = prefs.getBoolean("frosted_glass", FROSTED_GLASS_DEFAULT)
         glassIntensity = prefs.getFloat("glass_intensity", 1f).coerceIn(0f, 1.5f)
-        frostedIntensity = prefs.getFloat("frosted_intensity", 1f).coerceIn(0f, 1.5f)
+        frostedIntensity = prefs.getFloat("frosted_intensity", FROSTED_INTENSITY_DEFAULT).coerceIn(0f, 1.5f)
     }
 
     fun updateSolidControls(enabled: Boolean) {
@@ -59,7 +59,8 @@ internal val LocalAccessibilitySettings = compositionLocalOf<AccessibilitySettin
 
 /**
  * Q18-049, owner's decision 20 Oct 2026: liquid glass is meant to show what is beneath it, so frosted glass is the
- * default (it blurs the words under the bars) and bends at its rim like liquid glass. A choice the owner made in
- * Settings is kept; only a phone where it was never set takes this.
+ * default (it blurs the words under the bars) and its frost bends at the rim like liquid glass, at 20 % so the bend
+ * shows through the blur. A choice the owner made in Settings is kept; only a phone where it was never set takes these.
  */
 internal const val FROSTED_GLASS_DEFAULT = true
+internal const val FROSTED_INTENSITY_DEFAULT = .2f

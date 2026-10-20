@@ -62,8 +62,9 @@ class DownloadBatchTest {
     @Test fun frostedGlassIsOnUntilTheOwnerTurnsItOff() {
         // Q18-049: on by default; a choice made in Settings is kept.
         val context=RuntimeEnvironment.getApplication()
-        context.getSharedPreferences("accessibility_display",Context.MODE_PRIVATE).edit().remove("frosted_glass").commit()
+        context.getSharedPreferences("accessibility_display",Context.MODE_PRIVATE).edit().remove("frosted_glass").remove("frosted_intensity").commit()
         assertTrue(AccessibilitySettings(context).frostedGlass)
+        assertEquals(.2f,AccessibilitySettings(context).frostedIntensity,0f)
         AccessibilitySettings(context).updateFrostedGlass(false)
         assertFalse(AccessibilitySettings(context).frostedGlass)
     }

@@ -184,7 +184,7 @@ class UiRegressionInstrumentation {
     @Test fun separateFrostedSliderAndCacheConfirmationWorkOnDevice() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val prefs=context.getSharedPreferences("accessibility_display",android.content.Context.MODE_PRIVATE)
-        val original=prefs.getFloat("frosted_intensity",1f)
+        val original=prefs.getFloat("frosted_intensity",FROSTED_INTENSITY_DEFAULT)
         val glass=prefs.getFloat("glass_intensity",1f)
         val offline=context.getSharedPreferences("offline_settings",android.content.Context.MODE_PRIVATE)
         val budget=offline.getLong("budget_bytes",4L*1073741824)
