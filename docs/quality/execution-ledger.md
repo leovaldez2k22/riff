@@ -2659,6 +2659,25 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
 - The player, seek and lyrics-timing code is unchanged between rc2 and rc4; the frosted-glass default (F8) is new in
   rc4. Also logged: Q18-060 (the benchmark build is labelled Riff). Nothing fixed yet; Q19G needs the owner's go.
 
+### Q19G G1 on the computer (20 October 2026, night; the owner: "go ahead with G1")
+- Q18-055 (Q18-001 again, the owner: it shows while sliding the mini player up slowly): the morph's copies were the
+  player's 22 sp bold title scaled down, laid over the still-drawn mini player. Now they start as exact copies of the
+  mini player's title, artist and cover and swap with it in one frame. New device test compares the slid mini player
+  with it at rest: old code 2787 pixels differ (the picture matches the owner's), fixed 160 (a 1 px shift of the
+  fixture cover's lines). e64c3a9.
+- Q18-058: YouTube Music's app link carries the Play Store as its fallback; Riff followed it. An app store page is now
+  never a sign-in step; the sign-in goes on to YouTube Music. JVM test. e64c3a9. Q18-060: "Riff Benchmark". e64c3a9.
+- Q18-057, downloads: Android's WebM writer stored every Opus download with a cluster about every 30 s and no Cues;
+  a seek decoded up to 30 s first. New WebmAudioWriter (a cluster and a cue every 0.5 s, audio copied unchanged) for
+  new downloads; the service stores existing ones again once, skipping songs in the queue. SeekTimingDeviceTest on
+  API 36: old file 288 to 2843 ms per seek, new and repacked 184 to 304 ms. 3a417cc. Streamed songs: not changed.
+- Q18-056: measured the position the lyrics read (the controller's) against the service player's on API 36: -28 to
+  +9 ms, mean 0. Not the cause; the probe was removed. Left for the phone: output latency and the lyrics sources.
+- Q18-059: not changed; the start-up prewarm takes 7 to 8 s on the phone and needs a trace there.
+- Checks: unit tests, lint, static checks (0 findings), script tests (156 OK) pass. c865b00. The API 36 emulator lane
+  is recorded below when it ends.
+- The API 36 emulator crashed once (exit 139) during an exploratory probe and was booted again; no test result lost.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
