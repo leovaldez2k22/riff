@@ -134,6 +134,17 @@ class LocalBackupTest {
         uninstall(); val empty = Install(); empty.backup.restoreDeclined(); assertFalse(empty.backup.shouldOfferRestore())
     }
 
+    /** Found by the emulator lane (C7): a backup started by a privacy clear removed the copy a waiting import had opened. */
+    @Test fun aBackupWrittenWhileAnImportWaitsLeavesTheImportsCopyAlone() = runBlocking {
+        val source = Install(); source.play(accountA, 1)
+        val bytes = java.io.ByteArrayOutputStream().also { out -> source.transfer.export(setOf(accountA), { out }) }.toByteArray()
+        source.history.clearCounted(accountA)
+        val plan = (source.transfer.open({ bytes.inputStream() }) as ImportOpen.Ready).plan
+        assertTrue(source.backup.backUp(force = true) is BackupOutcome.Done)
+        assertTrue("the import's copy is still there", plan.file.exists())
+        assertTrue(source.transfer.import(plan) is ImportOutcome.Finished); assertEquals(setOf("Song 1"), source.plays(accountA))
+    }
+
     @Test fun namesAndFolders() {
         assertEquals("riff-backup-phone.jsonl", backupFileName(OwnerKind.Device, null))
         assertEquals("riff-backup-signed-out.jsonl", backupFileName(OwnerKind.Guest, null))

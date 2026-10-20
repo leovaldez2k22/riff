@@ -371,12 +371,12 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
     private val work = File(app.cacheDir, "local-data-transfer")
     private fun prefs(name: String) = app.getSharedPreferences(name, Context.MODE_PRIVATE)
 
-    /** A private working file. Earlier ones, left by a process that died, are removed first. */
-    private fun workFile(name: String): File {
-        work.mkdirs()
-        work.listFiles()?.forEach { it.delete() }
-        return File(work, name)
+    /** Each step its own file, so a backup leaves a waiting import's copy alone; a dead process's files go once. */
+    private fun workFile(name: String): File = synchronized(work) {
+        work.mkdirs(); if (!swept) { work.listFiles()?.forEach { it.delete() }; swept = true }
+        File(work, name.replace(".", "-${++workSerial}."))
     }
+    private var swept = false; private var workSerial = 0
 
     // ---- export
 

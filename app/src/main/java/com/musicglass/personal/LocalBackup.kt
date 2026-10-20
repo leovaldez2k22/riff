@@ -86,8 +86,8 @@ internal class LocalBackup(context: Context, private val transfer: LocalDataTran
             val files = folder.list().filterKeys { backupBaseName(it) != null }
             if (files.isEmpty()) return@withLock RestoreOutcome(found = 0)
             var restored = 0; var waitingNow = 0; var unreadable = 0; var added = SectionCounts()
-            // Two files of one owner (Android numbers a name it cannot reuse): the newest is used. The transfer
-            // stages one file at a time, so each is read for its date first and opened again when it is used.
+            // Two files of one owner (Android numbers a name it cannot reuse): the newest is used. Each
+            // file is read for its date first; only the newest of each owner is opened again and restored.
             val dated = files.mapNotNull { (name, open) ->
                 when (val opened = transfer.open(open)) {
                     is ImportOpen.Ready -> Triple(backupBaseName(name)!!, opened.plan.exportedAt, name).also { transfer.discard(opened.plan) }
