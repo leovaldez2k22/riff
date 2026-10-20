@@ -149,9 +149,13 @@ class OwnerFeaturesDeviceTest {
         } finally { folder.delete(probe) }
         assertFalse(probe in folder.list())
 
-        // The real backup of this install, then the switch that removes it.
+        // The real backup of this install, then the switch that removes it. A folder picked for a restore earlier on
+        // this device is set aside, so the backup writes Riff's own files in Documents.
         val backup = AppContainer.get(app).localBackup
         val wasOn = backup.enabled
+        val prefs = app.getSharedPreferences("local_backup", Context.MODE_PRIVATE)
+        val tree = prefs.getString("tree", null); val offered = prefs.getBoolean("restore_offered", false)
+        prefs.edit().remove("tree").putBoolean("restore_offered", true).commit()
         try {
             backup.turnBackup(true)
             val outcome = backup.backUp(force = true)
@@ -164,6 +168,7 @@ class OwnerFeaturesDeviceTest {
             assertTrue("nothing left: ${folder.list().keys}", folder.list().keys.none { it in written })
         } finally {
             backup.turnBackup(wasOn)
+            prefs.edit().putBoolean("restore_offered", offered).apply { if (tree != null) putString("tree", tree) }.commit()
             // Turned back on, it writes again only when Riff next leaves the screen; the lane's own emulator is wiped.
         }
     }
