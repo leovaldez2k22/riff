@@ -28,7 +28,9 @@ internal data class LocalDataSummary(val accountPlays: Int = 0, val devicePlays:
  */
 internal class LocalDataController(context: Context, private val history: HistoryRepository, private val snapshots: PlaybackSnapshotRepository,
     private val downloads: () -> OfflineMusicStore, private val searches: () -> SearchHistory, private val io: CoroutineDispatcher,
-    private val wallTime: () -> Long, private val event: (String) -> Unit = {}) {
+    private val wallTime: () -> Long, private val event: (String) -> Unit = {},
+    /** After every action: the backup on this phone is rewritten at once, so it never keeps what was deleted. */
+    private val changed: () -> Unit = {}) {
     private val app = context.applicationContext
     /** Shared with export and import, so they never run alongside a clear or a delete. */
     internal val gate = Mutex()
@@ -57,7 +59,7 @@ internal class LocalDataController(context: Context, private val history: Histor
                 is DataActionResult.Failed -> "failed kind=${result.kind}"
             })
             result
-        }
+        }.also { changed() }
     }
 
     /**

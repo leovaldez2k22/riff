@@ -2549,6 +2549,26 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   with -Toolchain pointing at this checkout's .toolchain (the key and password stay there); then I check certificate,
   ABI, size and version as in C4 and run the release-content check.
 
+### Owner's request: backup on this phone; Not interested reaches YouTube Music (20 October 2026, evening)
+- Asked by the owner ("implement the local backup option A. Also make it so that not interested a song in riff does
+  the same in YouTube music as well"); Google Drive held off. Choices: a song without YouTube Music's own feedback is
+  disliked, Undo removes the dislike; the backup has no passphrase and says it is not encrypted.
+- Not interested: `sendNotInterested` returns what was sent (None, Feedback, Disliked); a dislike follows the like
+  rules (acknowledged, refused, or read back; never claimed on a guess). The entry keeps the account scope the dislike
+  went to, and Undo sends `like/removelike` only on that account. Tests: three in ProviderMutationTest, four in
+  NotInterestedUndoTest.
+- Backup: one file per owner in Documents/Riff Backup (per build), written on leaving the screen (10-minute gap),
+  at once after a clear, delete or import, and on Back up now; a mirror that keeps files waiting for their account.
+  Restore after a reinstall through the system folder picker, offered on the first start of an empty install; another
+  account's file waits privately until it signs in. Six tests in LocalBackupTest (a folder on disk, a wiped app).
+  They found a real fault before commit: the transfer stages one file at a time, so restore now reads each file's date
+  first and opens only the newest per owner again.
+- Checks: 1118 JVM tests, lint, androidTest compile: pass. Static checks: one finding, in AudioSessionEffects.kt:45,
+  a file this work did not touch (its line is unchanged since the last commit).
+- Not checked: the folder picker, the MediaStore folder, and a real uninstall and reinstall (phone or emulator);
+  a live dislike and its undo on a signed-in account (phone, owner's approval). rc3 (f540aed) predates this work and
+  does not contain it.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):

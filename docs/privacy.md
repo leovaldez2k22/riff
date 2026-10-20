@@ -51,6 +51,14 @@ Settings → About → Diagnostics shows the exit and error records, can clear t
 
 It never holds cookies, tokens, account names or identifiers, stream addresses, audio, image bytes, lyrics, diagnostics, the saved queue, or download settings. **The file is not encrypted**: anyone who has it can read the listening history and searches in it. **Import local data** adds to what is on the phone and removes nothing. Riff requests no storage permission for either.
 
+## Backup on this phone
+
+**Settings → Privacy and data → Backup on this phone** (on by default) keeps one file per owner, in the same format as the export file, in `Documents/Riff Backup`, so it stays when Riff is uninstalled. After a reinstall Riff offers to restore it; you pick the folder once in the system picker. It holds what the export file holds and nothing more. **It is not encrypted**: an app with access to all files, or someone using the unlocked phone, can read it. Turning the backup off removes its files.
+
+## Not interested
+
+When signed in, **Not interested** tells YouTube Music too: its own "Not interested" where YouTube Music offered one for that card, otherwise a **dislike** on the song, which YouTube Music uses to keep it out of mixes and radio. **Undo** removes that dislike on the same account.
+
 ## Network requests
 
 Providers can observe ordinary connection information such as IP address, time and user agent.

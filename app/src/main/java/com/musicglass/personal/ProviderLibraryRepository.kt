@@ -208,17 +208,53 @@ internal class ProviderLibraryRepository(private val session: ProviderSessionMan
             songLikes[videoId] = liked; libraryRevision++
         }
     }
-    /** Sends YouTube Music's "Not interested" feedback; looks the token up from the song's radio when none is known. */
-    suspend fun sendNotInterested(videoId: String?, token: String?): Result<Boolean> = providerResult {
-        if (!signedIn) return@providerResult false
+    /**
+     * Tells YouTube Music the listener is not interested. Its own "Not interested" is offered only on Home's cards
+     * (a song's radio, search and Related have none, checked 20 Oct 2026), so a song without that token is disliked
+     * instead, the owner's choice on 20 Oct 2026: YouTube Music then keeps it out of mixes and radio. A collection
+     * without a token is not sent.
+     */
+    suspend fun sendNotInterested(videoId: String?, token: String?): Result<NotInterestedSent> = providerResult {
+        if (!signedIn) return@providerResult NotInterestedSent.None
         val revision = authRevision
-        val feedback = token ?: videoId?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }?.let { id ->
+        val song = videoId?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }
+        val feedback = token ?: song?.let { id ->
             val response = innerTube.next(YouTubeClient.WEB_REMIX, videoId = id, playlistId = "RDAMVM$id")
             if (response.status.value >= 400) null
             else notInterestedTokenFor(json.parseToJsonElement(response.bodyAsText()), id)
-        } ?: return@providerResult false
-        val response = innerTube.feedback(YouTubeClient.WEB_REMIX, listOf(feedback))
-        check(response.status.value < 400 && revision == authRevision) { string(R.string.youtube_music_did_not_accept_the_feedback) }
-        true
+        }
+        if (feedback != null) {
+            val response = innerTube.feedback(YouTubeClient.WEB_REMIX, listOf(feedback))
+            check(response.status.value < 400 && revision == authRevision) { string(R.string.youtube_music_did_not_accept_the_feedback) }
+            return@providerResult NotInterestedSent.Feedback
+        }
+        if (song == null) return@providerResult NotInterestedSent.None
+        check(revision == authRevision && signedIn) { string(R.string.account_changed_while_saving) }
+        dislikeSong(song)
+        NotInterestedSent.Disliked
+    }
+    /** A dislike, under the same rules as a like: acknowledged, refused, or settled by reading the song's rating. */
+    private suspend fun dislikeSong(videoId: String) = likeGate.withLock {
+        val revision = authRevision
+        val outcome = sentOutcome {
+            val response = innerTube.dislikeVideo(YouTubeClient.WEB_REMIX, videoId)
+            likeOutcome(response.status.value, response.bodyAsText())
+        }
+        check(revision == authRevision && signedIn) { string(R.string.account_changed_while_saving) }
+        when (outcome) {
+            MutationOutcome.Acknowledged -> Unit
+            MutationOutcome.Rejected -> error(string(R.string.youtube_music_did_not_accept_the_feedback))
+            MutationOutcome.Unknown -> {
+                playbackEvents.append("provider_dislike_unknown")
+                val now = try {
+                    val response = innerTube.next(YouTubeClient.WEB_REMIX, videoId = videoId)
+                    if (response.status.value >= 400) null else catalogValue(json.parseToJsonElement(response.bodyAsText()), "likeStatus")
+                } catch (e: CancellationException) { currentCoroutineContext().ensureActive(); null } catch (e: Exception) { null }
+                check(revision == authRevision && signedIn) { string(R.string.account_changed_while_saving) }
+                if (now == null) throw MutationUnconfirmed()
+                check(now == "DISLIKE") { string(R.string.youtube_music_did_not_accept_the_feedback) }
+            }
+        }
+        songLikes[videoId] = false; libraryRevision++
     }
 }

@@ -11,6 +11,8 @@
     <string name="about_build_identity">Riff · %1$s (%2$d)\n%3$s</string>
     <plurals name="a_queue_of_n_songs"><item quantity="one">a queue of %1$d song</item><item quantity="other">a queue of %1$d songs</item></plurals>
     <plurals name="a_queue_of_n_songs_was_saved"><item quantity="one">A queue of %1$d song was saved by an earlier version. It was not loaded automatically because it may belong to another account.</item><item quantity="other">A queue of %1$d songs was saved by an earlier version. It was not loaded automatically because it may belong to another account.</item></plurals>
+    <plurals name="n_accounts_restore_when_they_sign_in"><item quantity="one">%1$d account is restored when it signs in.</item><item quantity="other">%1$d accounts are restored when they sign in.</item></plurals>
+    <plurals name="n_backup_files_could_not_be_read"><item quantity="one">%1$d backup file could not be read.</item><item quantity="other">%1$d backup files could not be read.</item></plurals>
     <plurals name="n_seconds"><item quantity="one">%1$d second</item><item quantity="other">%1$d seconds</item></plurals>
     <plurals name="n_percent"><item quantity="one">%1$d percent</item><item quantity="other">%1$d percent</item></plurals>
     <plurals name="clear_n_plays"><item quantity="one">Clear %1$d play?</item><item quantity="other">Clear %1$d plays?</item></plurals>
@@ -53,7 +55,33 @@
     <plurals name="n_songs_n"><item quantity="one">%1$d song · %2$s</item><item quantity="other">%1$d songs · %2$s</item></plurals>
     <plurals name="n_songs_queued_for_download"><item quantity="one">%1$d song queued for download</item><item quantity="other">%1$d songs queued for download</item></plurals>
     <plurals name="n_youtube_music_plays_were_saved_in"><item quantity="one">%1$d YouTube Music play was saved in one list for every account used on this phone, so Riff cannot tell whose they are. They are not shown in History unless you import them. Plays of audio stored on this phone were moved to History → On this phone.</item><item quantity="other">%1$d YouTube Music plays were saved in one list for every account used on this phone, so Riff cannot tell whose they are. They are not shown in History unless you import them. Plays of audio stored on this phone were moved to History → On this phone.</item></plurals>
+    <string name="back_up_now">Back up now</string>
+    <string name="backed_up_to_x">Backed up to %1$s</string>
+    <string name="backup_on_this_phone">Backup on this phone</string>
+    <string name="backup_restored_x">Backup restored: %1$s.</string>
+    <string name="backup_turned_off">Backup turned off and its files removed</string>
+    <string name="choose_the_folder">Choose the folder</string>
+    <string name="got_it_disliked_on_youtube_music_too">Got it. Disliked on YouTube Music too, so it stays out of your mixes</string>
+    <string name="hidden_in_riff_youtube_music_was_not_told">Hidden in Riff. YouTube Music could not be told this time</string>
+    <string name="if_you_used_riff_on_this_phone_before_x">If you used Riff on this phone before, it may have left a backup of your settings, history, saved songs and pins in %1$s. Choose that folder to bring them back. Android asks once, because a new install cannot open the files of an earlier install by itself.</string>
+    <string name="keep_a_backup_on_this_phone">Keep a backup on this phone</string>
+    <string name="last_backup_x">last backup %1$s</string>
+    <string name="no_riff_backup_in_that_folder">No Riff backup in that folder</string>
+    <string name="not_now">Not now</string>
+    <string name="nothing_new_in_the_backup">Nothing new in the backup</string>
+    <string name="off">Off</string>
     <string name="position_x_of_x">%1$s of %2$s</string>
+    <string name="restore_from_a_backup">Restore from a backup</string>
+    <string name="restore_your_riff_backup">Restore your Riff backup?</string>
+    <string name="riff_and_youtube_music_can_suggest_this_again">Riff and YouTube Music can suggest this again</string>
+    <string name="riff_can_suggest_this_again_the_dislike_stays">Riff can suggest this again. Its dislike stays on the account that made it</string>
+    <string name="riff_can_suggest_this_again_youtube_music_kept_the_dislike">Riff can suggest this again. YouTube Music did not remove the dislike</string>
+    <string name="riff_could_not_read_that_folder">Riff could not read that folder</string>
+    <string name="the_backup_could_not_be_written">The backup could not be written. Riff will try again later</string>
+    <string name="the_backup_files_riff_made_in_x_are_removed">The backup files Riff made in %1$s are removed. Nothing kept in Riff changes.</string>
+    <string name="the_backup_stays_when_riff_is_deleted">One file for this phone and one for each account, with settings, history, saved songs, searches, hidden items and pins; not downloaded audio or sign-ins. It stays when Riff is deleted, and Riff offers to bring it back when installed again. It is not encrypted: apps allowed to read all files can read it.</string>
+    <string name="turn_off">Turn off</string>
+    <string name="turn_off_the_backup">Turn off the backup?</string>
     <string name="x_of_x">%1$d of %2$d</string>
     <string name="x_seconds_short">%1$ss</string>
     <string name="signed_out_listening_2">signed-out listening</string>

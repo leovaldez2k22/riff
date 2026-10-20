@@ -153,6 +153,36 @@ Not verified here:
 - A file moved between two physical phones.
 - A file near the size limit on a phone. The limit is exercised with a lower value in tests.
 
+## The backup on this phone (20 October 2026)
+
+At the owner's request, Riff also keeps the same file format as a backup that stays when Riff is uninstalled.
+Code: `LocalBackup.kt`, `LocalBackupScreen.kt`. Tests: `LocalBackupTest.kt`.
+
+- **Where:** `Documents/Riff Backup` on the phone's own storage. Riff Preview and other builds use their own folder,
+  for example `Documents/Riff Backup (preview)`, so they never write over each other. No storage permission: Riff
+  writes only its own files there.
+- **Files:** one per owner: `riff-backup-phone.jsonl`, `riff-backup-signed-out.jsonl`, and
+  `riff-backup-account-<16 hex>.jsonl`. The account part is the start of the account's opaque digest, the same on
+  every install, so a new install finds the right file. Each file is an ordinary export of that one owner and can
+  also be imported with **Import local data**.
+- **When:** when Riff leaves the screen, at most every 10 minutes; at once after a clear, a delete or an import;
+  and with **Back up now**.
+- **A mirror:** each file is rewritten whole. A file for an owner whose data was deleted on this phone is removed, so
+  deleted data does not come back from the backup. A file waiting for its account (below) is never removed.
+- **Restore:** Android gives a new install no access to files an earlier install made. On the first start of an install
+  that holds no data, Riff offers **Restore your Riff backup**; **Choose the folder** opens the system folder picker at
+  `Documents/Riff Backup`, and one tap on **Use this folder** gives access. The same is under **Settings → Privacy
+  and data → Backup on this phone → Restore from a backup**. Riff keeps that access and writes the backup there from
+  then on.
+- **Whose data goes where:** this phone's and signed-out listening's files are added at once, the signed-in account's
+  file too. Another account's file is copied to Riff's private storage and added when that account signs in.
+  Restoring adds and never removes, like an import.
+- **Two files for one owner** (Android names a file `... (1).jsonl` when it cannot reuse a name): the newest by its
+  export time is used.
+- **Off:** turning the backup off asks first and removes the files this install wrote.
+- **Not encrypted** (the owner's choice): any app with access to all files, or a person with the phone unlocked and a
+  file manager, can read the listening history and searches in it.
+
 ## Known limits
 
 - The file is not encrypted and not signed. Anyone who has it can read it, and a file that was edited is imported like any other, within the checks above.
@@ -163,3 +193,8 @@ Not verified here:
 - While a large import writes history, a play that ends at that moment waits for the import before it is recorded.
 - A document provider that does not allow deletion keeps the empty document after a failed export.
 - Leaving the screen during an export stops it; the empty document stays.
+- Backup: the system folder picker, the MediaStore folder, and a real uninstall and reinstall are not exercised by
+  tests (the tests use a folder on disk and a wiped app). They need the phone or the emulator.
+- Backup: a phone reset or a storage wipe removes the backup with everything else. It is not a copy off the phone.
+- Backup: if the user chooses another folder in the picker, Riff restores from it and writes there instead; files in
+  the first folder stay until removed by hand.

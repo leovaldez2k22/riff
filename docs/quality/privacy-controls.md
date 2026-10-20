@@ -1,6 +1,6 @@
 # Privacy and data controls (Q05)
 
-What Riff keeps on the phone, who it belongs to, and how the user removes it. Nothing described here sends a request to YouTube Music: every action changes only what is stored on this phone.
+What Riff keeps on the phone, who it belongs to, and how the user removes it. Nothing described here sends a request to YouTube Music: every action changes only what is stored on this phone. (**Not interested** is not one of these controls: when signed in it does tell YouTube Music, see [provider compatibility](provider-compatibility.md).)
 
 ## Where
 
@@ -19,6 +19,7 @@ Each row names the owner it acts on (the account's name, **Signed-out listening*
 | Delete local data for this account | The active owner | Its plays, searches, saved queue, tracks saved in the app and downloads |
 | Earlier data | Data from builds before per-account storage | See [state and migration](state-and-migration.md) |
 | Export local data, Import local data | The owners the user chooses | Nothing. See [export and import](local-export-import.md) |
+| Backup on this phone | Every owner, one file each, in Documents/Riff Backup | Turning it off removes the backup files this install wrote. See [the backup](local-export-import.md#the-backup-on-this-phone-20-october-2026) |
 
 Never removed by any of these: appearance, audio and history-saving settings; the sign-in (signing out is a separate action on the Account screen); audio files in the phone's own library; another owner's data; anything in the YouTube Music account.
 

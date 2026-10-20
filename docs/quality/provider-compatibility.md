@@ -265,3 +265,8 @@ This is written to be followed without any other context. You need the repositor
 - The stream phase is not scheduled anywhere yet.
 - A collection of more than 2,000 tracks cannot be played, shuffled, downloaded or sorted as a whole.
 - "Not interested" is reported as sent on any answer below HTTP 400; its body is not read.
+- YouTube Music offers its own "Not interested" only on Home's cards (a song's radio, search and Related have none,
+  checked 20 October 2026). For a song without it, Riff dislikes the song instead (the owner's choice, 20 October
+  2026), under the same rules as a like: acknowledged, refused, or settled by reading the song's rating, never
+  claimed on a guess. A collection without the token is not sent. Undo removes the dislike only on the account it
+  was sent for; a different account signed in is not touched and the notice says the dislike stays.

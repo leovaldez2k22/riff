@@ -139,7 +139,7 @@ class ProviderMutationTest {
         w.close();val guest=world(signedIn=false);guest.route={error("Nothing may be sent")}
         assertEquals("Sign in to edit YouTube Music playlists",guest.provider.addPlaylistSong(owned,absent).exceptionOrNull()?.message)
         assertTrue(guest.provider.setSongLike(absent,true).isFailure);assertTrue(guest.provider.saveAlbum("MPREb_fixtureAlbum01").isFailure)
-        assertEquals(false,guest.provider.sendNotInterested(absent,"fixture-feedback-song-1").getOrThrow())
+        assertEquals(NotInterestedSent.None,guest.provider.sendNotInterested(absent,"fixture-feedback-song-1").getOrThrow())
         assertEquals(0,guest.calls.size)
     }
     @Test fun anAnswerForAnAccountThatHasSinceChangedIsNotASuccess()=runBlocking {
@@ -187,6 +187,37 @@ class ProviderMutationTest {
         w.route={if(it.endpoint.startsWith("like/")) reply("{}") else ok("watch-next-unofficial-video.json")}
         assertTrue("A queue that does not say is not a yes",w.provider.setSongLike("fxsong00002",true).exceptionOrNull() is MutationUnconfirmed)
     }
+    // ---- not interested (owner, 20 Oct 2026: YouTube Music's own where it has a token, else a dislike)
+
+    @Test fun notInterestedUsesYouTubeMusicsOwnFeedbackWhenTheSongHasIt()=runBlocking {
+        val w=world();w.route={when(it.endpoint) {"next"->ok("watch-next.json");"feedback"->reply("{}");else->error("Unexpected ${it.endpoint}")}}
+        assertEquals(NotInterestedSent.Feedback,w.provider.sendNotInterested("fxsong00001",null).getOrThrow())
+        assertEquals(listOf("next","feedback"),w.endpoints());assertTrue(w.calls.last().body.toString().contains("fixture-feedback-song-1"))
+        w.calls.clear()
+        assertEquals("A token from Home is used as it is",NotInterestedSent.Feedback,w.provider.sendNotInterested(null,"fixture-home-token").getOrThrow())
+        assertEquals(listOf("feedback"),w.endpoints())
+    }
+    @Test fun aSongWithoutThatFeedbackIsDislikedAndACollectionIsNotSent()=runBlocking {
+        val w=world();w.route={when {it.endpoint=="next"->ok("watch-next.json");it.endpoint.startsWith("like/")->ok("like-acknowledged.json");else->error("Unexpected ${it.endpoint}")}}
+        assertEquals(NotInterestedSent.Disliked,w.provider.sendNotInterested("fxsong00002",null).getOrThrow())
+        assertEquals(listOf("next","like/dislike"),w.endpoints());assertTrue(w.calls.last().body.toString().contains("fxsong00002"))
+        assertEquals(false,w.provider.songLikes["fxsong00002"])
+        w.calls.clear()
+        assertEquals(NotInterestedSent.None,w.provider.sendNotInterested(null,null).getOrThrow());assertEquals(0,w.calls.size)
+    }
+    @Test fun aDislikeIsRefusedOrSettledByReadingNeverClaimedOnAGuess()=runBlocking {
+        val w=world()
+        w.route={if(it.endpoint.startsWith("like/")) reply("",403) else ok("watch-next.json")}
+        val refused=w.provider.sendNotInterested("fxsong00002",null)
+        assertEquals("YouTube Music did not accept the feedback",refused.exceptionOrNull()?.message);assertFalse(refused.exceptionOrNull() is MutationUnconfirmed)
+        // No readable answer and the song cannot be read: not confirmed, and not sent again.
+        var reads=0
+        w.route={if(it.endpoint.startsWith("like/")) reply("",500) else if(reads++==0) ok("watch-next.json") else reply("",503)}
+        w.calls.clear()
+        assertTrue(w.provider.sendNotInterested("fxsong00002",null).exceptionOrNull() is MutationUnconfirmed)
+        assertEquals(1,w.calls.count {it.endpoint.startsWith("like/")})
+    }
+
     @Test fun savingAnAlbumUsesTheAlbumsOwnPlaylistAndDoesNotClaimAnUnconfirmedSave()=runBlocking {
         val w=world();w.route={if(it.endpoint=="browse") ok("album.json") else ok("like-acknowledged.json")}
         assertTrue(w.provider.saveAlbum("MPREb_fixtureAlbum01").isSuccess)

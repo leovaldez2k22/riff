@@ -33,6 +33,12 @@ class MainActivity : ComponentActivity() {
         AppContainer.get(this).resumeWaitingDownloads()
     }
 
+    override fun onStop() {
+        super.onStop()
+        // Riff is leaving the screen: the backup on this phone catches up (at most every 10 minutes).
+        AppContainer.get(this).backUpSoon()
+    }
+
     override fun onPause() {
         window.attributes = window.attributes.apply { preferredRefreshRate = 0f }
         super.onPause()

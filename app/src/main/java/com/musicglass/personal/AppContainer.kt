@@ -156,12 +156,22 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
     }
     val localData: LocalDataController by lazy {
         LocalDataController(app, history, snapshots, { OfflineMusicStore.get(app) }, { SearchHistory.get(app) },
-            runtime.dispatchers.io, runtime.clocks::wallTimeMillis, eventLog::append)
+            runtime.dispatchers.io, runtime.clocks::wallTimeMillis, eventLog::append) { backUpSoon(force = true) }
     }
     val localTransfer: LocalDataTransfer by lazy {
         LocalDataTransfer(app, libraryState, history, { OfflineMusicStore.get(app) }, { SearchHistory.get(app) }, { NotInterestedStore.get(app) },
             { CurrentOwner(provider.storageScopeKey(), provider.accountScopeDigests()) }, runtime.dispatchers.io,
             runtime.clocks::wallTimeMillis, localData.gate, eventLog::append)
+    }
+    /** The backup on this phone, in Documents; it stays when Riff is uninstalled (owner's request, 20 Oct 2026). */
+    val localBackup: LocalBackup by lazy {
+        LocalBackup(app, localTransfer, runtime.dispatchers.io, runtime.clocks::wallTimeMillis, eventLog::append,
+            shared = { MediaStoreBackupFolder(app.contentResolver, backupFolderName(app.packageName)) },
+            picked = { PickedBackupFolder.reopen(app.contentResolver, it) })
+    }
+    /** Backs up off the caller's thread; [force] skips the wait between backups (after a deletion, a restore). */
+    fun backUpSoon(force: Boolean = false) {
+        stateScope.launch { suspendCatching { localBackup.backUp(force) } }
     }
     /** The once-a-day question to the release feed (Q12A). Asks nothing in a build without a feed. */
     val updates: UpdateChecker by lazy { UpdateChecker.android(app, runtime, eventLog::append) }

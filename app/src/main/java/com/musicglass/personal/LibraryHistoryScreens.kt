@@ -195,6 +195,8 @@ internal fun earlierDataSummary(earlier: UnassignedInventory): String {
 @Composable internal fun NotInterestedScreen(model: ShellModel, bottom: Dp, onNotice: (String) -> Unit) {
     val context = LocalContext.current
     val store = remember(context) { NotInterestedStore.get(context) }
+    val provider = remember(context) { YouTubeMusicProvider.shared(context) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val entries = store.entries.asReversed()
     ScreenList(model, bottom) {
         item { BackHeading(string(R.string.settings), model::back) }
@@ -214,7 +216,7 @@ internal fun earlierDataSummary(earlier: UnassignedInventory): String {
                         .filter(String::isNotBlank).joinToString(" · "), color = Muted, fontSize = 12.sp,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                TextButton({ uiHaptic(HapticCue.Confirm); store.remove(entry.key); onNotice(string(R.string.riff_can_suggest_this_again)) },
+                TextButton({ uiHaptic(HapticCue.Confirm); scope.launch { undoNotInterested(context, provider, entry, onNotice) } },
                     modifier = Modifier.testTag("not_interested_undo")) { Text(string(R.string.undo), color = Pink) }
             }
         }

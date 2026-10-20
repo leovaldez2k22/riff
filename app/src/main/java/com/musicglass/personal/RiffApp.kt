@@ -109,6 +109,8 @@ internal fun RiffApp() {
     LaunchedEffect(provider.authRevision, provider.storageRevision) {
         model.searchOwnerIs(provider.storageScopeKey())
         collections.bindAccountScope(provider.accountScopeKey()); collections.refresh()
+        // A restored account's file waits for that account; signed in now, it is added.
+        if (provider.accountScopeDigests().isNotEmpty() && AppContainer.get(context).localBackup.restoreWaiting() > 0) collections.refresh()
     }
     val sessions = remember(context) { AppContainer.get(context).sessions }
     DisposableEffect(sessions, collections) {
@@ -314,6 +316,7 @@ internal fun RiffApp() {
                 }
             }
             CardPeekLayer(cardPeek, model, provider, playback, onNotice = { scope.launch { snackbar.showSnackbar(it) } })
+            RestoreOffer(onNotice = { scope.launch { snackbar.showSnackbar(it) } })
             SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter)
                 .padding(WindowInsets.safeDrawing.asPaddingValues()).padding(top = 12.dp))
         }

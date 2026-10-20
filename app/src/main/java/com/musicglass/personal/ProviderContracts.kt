@@ -55,7 +55,7 @@ internal interface ProviderMutations {
     suspend fun removePlaylistSong(id: String, card: ProviderHomeCard): Result<Unit>
     /** May write a sort preference, when the provider's own sort menu supplied one. */
     suspend fun sortedCollection(id: String, endpoint: CollectionSortEndpoint): Result<CatalogPage>
-    suspend fun sendNotInterested(videoId: String?, token: String?): Result<Boolean>
+    suspend fun sendNotInterested(videoId: String?, token: String?): Result<NotInterestedSent>
 }
 
 // ---- pagination
