@@ -161,6 +161,18 @@ class LocalBackupTest {
         assertEquals(setOf("Song 1"), fresh.plays(DEVICE_LOCAL_SCOPE_KEY))
     }
 
+    /** Q18-054, found in C6 on the emulator: rc4 over rc20 that held next to nothing offered a restore. */
+    @Test fun anUpdateIsNeverOfferedARestore() = runBlocking {
+        val info = org.robolectric.Shadows.shadowOf(context.packageManager).getInternalMutablePackageInfo(context.packageName)
+        val first = info.firstInstallTime; val last = info.lastUpdateTime
+        try {
+            info.firstInstallTime = 1_000L; info.lastUpdateTime = 2_000L
+            val updated = Install()
+            assertFalse(updated.backup.shouldOfferRestore())
+            assertTrue("its backup is not held back either", updated.backup.backUp(force = true) is BackupOutcome.Done)
+        } finally { info.firstInstallTime = first; info.lastUpdateTime = last }
+    }
+
     @Test fun namesAndFolders() {
         assertEquals("riff-backup-phone.jsonl", backupFileName(OwnerKind.Device, null))
         assertEquals("riff-backup-signed-out.jsonl", backupFileName(OwnerKind.Guest, null))

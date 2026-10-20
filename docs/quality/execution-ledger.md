@@ -2617,6 +2617,21 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
 - ..\Riff-rc3 removed at the owner's word: unregistered from git, and its folder (build files past Windows' path
   limit) deleted with long-path support; rc3's evidence stays in artifacts/quality/q19/g2.
 
+### C8 and C6 on the signed rc4 (20 October 2026, night)
+- The owner ran scripts/build-release-candidate.ps1 -Preview -Offline in ..\Riff-rc4 at 1ffce77 (clean; the script's
+  release evidence PASS_LOCAL). artifacts/release: riff-0.10.0-rc4.apk (efb14adc...e07e, 28,496,830 bytes, Riff,
+  com.musicglass.personal) and riff-0.10.0-rc4-preview.apk (fae8a352...a173, 28,497,238 bytes, Riff Preview); both
+  version 25, arm64-v8a only, not debuggable, v2-signed with the pinned certificate ac703423...f6e1; SHA256SUMS.txt
+  matches; release-content check 20 of 20 on each.
+- C6 on the API 36 emulator riff_q19_c6 (network off, confirmed unreachable; rc2 from the last C6 removed first): rc20
+  installed and opened once (18 data files); packaging lane in ..\Riff-rc4 with --previous-apk rc20: source archive,
+  release identity, checksums and upgrade PASS (PASS_LOCAL). After the upgrade: first-install time unchanged, none
+  of rc20's files lost, no crash. Found Q18-054 (Low): the updated install, which held next to nothing, was offered
+  "Restore your Riff backup?". Fixed in code after rc4 was signed (an update is never offered a restore;
+  LocalBackupTest.anUpdateIsNeverOfferedARestore). rc4 keeps it; it cannot show in the B runs (Riff Preview is
+  installed fresh) or in A7 (the main app has history). It goes into the next candidate, and C6 checks it there.
+  Emulator stopped; rc4 left on it (disposable). Evidence: artifacts/quality/q19/c8/c6.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):

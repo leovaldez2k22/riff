@@ -136,11 +136,15 @@ internal class LocalBackup(context: Context, private val transfer: LocalDataTran
     /** True once, on the first start of an install that holds no data yet: the moment to offer a restore. */
     suspend fun shouldOfferRestore(): Boolean = withContext(io) {
         if (!enabled || prefs.getBoolean("restore_offered", false)) return@withContext false
-        val empty = transfer.inventory().sumOf { it.counts.total } == 0
+        // An update over an earlier version keeps its data, however little: nothing to restore (Q18-054).
+        val empty = !updatedInPlace() && transfer.inventory().sumOf { it.counts.total } == 0
         if (!empty) prefs.edit { putBoolean("restore_offered", true) }
         empty
     }
     fun restoreDeclined() = prefs.edit { putBoolean("restore_offered", true) }
+    private fun updatedInPlace() = runCatching {
+        app.packageManager.getPackageInfo(app.packageName, 0).let { it.lastUpdateTime > it.firstInstallTime }
+    }.getOrDefault(false)
 
     /** Off removes the files this install wrote, so nothing it no longer keeps up to date is left behind. */
     suspend fun turnBackup(on: Boolean): Int = withContext(io) {
