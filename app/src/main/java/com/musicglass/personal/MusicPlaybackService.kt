@@ -115,6 +115,12 @@ class MusicPlaybackService : MediaSessionService() {
             networkCallback=callback
         }
         serviceScope.launch(Dispatchers.IO) {runCatching {offline.indexArtwork(offline.currentScope)}}
+        // Q18-057: downloads stored with too few seek points are stored again once, after start-up has settled.
+        serviceScope.launch(Dispatchers.IO) {
+            kotlinx.coroutines.delay(30_000)
+            runCatching {DownloadRepack.repackAll(offline,offline.currentScope,inQueue={id->withContext(Dispatchers.Main) {
+                mainPlayer?.let {p->(0 until p.mediaItemCount).any {p.getMediaItemAt(it).mediaId.removePrefix("yt:")==id}}?:false}},events=events)}
+        }
         persistence.start()
         val mediaFactory = sources
         audio.start()

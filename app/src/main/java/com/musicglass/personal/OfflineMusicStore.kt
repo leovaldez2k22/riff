@@ -138,6 +138,9 @@ internal class OfflineMusicStore private constructor(private val context:Context
     }
     /** Runs [commit] only while the transfer still has the row, and under this store's lock: a removal cannot fall between the two. */
     @Synchronized fun <T> commitAudio(scope:String,id:String,generation:Long,commit:()->T):T? = if(holds(scope,id,generation)) commit() else null
+    /** Q18-057: replaces a stored download's audio, only while [expected] is still that song's playable audio. */
+    @Synchronized fun <T> replaceAudio(scope:String,id:String,expected:File,commit:()->T):T? =
+        if(rows(scope,id).isNotEmpty() && audio(scope,id)==expected) commit() else null
     private fun supersede(scope:String,id:String) {
         db.writableDatabase.execSQL("UPDATE songs SET generation=generation+1 WHERE scope=? AND id=?",arrayOf(scope,id))
     }

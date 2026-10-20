@@ -313,16 +313,28 @@ internal object AndroidAudioAssembler:AudioAssembler {
             val track=(0 until extractor.trackCount).firstOrNull {extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/")==true}?:throw IOException("No valid audio")
             val format=extractor.getTrackFormat(track);extractor.selectTrack(track)
             val mime=format.getString(MediaFormat.KEY_MIME).orEmpty()
-            output.delete();muxer=MediaMuxer(output.absolutePath,if(mime.contains("opus") || mime.contains("vorbis")) MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM else MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-            val target=muxer.addTrack(format);muxer.start();val buffer=ByteBuffer.allocate(2*1024*1024);val info=MediaCodec.BufferInfo();var endUs=0L;var samples=0
+            output.delete()
+            // Q18-057: Opus goes into Riff's own WebM, with a cluster and a cue every half second; Android's has one every 30 s.
+            val webm=if(mime==MediaFormat.MIMETYPE_AUDIO_OPUS) format.getByteBuffer("csd-0")?.let {head->
+                WebmAudioWriter(output,ByteArray(head.remaining()).also {head.duplicate().get(it)},WebmAudioWriter.nanos(format.getByteBuffer("csd-1")),
+                    WebmAudioWriter.nanos(format.getByteBuffer("csd-2")),format.getInteger(MediaFormat.KEY_SAMPLE_RATE),format.getInteger(MediaFormat.KEY_CHANNEL_COUNT))
+            } else null
+            try {
+            if(webm==null) muxer=MediaMuxer(output.absolutePath,if(mime.contains("opus") || mime.contains("vorbis")) MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM else MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            val target=muxer?.addTrack(format)?:0;muxer?.start();val buffer=ByteBuffer.allocate(2*1024*1024);val info=MediaCodec.BufferInfo();var endUs=0L;var samples=0
+            val copy=if(webm!=null) ByteArray(buffer.capacity()) else null
             while(true) {
                 currentCoroutineContext().ensureActive();check();buffer.clear();val size=extractor.readSampleData(buffer,0);if(size<0) break
-                val time=extractor.sampleTime;info.set(0,size,time,if(extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC!=0) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0)
-                muxer.writeSampleData(target,buffer,info);endUs=maxOf(endUs,time);samples++;extractor.advance()
+                val time=extractor.sampleTime
+                if(webm!=null) {buffer.position(0);buffer.get(copy!!,0,size);webm.write(copy,size,time)}
+                else {info.set(0,size,time,if(extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC!=0) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0)
+                    muxer!!.writeSampleData(target,buffer,info)}
+                endUs=maxOf(endUs,time);samples++;extractor.advance()
             }
             // Duration consistency: what was received must run as long as the provider said, within 3 s or 5 percent.
             if(samples==0 || expectedDurationMs<=0 || abs(endUs/1000-expectedDurationMs)>maxOf(3000,expectedDurationMs/20)) throw IOException("Incomplete song duration")
-            muxer.stop()
+            muxer?.stop()
+            } finally {webm?.close()}
         } finally {extractor.release();muxer?.release()}
     }
 }
