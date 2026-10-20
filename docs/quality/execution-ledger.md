@@ -2576,6 +2576,36 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   replaces rc3, which predates F9 and F10; each row carries its status.
 - D11 decided by the owner: the backup stays on by default, including on the main app after A7. No code change.
 
+### C7, C1, C2 and C8 preparation: rc4 (20 October 2026, evening)
+- Started at the owner's word ("Start all these work") after the revised plan and D11.
+- Static finding fixed first: AudioSessionEffects.kt:45 was flagged because the static check reads "can suspend" by
+  name and the new LocalBackup.setEnabled was suspending; renamed turnBackup. Static checks 0 findings.
+- C7: OwnerFeaturesDeviceTest in the fixture lane: the clock in hours (1:02:05 and -57:55 on a 2-hour episode; m:ss
+  under an hour), pins kept by a new store, drawn first with one badge each and stopping at 27, frosted glass at 20 %
+  on a fresh install with a choice kept, and the backup writing, rewriting, reading and removing its files in
+  Documents through MediaStore. F10 has no device part (no fixture server on the device); JVM tests and B7 cover it.
+- Found and fixed on the way (both new with F9, never in a release; logged in q18-bugs.md):
+  - Q18-052 (bb37685): a backup started by a privacy clear removed the working copy of a waiting import (the lane's
+    LocalDataTransferDeviceTest, 2 cases). Each transfer step now has its own working file.
+  - Q18-053 (47bcb8b): the reinstall check by hand restored nothing. Opening the picker sent Riff off the screen, the
+    empty new install backed up, Android numbered its file, and the restore took the newest. Now an empty install
+    writes nothing before its restore offer, the newest file with data wins, and Riff writes over its own numbered file.
+- Reinstall check on the API 33 emulator after the fix (artifacts/quality/q19/c7/reinstall2): a seeded pin backed up
+  when Riff left the screen; uninstall; the file stayed; reinstall; the offer showed; Choose the folder opened the
+  picker at Documents/Riff Backup (debug); Use this folder, Allow; "Backup restored: 1 setting, 1 speed dial pin." and
+  the pin on Home with the network off. Not now: the offer did not return, and two later backups wrote over one
+  numbered file instead of adding more. Test files and the debug app removed from the emulator afterwards.
+- C2 on 3c94f48: API 33 65 of 65, API 31 65 of 65, API 36 66 of 66 (it did not crash this time), all PASS_LOCAL,
+  evidence in artifacts/quality/q19/c7. Documents cleared and the debug app removed on each; emulators stopped.
+- C8: version 0.10.0-rc4, code 25 (aa4fde0), in a clean worktree at ..\Riff-rc4. C1 pr lane there: every check PASS
+  (PASS_LOCAL), script tests, static, build, artifact identity, JVM, lint, release content, APK, solver seam.
+  Side-by-side builds (artifacts/quality/q19/c8/candidates.txt, copies in c8/apks), debug key 932eb205...04e0: Riff
+  Debug 85822665...3b03 (com.musicglass.personal.debug, 0.10.0-rc4-debug), its test APK d4622777...33b3, Riff
+  Benchmark 1a1b6628...ab6e, macrobenchmark 67462ad2...a1fb (unchanged from rc3).
+- Left for the owner: signing rc4 with scripts/build-release-candidate.ps1 in ..\Riff-rc4 (-Toolchain at this
+  checkout's .toolchain); then the certificate, ABI, size, version and release-content checks, and C6 on rc4.
+  ..\Riff-rc3 (superseded) stays until the owner says to remove it.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
