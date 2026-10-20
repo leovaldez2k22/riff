@@ -2646,6 +2646,19 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   same certificate was accepted. Opened once: MainActivity resumed, no crash. The main app (rc20) and the other
   packages were not touched. B2's uninstall and fresh install still happen in the B sitting. A1 itself is the owner's.
 
+### A1 by the owner on rc4 Preview (20 October 2026, night)
+- The owner's verdicts on the A9 rows: Q18-001 FAIL (title and artist doubled in the mini player at rest; Q18-055);
+  Q18-002/008 PASS (the x and NOW PLAYING readable over a white cover); Q18-004 PASS for the glow, but lyrics run
+  0.2 to 0.6 s late (Q18-056); Q18-005 FAIL (silence after every seek, downloaded and streamed; Q18-057);
+  Q18-009/010/013 FAIL (after the password Google showed its Play Store page and the sign-in could not go on;
+  Q18-058); Q18-012 BLOCKED by Q18-058; Q18-014/015 FAIL (about 5 s to the first song; Q18-059); Q18-028 PASS (no
+  message); lock-screen controls PASS. The owner noted none of these showed in the debug build.
+- Evidence kept outside git in artifacts/quality/q19/a1: the owner's seek video and two pictures, the phone's logcat
+  for the sitting (not committed; it holds the device's own log). The log shows each streamed song waiting 1.9 to
+  4.2 s for its stream, a start-up prewarm of 7 to 8 s, and 1.1 to 2.8 s of buffering after each seek in the video.
+- The player, seek and lyrics-timing code is unchanged between rc2 and rc4; the frosted-glass default (F8) is new in
+  rc4. Also logged: Q18-060 (the benchmark build is labelled Riff). Nothing fixed yet; Q19G needs the owner's go.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
