@@ -136,13 +136,29 @@ class LocalBackupTest {
 
     /** Found by the emulator lane (C7): a backup started by a privacy clear removed the copy a waiting import had opened. */
     @Test fun aBackupWrittenWhileAnImportWaitsLeavesTheImportsCopyAlone() = runBlocking {
-        val source = Install(); source.play(accountA, 1)
+        val source = Install(); source.play(accountA, 1); source.backup.restoreDeclined()
         val bytes = java.io.ByteArrayOutputStream().also { out -> source.transfer.export(setOf(accountA), { out }) }.toByteArray()
         source.history.clearCounted(accountA)
         val plan = (source.transfer.open({ bytes.inputStream() }) as ImportOpen.Ready).plan
         assertTrue(source.backup.backUp(force = true) is BackupOutcome.Done)
         assertTrue("the import's copy is still there", plan.file.exists())
         assertTrue(source.transfer.import(plan) is ImportOutcome.Finished); assertEquals(setOf("Song 1"), source.plays(accountA))
+    }
+
+    /** Q18-053, found on the emulator (C7): the new install's empty file was newer, so it was restored instead. */
+    @Test fun anEmptyNewInstallNeverOutrunsTheRealBackup() = runBlocking {
+        val old = Install(); old.play(DEVICE_LOCAL_SCOPE_KEY, 1); old.backup.backUp(force = true)
+        uninstall()
+        val fresh = Install()
+        clock.advance(60_000)
+        assertEquals("leaving the screen to open the picker", BackupOutcome.Skipped, fresh.backup.backUp(force = true))
+        assertEquals(listOf("riff-backup-phone.jsonl"), fresh.folder.names())
+        // Had an empty one been written beside it (Android numbers the name), the file with data is still the one used.
+        File(documents, "riff-backup-phone.jsonl").renameTo(File(documents, "riff-backup-phone (1).jsonl"))
+        fresh.backup.restoreDeclined(); assertTrue(fresh.backup.backUp(force = true) is BackupOutcome.Done)
+        assertEquals(2, fresh.folder.names().size)
+        assertEquals(1, fresh.backup.restore(fresh.folder).restored)
+        assertEquals(setOf("Song 1"), fresh.plays(DEVICE_LOCAL_SCOPE_KEY))
     }
 
     @Test fun namesAndFolders() {

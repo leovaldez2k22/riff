@@ -54,6 +54,10 @@ internal class LocalBackup(context: Context, private val transfer: LocalDataTran
         lock.withLock {
             if (!enabled) return@withLock BackupOutcome.Off
             if (!force && wallTime() - lastBackupAt in 0 until BACKUP_GAP_MS) return@withLock BackupOutcome.Skipped
+            // A new install with nothing in it, not yet offered the earlier backup, writes nothing: its empty files
+            // would sit beside the earlier install's and, being newer, be restored in their place (Q18-053).
+            if (!prefs.getBoolean("restore_offered", false) && transfer.inventory().sumOf { it.counts.total } == 0)
+                return@withLock BackupOutcome.Skipped
             val folder = folder()
             val written = mutableSetOf<String>(); var failed = 0
             for (owner in transfer.inventory()) {
@@ -86,15 +90,17 @@ internal class LocalBackup(context: Context, private val transfer: LocalDataTran
             val files = folder.list().filterKeys { backupBaseName(it) != null }
             if (files.isEmpty()) return@withLock RestoreOutcome(found = 0)
             var restored = 0; var waitingNow = 0; var unreadable = 0; var added = SectionCounts()
-            // Two files of one owner (Android numbers a name it cannot reuse): the newest is used. Each
-            // file is read for its date first; only the newest of each owner is opened again and restored.
+            // Two files of one owner (Android numbers a name it cannot reuse): the newest that holds anything is
+            // used. Each file is read for its date first; only the chosen one of each owner is opened again.
+            class Dated(val base: String, val name: String, val at: Long, val empty: Boolean)
             val dated = files.mapNotNull { (name, open) ->
                 when (val opened = transfer.open(open)) {
-                    is ImportOpen.Ready -> Triple(backupBaseName(name)!!, opened.plan.exportedAt, name).also { transfer.discard(opened.plan) }
+                    is ImportOpen.Ready -> Dated(backupBaseName(name)!!, name, opened.plan.exportedAt, opened.plan.total == 0)
+                        .also { transfer.discard(opened.plan) }
                     else -> { unreadable++; null }
                 }
             }
-            val newest = dated.groupBy { it.first }.mapValues { (_, all) -> all.maxBy { it.second }.third }
+            val newest = dated.groupBy { it.base }.mapValues { (_, all) -> all.maxWith(compareBy({ !it.empty }, { it.at })).name }
             for ((base, name) in newest) {
                 val plan = (transfer.open(files.getValue(name)) as? ImportOpen.Ready)?.plan ?: run { unreadable++; null } ?: continue
                 if (plan.sections.any { it.destination == Destination.Other }) {
@@ -203,14 +209,16 @@ internal class MediaStoreBackupFolder(private val resolver: ContentResolver, fol
         }
     }
     override fun list() = uris().mapValues { (_, uri) -> { resolver.openInputStream(uri) ?: throw IOException("unavailable") } }
+    /** Riff's own file for [name], also when Android had to number it because an earlier install's file has the name. */
+    private fun own(name: String) = uris().let { all -> all[name] ?: all.entries.firstOrNull { backupBaseName(it.key) == name }?.value }
     override fun output(name: String): OutputStream {
-        val uri = uris()[name] ?: resolver.insert(collection, ContentValues().apply {
+        val uri = own(name) ?: resolver.insert(collection, ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name); put(MediaStore.MediaColumns.MIME_TYPE, BACKUP_MIME)
             put(MediaStore.MediaColumns.RELATIVE_PATH, path)
         }) ?: throw IOException("not created")
         return resolver.openOutputStream(uri, "wt") ?: throw IOException("unavailable")
     }
-    override fun delete(name: String) { uris()[name]?.let { resolver.delete(it, null, null) } }
+    override fun delete(name: String) { own(name)?.let { resolver.delete(it, null, null) } }
 }
 
 /** A folder the user chose in the system picker; Riff keeps its permission until it is uninstalled. */
