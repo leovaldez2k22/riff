@@ -2569,6 +2569,13 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   a live dislike and its undo on a signed-in account (phone, owner's approval). rc3 (f540aed) predates this work and
   does not contain it.
 
+### Final plan revised; D11 (20 October 2026, evening)
+- final-stretch-plan.md revised at the owner's request: F6 to F10 (hours clock, speed-dial pins, frosted glass at 20 %,
+  backup on this phone, Not interested to YouTube Music) get tests in C7 (emulator), B7 and B11 (phone), A2 and A3
+  (owner); new B13 rows for Q18-048, Q18-049, Q18-051; B6 measures Home scroll with frosted on and off; rc4 (C8)
+  replaces rc3, which predates F9 and F10; each row carries its status.
+- D11 decided by the owner: the backup stays on by default, including on the main app after A7. No code change.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
