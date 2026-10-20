@@ -2500,6 +2500,23 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   Files testing made on the phone were removed (the saved card, the UI dump, the trace); the empty Pictures/Riff
   folder was left. Riff Preview holds one song paused in its player and nothing signed in.
 
+### The owner's answers on Q18-049, Q18-050 and Q18-030 (20 October 2026, morning)
+- Q18-049: not a bug; liquid glass is meant to show what is beneath it. At the owner's request frosted glass is now the
+  default and wraps at its rim like liquid glass (2ac10a8): the frosted pass bends its blurred backdrop by the glass
+  intensity, and its frost thins toward the edge so the liquid layer's bend of the sharp backdrop shows through, while
+  the middle stays frosted and the bar's words readable. A choice already made in Settings is kept. Checked on the API
+  36 emulator (artifacts/quality/q19/glass: the bar over a Settings slider and its title, liquid and frosted side by
+  side). JVM tests, lint, static checks pass. Android 12 has no AGSL and keeps the plain blur.
+- Q18-050: the owner left the choice to me; option (b), no new artifacts trusted (10b96ac). The benchmark lane installs
+  and runs Macrobenchmark itself and stops a run silent for 15 minutes as BLOCKED (Q18-023). Script tests 153 of 153.
+  Not yet run on the phone, which was unplugged this morning.
+- Q18-030: the owner left the choice to me; trace_processor_shell.exe v50.1 fetched from Google's Perfetto artifact
+  bucket (commondatastorage.googleapis.com/perfetto-luci-artifacts/v50.1/windows-amd64, 10,822,144 bytes, MD5 as
+  published, SHA-256 8273ae59...cea1), kept at .toolchain/perfetto-v50.1, run offline on the trace. Findings in
+  q18-bugs.md: the render thread, not the UI thread, misses; a full-screen offscreen layer for the glass every frame
+  plus glyph uploads. Frosted glass by default adds a full-screen blur, so the next B6 measures Home scroll with
+  frosted on and off before rc3.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):

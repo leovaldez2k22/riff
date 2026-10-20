@@ -252,8 +252,8 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-046 Accounts screen looks | SignInScreensDeviceTest pictures | none | PASS | fixed in Q19G (6bcce26) |
 | Q18-047 release-content check skips the certificate of a v2-signed APK | check_release_content.py | none | PASS | fixed in Q19G (6bcce26) |
 | Q18-048 share sheet shows an older card | LyricShareDeviceTest (the next card's address differs, one file kept) | B4 rerun with rc3 | BLOCKED | the phone check with rc3 |
-| Q18-049 glass bars too clear over text | none yet | Home and Settings pictures (artifacts/quality/q19/b5) | FAIL | the owner's choice of backing, then Q19G |
-| Q18-050 benchmark lane stops on dependency verification | verify.py --lane benchmark | none | FAIL | the owner's choice |
+| Q18-049 glass bars too clear over text | none yet | Home and Settings pictures (artifacts/quality/q19/b5) | DECLINED | not a bug (owner); remedy 2ac10a8: frosted by default, wrapping at the rim; the look by eye in A3 |
+| Q18-050 benchmark lane stops on dependency verification | verify.py --lane benchmark | none | BLOCKED | fixed in 10b96ac; the lane on the phone: next B6 |
 
 ## 6. Totals
 
@@ -268,3 +268,4 @@ pass until Q19G fixes the FAIL rows and Q19B and Q19A run the BLOCKED ones.
 Night of 20 October (Q19B1, B2, B4 and B5 without an account, B6, Q19G G1): the 72 rows PASS 44 (REL01 on the signed
 rc2), FAIL 0, BLOCKED 21, DEFERRED 6, DECLINED 1. Section 7, 24 rows: PASS 13, FAIL 2 (Q18-049 and Q18-050, both
 waiting for the owner's choice), BLOCKED 8, DECLINED 1 (Q18-041).
+Same morning, after the owner's answers: section 7 is PASS 13, FAIL 0, BLOCKED 9, DECLINED 2 (Q18-041, Q18-049).
