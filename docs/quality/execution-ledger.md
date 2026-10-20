@@ -2535,6 +2535,20 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   first composition. The emulator itself crashed three times this afternoon (exit 139, nothing in its log), so the
   menus were checked by test and compile only; the phone check is in B3/B4.
 
+### Q19G G2 preparation: rc3 (20 October 2026, afternoon)
+- Version 0.10.0-rc3, code 24 (D10), commit f540aed. A clean worktree of that commit at ..\Riff-rc3 (git worktree,
+  detached; the main checkout and the owner's uncommitted download_favourites.py untouched), so the candidate's
+  identity reads clean without -AllowDirty.
+- Side-by-side builds there, all sourceState clean at f540aed, debug key 932eb205...04e0
+  (artifacts/quality/q19/g2/candidates.txt, copies in g2/apks): Riff Debug 7383c275...d371, its test APK
+  d647954c...564, Riff Benchmark 2a9d72b2...fa2b, macrobenchmark 67462ad2...a1fb.
+- Emulator lane on that worktree, API 33 (riff_q18_api33, network off): 60 of 60, PASS_LOCAL
+  (artifacts/quality/q19/g2/emulator-lane-api33). The API 36 emulator crashed three times today (exit 139, nothing
+  in its log) and was not used for the lane. Emulator stopped.
+- Left for the owner: the signed release and preview, by scripts/build-release-candidate.ps1 run in ..\Riff-rc3
+  with -Toolchain pointing at this checkout's .toolchain (the key and password stay there); then I check certificate,
+  ABI, size and version as in C4 and run the release-content check.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
