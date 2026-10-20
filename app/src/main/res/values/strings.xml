@@ -66,6 +66,7 @@
     <plurals name="n_not_confirmed_by_youtube_music"><item quantity="one">%1$d not confirmed by YouTube Music.</item><item quantity="other">%1$d not confirmed by YouTube Music.</item></plurals>
     <string name="x_retry_the_remaining_selections">%1$s. Retry the remaining selections.</string>
     <plurals name="n_recently_played"><item quantity="one">%1$d recently played</item><item quantity="other">%1$d recently played</item></plurals>
+    <plurals name="n_speed_dial_pins"><item quantity="one">%1$d speed dial pin</item><item quantity="other">%1$d speed dial pins</item></plurals>
     <string name="x_tab">%1$s tab</string>
     <string name="x_tab_selected">%1$s tab, selected</string>
     <string name="about">About</string>

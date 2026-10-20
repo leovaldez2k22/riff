@@ -2525,6 +2525,16 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   (artifacts/quality/q19/glass/bar-liquid-vs-frosted20-bend.png). JVM tests, lint, androidTest compile and static
   checks pass. The look on the phone stays with A3.
 
+### Owner's feature requests and computer work (20 October 2026, afternoon)
+- The player's clock counts hours (1:43:39, not 103:39). Pin to speed dial: songs, episodes, podcasts, albums,
+  playlists and artists from the long-press menu and the player's menu; stored on the phone, loaded with Home (also
+  when the feed fails), first in pin order with a pin badge, up to 27, All only (2968f83). SpeedDialPinsTest.
+- Pins travel in the local data file with the device's section and are added on import after the pins already
+  there, never pushing one out (LocalDataTransferTest round trip, SpeedDialPinsTest).
+- Q18-051, a start-up crash seen once on the emulator, fixed: the provider is built on the main thread before the
+  first composition. The emulator itself crashed three times this afternoon (exit 139, nothing in its log), so the
+  menus were checked by test and compile only; the phone check is in B3/B4.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):

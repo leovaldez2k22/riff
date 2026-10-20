@@ -55,7 +55,7 @@ One line per action: `local_data action=<name> result=done|partial|failed` with 
 ## Known limits
 
 - Data stored under an older key of the same account that has not yet been merged is not covered by **Delete local data**; the background merge moves it to the account's key first.
-- **Not interested** and podcast progress are device-wide and are not part of these actions.
+- **Not interested**, speed-dial pins and podcast progress are device-wide and are not part of these actions.
 - Deleting local data removes tracks saved in the app for that owner, not likes or playlists held by YouTube Music.
 
 ## Verification

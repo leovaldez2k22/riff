@@ -32,7 +32,7 @@ class LocalDataTransferTest {
     private val opened = mutableListOf<LibraryStateDb>()
     private var hook: (String) -> Unit = {}
     private val preferenceFiles = listOf("music_collections", "search_history", "not_interested", "accessibility_display", AUDIO_BOOST_PREFS,
-        CROSSFADE_PREFS, DATA_SAVER_PREFS, "offline_settings", "account_scopes")
+        CROSSFADE_PREFS, DATA_SAVER_PREFS, "offline_settings", "account_scopes", "speed_dial_pins")
     private fun prefs(name: String) = context.getSharedPreferences(name, Context.MODE_PRIVATE)
     @After fun close() { opened.forEach { it.close() } }
 
@@ -44,8 +44,9 @@ class LocalDataTransferTest {
         val history = HistoryRepository(db, epochs, clock::wallTimeMillis, historyCap) { historyRetentionDays(context) }
         val searches = SearchHistory(context, Dispatchers.Unconfined)
         val hidden = NotInterestedStore(context)
+        val pins = SpeedDialPins(context)
         val transfer = LocalDataTransfer(context, db, history, { store }, { searches }, { hidden }, { current }, Dispatchers.Unconfined,
-            clock::wallTimeMillis, Mutex(), events::add, { hook(it) }, maxBytes, historyCap)
+            clock::wallTimeMillis, Mutex(), events::add, { hook(it) }, maxBytes, historyCap) { pins }
     }
     private fun wipe() {
         preferenceFiles.forEach { prefs(it).edit().clear().commit() }
@@ -124,6 +125,9 @@ class LocalDataTransferTest {
         val source = Phone()
         seedDevice(); source.seed(DEVICE_LOCAL_SCOPE_KEY); source.seed(GUEST_SCOPE_KEY); source.seed(accountA)
         source.hidden.add(NotInterestedEntry(id(31), "Hidden song", "Artist", providerArtworkUrl(id(31)), true, clock.wall - 10))
+        source.pins.pin(ProviderHomeCard("Pinned episode", "A show", providerArtworkUrl(id(41)), videoId = id(41), kind = CatalogKind.Episode))
+        source.pins.pin(ProviderHomeCard("Pinned podcast", "Podcast", null, browseId = "MPSPPLtest_41", kind = CatalogKind.Podcast))
+        val pinsBefore = source.pins.cards
         val owners = listOf(DEVICE_LOCAL_SCOPE_KEY, GUEST_SCOPE_KEY, accountA)
         val before = owners.associateWith { source.kept(it) }
         val hiddenBefore = source.hidden.entries; val settingsBefore = settings()
@@ -134,12 +138,13 @@ class LocalDataTransferTest {
         assertEquals(Kept(emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptySet()), fresh.kept(accountA))
         val plan = fresh.plan(bytes)
         assertEquals(listOf(Destination.Direct, Destination.Direct, Destination.Account), plan.sections.map { it.destination })
-        assertEquals(SectionCounts(settings = 7, hidden = 1, plays = 4), plan.sections[0].counts)
+        assertEquals(SectionCounts(settings = 7, hidden = 1, plays = 4, pins = 2), plan.sections[0].counts)
         assertEquals(SectionCounts(searches = 2, plays = 4), plan.sections[1].counts)
         assertEquals(SectionCounts(saved = 3, recents = 2, searches = 2, plays = 4, downloads = 2), plan.sections[2].counts)
         assertEquals(0, plan.malformed)
         val report = runBlocking { (fresh.transfer.import(plan) as ImportOutcome.Finished).report }
-        assertEquals(ImportReport(added = SectionCounts(settings = 7, hidden = 1, saved = 3, recents = 2, searches = 4, plays = 12, downloads = 2)), report)
+        assertEquals(ImportReport(added = SectionCounts(settings = 7, hidden = 1, saved = 3, recents = 2, searches = 4, plays = 12, downloads = 2, pins = 2)), report)
+        assertEquals(pinsBefore, fresh.pins.cards)
         owners.forEach { assertEquals(it, before[it], fresh.kept(it)) }
         assertEquals(hiddenBefore, fresh.hidden.entries)
         // The download settings were not carried over; everything else was.

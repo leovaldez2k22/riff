@@ -30,10 +30,10 @@ internal enum class OwnerKind(val word: String) { Device("device"), Guest("guest
 
 /** How much of each kind of data. The same shape counts what is kept, what a file holds and what was added. */
 internal data class SectionCounts(val settings: Int = 0, val hidden: Int = 0, val saved: Int = 0, val recents: Int = 0,
-    val searches: Int = 0, val plays: Int = 0, val downloads: Int = 0) {
-    val total get() = settings + hidden + saved + recents + searches + plays + downloads
+    val searches: Int = 0, val plays: Int = 0, val downloads: Int = 0, val pins: Int = 0) {
+    val total get() = settings + hidden + saved + recents + searches + plays + downloads + pins
     operator fun plus(o: SectionCounts) = SectionCounts(settings + o.settings, hidden + o.hidden, saved + o.saved, recents + o.recents,
-        searches + o.searches, plays + o.plays, downloads + o.downloads)
+        searches + o.searches, plays + o.plays, downloads + o.downloads, pins + o.pins)
 }
 
 /** One owner whose data can be put in a file. [key] is where the stores keep it; it is not written to the file. */
@@ -108,6 +108,7 @@ internal sealed interface DataRecord {
     data class Search(val query: String) : DataRecord
     data class Play(val entry: HistoryEntry) : DataRecord
     data class Download(val track: ProviderTrack) : DataRecord
+    data class Pin(val card: ProviderHomeCard) : DataRecord // A speed-dial pin: the device's, like hidden items.
 }
 
 // ---- settings that travel
@@ -181,6 +182,7 @@ internal fun encodeRecord(record: DataRecord): String = when (record) {
             record.entry.durationMs?.takeIf { it >= 0 }?.let { o.put("dur", it) }
             if (!record.entry.music) o.put("music", false)
         }
+    is DataRecord.Pin -> pinRecord(record.card)
     is DataRecord.Download -> trackObject("download", record.track).also { o ->
         record.track.artistId?.takeIf(PROVIDER_ID::matches)?.let { o.put("artistId", it) }
         record.track.albumId?.takeIf(PROVIDER_ID::matches)?.let { o.put("albumId", it) }
@@ -210,6 +212,7 @@ internal fun parseRecord(kind: OwnerKind, o: JSONObject, now: Long): DataRecord?
         DataRecord.Hidden(NotInterestedEntry(key, o.text("title"), o.text("subtitle"), exportableArtwork(o.opt("artwork") as? String),
             o.flag("song", true), (o.whole("at") ?: 0L).coerceIn(0L, now + DAY_MS)))
     }
+    "pin" -> if (kind != OwnerKind.Device) null else parsePinRecord(o)?.let(DataRecord::Pin)
     // Only an account saves tracks; signed-out listening and the device have no such lists.
     "track" -> if (kind != OwnerKind.Provider) null else LISTS[o.text("list")]?.let { list -> parseTrack(o)?.let { DataRecord.Saved(list, it) } }
     "search" -> if (kind == OwnerKind.Device) null else (o.opt("q") as? String)?.takeIf { it.length <= 160 }
@@ -289,6 +292,7 @@ private class Admission {
             is DataRecord.Search -> "search" to LOCAL_DATA_LIST_CAP
             is DataRecord.Download -> "download" to LOCAL_DATA_LIST_CAP
             is DataRecord.Hidden -> "hidden" to LOCAL_DATA_LIST_CAP
+            is DataRecord.Pin -> "pin" to SPEED_DIAL_PIN_LIMIT
             is DataRecord.Setting -> "setting" to SETTINGS.size * 4
         }
         val count = (seen["$section/$name"] ?: 0) + 1
@@ -340,6 +344,7 @@ private fun walk(file: File, now: Long, sections: Sections, check: () -> Unit, r
 private fun SectionCounts.with(record: DataRecord) = when (record) {
     is DataRecord.Setting -> copy(settings = settings + 1)
     is DataRecord.Hidden -> copy(hidden = hidden + 1)
+    is DataRecord.Pin -> copy(pins = pins + 1)
     is DataRecord.Saved -> if (record.list == "online_history") copy(recents = recents + 1) else copy(saved = saved + 1)
     is DataRecord.Search -> copy(searches = searches + 1)
     is DataRecord.Play -> copy(plays = plays + 1)
@@ -360,7 +365,8 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
     private val downloads: () -> OfflineMusicStore, private val searches: () -> SearchHistory, private val hidden: () -> NotInterestedStore,
     private val owner: () -> CurrentOwner, private val io: CoroutineDispatcher, private val wallTime: () -> Long,
     private val gate: Mutex = Mutex(), private val event: (String) -> Unit = {}, private val checkpoint: (String) -> Unit = {},
-    private val maxBytes: Long = LOCAL_DATA_MAX_BYTES, private val historyCap: Int = HISTORY_ROW_CAP) {
+    private val maxBytes: Long = LOCAL_DATA_MAX_BYTES, private val historyCap: Int = HISTORY_ROW_CAP,
+    private val pins: () -> SpeedDialPins = { SpeedDialPins.get(context) }) {
     private val app = context.applicationContext
     private val work = File(app.cacheDir, "local-data-transfer")
     private fun prefs(name: String) = app.getSharedPreferences(name, Context.MODE_PRIVATE)
@@ -386,7 +392,7 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
     }
 
     private suspend fun counts(key: String): SectionCounts = when (kindOf(key)) {
-        OwnerKind.Device -> SectionCounts(settings = storedSettings().size, hidden = hidden().entries.size, plays = history.count(key))
+        OwnerKind.Device -> SectionCounts(settings = storedSettings().size, hidden = hidden().entries.size, plays = history.count(key), pins = pins().cards.size)
         else -> SectionCounts(saved = storedCollection(app, key, "online_favorites").size + storedCollection(app, key, "online_playlist").size,
             recents = storedCollection(app, key, "online_history").size, searches = searches().count(key),
             plays = history.count(key), downloads = downloads().downloadList(key).size)
@@ -435,6 +441,7 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
                         if (source.kind == OwnerKind.Device) {
                             storedSettings().forEach(::put)
                             hidden().entries.forEach { put(DataRecord.Hidden(it)) }
+                            pins().cards.forEach { put(DataRecord.Pin(it)) }
                         } else {
                             LISTS.values.forEach { list -> storedCollection(app, source.key, list).forEach { put(DataRecord.Saved(list, it)) } }
                             searches().stored(source.key).forEach { put(DataRecord.Search(it)) }
@@ -537,6 +544,7 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
         val searches = LinkedHashMap<String, MutableList<String>>()
         val downloads = LinkedHashMap<String, MutableList<ProviderTrack>>()
         val hidden = mutableListOf<NotInterestedEntry>()
+        val pins = mutableListOf<ProviderHomeCard>()
         val settings = LinkedHashMap<String, Any>()
         var plays = 0; var present = 0; var expired = 0; var full = 0; var left = 0
     }
@@ -605,6 +613,7 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
                         is DataRecord.Search -> got.searches.getOrPut(to) { mutableListOf() } += record.query
                         is DataRecord.Download -> got.downloads.getOrPut(to) { mutableListOf() } += record.track
                         is DataRecord.Hidden -> got.hidden += record.entry
+                        is DataRecord.Pin -> got.pins += record.card
                         is DataRecord.Setting -> got.settings[record.name] = record.value
                     }
                 }.also { checkpoint("history_written"); if (cancelled()) throw Stopped() }
@@ -642,6 +651,10 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
             val count = hidden().addAll(got.hidden) ?: return@store false
             added = added.copy(hidden = count); present += got.hidden.size - count
             true
+        }
+        store("speed dial pins", got.pins.isNotEmpty()) {
+            val result = pins().addAll(got.pins) ?: return@store false
+            added = added.copy(pins = result.added); present += result.present; full += result.full; true
         }
         store("settings", got.settings.isNotEmpty()) {
             val (applied, left, complete) = applySettings(got.settings)

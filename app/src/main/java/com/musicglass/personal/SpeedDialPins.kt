@@ -30,6 +30,30 @@ internal fun decodeSpeedDialPins(json: String?): List<ProviderHomeCard> = runCat
     } }
 }.getOrDefault(emptyList()).distinctBy { it.key() }.take(SPEED_DIAL_PIN_LIMIT)
 
+private val PIN_VIDEO = Regex("[A-Za-z0-9_-]{11}")
+private val PIN_PAGE = Regex("[A-Za-z0-9_-]{1,128}")
+private val PIN_ID = Regex("[A-Za-z0-9_-]{1,64}")
+
+/** A pin as a line of the local data file (LocalDataTransfer). Artwork only from the provider's image hosts. */
+internal fun pinRecord(card: ProviderHomeCard): org.json.JSONObject = org.json.JSONObject().put("t", "pin")
+    .put("title", card.title.take(180)).put("subtitle", card.subtitle.take(180)).put("kind", card.kind.name).also { o ->
+        card.videoId?.let { o.put("id", it) }; card.browseId?.let { o.put("browse", it) }
+        exportableArtwork(card.artworkUrl)?.let { o.put("artwork", it) }
+        card.artistId?.takeIf(PIN_ID::matches)?.let { o.put("artistId", it) }
+        card.albumId?.takeIf(PIN_ID::matches)?.let { o.put("albumId", it) }
+        if (card.album.isNotBlank()) o.put("album", card.album.take(180))
+    }
+
+/** A pin read back from the file; every field is checked, nothing in the file is trusted. Null when it cannot be opened. */
+internal fun parsePinRecord(o: org.json.JSONObject): ProviderHomeCard? {
+    fun text(name: String, max: Int = 180) = (o.opt(name) as? String).orEmpty().take(max)
+    val video = text("id", 32).takeIf(PIN_VIDEO::matches); val page = text("browse", 200).takeIf(PIN_PAGE::matches)
+    if (video == null && page == null) return null
+    return ProviderHomeCard(text("title"), text("subtitle"), exportableArtwork(o.opt("artwork") as? String), video, page,
+        enumValues<CatalogKind>().firstOrNull { it.name == text("kind", 16) } ?: if (video != null) CatalogKind.Song else CatalogKind.Playlist,
+        text("artistId", 64).takeIf(PIN_ID::matches), text("albumId", 64).takeIf(PIN_ID::matches), text("album"))
+}
+
 /** A card can be pinned when it can be opened again later: a song or episode by its video, anything else by its page. */
 internal fun ProviderHomeCard.pinnable() = videoId != null || browseId != null
 
@@ -43,6 +67,24 @@ internal class SpeedDialPins internal constructor(context: Context) {
         if (card.key() in this) return true
         if (cards.size >= SPEED_DIAL_PIN_LIMIT || !card.pinnable()) return false
         save(cards + card.copy(notInterestedToken = null, setVideoId = null, addedAt = null)); true
+    }
+    /** What [addAll] did with an imported list. */
+    data class Added(val added: Int, val present: Int, val full: Int)
+    /**
+     * Adds imported pins after the ones here, which are kept as they are; none is dropped to make room.
+     * Null when nothing could be stored.
+     */
+    @android.annotation.SuppressLint("UseKtx", "ApplySharedPref") // The result of commit() is reported.
+    fun addAll(imported: List<ProviderHomeCard>): Added? = synchronized(this) {
+        val known = cards.mapTo(HashSet()) { it.key() }
+        val fresh = imported.filter { it.pinnable() && known.add(it.key()) }
+        val fits = fresh.take((SPEED_DIAL_PIN_LIMIT - cards.size).coerceAtLeast(0))
+        val result = Added(fits.size, imported.size - fresh.size, fresh.size - fits.size)
+        if (fits.isEmpty()) return result
+        val next = cards + fits
+        if (!prefs.edit().putString("pins", encodeSpeedDialPins(next)).commit()) return null
+        cards = next
+        result
     }
     fun unpin(key: String) = synchronized(this) { save(cards.filterNot { it.key() == key }) }
     private fun save(next: List<ProviderHomeCard>) {

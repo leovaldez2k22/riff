@@ -23,12 +23,12 @@ class HomePrefetchTest {
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
     private val paths = Collections.synchronizedList(mutableListOf<String>())
 
-    private fun runtime() = RuntimeDependencies(
+    private fun runtime(io: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Unconfined) = RuntimeDependencies(
         networkConditions = { NetworkConditions(true, true, true) },
         storageCapacity = { StorageCapacity(0, 1_000_000) },
         batteryPercent = { 80 },
         httpCalls = OkHttpClient.Builder().addInterceptor { throw IOException("Unexpected outbound fixture request") }.build(),
-        clocks = FakeClock(), dispatchers = AppDispatchers(Dispatchers.Unconfined, Dispatchers.Unconfined),
+        clocks = FakeClock(), dispatchers = AppDispatchers(io, Dispatchers.Unconfined),
         providerTransport = { OriginalAudioEngine.create { config { addInterceptor { chain ->
             paths += chain.request().url.encodedPath; throw IOException("fixture: no network") } } } },
         resolver = ScriptedResolver(), storedScopeKeys = { emptySet() }, startProviderBackgroundWork = false)
@@ -40,6 +40,20 @@ class HomePrefetchTest {
         while (paths.none { it.endsWith("/browse") } && System.currentTimeMillis() < deadline) Thread.sleep(20)
         assertTrue("A browse request went out: $paths", paths.any { it.endsWith("/browse") })
         assertNull("A failed prefetch stores nothing; Home asks again and shows why", container.provider.cachedFeed("home:"))
+    }
+
+    @Test fun theProviderIsBuiltOnTheCallersThreadBeforeAnyScreenReadsIt() {
+        // Q18-051: an IO thread that has not run yet; the provider must already exist when prefetchHome returns.
+        val parked = Collections.synchronizedList(mutableListOf<Runnable>())
+        val io = object : kotlinx.coroutines.CoroutineDispatcher() {
+            override fun dispatch(context: kotlin.coroutines.CoroutineContext, block: Runnable) { parked += block }
+        }
+        val container = AppContainer(context, runtime(io))
+        assertNull(container.existingProvider())
+        container.prefetchHome()
+        assertNotNull("Built on the caller's thread", container.existingProvider())
+        assertTrue("The request itself waits for IO", paths.isEmpty())
+        container.existingProvider()?.close()
     }
 
     @Test fun theActivityStartsItAsItOpensAndNoHomeSnapshotIsWritten() {

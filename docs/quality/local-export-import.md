@@ -14,7 +14,7 @@ Both use the system document picker. Riff requests no storage permission and can
 
 | Owner | Contents |
 |---|---|
-| This phone | Device settings listed below; items marked **Not interested**; history of audio stored on the phone |
+| This phone | Device settings listed below; items marked **Not interested**; speed-dial pins; history of audio stored on the phone |
 | Signed-out listening | Searches; listening history; download names |
 | Each account | Tracks saved in Riff (favorites and the app playlist); recently played; searches; listening history; download names |
 
@@ -50,6 +50,7 @@ JSON Lines, UTF-8, one record per line, at most 16,384 characters per line and 1
 {"t":"owner","kind":"device"}
 {"t":"setting","k":"crossfade.seconds","v":9}
 {"t":"hidden","key":"<id>","title":"…","subtitle":"…","song":true,"at":<ms>}
+{"t":"pin","title":"…","subtitle":"…","kind":"Episode","id":"<video id>"}   (or "browse":"<page id>" for an album, playlist, podcast or artist)
 {"t":"play","e":"<event id>","id":"local:<n>","title":"…","artist":"…","at":<ms>,"dur":<ms>}
 {"t":"owner","kind":"guest"}
 {"t":"search","q":"…"}
@@ -86,7 +87,7 @@ Each ends with "Nothing was changed."
 
 A record is passed over, and counted, when it is not valid JSON, is longer than a line may be, nests deeper than a record does, has an unknown type, comes before any owner or after an owner line that is not valid, does not belong to its owner (a setting outside the device section, a saved track outside an account, a provider song in the device's history or a phone file in an account's), or has a field out of range. Identifiers are checked against the same patterns the stores use; titles are cut to 180 characters and searches refused over 160; a play needs a time between the epoch and one day ahead of now.
 
-Limits per section: 100,000 plays and 2,000 of every other kind. Records beyond them are counted and not read. The stores then apply their own limits: 200 favorites, 200 playlist tracks, 50 recently played, 30 searches, 2,000 hidden items, 100,000 plays per owner.
+Limits per section: 100,000 plays and 2,000 of every other kind. Records beyond them are counted and not read. The stores then apply their own limits: 200 favorites, 200 playlist tracks, 50 recently played, 30 searches, 2,000 hidden items, 27 speed-dial pins, 100,000 plays per owner.
 
 ### Whose data goes where
 
@@ -109,13 +110,14 @@ The destination is decided again when the import runs. If the account changed wh
 - Searches: the owner's own stay first; duplicates are ignored without regard to case.
 - Downloads: each becomes a row holding the song's name. Nothing is queued or fetched. A song already listed is left exactly as it is.
 - Hidden items: entries already there are kept; none is dropped to make room.
+- Speed-dial pins: pins already there are kept and come first; imported ones go after them, up to 27; none is dropped to make room.
 - Settings: written as they are in the file, with one exception. A history period shorter than the one in force, or any period when plays are kept until cleared, is not applied, because it would remove plays. The summary says so.
 
 Nothing imported is played or queued, and nothing is sent to YouTube Music.
 
 ### One step per kind of data
 
-History is written in one database transaction while the file is read. Saved tracks, searches, downloads and hidden items are each one write. Settings are one write per settings file.
+History is written in one database transaction while the file is read. Saved tracks, searches, downloads, hidden items and speed-dial pins are each one write. Settings are one write per settings file.
 
 - **Cancel** is honoured until the history transaction commits. Until then nothing is changed. After it the import runs to its end, also if the screen is left.
 - A failure while the history is written rolls it back; the import stops and nothing is changed.

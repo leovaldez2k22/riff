@@ -44,6 +44,14 @@ class SpeedDialPinsTest {
         assertEquals(SPEED_DIAL_SIZE,dial.size);assertEquals(listOf("pinned00001",feed[4].key(),feed[0].key()),dial.take(3).map {it.key()})
         assertEquals(1,dial.count {it.key()==feed[4].key()})
     }
+    @Test fun importedPinsGoAfterTheOnesHereAndNothingIsPushedOut() {
+        val pins=fresh();pins.pin(song("here0000001"))
+        repeat(SPEED_DIAL_PIN_LIMIT-3) {pins.pin(song("here%07d".format(it+2)))}
+        val result=pins.addAll(listOf(song("here0000001"),song("new00000001"),song("new00000002"),song("new00000003"),ProviderHomeCard("No","id",null)))
+        assertEquals(SpeedDialPins.Added(added=2,present=2,full=1),result)
+        assertEquals("here0000001",pins.cards.first().key());assertEquals(listOf("new00000001","new00000002"),pins.cards.takeLast(2).map {it.key()})
+        assertEquals(SPEED_DIAL_PIN_LIMIT,SpeedDialPins(RuntimeEnvironment.getApplication()).cards.size)
+    }
     @Test fun aDamagedStoreLoadsAsNoPins() {
         assertEquals(emptyList<ProviderHomeCard>(),decodeSpeedDialPins("not json"))
         assertEquals(emptyList<ProviderHomeCard>(),decodeSpeedDialPins("""[{"title":"no id"}]"""))
