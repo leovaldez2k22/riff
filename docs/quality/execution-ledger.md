@@ -2681,6 +2681,24 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   (artifacts/quality/q19/g1/lane-api36-run3). API 31 and API 33 lanes not run in G1.
 - The API 36 emulator crashed once (exit 139) during an exploratory probe and was booted again; no test result lost.
 
+### Phone debugging for Q18-056 and Q18-059 (21 October 2026, 00:19 to 00:56)
+- At the owner's word ("debug now"; "go ahead with the click test"). Phone I2217 on the speaker, media volume 0 except
+  during the click runs (9 of 15). rc2 Debug (as installed) and rc4 Preview, "Ain't In LA" (NetEase, line synced).
+- Q18-056: new LyricsLatencyProbeTest (androidTest, runs only with -e probe q18-056 -e pkg <package>): records the
+  microphone while the app plays a click track and compares each click with the session's position. rc4 Preview:
+  position 40 to 56 ms ahead of the sound (11 of 18 clicks; the rest were noise). The first runs heard nothing until
+  the probe brought Riff Debug to the front (Android silences a background app's microphone) and the volume keys were
+  used (`cmd media_session volume --set` did not change the speaker's volume on this phone).
+- Screen recordings with frame times (screenrecord --bugreport) mapped to the session's position: line changes at the
+  same positions in both builds (2 to 31 ms apart over 11 lines), 82 to 118 ms after NetEase's line time minus 0.2 s.
+  On the speaker the lyrics are not late in either build. Left: Bluetooth, other songs and sources.
+- Q18-059: rc2 Debug's first song took 6.2 s (5.2 s getting the stream).
+- Logged on the way: Q18-061 (owner: apostrophes and commas never light), Q18-062 (NetEase credit lines shown as
+  lyrics), Q18-063 (Play does nothing after the last song ends).
+- Cleaned: the click track (Music/RiffClickTest) and both recordings deleted, its MediaStore row removed; Riff Preview's
+  audio-file access and Riff Debug's microphone access granted for the test and taken back; volume back to 0; both
+  apps paused. The click track stays in Riff Preview's queue history. Evidence: artifacts/quality/q19/g1/phone.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
