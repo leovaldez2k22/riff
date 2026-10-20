@@ -8,7 +8,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -99,6 +104,60 @@ class PlayerFixesDeviceTest {
         for (p in listOf(.5f, .9f, .965f, .98f)) { compose.runOnIdle { progress.floatValue = p }; keep("morph-${(p * 1000).toInt()}") }
         // The mini-player end (Q18-001): through its hand-over and just after, for review against one title and one cover.
         for (p in listOf(.005f, .01f, .02f, .035f)) { compose.runOnIdle { progress.floatValue = p }; keep("mini-${(p * 1000).toInt()}") }
+    }
+
+    /**
+     * Q18-055 (Q18-001 again): the real bar with its mini player and the morph above it, as the app lays them out.
+     * Slid up a little (inside the hand-over, where the owner saw two titles), the mini player must look as it does at
+     * rest: the copies lie on it pixel for pixel. A second title a few px off changes hundreds of pixels.
+     */
+    @Test fun aSlowSlideUpShowsOneTitle() {
+        val provider = YouTubeMusicProvider.shared(compose.activity)
+        val progress = mutableFloatStateOf(0f)
+        val accessibility = AccessibilitySettings(compose.activity)
+        val model = ShellModel().apply { miniVisible = true }
+        var miniBounds: Rect? by mutableStateOf(null)
+        val elements = mutableStateMapOf<String, Rect>()
+        compose.setContent {
+            CompositionLocalProvider(LocalAccessibilitySettings provides accessibility, LocalMotionPolicy provides MotionPolicy(false, 1f)) {
+                RiffTheme {
+                    Box(Modifier.fillMaxSize().background(Color(0xFF1B2A22)).testTag("stage")) {
+                        ChromeBar(model, false, gateway, Modifier.align(Alignment.BottomCenter), bottomInset = 24f,
+                            miniMorph = { progress.floatValue }, miniDragging = false, onMiniDrag = { _, _ -> }, onMiniRelease = {},
+                            onMiniBounds = { miniBounds = it }, onMiniElementBounds = { name, bounds -> elements[name] = bounds },
+                            onNotice = {})
+                        if (progress.floatValue > MORPH_SHOWN) PlayerMorphHost({ progress.floatValue }, model, false, gateway,
+                            LocalCollections(compose.activity), 24f, miniBounds, elements, fullDragging = false, provider = provider,
+                            onFailureAction = {}, onMorphDrag = { _, _ -> }, onNotice = {}, onArtist = {}, onAlbum = {},
+                            onMorphRelease = {})
+                    }
+                }
+            }
+        }
+        compose.waitUntil(10_000) { miniBounds != null && "title" in elements && "artist" in elements }
+        fun mini(name: String): Bitmap {
+            compose.waitForIdle(); Thread.sleep(400); compose.waitForIdle()
+            val stage = compose.onNodeWithTag("stage").captureToImage().asAndroidBitmap()
+            val r = miniBounds!!
+            compose.activity.getExternalFilesDir(null)?.resolve("q18-055-$name.png")?.outputStream()?.use {
+                stage.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            return Bitmap.createBitmap(stage, r.left.toInt(), r.top.toInt(), r.width.toInt(), r.height.toInt())
+        }
+        val rest = mini("rest")
+        for (p in listOf(.002f, .005f, .01f, .015f, .019f)) {
+            compose.runOnIdle { progress.floatValue = p }
+            val slid = mini("slid-${(p * 1000).toInt()}")
+            var changed = 0
+            for (y in 0 until rest.height) for (x in 0 until rest.width) {
+                val a = rest.getPixel(x, y); val b = slid.getPixel(x, y)
+                val d = maxOf(kotlin.math.abs(android.graphics.Color.red(a) - android.graphics.Color.red(b)),
+                    kotlin.math.abs(android.graphics.Color.green(a) - android.graphics.Color.green(b)),
+                    kotlin.math.abs(android.graphics.Color.blue(a) - android.graphics.Color.blue(b)))
+                if (d > 48) changed++
+            }
+            Log.i("RiffQ18", "q18-055 p=$p changed=$changed of ${rest.width * rest.height}")
+            assertTrue("at p=$p, $changed pixels differ from the mini player at rest", changed < rest.width * rest.height / 400)
+        }
     }
 
     private fun shell(command: String) = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)

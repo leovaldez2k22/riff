@@ -145,7 +145,6 @@ internal fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
     onElementBounds: (String, Rect) -> Unit = { _, _ -> }) {
     val state = playback.state
     val songTransition=rememberSongPresentationTransition(state)
-    val largeText = LocalDensity.current.fontScale >= 1.6f
     val context = LocalContext.current
     // W1.5: after a crash the queue comes back paused; say why once, until the user plays.
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { CrashNotice.load(context) } }
@@ -153,7 +152,8 @@ internal fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
     val crashNotice = CrashNotice.pending
     Row(verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-        songTransition.SongContentFade(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))) {song->
+        songTransition.SongContentFade(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
+            .onGloballyPositioned { onElementBounds("art", it.unclippedBoundsInRoot()) }) {song->
         AsyncImage(model = song.artworkUrl
             ?: providerArtworkUrl(song.mediaId.removePrefix("yt:")),
             contentDescription = null, contentScale = ContentScale.Crop,
@@ -165,7 +165,7 @@ internal fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
         songTransition.SongContentFade(Modifier.weight(1f).clickable(onClick = hapticClick(onOpen))
             .padding(start = 12.dp).semantics { contentDescription = string(R.string.open_player_x, state.title) }) {
             song->Column {
-            Text(song.title, color = White, fontSize = if (largeText) 12.sp else 14.sp,
+            Text(song.title, color = White, fontSize = miniTitleSize(LocalDensity.current.fontScale),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.onGloballyPositioned {
                     if(song.mediaId==state.mediaId) onElementBounds("title", it.unclippedBoundsInRoot()) })
@@ -178,7 +178,7 @@ internal fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
                         .semantics { liveRegion = LiveRegionMode.Polite
                             contentDescription = string(R.string.playback_stopped_unexpectedly_tap_play_to_co) })
             else if (LocalDensity.current.fontScale < 1.8f)
-                Text(playerArtistLabel(song.artist), color = Muted, fontSize = 11.sp,
+                Text(playerArtistLabel(song.artist), color = Muted, fontSize = MINI_ARTIST_SIZE,
                     maxLines = 1, modifier = Modifier.onGloballyPositioned {
                         if(song.mediaId==state.mediaId) onElementBounds("artist", it.unclippedBoundsInRoot()) })
             }
@@ -222,11 +222,29 @@ internal fun morphGeometry(p: Float): Float = ((p - MORPH_MINI_HANDOFF_END) / (1
 /** How far the flying copies have travelled at [p]: from the mini player's hand-over to the player's. */
 internal fun morphTravel(p: Float): Float = ((p - MORPH_MINI_HANDOFF_END) / (morphHandoffStart - MORPH_MINI_HANDOFF_END)).coerceIn(0f, 1f)
 
-/** How much of each flying copy shows at [p]; the real element shows the rest ([morphHandoff]). */
-internal fun morphCopyAlpha(p: Float): Float = motionRamp(p, 0f, MORPH_MINI_HANDOFF_END) * (1f - morphHandoff(p))
+/** Above this the player is drawn at all (the morph host is composed). */
+internal const val MORPH_SHOWN = .001f
 
-/** How much of the real mini player shows at [p]: all of it until the copies cover it exactly, then none. */
-internal fun miniPlayerAlpha(p: Float): Float = if (p < MORPH_MINI_HANDOFF_END) 1f else 0f
+/**
+ * How much of each flying copy shows at [p]; the real element shows the rest ([morphHandoff]). Q18-055: at the mini
+ * player's end they swap in one frame, never fade: the copies are drawn exactly like the mini player, and two
+ * identical layers fading over each other still thicken every edge.
+ */
+internal fun morphCopyAlpha(p: Float): Float = (if (p > MORPH_SHOWN) 1f else 0f) * (1f - morphHandoff(p))
+
+/** How much of the real mini player shows at [p]: all of it at rest, none once its copies are drawn. */
+internal fun miniPlayerAlpha(p: Float): Float = if (p > MORPH_SHOWN) 0f else 1f
+
+/** The mini player's title and artist sizes; the morph's copies start in exactly these (Q18-055). */
+internal fun miniTitleSize(fontScale: Float) = if (fontScale >= 1.6f) 12.sp else 14.sp
+internal val MINI_ARTIST_SIZE = 11.sp
+
+/**
+ * Q18-055 (Q18-001 again): how far the flying title and artist have turned from the mini player's look into the
+ * player's, at travel [t]. They start as exact copies of the mini player's text (its size, weight and width), so
+ * over the hand-over they lie on it pixel for pixel; the player's larger bold look takes over once they are moving.
+ */
+internal fun morphRestyle(t: Float): Float = motionRamp(t, .1f, .45f)
 
 /** How much of the real title, artwork and play buttons shows at [p]. */
 internal fun morphHandoff(p: Float): Float = motionRamp(p, morphHandoffStart, 1f)
@@ -263,7 +281,6 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
         val y = miniY + (fullY - miniY) * g
         val w = miniWidth + (maxWidth - miniWidth) * g
         val h = miniHeight + (maxHeight - fullY - miniHeight) * g
-        val handoff = morphHandoff(p)
         val movingAlpha = morphCopyAlpha(p)
         val miniOrigin = miniBounds ?: Rect(0f, 0f, 0f, 0f)
         fun miniPosition(name: String, fallbackX: androidx.compose.ui.unit.Dp,
@@ -299,7 +316,7 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
         Box(Modifier.offset(x = x, y = y).width(w).height(h)
             .clip(shape)
             .background(if (solidControls) Color(0xFF11131A) else Color.Black.copy(alpha = p))
-            // As deep as the mini player's own border from the start: it lies exactly on it until the hand-over.
+            // As deep as the mini player's own border, which it replaces in the same frame (Q18-055).
             .border(1.dp, White.copy(alpha = (.42f * (1f - p) + .10f * p) * (1f - p)), shape)) {
             if (p > .001f) {
                 Box(Modifier.wrapContentSize(Alignment.TopStart, unbounded = true)
@@ -356,19 +373,28 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                 // travel until the very end, so during the hand-over each copy and the real element it hands
                 // to were both visible a few dp apart: two titles, two play buttons (seen on a phone).
                 val t = morphTravel(p)
-                val artX = 12.dp * (1f - t)
-                val artY = 11.dp * (1f - t)
+                val restyle = morphRestyle(t)
+                val (miniArtX, miniArtY) = miniPosition("art", 12.dp, 11.dp)
+                val artX = miniArtX * (1f - t)
+                val artY = miniArtY * (1f - t)
                 val heroHeight = fullHeight / 2f
                 val artSize = 40.dp + (fullWidth - 40.dp) * t
                 val artHeight = 40.dp + (heroHeight - 40.dp) * t
                 val state = playback.state
+                val artUrl = state.artworkUrl ?: providerArtworkUrl(state.mediaId.removePrefix("yt:"))
+                // Q18-055: the mini player's cover as it draws it, then the player's, as for the title below.
+                Box(Modifier.offset(x = artX, y = artY).width(artSize).height(artHeight)
+                    .clip(RoundedCornerShape(10.dp * (1f - t)))
+                    .graphicsLayer { alpha = movingAlpha * (1f - restyle) }) {
+                    AsyncImage(model = artUrl, contentDescription = null, contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize())
+                }
                 Box(Modifier.offset(x = artX, y = artY).width(artSize).height(artHeight)
                     .clip(RoundedCornerShape(10.dp * (1f - t)))
                     .graphicsLayer {
-                        alpha = 1f - handoff
+                        alpha = movingAlpha * restyle
                     }) {
-                    PlayerArtwork(state.artworkUrl ?: providerArtworkUrl(state.mediaId.removePrefix("yt:")),
-                        Modifier.fillMaxSize(), blend = t)
+                    PlayerArtwork(artUrl, Modifier.fillMaxSize(), blend = t)
                 }
 
                 val (miniTitleX, miniTitleY) = miniPosition("title", 64.dp, 10.dp)
@@ -383,6 +409,30 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                     ((t - .05f) / .15f).coerceIn(0f, 1f)
                 val fullTextWidth = { name: String -> fullElementBounds[name]?.let { with(measure) { it.width.toDp() } }
                     ?: (fullWidth - 120.dp) }
+                val miniTextWidth = { name: String, fallback: androidx.compose.ui.unit.Dp ->
+                    miniElementBounds[name]?.let { with(measure) { it.width.toDp() } } ?: fallback }
+                val miniTitle = miniTitleSize(measure.fontScale)
+                // The mini player's own title and artist, drawn as it draws them, growing towards the player's size.
+                Text(state.title, color = White, fontSize = miniTitle, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.offset(
+                        x = miniTitleX + (fullTitleX - miniTitleX) * t,
+                        y = titleBaseY + artworkClearance)
+                        .width(miniTextWidth("title", miniWidth - 160.dp)).graphicsLayer {
+                            alpha = movingAlpha * (1f - restyle)
+                            scaleX = 1f + (22f / miniTitle.value - 1f) * t; scaleY = scaleX
+                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
+                        }.testTag("morph_mini_title"))
+                if (measure.fontScale < 1.8f) Text(playerArtistLabel(state.artist), color = Muted,
+                    fontSize = MINI_ARTIST_SIZE, maxLines = 1,
+                    modifier = Modifier.offset(
+                        x = miniArtistX + (fullArtistX - miniArtistX) * t,
+                        y = artistBaseY + artworkClearance)
+                        .width(miniTextWidth("artist", miniWidth - 160.dp)).graphicsLayer {
+                            alpha = movingAlpha * (1f - restyle)
+                            scaleX = 1f + (13f / MINI_ARTIST_SIZE.value - 1f) * t; scaleY = scaleX
+                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
+                        })
+                // The player's title and artist, shrunk to the mini player's size, take over once moving.
                 Text(state.title, color = White,
                     fontSize = 22.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
@@ -391,8 +441,8 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                         x = miniTitleX + (fullTitleX - miniTitleX) * t,
                         y = titleBaseY + artworkClearance)
                         .width(fullTextWidth("title")).graphicsLayer {
-                            alpha = movingAlpha
-                            val start=if(measure.fontScale>=1.6f) 12f/22f else 14f/22f
+                            alpha = movingAlpha * restyle
+                            val start=miniTitle.value/22f
                             scaleX=start+(1f-start)*t;scaleY=scaleX
                             transformOrigin=androidx.compose.ui.graphics.TransformOrigin(0f,0f)
                         })
@@ -406,7 +456,7 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                             scaleX=11f/13f+(2f/13f)*t;scaleY=scaleX
                             transformOrigin=androidx.compose.ui.graphics.TransformOrigin(0f,0f)
                             alpha = if (measure.fontScale >= 1.8f && !miniElementBounds.containsKey("artist"))
-                                movingAlpha * t else movingAlpha
+                                movingAlpha * t else movingAlpha * restyle
                         })
                 val controlHeight = fullHeight - (bottomInset + 10f).dp - heroHeight
                 val groupGap = ((controlHeight - 284.dp) / 3f).coerceAtLeast(0.dp)

@@ -77,6 +77,21 @@ class SignInFlowTest {
         assertNull(signInWebFallback("javascript:alert(1)"))
     }
 
+    @Test fun theStorePageIsNeverASignInStep() {
+        // Q18-058: YouTube Music's handoff offers its app, with the Play Store as the fallback. The link's own web
+        // address is followed instead, so the sign-in reaches YouTube Music and finishes.
+        val store = "https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.google.android.apps.youtube.music"
+        assertEquals("https://music.youtube.com/?authuser=1", signInWebFallback(
+            "intent://music.youtube.com/?authuser=1#Intent;scheme=https;package=com.google.android.apps.youtube.music;" +
+                "S.browser_fallback_url=$store;end"))
+        assertNull(signInWebFallback("intent://play.google.com/store/apps#Intent;scheme=https;S.browser_fallback_url=$store;end"))
+        assertTrue(signInStorePage("https://play.google.com/store/apps/details?id=com.google.android.apps.youtube.music"))
+        assertTrue(signInStorePage("market://details?id=com.google.android.apps.youtube.music"))
+        assertFalse(signInStorePage("https://accounts.google.com/ServiceLogin"))
+        assertFalse(signInStorePage("https://play.google.com.example/store"))
+        assertFalse(signInStorePage("http://play.google.com/store"))
+    }
+
     @Test fun ordinarySignInCanCompleteOnlyAfterAnHttpsYouTubeMusicReturn() {
         assertEquals("/ServiceLogin", signInStartUrl(changingAccount = false).toUri().path)
         assertTrue(shouldVerifyFinishedSignIn("https://music.youtube.com/", changingAccount = false))

@@ -96,11 +96,21 @@ internal fun cookieIdentityDigest(cookies: String?): String? = signInCookieIdent
     ?.toSortedMap()?.entries?.joinToString(";") { "${it.key}=${it.value}" }
     ?.let { java.security.MessageDigest.getInstance("SHA-256").digest(it.toByteArray()).joinToString("") { b -> "%02x".format(b.toInt() and 255) } }
 
-/** Follow only an approved web destination from an Android app link; never execute the intent. */
+/**
+ * Follow only an approved web destination from an Android app link; never execute the intent. An app store page
+ * is never a sign-in step (Q18-058): YouTube Music's handoff offers its app with the Play Store as the fallback, and
+ * following it left the sign-in on the store page with no way on, so the link's own web address is taken instead.
+ */
 internal fun signInWebFallback(url: String): String? {
     if (!url.startsWith("intent://")) return null
     val intent = runCatching { Intent.parseUri(url, Intent.URI_INTENT_SCHEME) }.getOrNull() ?: return null
     val fallback = intent.getStringExtra("browser_fallback_url")
-    if (fallback != null && allowedSignInUrl(fallback)) return fallback
-    return intent.dataString?.takeIf(::allowedSignInUrl)
+    if (fallback != null && allowedSignInUrl(fallback) && !signInStorePage(fallback)) return fallback
+    return intent.dataString?.takeIf { allowedSignInUrl(it) && !signInStorePage(it) }
+}
+
+/** Q18-058: an app store page (Google Play, or its market: links), where Google sends some sign-ins to offer an app. */
+internal fun signInStorePage(url: String): Boolean {
+    val uri = url.toUri()
+    return uri.scheme == "market" || (uri.scheme == "https" && uri.host == "play.google.com")
 }

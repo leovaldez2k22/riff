@@ -332,6 +332,11 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                     webViewClient = object : StrictWebViewClient() {
                         override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                             if (!attempt.accepts(token)) return
+                            // Q18-058, the same store page reached without a navigation Riff could intercept.
+                            if (signInStorePage(url.orEmpty())) {
+                                view.stopLoading(); PlaybackEventLog(context).append("sign_in_store_page")
+                                view.loadUrl(signInMusicUrl(selectedAccountIndex)); return
+                            }
                             verification?.cancel()
                             if (phase == SignInPhase.Checking && checkFailed == null) go(SignInPhase.Google)
                             signInSelectedAccount(url.orEmpty())?.let { selectedAccountIndex = it }
@@ -367,6 +372,15 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                                 return true
                             }
                             if (!request.isForMainFrame && url == "about:blank") return false
+                            // Q18-058: Google can show its Play Store page for YouTube Music after the password. The
+                            // sign-in is done by then; go on to YouTube Music, where Riff checks it as usual.
+                            if (request.isForMainFrame && signInStorePage(url)) {
+                                if (attempt.accepts(token)) {
+                                    PlaybackEventLog(context).append("sign_in_store_page")
+                                    view.loadUrl(signInMusicUrl(selectedAccountIndex))
+                                }
+                                return true
+                            }
                             val allowed = allowedSignInUrl(url)
                             if (!allowed && attempt.accepts(token)) {
                                 PlaybackEventLog(context).append("sign_in_outside main=${request.isForMainFrame} scheme=${schemeClass(request.url.scheme)} host=${hostClass(request.url.host)}")

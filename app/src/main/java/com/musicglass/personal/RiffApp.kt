@@ -194,7 +194,7 @@ internal fun RiffApp() {
         derivedStateOf { sceneHasChrome && (playerMorph.position.value < .999f || player.draggingMini) }
     }
     val showPlayer by remember(model, playerMorph) {
-        derivedStateOf { model.sheet.isNotEmpty() || playerMorph.position.value > .001f }
+        derivedStateOf { model.sheet.isNotEmpty() || playerMorph.position.value > MORPH_SHOWN }
     }
     val showMini = model.miniVisible
     val bottomInset = WindowInsets.navigationBars.getBottom(LocalDensity.current)

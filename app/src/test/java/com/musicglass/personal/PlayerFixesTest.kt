@@ -169,15 +169,23 @@ class PlayerFixesTest {
     }
 
     @Test fun theFlyingCopiesSitOnTheMiniPlayerThroughItsHandOver() {
-        // Q18-001: while the copies fade in over the mini player, nothing moves and the mini player stays whole, so
-        // there is one title and one cover, not two a few dp apart; it goes only once the copies cover it fully.
-        var p = 0f
+        // Q18-001, Q18-055: through the hand-over nothing moves, and the mini player and its copies are never drawn
+        // together: at rest only the mini player, once the player is drawn only the copies (drawn exactly like it).
+        assertEquals(1f, miniPlayerAlpha(0f), 0f); assertEquals(0f, morphCopyAlpha(0f), 0f)
+        assertEquals(1f, miniPlayerAlpha(MORPH_SHOWN), 0f); assertEquals(0f, morphCopyAlpha(MORPH_SHOWN), 0f)
+        var p = MORPH_SHOWN + .0001f
         while (p < MORPH_MINI_HANDOFF_END) {
             assertEquals("at $p", 0f, morphGeometry(p), 0f)
             assertEquals("at $p", 0f, morphTravel(p), 0f)
-            assertEquals("at $p", 1f, miniPlayerAlpha(p), 0f)
+            assertEquals("at $p", 0f, miniPlayerAlpha(p), 0f)
+            assertEquals("at $p", 1f, morphCopyAlpha(p), 0f)
             p += .0005f
         }
+        // Q18-055: over the hand-over only the copies drawn like the mini player show; the player's look comes later.
+        p = 0f
+        while (p < MORPH_MINI_HANDOFF_END) { assertEquals("at $p", 0f, morphRestyle(morphTravel(p)), 0f); p += .0005f }
+        assertEquals(1f, morphRestyle(.45f), 0f)
+        assertEquals(14f, miniTitleSize(1f).value, 0f); assertEquals(12f, miniTitleSize(1.6f).value, 0f)
         assertEquals(1f, morphCopyAlpha(MORPH_MINI_HANDOFF_END), 0f)
         assertEquals(0f, miniPlayerAlpha(MORPH_MINI_HANDOFF_END), 0f)
         assertTrue("then the surface moves", morphGeometry(.035f) > 0f && morphTravel(.035f) > 0f)
