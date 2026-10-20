@@ -21,12 +21,12 @@ internal object DownloadRepack {
         return (index.timesUs.toList() + index.durationUs).zipWithNext().any { (a, b) -> b - a > COARSE_US }
     }
 
-    private fun opus(audio: File): Boolean = runCatching {
+    private fun opus(audio: File): Boolean {
         val extractor = MediaExtractor()
-        try { extractor.setDataSource(audio.absolutePath)
+        return try { extractor.setDataSource(audio.absolutePath)
             (0 until extractor.trackCount).any { extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME) == MediaFormat.MIMETYPE_AUDIO_OPUS }
-        } finally { extractor.release() }
-    }.getOrDefault(false)
+        } catch (e: java.io.IOException) { false } finally { extractor.release() }
+    }
 
     /** Stores one download again if it needs it. True when it was replaced. */
     suspend fun repack(store: OfflineMusicStore, scope: String, id: String, assembler: AudioAssembler = AndroidAudioAssembler): Boolean {
@@ -50,7 +50,7 @@ internal object DownloadRepack {
         for (row in store.rows(scope)) {
             val id = row.track.videoId
             if (inQueue(id)) continue
-            runCatching { if (repack(store, scope, id, assembler)) done++ }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it; failed++ }
+            suspendCatching { if (repack(store, scope, id, assembler)) done++ }.onFailure { failed++ }
         }
         if (done + failed > 0) events.append("download_repack count=$done failed=$failed")
     }

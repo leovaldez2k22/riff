@@ -382,15 +382,16 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                 val artHeight = 40.dp + (heroHeight - 40.dp) * t
                 val state = playback.state
                 val artUrl = state.artworkUrl ?: providerArtworkUrl(state.mediaId.removePrefix("yt:"))
+                val artShape = RoundedCornerShape(10.dp * (1f - t))
                 // Q18-055: the mini player's cover as it draws it, then the player's, as for the title below.
                 Box(Modifier.offset(x = artX, y = artY).width(artSize).height(artHeight)
-                    .clip(RoundedCornerShape(10.dp * (1f - t)))
+                    .clip(artShape)
                     .graphicsLayer { alpha = movingAlpha * (1f - restyle) }) {
                     AsyncImage(model = artUrl, contentDescription = null, contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize())
                 }
                 Box(Modifier.offset(x = artX, y = artY).width(artSize).height(artHeight)
-                    .clip(RoundedCornerShape(10.dp * (1f - t)))
+                    .clip(artShape)
                     .graphicsLayer {
                         alpha = movingAlpha * restyle
                     }) {
@@ -417,7 +418,7 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                     modifier = Modifier.offset(
                         x = miniTitleX + (fullTitleX - miniTitleX) * t,
                         y = titleBaseY + artworkClearance)
-                        .width(miniTextWidth("title", miniWidth - 160.dp)).graphicsLayer {
+                        .width(miniTextWidth("title", miniWidth * .6f)).graphicsLayer {
                             alpha = movingAlpha * (1f - restyle)
                             scaleX = 1f + (22f / miniTitle.value - 1f) * t; scaleY = scaleX
                             transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
@@ -427,7 +428,7 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                     modifier = Modifier.offset(
                         x = miniArtistX + (fullArtistX - miniArtistX) * t,
                         y = artistBaseY + artworkClearance)
-                        .width(miniTextWidth("artist", miniWidth - 160.dp)).graphicsLayer {
+                        .width(miniTextWidth("artist", miniWidth * .6f)).graphicsLayer {
                             alpha = movingAlpha * (1f - restyle)
                             scaleX = 1f + (13f / MINI_ARTIST_SIZE.value - 1f) * t; scaleY = scaleX
                             transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
