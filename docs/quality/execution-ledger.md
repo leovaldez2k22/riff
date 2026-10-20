@@ -2639,6 +2639,13 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   and I09 now cite the signed rc4; Q18-048 waits for rc4 in B4. Totals: the 72 rows PASS 44, BLOCKED 21, DEFERRED 6,
   DECLINED 1; section 7, 34 rows, PASS 15, FAIL 0, BLOCKED 17, DECLINED 2. No TODO. Documentation only.
 
+### rc4 Preview on the phone for A1 (20 October 2026, evening)
+- The owner asked to do A1 before the B runs, tonight, on rc4. With the owner's approval, Riff Preview was updated in
+  place on the phone (I2217) from 0.10.0-rc2-preview (code 23) to riff-0.10.0-rc4-preview.apk (fae8a352...a173,
+  matches SHA256SUMS.txt; code 25); `adb install -r`, so its data was kept (first-install time unchanged) and the
+  same certificate was accepted. Opened once: MainActivity resumed, no crash. The main app (rc20) and the other
+  packages were not touched. B2's uninstall and fresh install still happen in the B sitting. A1 itself is the owner's.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
