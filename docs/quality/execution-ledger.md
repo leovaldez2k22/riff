@@ -2674,8 +2674,11 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
 - Q18-056: measured the position the lyrics read (the controller's) against the service player's on API 36: -28 to
   +9 ms, mean 0. Not the cause; the probe was removed. Left for the phone: output latency and the lyrics sources.
 - Q18-059: not changed; the start-up prewarm takes 7 to 8 s on the phone and needs a trace there.
-- Checks: unit tests, lint, static checks (0 findings), script tests (156 OK) pass. c865b00. The API 36 emulator lane
-  is recorded below when it ends.
+- Checks: unit tests, lint, static checks (0 findings), script tests (156 OK) pass. c865b00. API 36 emulator lane:
+  run 1 FAIL (APK/source identity mismatch; a commit landed while it built); run 2 FAIL, 68 of 69, one seek in the
+  new file took 520 ms against a 500 ms limit under the lane's load (others 68 to 402 ms); the test now asks for none
+  over 1 s and a median under 0.5 s (the old file takes up to 2.8 s), db77478; run 3 PASS_LOCAL, 69 of 69
+  (artifacts/quality/q19/g1/lane-api36-run3). API 31 and API 33 lanes not run in G1.
 - The API 36 emulator crashed once (exit 139) during an exploratory probe and was booted again; no test result lost.
 
 ## Plan v1.1 additions (11 October 2026)
