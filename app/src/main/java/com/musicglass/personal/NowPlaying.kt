@@ -428,7 +428,8 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 modifier = Modifier.testTag("playback_shuffle"), active = state.shuffle,
                 enabled = hasQueue, diameter = 42.dp, iconSize = 22.dp)
             TransportButton(Icons.Rounded.FastRewind, string(R.string.previous_track), playback::previous,
-                modifier = Modifier.testTag("playback_previous"), enabled = hasQueue,
+                // Q18-063: Previous starts a song on its own again, so it is never greyed while a song is loaded.
+                modifier = Modifier.testTag("playback_previous"), enabled = state.mediaId.isNotEmpty(),
                 diameter = 54.dp, iconSize = 38.dp)
             TransportButton(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 if (state.playing) string(R.string.pause) else string(R.string.play), playback::toggle,

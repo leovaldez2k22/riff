@@ -59,17 +59,51 @@ private fun xml(raw: String): org.w3c.dom.Document? = runCatching {
         .parse(InputSource(StringReader(raw)))
 }.getOrNull()
 
+/**
+ * A credit, not a sung line (Q18-062): "作曲 : ...", "Lyrics by: ...". Every source's lines pass through here, so a
+ * provider that sends them (NetEase does, in its timed and its plain lyrics) never shows them as lyrics.
+ */
+private val LYRIC_CREDIT = Regex("^(?:(?:lyrics?|composed|written|arranged|produced|mixed|mastered|recorded)(?: by)?|producer|" +
+    "作词|作曲|编曲|制作人|监制|混音|母带|录音|和声|词|曲)\\s*[:：]", RegexOption.IGNORE_CASE)
+internal fun lyricCredit(text: String) = LYRIC_CREDIT.containsMatchIn(text.trim())
+
+/**
+ * Characters a source gave no time of their own (Q18-061: NetEase sends an apostrophe or a comma as a 0 ms word,
+ * which is dropped) light with the word they touch: the one before them, else the one after. A run apart from any word
+ * (spaces on both sides) stays unlit, as untimed text always has.
+ */
+internal fun attachUntimed(text: String, parts: List<LyricPart>): List<LyricPart> {
+    if (parts.isEmpty()) return parts
+    val out = parts.sortedBy { it.from }.toMutableList()
+    val owner = IntArray(text.length) { -1 }
+    out.forEachIndexed { index, part -> for (i in part.from until part.to) if (owner[i] == -1) owner[i] = index }
+    var i = 0
+    while (i < text.length) {
+        if (owner[i] != -1 || text[i].isWhitespace()) { i++; continue }
+        var end = i
+        while (end < text.length && owner[end] == -1 && !text[end].isWhitespace()) end++
+        val before = if (i > 0) owner[i - 1] else -1
+        val after = if (end < text.length) owner[end] else -1
+        when {
+            before != -1 && out[before].to == i -> out[before] = out[before].copy(to = end)
+            after != -1 && out[after].from == end -> out[after] = out[after].copy(from = i)
+        }
+        i = end
+    }
+    return out
+}
+
 internal fun finishLyricLines(input: List<LyricLine>, durationMs: Long): List<LyricLine> {
-    val sorted = input.filter { it.startMs >= 0 && it.startMs <= durationMs + 2000 }
+    val sorted = input.filter { it.startMs >= 0 && it.startMs <= durationMs + 2000 && !lyricCredit(it.text) }
         .sortedBy { it.startMs }.distinctBy { it.startMs to it.text }.take(2000)
     return sorted.mapIndexed { index, line ->
         val next = sorted.getOrNull(index + 1)?.startMs ?: durationMs
         val end = if (line.endMs > line.startMs) line.endMs.coerceAtMost(durationMs + 2000)
             else next.coerceAtLeast(line.startMs + 1)
-        line.copy(endMs = end, parts = line.parts.filter {
+        line.copy(endMs = end, parts = attachUntimed(line.text, line.parts.filter {
             it.from >= 0 && it.to > it.from && it.to <= line.text.length &&
                 it.startMs >= line.startMs && it.endMs > it.startMs && it.endMs <= end + 500
-        }, backing = line.backing?.let { finishBacking(it, line.startMs, end, durationMs) })
+        }), backing = line.backing?.let { finishBacking(it, line.startMs, end, durationMs) })
     }
 }
 
@@ -80,10 +114,10 @@ private fun finishBacking(backing: LyricBacking, lineStart: Long, lineEnd: Long,
     val start = backing.startMs.takeIf { it >= 0 } ?: lineStart
     val end = (if (backing.endMs > start) backing.endMs else lineEnd).coerceAtMost(limit)
     if (end <= start) return null
-    return LyricBacking(start, end, backing.text, backing.parts.filter {
+    return LyricBacking(start, end, backing.text, attachUntimed(backing.text, backing.parts.filter {
         it.from >= 0 && it.to > it.from && it.to <= backing.text.length &&
             it.startMs >= start && it.endMs > it.startMs && it.endMs <= end
-    })
+    }))
 }
 
 internal fun parseTtml(raw: String, durationMs: Long, source: String = "Better Lyrics"): LyricsDocument? {
@@ -219,7 +253,6 @@ internal fun parseQrc(raw: String, durationMs: Long, title: String = "", artist:
         }
         text.append(rest.substring(previous))
         val value = text.toString()
-        if (Regex("^(lyrics?(?: by)?|composed(?: by)?|arranged(?: by)?|producer|作词|作曲|编曲|制作人)\\s*[:：]",RegexOption.IGNORE_CASE).containsMatchIn(value)) continue
         if (start < 15_000 && (lyricsNormalize(value) == lyricsNormalize(title) ||
             lyricsNormalize(value) == lyricsNormalize("$title $artist"))) continue
         if (value.isNotBlank()) lines += LyricLine((start + offset).coerceAtLeast(0),

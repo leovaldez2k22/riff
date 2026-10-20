@@ -28,11 +28,12 @@ class PlaybackToggleTest {
     }
 
     /** A player [positionMs] into a song, recording what it was asked to do. */
-    private fun player(positionMs: Long, hasPrevious: Boolean, calls: MutableList<String>) =
+    private fun player(positionMs: Long, hasPrevious: Boolean, calls: MutableList<String>, state: Int = Player.STATE_READY) =
         java.lang.reflect.Proxy.newProxyInstance(Player::class.java.classLoader, arrayOf(Player::class.java)) { _, method, args ->
             when (method.name) {
                 "getCurrentPosition" -> positionMs
                 "hasPreviousMediaItem" -> hasPrevious
+                "getPlaybackState" -> state
                 else -> { calls += method.name + (args?.joinToString(",", "(", ")") ?: ""); null }
             }
         } as Player
@@ -47,5 +48,18 @@ class PlaybackToggleTest {
         // The first song has none before it: a swipe starts it again.
         val first = mutableListOf<String>(); player(95_000, false, first).previousSong()
         assertEquals(listOf("seekTo(0)"), first)
+    }
+
+    /** Q18-063: the only song played to its end; Play did nothing until the seek bar was tapped. */
+    @Test fun playAfterTheLastSongHasEndedStartsItAgain() {
+        val ended = mutableListOf<String>(); player(180_000, false, ended, Player.STATE_ENDED).playFromUser()
+        assertEquals(listOf("seekToDefaultPosition", "play"), ended)
+        val idle = mutableListOf<String>(); player(0, false, idle, Player.STATE_IDLE).playFromUser()
+        assertEquals(listOf("prepare", "play"), idle)
+        val paused = mutableListOf<String>(); player(40_000, true, paused).playFromUser()
+        assertEquals(listOf("play"), paused)
+        // Previous on the ended song (no song before it) starts it again too.
+        val previous = mutableListOf<String>(); player(180_000, false, previous, Player.STATE_ENDED).previousOrRestart()
+        assertEquals(listOf("seekTo(0)"), previous)
     }
 }

@@ -223,7 +223,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                 Text(string(R.string.share_these_lines),fontWeight = FontWeight.SemiBold)
             } else Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = RiffSpace.item),
                 horizontalArrangement = Arrangement.Center,verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = hapticClick(playback::previous),enabled = state.queue.size > 1) { Icon(Icons.Rounded.FastRewind,string(R.string.previous_track),tint = Muted) }
+                IconButton(onClick = hapticClick(playback::previous),enabled = state.mediaId.isNotEmpty()) { Icon(Icons.Rounded.FastRewind,string(R.string.previous_track),tint = Muted) }
                 IconButton(onClick = hapticClick(playback::toggle),modifier = Modifier.size(56.dp).testTag("lyrics_toggle")) {
                     Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         if (state.playing) string(R.string.pause) else string(R.string.play),tint = White,modifier = Modifier.size(34.dp))

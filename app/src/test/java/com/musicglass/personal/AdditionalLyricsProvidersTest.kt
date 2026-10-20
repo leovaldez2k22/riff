@@ -100,4 +100,37 @@ class AdditionalLyricsProvidersTest {
             else -> null
         } }
     }
+
+    /** Q18-061: NetEase's own line from "Sweet Heat Lightning"; the apostrophes and the comma are 0 ms words. */
+    @Test fun punctuationWithoutItsOwnTimeLightsWithTheWordItTouches() {
+        val raw = "[51400,13770](51400,360,0)What(51760,0,0)’(51760,210,0)s (51970,3810,0)real(55780,0,0), " +
+            "(55780,390,0)what(56170,0,0)’(56170,60,0)s (56230,210,0)in (56440,240,0)your (56680,2310,0)head"
+        val line = parseNetEaseYrc(raw, 240_000, "https://music.163.com/song?id=1")!!.lines.single()
+        assertEquals("What’s real, what’s in your head", line.text)
+        val lit = BooleanArray(line.text.length).also { lit -> line.parts.forEach { for (i in it.from until it.to) lit[i] = true } }
+        line.text.forEachIndexed { i, c -> if (!c.isWhitespace()) assertTrue("'$c' at $i", lit[i]) }
+        // The apostrophe ends "What" (lit as "What" ends); the comma ends "real".
+        val what = line.parts.first { it.from == 0 }
+        assertEquals(4 + 1, what.to); assertEquals(51_760, what.endMs)
+        assertTrue(line.parts.any { line.text.substring(it.from, it.to) == "real," && it.endMs == 55_780L })
+    }
+
+    @Test fun aRunApartFromAnyTimedWordStaysAsItWas() {
+        assertEquals(listOf(LyricPart(0, 100, 0, 3)), attachUntimed("one — two", listOf(LyricPart(0, 100, 0, 3))))
+        // An opening quote with a timed word after it lights with that word.
+        assertEquals(listOf(LyricPart(0, 100, 0, 6)), attachUntimed("‘Cause", listOf(LyricPart(0, 100, 1, 6))))
+    }
+
+    /** Q18-062: NetEase's credit lines, timed and plain, some with a space before them, are not lyrics. */
+    @Test fun creditLinesAreNotLyrics() {
+        val lrc = "[00:00.000] 作词 : Blake Slatkin/ADELA\n[00:01.000] 作曲 : Blake Slatkin/ADELA\n" +
+            "[00:01.500]编曲：Someone\n[00:02.733]Back it up, subwoofers in the trunk"
+        val plain = parseLrc(lrc, 185_000, "NetEase Cloud Music", "https://music.163.com/song?id=1")!!
+        assertEquals(listOf("Back it up, subwoofers in the trunk"), plain.lines.map { it.text })
+        val timed = parseNetEaseYrc("[0,1000](0,1000,0) 作曲 : Gregory Alan Isakov\n[2000,1000](2000,1000,0)Monsters",
+            240_000, "https://music.163.com/song?id=1")!!
+        assertEquals(listOf("Monsters"), timed.lines.map { it.text })
+        assertTrue(lyricCredit("Lyrics by: Someone")); assertTrue(lyricCredit("Written by: Someone"))
+        assertFalse(lyricCredit("Lyrics of my life")); assertFalse(lyricCredit("Composed and calm"))
+    }
 }

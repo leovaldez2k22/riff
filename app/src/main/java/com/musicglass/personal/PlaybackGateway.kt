@@ -245,7 +245,7 @@ internal class MusicPlaybackGateway(context: Context,
     }
     /** Play, as asked by the user. An entry that failed is tried again by the service, which keeps the queue and the position. */
     private fun start(player: MediaController) {
-        if (player.playerError == null) { if (player.playbackState == Player.STATE_IDLE) player.prepare(); player.play(); return }
+        if (player.playerError == null) { player.playFromUser(); return }
         player.play()
         player.sendCustomCommand(SessionCommand(RETRY_PLAYBACK, Bundle.EMPTY), Bundle().apply { putString("entry", player.currentMediaItem?.entryId().orEmpty()) })
     }
@@ -466,6 +466,16 @@ internal fun Player.previousOrRestart() {
     if (previousRestartsSong(currentPosition, hasPreviousMediaItem())) seekTo(0) else seekToPreviousMediaItem()
 }
 /** A swipe back: the song before at any point; the first song of the queue, with none before it, starts again. */
+/**
+ * Play as the user asked: after the last song has ended (Q18-063) the player sits at its end and play() alone does
+ * nothing, so the song starts again from the beginning, as Media3's own play button does.
+ */
+internal fun Player.playFromUser() {
+    if (playbackState == Player.STATE_ENDED) seekToDefaultPosition()
+    if (playbackState == Player.STATE_IDLE) prepare()
+    play()
+}
+
 internal fun Player.previousSong() { if (hasPreviousMediaItem()) seekToPreviousMediaItem() else seekTo(0) }
 
 /**
