@@ -14,7 +14,8 @@ internal object AgslChromeGlassEffect {
     private val frostedShader by lazy {RuntimeShader(SHADER)}
     fun create(shapes:List<Rect>,width:Int,height:Int,density:Float,frosted:Boolean,intensity:Float,
         categoryRadii:List<Float> = emptyList(),frostIntensity:Float=1f):RenderEffect {
-        fun configure(shader:RuntimeShader, frost:Float, strength:Float) {
+        // warp: the edge refraction, from the glass intensity in both looks; strength: the frost's tint and sheen.
+        fun configure(shader:RuntimeShader, frost:Float, strength:Float, warp:Float) {
         listOf("nav","search","mini").forEachIndexed {index,name->
             val rect=shapes[index]
             shader.setFloatUniform("${name}Origin",rect.left,rect.top)
@@ -35,14 +36,15 @@ internal object AgslChromeGlassEffect {
             visible.maxOfOrNull {it.bottom}?:-10000f)
         shader.setFloatUniform("viewport",width.toFloat(),height.toFloat())
         shader.setFloatUniform("bevel",14f*density)
-        shader.setFloatUniform("refraction",3f*density*strength)
+        shader.setFloatUniform("refraction",3f*density*warp)
+        shader.setFloatUniform("warp",warp.coerceIn(0f,1f))
         shader.setFloatUniform("frosted",frost)
         shader.setFloatUniform("intensity",strength)
         }
-        configure(liquidShader,0f,intensity)
+        configure(liquidShader,0f,intensity,intensity)
         val liquid=RenderEffect.createRuntimeShaderEffect(liquidShader,"backdrop")
         if(!frosted || frostIntensity<=0f) return liquid
-        configure(frostedShader,1f,frostIntensity)
+        configure(frostedShader,1f,frostIntensity,intensity)
         val mask=RenderEffect.createRuntimeShaderEffect(frostedShader,"backdrop")
         val radius=22f*density*frostIntensity
         val blur=RenderEffect.createBlurEffect(radius,radius,Shader.TileMode.CLAMP)
@@ -69,6 +71,7 @@ private const val SHADER = """
     uniform float refraction;
     uniform float frosted;
     uniform float intensity;
+    uniform float warp;
 
     float distanceTo(float2 p, float2 origin, float2 dimensions, float radius) {
         if (p.x < origin.x - 1.0 || p.y < origin.y - 1.0 ||
@@ -128,12 +131,17 @@ private const val SHADER = """
         float2 normal = gradient / max(length(gradient), 0.001);
         float rim = 1.0 - smoothstep(0.0, activeBevel, max(-d, 0.0));
         // Clamped: a shape running off-screen would otherwise refract in transparent black from outside the view.
-        half4 sampled = frosted>0.5 ? base : backdrop.eval(clamp(p + normal * refraction * rim, float2(0.5), viewport - float2(0.5)));
+        // Frosted glass bends its blurred backdrop at the rim the same way, then takes the frost's tint.
+        half4 sampled = backdrop.eval(clamp(p + normal * refraction * rim, float2(0.5), viewport - float2(0.5)));
+        if(frosted>0.5) sampled.rgb=mix(sampled.rgb,half3(0.70,0.76,0.84),half(0.18*min(intensity,1.0)));
         float light = pow(max(dot(normal, normalize(float2(-0.7, -0.7))), 0.0), 2.0);
         float specular = rim * light * 0.26 * intensity;
         half3 rgb = clamp(sampled.rgb + half3(specular), half3(0.0), half3(1.0));
         float mask = 1.0 - smoothstep(-1.0, 1.0, d);
-        return frosted>0.5 ? half4(rgb,sampled.a)*half(mask) : mix(original, half4(rgb, sampled.a), half(mask));
+        // The frost thins toward the rim so the liquid layer beneath, which bends the sharp backdrop, shows at the edge:
+        // the middle stays frosted and the edge wraps like liquid glass. With no warp the frost stays whole.
+        half clear = half(0.7 * rim * warp);
+        return frosted>0.5 ? half4(rgb,sampled.a)*half(mask)*(1.0-clear) : mix(original, half4(rgb, sampled.a), half(mask));
     }
 """
 }

@@ -59,6 +59,14 @@ class DownloadBatchTest {
         assertEquals(.3f,restored.glassIntensity,0f);assertEquals(1.4f,restored.frostedIntensity,0f)
         restored.updateGlassIntensity(0f);assertEquals(1.4f,restored.frostedIntensity,0f)
     }
+    @Test fun frostedGlassIsOnUntilTheOwnerTurnsItOff() {
+        // Q18-049: on by default; a choice made in Settings is kept.
+        val context=RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("accessibility_display",Context.MODE_PRIVATE).edit().remove("frosted_glass").commit()
+        assertTrue(AccessibilitySettings(context).frostedGlass)
+        AccessibilitySettings(context).updateFrostedGlass(false)
+        assertFalse(AccessibilitySettings(context).frostedGlass)
+    }
     @Test fun nullVideoUriOnResolvedAudioDoesNotDisableCrossfade() {
         fun item(extras:Bundle)=MediaItem.Builder().setMediaId("yt:download001")
             .setMediaMetadata(MediaMetadata.Builder().setExtras(extras).build()).build()

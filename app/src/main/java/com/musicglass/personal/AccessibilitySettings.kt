@@ -22,7 +22,7 @@ internal class AccessibilitySettings(context: Context) {
         runCatching { prefs.getBoolean("reduce_motion", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE))
         private set
 
-    var frostedGlass by mutableStateOf(prefs.getBoolean("frosted_glass",false))
+    var frostedGlass by mutableStateOf(prefs.getBoolean("frosted_glass",FROSTED_GLASS_DEFAULT))
         private set
     var glassIntensity by mutableStateOf(prefs.getFloat("glass_intensity",1f).coerceIn(0f,1.5f))
         private set
@@ -37,7 +37,7 @@ internal class AccessibilitySettings(context: Context) {
         hapticFeedback = prefs.getBoolean("haptic_feedback", true)
         solidControls = runCatching { prefs.getBoolean("solid_controls", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE)
         reduceMotion = runCatching { prefs.getBoolean("reduce_motion", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE)
-        frostedGlass = prefs.getBoolean("frosted_glass", false)
+        frostedGlass = prefs.getBoolean("frosted_glass", FROSTED_GLASS_DEFAULT)
         glassIntensity = prefs.getFloat("glass_intensity", 1f).coerceIn(0f, 1.5f)
         frostedIntensity = prefs.getFloat("frosted_intensity", 1f).coerceIn(0f, 1.5f)
     }
@@ -56,3 +56,10 @@ internal class AccessibilitySettings(context: Context) {
 internal val LocalAccessibilitySettings = compositionLocalOf<AccessibilitySettings> {
     error("Accessibility settings were not provided")
 }
+
+/**
+ * Q18-049, owner's decision 20 Oct 2026: liquid glass is meant to show what is beneath it, so frosted glass is the
+ * default (it blurs the words under the bars) and bends at its rim like liquid glass. A choice the owner made in
+ * Settings is kept; only a phone where it was never set takes this.
+ */
+internal const val FROSTED_GLASS_DEFAULT = true
