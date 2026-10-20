@@ -123,8 +123,8 @@ section 18); C9 reruns them on the final candidate.
 | SEC01 host lookalike, intent, TLS | WebBoundariesTest (JVM) | B11 sign-in browser; one blocked host during a sign-in that succeeded | PASS | Q18-027, Q18-028 (Low) |
 | SEC02 foreign custom command | WebBoundariesTest | C3 emulator and B11 phone with test.riff.foreign: queue edits refused, transport allowed | PASS | |
 | SEC03 adversarial diagnostics | DiagnosticEventTest, ExitDiagnosticsTest, ServiceStopDiagnosticsTest | Q15A ring read back; C7 sweep of repo, APK, archive | PASS | |
-| REL01 candidate APK | check_release_content.py (18 checks), test_check_release_content.py | Q17: 0.10.0-rc1 signed, certificate equal to rc20, non-debuggable, no fixtures. Must be repeated on the final candidate | PASS | on the signed 0.10.0-rc2 and rc2-preview with Q18-043 and Q18-047 fixed (6bcce26): every check including the pinned certificate; repeat on rc3 (G2) |
-| REL02 in-place upgrade | LegacyUpgradeDeviceTest (emulator, B1) | Q17 packaging lane: rc20 to rc1 on the emulator, data kept. Over the owner's real rc20: A7 | DEFERRED | emulator half PASS (Q19C6: rc20 with its data, then the signed rc2 over it on a fresh API 36 emulator: first-install time kept, no file lost, the retired-content migration ran, Home opens); over the owner's real rc20: R3 |
+| REL01 candidate APK | check_release_content.py (18 checks), test_check_release_content.py | Q17: 0.10.0-rc1 signed, certificate equal to rc20, non-debuggable, no fixtures. Must be repeated on the final candidate | PASS | on the signed 0.10.0-rc2 and rc2-preview with Q18-043 and Q18-047 fixed (6bcce26): every check including the pinned certificate; again on the signed 0.10.0-rc4 and rc4-preview (C8, 20 Oct): 20 of 20 each; repeat on the final candidate (R2) |
+| REL02 in-place upgrade | LegacyUpgradeDeviceTest (emulator, B1) | Q17 packaging lane: rc20 to rc1 on the emulator, data kept. Over the owner's real rc20: A7 | DEFERRED | emulator half PASS (Q19C6: rc20 with its data, then the signed rc2 over it on a fresh API 36 emulator: first-install time kept, no file lost, the retired-content migration ran, Home opens; again with the signed rc4 (C6, 20 Oct): packaging lane PASS, all 18 of rc20's files kept, Q18-054 found); over the owner's real rc20: R3 |
 | REL03 evidence mismatch | test_collect_results.py (stale, mismatched, incomplete rejected), test_verify.py | Seen working: q04-debug-04/05, q07 fixture, q16a, q17a runs refused | PASS | |
 | REL04 interim release R1 | none | Q05R declined by the owner on 19 October 2026: no interim release; only the final candidate is prepared | DECLINED | none |
 | EXP01 export then import | LocalDataTransferTest.aCleanInstallMatchesTheSourceForEverythingIncluded; LocalDataTransferDeviceTest (emulator, B1) | B6: export through the picker, file checked, import preview. Between two phones: BLOCKED (one phone) | PASS | two-phone transfer BLOCKED |
@@ -164,7 +164,7 @@ Tests per journey are listed in `core-journeys.md`. The phone walk-through is A4
 | I06 cache clearing keeps downloads; deletion in owned paths | DLD04; OfflineMusicStore.deleteScope canonical parent tests | PASS |
 | I07 one crossfade gain owner | XFD04, AUD01 | PASS |
 | I08 states truthful and actionable | UX09; B4 shows the wrong message when the solver stays down | FAIL (Q18-022) |
-| I09 release has no stress or fixture entry points | REL01 release-content check | PASS on rc1, on the unsigned build of 6328a8d (Q19C1) and on the signed 0.10.0-rc2 and rc2-preview (Q19C6): no test, stress, fixture or benchmark entry, file or class |
+| I09 release has no stress or fixture entry points | REL01 release-content check | PASS on rc1, on the unsigned build of 6328a8d (Q19C1) on the signed 0.10.0-rc2 and rc2-preview (Q19C6), and on the signed rc4 and rc4-preview (C8): no test, stress, fixture or benchmark entry, file or class |
 | I10 ambiguous legacy data preserved | DAT04 | PASS |
 | I11 complete offline bundles need no provider | DLD03, B8 | PASS |
 | I12 local deletion never changes the provider | Q05 by construction (no provider dependency); Q05A import has no network client | PASS (by construction) |
@@ -239,6 +239,18 @@ artifacts/quality/q19/c3 (no personal data).
 | SGN06 Remove animations: every transition a cut | withReducedMotionEveryTransitionIsACut, and withFullMotionTheSameTransitionOverlaps as its control | none needed | PASS | |
 | SGN07 Checking and Connected with a real account | SignInDesignTest, SignInCountsTest (JVM) | A2, A3 | BLOCKED | A2, A3 |
 
+
+### The owner's requests of 20 October (F6 to F10, and the swipe)
+
+| Case | Tests | Device and manual | Status | Open |
+|---|---|---|---|---|
+| F6 the player's clock in hours | NowPlaying clock tests (JVM); OwnerFeaturesDeviceTest: 1:02:05 and -57:55 on a 2-hour episode, m:ss under an hour (API 31, 33, 36) | A long episode on the phone: player, mini player, notification (B11); the look (A3) | BLOCKED | B11, A3 |
+| F7 pins on speed dial | SpeedDialPinsTest, LocalDataTransferTest round trip (JVM); OwnerFeaturesDeviceTest: kept by a new store, drawn first with one badge each, the 28th refused (API 31, 33, 36) | Shown on Home with the network off after a restore (emulator, C7 reinstall); on the phone: pin, close, reopen, offline, unpin (B11); the look (A3) | BLOCKED | B11, A3 |
+| F8 frosted glass by default at 20 % | AccessibilitySettings default and kept choice: OwnerFeaturesDeviceTest (API 31, 33, 36); bar pictures on API 36 (artifacts/quality/q19/glass) | Fresh install on the phone, pictures (B11); the cost to Home scrolling (B6); the look (A3) | BLOCKED | B6, B11, A3 |
+| F9 backup on this phone | LocalBackupTest (9, JVM); OwnerFeaturesDeviceTest: MediaStore write, rewrite, read, Off removes (API 31, 33, 36) | Uninstall, reinstall, picker and restore by hand on API 33; Not now path (C7). On the phone with Riff Preview and the dummy account (B11); the account's waiting file after its sign-in (A2) | BLOCKED | B11, A2 |
+| F10 Not interested reaches YouTube Music | ProviderMutationTest (3), NotInterestedUndoTest (4), JVM against recorded endpoints | No device part (no fixture server on the device). Live on the dummy account: a dislike, its Undo, and YouTube's own feedback from a Home card (B7, asked) | BLOCKED | B7 |
+| F3b a swipe back always goes to the song before | PlaybackToggleTest.theButtonRestartsAfterTenSecondsButASwipeAlwaysGoesToTheSongBefore (JVM, a recording player) | Swipe at 3 s and past 10 s, and the button past 10 s, on the phone (B4) | BLOCKED | B4 |
+
 ### Bugs logged since the first pass
 
 | Case | Tests | Device and manual | Status | Open |
@@ -251,10 +263,13 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-045 LyricShareDeviceTest on API 31 | LyricShareDeviceTest | none | PASS | fixed in Q19G (6bcce26) |
 | Q18-046 Accounts screen looks | SignInScreensDeviceTest pictures | none | PASS | fixed in Q19G (6bcce26) |
 | Q18-047 release-content check skips the certificate of a v2-signed APK | check_release_content.py | none | PASS | fixed in Q19G (6bcce26) |
-| Q18-048 share sheet shows an older card | LyricShareDeviceTest (the next card's address differs, one file kept) | B4 rerun with rc3 | BLOCKED | the phone check with rc3 |
+| Q18-048 share sheet shows an older card | LyricShareDeviceTest (the next card's address differs, one file kept) | B4 rerun with rc4 | BLOCKED | the phone check with rc4 (B4, B13 row) |
 | Q18-049 glass bars too clear over text | none yet | Home and Settings pictures (artifacts/quality/q19/b5) | DECLINED | not a bug (owner); remedy: frosted by default at 20 %, frost to the edges and bending at the rim; the look by eye in A3 |
 | Q18-050 benchmark lane stops on dependency verification | verify.py --lane benchmark | none | BLOCKED | fixed in 10b96ac; the lane on the phone: next B6 |
 | Q18-051 start-up crash reading the provider's state | HomePrefetchTest.theProviderIsBuiltOnTheCallersThreadBeforeAnyScreenReadsIt (JVM) | seen once on the API 36 emulator; cold starts on the phone in B3 | BLOCKED | fixed in code (20 Oct); cold starts on the phone: B3 |
+| Q18-052 a backup removed a waiting import's working copy | LocalBackupTest.aBackupWrittenWhileAnImportWaitsLeavesTheImportsCopyAlone; LocalDataTransferDeviceTest | Found by the C7 lane on API 33 (2 cases); after the fix the lanes pass on API 31, 33 and 36 | PASS | fixed in bb37685; on the phone with B1 |
+| Q18-053 the restore after a reinstall brought nothing back | LocalBackupTest.anEmptyNewInstallNeverOutrunsTheRealBackup | The reinstall by hand on API 33 (artifacts/quality/q19/c7/reinstall2): restored with its notice, the pin on Home offline; Not now kept the offer away and later backups wrote over one file | PASS | fixed in 47bcb8b; on the phone: B11 |
+| Q18-054 a restore offered after an update | LocalBackupTest.anUpdateIsNeverOfferedARestore | Found in C6 on the signed rc4 over rc20 (artifacts/quality/q19/c8/c6) | BLOCKED | fixed in code (9117a18) after rc4 was signed; C6 on the next candidate |
 
 ## 6. Totals
 
@@ -270,3 +285,8 @@ Night of 20 October (Q19B1, B2, B4 and B5 without an account, B6, Q19G G1): the 
 rc2), FAIL 0, BLOCKED 21, DEFERRED 6, DECLINED 1. Section 7, 24 rows: PASS 13, FAIL 2 (Q18-049 and Q18-050, both
 waiting for the owner's choice), BLOCKED 8, DECLINED 1 (Q18-041).
 Same morning, after the owner's answers: section 7 is PASS 13, FAIL 0, BLOCKED 9, DECLINED 2 (Q18-041, Q18-049).
+
+C5 on 20 October, after F6 to F10, the swipe change, C7 and the signed rc4: the 72 rows are unchanged at PASS 44 (REL01
+now on the signed rc4 and rc4-preview), FAIL 0, BLOCKED 21, DEFERRED 6, DECLINED 1. Section 7, 34 rows: PASS 15 (adds
+Q18-052, Q18-053), FAIL 0, BLOCKED 17 (adds F6 to F10, F3b, Q18-054; Q18-048 now waits for rc4 in B4), DECLINED 2.
+Q18-054 is fixed in code after rc4 was signed, so it passes only with C6 on the next candidate.

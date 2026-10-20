@@ -2632,6 +2632,13 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   installed fresh) or in A7 (the main app has history). It goes into the next candidate, and C6 checks it there.
   Emulator stopped; rc4 left on it (disposable). Evidence: artifacts/quality/q19/c8/c6.
 
+### C5 second pass, final rows (20 October 2026, night)
+- docs/quality/case-map.md: section 7 gains the owner's requests of 20 October (F6 hours clock, F7 speed-dial pins,
+  F8 frosted glass at 20 %, F9 backup on this phone, F10 Not interested to YouTube Music, F3b the swipe back) and
+  bugs Q18-052, Q18-053 (PASS on the emulators) and Q18-054 (BLOCKED until C6 on the next candidate). REL01, REL02
+  and I09 now cite the signed rc4; Q18-048 waits for rc4 in B4. Totals: the 72 rows PASS 44, BLOCKED 21, DEFERRED 6,
+  DECLINED 1; section 7, 34 rows, PASS 15, FAIL 0, BLOCKED 17, DECLINED 2. No TODO. Documentation only.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
