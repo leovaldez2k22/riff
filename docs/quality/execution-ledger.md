@@ -2606,6 +2606,17 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   checkout's .toolchain); then the certificate, ABI, size, version and release-content checks, and C6 on rc4.
   ..\Riff-rc3 (superseded) stays until the owner says to remove it.
 
+### Swipe back always goes to the song before; rc4 re-cut before signing (20 October 2026, night)
+- Owner: the Previous button keeps F3 (restart after 10 s), but a swipe back on the player always goes to the song
+  before. New PlaybackGateway.previousSong (the first song of the queue, with none before it, starts again); the
+  artwork swipe calls it (1ffce77). C10: PlaybackToggleTest, a recording player 95 s and 3 s into a song.
+- rc4 had not been signed, so it was moved to 1ffce77 (still 0.10.0-rc4, code 25; the aa4fde0 builds were never
+  signed or installed and are replaced). ..\Riff-rc4 moved there, clean. pr lane every check PASS; emulator lane API
+  33 65 of 65 (emulator cleaned, stopped). Builds, debug key: Riff Debug a7b112bc...7433, test APK 1ef65392...73ff,
+  Riff Benchmark 46e47fec...24fc, macrobenchmark 67462ad2...a1fb (artifacts/quality/q19/c8/candidates.txt).
+- ..\Riff-rc3 removed at the owner's word: unregistered from git, and its folder (build files past Windows' path
+  limit) deleted with long-path support; rc3's evidence stays in artifacts/quality/q19/g2.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
