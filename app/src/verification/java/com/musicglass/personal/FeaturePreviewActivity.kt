@@ -58,6 +58,7 @@ internal class FixturePlayback:PlaybackGateway {
     override fun resume()=unsupported()
     override fun next()=unsupported()
     override fun previous()=unsupported()
+    override fun previousSong()=unsupported()
     override fun seekTo(positionMs:Long)=unsupported()
     override fun toggleShuffle()=unsupported()
     override fun cycleRepeat()=unsupported()

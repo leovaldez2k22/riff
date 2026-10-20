@@ -307,7 +307,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                         change.consume()
                     }, onDragEnd = {
                         if (hasQueue && dragX < -65.dp.toPx()) {playback.next();uiHaptic(HapticCue.Selection)}
-                        if (hasQueue && dragX > 65.dp.toPx()) {playback.previous();uiHaptic(HapticCue.Selection)}
+                        if (hasQueue && dragX > 65.dp.toPx()) {playback.previousSong();uiHaptic(HapticCue.Selection)}
                         dragX = 0f
                     }, onDragCancel = { dragX = 0f })
                 }.doubleTapSeek(!state.live && renderer != 2 && itemId == state.mediaId, seekNudge, playback, state.durationMs)) {

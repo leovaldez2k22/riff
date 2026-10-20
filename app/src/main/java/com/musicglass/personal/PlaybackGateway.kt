@@ -58,7 +58,10 @@ internal interface PlaybackGateway {
     /** Tries the selected entry again after a failure, and plays it. */
     fun retry() = resume()
     fun next()
+    /** The Previous button: starts the song again once it has played past 10 s (F3). */
     fun previous()
+    /** A swipe back on the player: always the song before, however far this one has played (owner, 20 Oct 2026). */
+    fun previousSong()
     fun seekTo(positionMs: Long)
     fun toggleShuffle()
     fun cycleRepeat()
@@ -252,6 +255,7 @@ internal class MusicPlaybackGateway(context: Context,
     override fun resume() { transport(true); withPlayer { start(it) } }
     override fun next() { PerfTrace.began("skip"); transport(true); withPlayer { commandError = null; it.seekToNextMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
     override fun previous() { transport(true); withPlayer { commandError = null; it.previousOrRestart(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
+    override fun previousSong() { transport(true); withPlayer { commandError = null; it.previousSong(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
     override fun currentPositionMs(): Long = controller?.currentPosition?.coerceAtLeast(0) ?: positionMs
     override fun seekTo(positionMs: Long) = withPlayer {
         it.seekTo(positionMs.coerceAtLeast(0))
@@ -461,6 +465,8 @@ internal fun previousRestartsSong(positionMs: Long, hasPrevious: Boolean): Boole
 internal fun Player.previousOrRestart() {
     if (previousRestartsSong(currentPosition, hasPreviousMediaItem())) seekTo(0) else seekToPreviousMediaItem()
 }
+/** A swipe back: the song before at any point; the first song of the queue, with none before it, starts again. */
+internal fun Player.previousSong() { if (hasPreviousMediaItem()) seekToPreviousMediaItem() else seekTo(0) }
 
 /**
  * Deleting the only item leaves an empty, paused queue. Deleting the current item when nothing follows
