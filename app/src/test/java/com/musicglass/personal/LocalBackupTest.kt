@@ -124,7 +124,7 @@ class LocalBackupTest {
         assertEquals(BackupOutcome.Skipped, install.backup.backUp())
         clock.advance(BACKUP_GAP_MS); assertEquals(BackupOutcome.Done(2), install.backup.backUp())
         File(documents, "someone-elses.txt").writeText("kept")
-        assertEquals(2, install.backup.setEnabled(false))
+        assertEquals(2, install.backup.turnBackup(false))
         assertEquals(listOf("someone-elses.txt"), install.folder.names()); assertEquals(BackupOutcome.Off, install.backup.backUp(force = true))
     }
 

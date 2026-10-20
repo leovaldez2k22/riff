@@ -137,7 +137,7 @@ internal class LocalBackup(context: Context, private val transfer: LocalDataTran
     fun restoreDeclined() = prefs.edit { putBoolean("restore_offered", true) }
 
     /** Off removes the files this install wrote, so nothing it no longer keeps up to date is left behind. */
-    suspend fun setEnabled(on: Boolean): Int = withContext(io) {
+    suspend fun turnBackup(on: Boolean): Int = withContext(io) {
         lock.withLock {
             prefs.edit { putBoolean("enabled", on) }; enabled = on
             if (on) return@withLock 0

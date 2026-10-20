@@ -76,7 +76,7 @@ FIXTURE_CLASSES = [f"{PACKAGE}.{name}" for name in (
     "AccountSwitchDeviceTest", "CrossfadeFixtureDeviceTest", "DownloadLifecycleDeviceTest", "FixturePlaybackTest",
     "LegacyUpgradeDeviceTest", "LocalDataDeviceTest", "LocalDataTransferDeviceTest", "NormalizationDeviceTest",
     "PlaybackOrderDeviceTest", "RecoveryDeviceTest", "LyricsKaraokeDeviceTest", "PlayerFixesDeviceTest",
-    "LyricShareDeviceTest")]
+    "LyricShareDeviceTest", "OwnerFeaturesDeviceTest")]
 # Run only where they apply, never skipped: a skip is not a pass. DownloadTimeLimitDeviceTest shortens Android 15's
 # dataSync time limit with device_config, so emulators only, from API 35 (Q18-026). SignInScreensDeviceTest needs
 # the network off for Google's page not to load, which only the emulator lane guarantees (Q19C3, Q18-044).

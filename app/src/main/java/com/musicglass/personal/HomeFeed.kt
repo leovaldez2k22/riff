@@ -196,7 +196,7 @@ private fun HomeHeading(title: String, action: (() -> Unit)? = null,
 }
 
 @Composable
-private fun HomeSpeedDial(cards: List<ProviderHomeCard>, pinned: Set<String>, onOpen: (ProviderHomeCard) -> Unit) {
+internal fun HomeSpeedDial(cards: List<ProviderHomeCard>, pinned: Set<String>, onOpen: (ProviderHomeCard) -> Unit) {
     val pages = ((cards.size + 8) / 9).coerceAtLeast(1)
     val pager = rememberPagerState(pageCount = { pages })
     val pagerDragged by pager.interactionSource.collectIsDraggedAsState()

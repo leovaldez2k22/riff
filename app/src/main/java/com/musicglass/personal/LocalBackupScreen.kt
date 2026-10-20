@@ -59,7 +59,7 @@ internal fun restoreText(outcome: RestoreOutcome?): String = when {
     var turningOff by remember { mutableStateOf(false) }
     if (turningOff) FrostedAlertDialog(onDismissRequest = { turningOff = false }, title = { Text(string(R.string.turn_off_the_backup)) },
         text = { Text(string(R.string.the_backup_files_riff_made_in_x_are_removed, backup.place)) },
-        confirmButton = { TextButton({ turningOff = false; scope.launch { backup.setEnabled(false); onNotice(string(R.string.backup_turned_off)) } },
+        confirmButton = { TextButton({ turningOff = false; scope.launch { backup.turnBackup(false); onNotice(string(R.string.backup_turned_off)) } },
             modifier = Modifier.testTag("backup_off_confirm")) { Text(string(R.string.turn_off), color = Pink) } },
         dismissButton = { TextButton({ turningOff = false }) { Text(string(R.string.cancel)) } })
     SettingsSection(string(R.string.backup_on_this_phone)) {
@@ -67,7 +67,7 @@ internal fun restoreText(outcome: RestoreOutcome?): String = when {
             android.text.format.DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS).toString()
         }
         SettingsToggleRow(string(R.string.keep_a_backup_on_this_phone), backup.enabled, { on ->
-            if (on) scope.launch { backup.setEnabled(true); container.backUpSoon(force = true) } else turningOff = true
+            if (on) scope.launch { backup.turnBackup(true); container.backUpSoon(force = true) } else turningOff = true
         }, Icons.Rounded.Backup, "backup_enabled",
             subtitle = if (!backup.enabled) string(R.string.off) else listOfNotNull(backup.place, last?.let { string(R.string.last_backup_x, it) },
                 backup.waiting.takeIf { it > 0 }?.let { quantity(R.plurals.n_accounts_restore_when_they_sign_in, it) }).joinToString(" · "))
