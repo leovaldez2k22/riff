@@ -314,7 +314,7 @@ class MusicPlaybackService : MediaSessionService() {
             val player=mainPlayer?:return result
             if(player.mediaItemCount==0) return result
             when(intent.getStringExtra("command")) {
-                "toggle"->if(toggleShouldPause(player.isPlaying,player.playWhenReady,player.playbackState==Player.STATE_IDLE)) player.pause() else retryPlayback(player)
+                "toggle"->if(toggleShouldPause(player.isPlaying,player.playWhenReady,player.playbackState==Player.STATE_IDLE,player.playbackState==Player.STATE_ENDED)) player.pause() else retryPlayback(player)
                 "previous"->{player.previousOrRestart();if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
                 "next"->{player.seekToNextMediaItem();if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
             }
@@ -383,6 +383,7 @@ class MusicPlaybackService : MediaSessionService() {
     private var networkCallback:android.net.ConnectivityManager.NetworkCallback?=null
     /** Play was asked for while the selected entry is in a failed state. */
     private fun retryPlayback(player:Player) {
+        if(player.playbackState==Player.STATE_ENDED) player.seekToDefaultPosition()
         player.play()
         if(!recovery.retry() && player.playbackState==Player.STATE_IDLE) player.prepare()
     }

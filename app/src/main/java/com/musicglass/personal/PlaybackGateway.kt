@@ -240,7 +240,7 @@ internal class MusicPlaybackGateway(context: Context,
             return@withPlayer
         }
         commandError = null
-        if (toggleShouldPause(it.isPlaying,it.playWhenReady,it.playbackState==Player.STATE_IDLE)) { transport(false); it.pause() }
+        if (toggleShouldPause(it.isPlaying,it.playWhenReady,it.playbackState==Player.STATE_IDLE,it.playbackState==Player.STATE_ENDED)) { transport(false); it.pause() }
         else { transport(true); start(it) }
     }
     /** Play, as asked by the user. An entry that failed is tried again by the service, which keeps the queue and the position. */
@@ -452,10 +452,11 @@ internal class MusicPlaybackGateway(context: Context,
 /**
  * Play/pause decides on what the user sees. After a load error the player is idle but keeps
  * playWhenReady, so "pause if playWhenReady" made the first tap on Play do nothing visible
- * (found when a track change fell in a network drop, 2026-10-04). Idle always means play.
+ * (found when a track change fell in a network drop, 2026-10-04). Idle always means play. So does ended (Q18-063):
+ * a song played to its end keeps playWhenReady, and Play turned into a pause that changed nothing.
  */
-internal fun toggleShouldPause(isPlaying: Boolean, playWhenReady: Boolean, idle: Boolean): Boolean =
-    !idle && (isPlaying || playWhenReady)
+internal fun toggleShouldPause(isPlaying: Boolean, playWhenReady: Boolean, idle: Boolean, ended: Boolean = false): Boolean =
+    !idle && !ended && (isPlaying || playWhenReady)
 
 /** F3: once a song has played past this, Previous starts it again instead of going to the song before. */
 internal const val PREVIOUS_RESTARTS_AFTER_MS = 10_000L

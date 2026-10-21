@@ -18,6 +18,12 @@ class PlaybackToggleTest {
         assertFalse(toggleShouldPause(isPlaying = false, playWhenReady = false, idle = false))
     }
 
+    /** Q18-063 on the phone: the ended song keeps playWhenReady, so the button paused it instead of playing. */
+    @Test fun anEndedSongIsPlayedNotPaused() {
+        assertFalse(toggleShouldPause(isPlaying = false, playWhenReady = true, idle = false, ended = true))
+        assertFalse(toggleShouldPause(isPlaying = false, playWhenReady = false, idle = false, ended = true))
+    }
+
     @Test fun previousGoesBackAfterTenSecondsAndToTheSongBeforeUntilThen() {
         assertFalse(previousRestartsSong(positionMs = 4_000, hasPrevious = true))
         assertFalse(previousRestartsSong(positionMs = 10_000, hasPrevious = true))
