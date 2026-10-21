@@ -115,7 +115,10 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
 
     private suspend fun prewarm(reason:String) {
         val started=dependencies.clocks.monotonicMillis()
-        suspendCatching {extractor.prewarm()}.fold(
+        suspendCatching {
+            settleVisitor(innerTube.sessionSnapshot().visitorData) {innerTube.fetchFreshVisitorData(innerTube.sessionSnapshot())}
+            extractor.prewarm()
+        }.fold(
             onSuccess={playbackEvents.append("stream_prewarm reason=$reason ms=${dependencies.clocks.monotonicMillis()-started}")},
             onFailure={playbackEvents.append("stream_prewarm_failed reason=$reason type=${it::class.simpleName}")})
     }
@@ -244,4 +247,15 @@ internal fun streamStageEvent(event: com.metrolist.innertubex.InnerTubeLogEvent)
     if (event.message !in STREAM_STAGES) return null
     val ms = event.details["elapsedMs"]?.toLongOrNull() ?: return null
     return "stream_stage ${event.message.replace(' ', '_')} ms=$ms"
+}
+
+/**
+ * Q18-059: without a visitor in the session the prewarm mints its token for the visitor in the player config, and the
+ * first song then fetches a fresh visitor, so the token provider drops that token and mints another (about 2.4 s on
+ * the phone). The visitor is fetched, and kept in the session, before the prewarm, so both use the same one.
+ */
+internal suspend fun settleVisitor(current: String?, fetch: suspend () -> String?): Boolean {
+    if (!current.isNullOrBlank()) return false
+    fetch()
+    return true
 }
