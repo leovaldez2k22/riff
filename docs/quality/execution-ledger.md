@@ -2773,3 +2773,26 @@ New packages. Status TODO and implementation not yet authorized unless the line 
 - Q16B lyrics letter pop and held-word shake; download state in song menus (plan section 22, added 15 October 2026 at the user's request). Dependencies: Q16A, Q13, Q09. Authorized by the user on 15 October 2026 ("add this to the lyrics changes previously discussed and start work on all of them. stop before q17"), with these choices: the shake goes on top of the Q16A effects, letters rise 2.5 dp to start with, raised letters stay until the line scrolls away, reduced motion shows neither; a downloaded song's menu says "Remove download" in pink with a pink trash icon. Status: PASS locally and on the emulator with open items (see the Q16B section).
 Changed inside existing packages: Q14 now includes a Baseline Profile (optimization rule 8).
 New contract rule 16: commit each package locally on its branch before starting the next. Q00-Q02 work is still uncommitted on main; committing it is the next step before Q03 and has not been done. Pushing remains unauthorized.
+
+### Q19A with the owner, and B2 on rc6 (21 October 2026, evening)
+- rc6 prepared: version 0.10.0-rc6, code 27 (c034dc3), clean worktree ..\Riff-rc6. The owner signed it; two first
+  attempts failed because my checks built in the same folder at the same time (Gradle files deleted under each
+  other), not because of the code. Signed: riff-0.10.0-rc6.apk 598d1032...f101, riff-0.10.0-rc6-preview.apk
+  a9d3ab7a...ea9e; certificate ac703423...f6e1 (as rc4); arm64-v8a; release content 20 of 20 each. Side-by-side
+  builds in artifacts/quality/q19/rc6/candidates.txt.
+- B2: Riff Preview updated in place over rc4 at the owner's choice (same certificate, higher code; data kept).
+  The installed base.apk is byte-identical to the signed file. Smoke run without screenshots (screen text read with
+  uiautomator): Home, search, Downloads, a downloaded song playing, queue, lyrics (Better Lyrics, word synced),
+  Settings with the version line "c034dc33b5c8 · clean". The sign-in welcome was not opened (Preview signed in).
+- Riff Debug's data cleared at the owner's word (B1 can now run every test). B1 itself was interrupted when my
+  session restarted; the leftover tests were stopped on the phone. B1 runs again later.
+- Q19A, on rc6 Riff Preview with the dummy account (the owner's own account used only for the account change):
+  A5 lock-screen controls PASS; A4 logo fine, Home content in place, first song about 2.5 s; A3 frosted glass at
+  20 % smooth and frosted to the edges (Q18-030 by feel, Q18-049), pins (F7), hours clock (F6), the four share
+  looks with the fourth named Aurora (Q18-036) and the share preview (Q18-048) PASS; A1 player (Q18-001, 055, 002,
+  008), "Dancing Queen" (Q18-004), seeking by ear (Q18-005) PASS; A2 sign-in and account change (Q18-009, 010, 012,
+  013, 028) PASS. Verdicts: artifacts/quality/q19/rc6/a/verdicts.md.
+- Found: Q18-066 (every download refused with 10 GB free: the device reserve was a tenth of storage), fixed in
+  23b7b92; Q18-067 (first song 6.7 s after Riff was killed for memory and tapped during the prewarm), open for Q19G.
+- Left in Q19A for the next candidate: downloads (Q18-066), A4 again (Q18-067), the backup restore after B11 and
+  the profile-picture upload (Q18-027).
