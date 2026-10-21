@@ -40,6 +40,13 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.layer.CompositingStrategy
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import kotlin.math.ceil
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
@@ -60,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -241,30 +249,83 @@ private fun NavItem(name: String, selected: Boolean, showLabel: Boolean,
     }
 }
 
-/** Snapshot geometry reads stay inside layer updates; scrolling does not recompose the shell. */
+/**
+ * Snapshot geometry reads stay inside layer updates and draws; scrolling does not recompose the shell.
+ * Q18-030: frosted glass blurs only the strips around the glass, each on its own copy at half size of the scene
+ * recorded once per frame. One frost layer over the strips scales them back up and cuts, bends and tints the glass:
+ * with the cut on each strip's layer instead, the strip drawn first showed the other's frost (API 33 emulator). The
+ * clear glass stays one effect over the whole scene.
+ */
 @Composable internal fun GlassScene(bounds:Map<String,Rect>,styles:Map<String,GlassChipStyle>,area:IntSize,density:Float,compact:Boolean,
     showMini:Boolean,chrome:Boolean,inset:Int,tab:String,route:String,settings:AccessibilitySettings,content:@Composable ()->Unit) {
-    val solid=settings.solidControls;val frosted=settings.frostedGlass;val intensity=settings.glassIntensity
+    val solid=settings.solidControls;val intensity=settings.glassIntensity
     val frostIntensity=settings.frostedIntensity
-    // The cache itself is not snapshot state; mutating it inside a layer never schedules composition.
+    val frosting=chrome && !solid && settings.frostedGlass && frostIntensity>0f
+    // The cache itself is not snapshot state; mutating it inside a layer or a draw never schedules composition.
     val cache=remember {GlassEffectCache()}
-    Box(Modifier.fillMaxSize().imePadding().testTag("scene").graphicsLayer {
+    val scene=rememberGraphicsLayer()
+    val halves=listOf(rememberGraphicsLayer(),rememberGraphicsLayer())
+    val frost=rememberGraphicsLayer()
+    fun glass():GlassEffectCache {
         val visible=visibleGlassChips(bounds,tab,route,area.width,area.height)
         val categories=visible.map {it.second}
         val radii=visible.map {styles[it.first]?.corner?:0f}
-        val key=listOf(area,density,compact,showMini,chrome,inset,solid,frosted,intensity,frostIntensity,categories,radii)
+        val key=listOf(area,density,compact,showMini,chrome,inset,solid,frosting,intensity,frostIntensity,categories,radii)
         if(cache.key!=key) {
             cache.key=key
             cache.effect=if(chrome && !solid) chromeGlassEffect(area.width,area.height,density,showMini,compact,
-                false,inset,categories,frosted,intensity,radii,frostIntensity)?.asComposeRenderEffect() else null
+                false,inset,categories,intensity,radii)?.asComposeRenderEffect() else null
+            val shapes=chromeGlassShapes(area.width,area.height,density,showMini,compact,false,inset,categories)
+            cache.bands=if(frosting && area.width>0 && area.height>0)
+                frostBands(shapes,area.width,area.height,frostMargin(density,intensity,frostIntensity)) else emptyList()
+            cache.area=cache.bands.takeIf {it.isNotEmpty()}?.let {b->
+                Rect(b.minOf {it.left},b.minOf {it.top},b.maxOf {it.right},b.maxOf {it.bottom})}
+            cache.frost=cache.area?.let {frostCutEffect(shapes,it,density,intensity,frostIntensity,radii).asComposeRenderEffect()}
+            // The blur only changes with its size; chips moving under a scroll keep the same ones.
+            if(frosting && cache.blurKey!=density to frostIntensity) {
+                cache.blurKey=density to frostIntensity
+                cache.blurs=List(2) {frostBlurEffect(density,frostIntensity).asComposeRenderEffect()}
+            }
         }
-        renderEffect=cache.effect
-    },content={content()})
+        return cache
+    }
+    Box(Modifier.fillMaxSize().imePadding().testTag("scene").drawWithContent {
+        drawContent()
+        val glass=glass()
+        val area=glass.area?:return@drawWithContent
+        glass.bands.forEachIndexed {i,band->
+            val half=halves[i]
+            half.renderEffect=glass.blurs[i]
+            half.record(IntSize(ceil(band.width/FROST_SCALE).toInt(),ceil(band.height/FROST_SCALE).toInt())) {
+                scale(1f/FROST_SCALE,1f/FROST_SCALE,Offset.Zero) {translate(-band.left,-band.top) {drawLayer(scene)}}
+            }
+        }
+        frost.renderEffect=glass.frost
+        frost.record(IntSize(area.width.toInt(),area.height.toInt())) {
+            glass.bands.forEachIndexed {i,band->
+                translate(band.left-area.left,band.top-area.top) {scale(FROST_SCALE.toFloat(),FROST_SCALE.toFloat(),Offset.Zero) {drawLayer(halves[i])}}
+            }
+        }
+        translate(area.left,area.top) {drawLayer(frost)}
+    }) {
+        Box(Modifier.fillMaxSize().graphicsLayer {renderEffect=glass().effect}.drawWithContent {
+            if(frosting) {
+                scene.compositingStrategy=CompositingStrategy.Offscreen // drawn once a frame, read by every strip
+                scene.record {this@drawWithContent.drawContent()}
+                drawLayer(scene)
+            } else drawContent()
+        },content={content()})
+    }
 }
 
 private class GlassEffectCache {
     var key:List<Any?>?=null
     var effect:androidx.compose.ui.graphics.RenderEffect?=null
+    var bands:List<Rect> = emptyList()
+    var area:Rect?=null
+    var frost:androidx.compose.ui.graphics.RenderEffect?=null
+    var blurKey:Any?=null
+    var blurs:List<androidx.compose.ui.graphics.RenderEffect> = emptyList()
 }
 
 @Composable internal fun VisibleGlassLabels(bounds:Map<String,Rect>,styles:Map<String,GlassChipStyle>,tab:String,route:String,area:IntSize) {
