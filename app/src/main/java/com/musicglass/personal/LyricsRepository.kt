@@ -109,6 +109,7 @@ internal class LyricsRepository(private val directory: File,
         suspend fun request(url: String, params: Map<String,String>): JsonElement? = try {
             get(url,params).also { answered++ }
         } catch (e: CancellationException) { throw e }
+        catch (_: LyricsCacheMiss) { answered++; null }
         catch (_: Exception) { errors++; null }
         /** Runs [block] unless word timing is already found; true when it ran out of time. */
         suspend fun provider(block: suspend () -> Unit): Boolean {
@@ -124,7 +125,9 @@ internal class LyricsRepository(private val directory: File,
         val params = mapOf("s" to title, "a" to artist, "al" to track.album,
             "d" to ((track.durationMs + 500)/1000).toString())
         val wordSources: List<suspend () -> Unit> = listOf({
-            val row = request("https://api.betterlyrics.org/getLyrics",params) as? JsonObject
+            // A miss is asked once more the way the Better Lyrics extension fills its cache (Q18-065).
+            val row = (request("https://api.betterlyrics.org/getLyrics",params)
+                ?: betterLyricsLooserQuery(params)?.let { request("https://api.betterlyrics.org/getLyrics",it) }) as? JsonObject
             val score = row?.get("score")?.jsonPrimitive?.doubleOrNull
             offer(row?.get("ttml")?.jsonPrimitive?.contentOrNull?.takeIf { score == null || score >= .8 }
                 ?.let { parseTtml(it,track.durationMs) })
@@ -268,6 +271,7 @@ internal class LyricsRepository(private val directory: File,
                     }
                 })
             }
+            if (result.first == 401 && url.host == "api.betterlyrics.org") throw LyricsCacheMiss()
             if (result.first >= 500 || result.first == 429 || result.first == 401 || result.first == 403) throw IOException("Lyrics source temporarily unavailable")
             result.second?.let { json.parseToJsonElement(it) }
         }
@@ -342,6 +346,19 @@ internal fun decodeLyricsDocument(raw: JsonObject): LyricsDocument = LyricsDocum
     },raw["instrumental"]?.jsonPrimitive?.booleanOrNull ?: false)
 
 internal data class LyricsLoadState(val document: LyricsDocument? = null,val loading: Boolean = true,val failed: Boolean = false,val generation: Long = 0)
+
+/** Better Lyrics answers lookups without a key from its cache only; a song not in it answers 401 "API key required". */
+internal class LyricsCacheMiss : IOException("Not in the lyrics cache")
+
+/**
+ * The extension that fills Better Lyrics' cache names every linked artist, joined by ", ", and often no album; a
+ * stricter key misses (Q18-065). Null when the looser query would be the same one.
+ */
+internal fun betterLyricsLooserQuery(params: Map<String,String>): Map<String,String>? {
+    val artist = params["a"].orEmpty().replace(Regex("\\s*,?\\s*&\\s*"),", ")
+    val looser = (params - "al") + ("a" to artist)
+    return looser.takeIf { it != params.filterValues(String::isNotBlank) }
+}
 
 /** "Couldn't load lyrics" only when no source answered; otherwise the song simply has none. */
 internal fun lyricsUnreachable(errors: Int, answered: Int): Boolean = errors > 0 && answered == 0
