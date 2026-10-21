@@ -2699,6 +2699,32 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   audio-file access and Riff Debug's microphone access granted for the test and taken back; volume back to 0; both
   apps paused. The click track stays in Riff Preview's queue history. Evidence: artifacts/quality/q19/g1/phone.
 
+### Overnight phone checks (21 October 2026, about 05:00 to 06:05)
+- At the owner's word ("start this plan, dont worry if it goes over the time limit"), phone left untouched for the night.
+  Not touched: Riff Preview and its data, the app labelled "Riff", com.musicglass.personal rc20 (last update 7 Oct),
+  accounts, anything sent to YouTube, B8, B9, G2 signing (Codex owns rc5).
+- B1 device lane, tier R offline (eed8757): device, pairing, install PASS (Riff Debug and its test APK updated in place,
+  data kept); instrumentation FAIL as a lane: 17 PASS, 45 skipped by their own guard ("Install holds a non-fixture
+  account") because Riff Debug is signed in to the owner's account. Running all of them needs Riff Debug's data cleared
+  or signed out, which needs the owner's approval. Evidence: artifacts/quality/q19/night21/b1.
+- B6 benchmark lane: BLOCKED again (Q18-023, runner silent for 15 minutes). By hand on Riff Benchmark rc5 (fixture
+  build, airplane mode on), 15 cold starts each: verify fully drawn median 1633 ms, speed-profile 1558 ms (rc2:
+  1606 and 1521). Home scroll, 5 loops of 3 flings each way, gfxinfo: frosted glass on at 20% (as found) 3.23% and
+  3.01% janky (p95 26 and 24 ms, p99 30 and 27 ms, 8 and 2 missed vsync); off 1.82% (p95 17, p99 20 ms, 0 missed).
+  The default look is just over the 3% budget; owner's decision. Frosted glass was set back on at 20%.
+  Evidence: artifacts/quality/q19/night21/b6.
+- Q18-061, Q18-062, Q18-063 fixed (4de1fb6, merged fast-forward; unit suite 1130 of 1130), rows updated (dc1ee88).
+  Not yet seen on the phone: needs a build after rc5.
+- Riff Debug rc5-debug on Wi-Fi, media volume 0 throughout. Q18-059: 10 cold starts, tap to playing median 3.18 s (tap
+  4 s after opening) and 3.25 s (12 s); the stream lookup itself is 2.3 to 3.0 s even when the prewarm finished long
+  before. Q18-051: 5 cold starts in airplane mode, no crash or ANR; offline Play fails into a wait for the network.
+  Q18-064 logged: when the network returned, the one retry failed while DNS was still down and recovery stopped
+  (1 of 2 tries). Q18-057, streamed song: 10 seeks, every one buffered 0.6 to 0.8 s (median 0.68 s), back seeks too.
+  Evidence: artifacts/quality/q19/night21/debug.
+- Cleaned (B10): airplane mode off (as found), auto-rotate 1 and stay-awake 15 (as found), volume 0, test apps
+  stopped, the empty Documents/Riff Backup (debug) made by tonight's install removed; Riff Backup (preview) is older
+  and kept. The two test packages (macrobenchmark, debug.test) were installed on 20 Oct and stay.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
