@@ -2737,6 +2737,17 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
 - The API 36 emulator (riff_q18_api36, network on) crashed twice with exit 139 while the debug app played, and YouTube
   Music answered "not available in your country" there, so nothing was measured on it.
 
+### Fix round, second part (21 October 2026; the owner: "first fix every single bug, then check all of them on phone")
+- The owner: Q18-056 still happens on the speaker; downloads for Q18-023 approved.
+- 2ec6609: Q18-056 (a line lights in 32 ms instead of fading over 180 ms; lyrics drawn two refreshes ahead while
+  playing), Q18-023 (benchmarks launch the app from the instrumentation's context: `am start -W` never returned on the
+  phone, and no newer androidx.benchmark exists than the two that stop).
+- 9dc2995: Q18-059, the session gets its visitor before the stream prewarm (confirmed from innertubex 0.7.2's code).
+- af392bc merges Q18-024: AGP 9.4.1 and Gradle 9.8.2 (Gradle fetched with curl into the wrapper cache, checksum
+  matched; the wrapper's own Java download could not connect), new checksums in verification-metadata.xml; 0 R8
+  metadata warnings. pr lane PASS_LOCAL on 6d81f99's branch and on the merge.
+- Next: every fixed bug checked on the phone, on a debug build from af392bc or later.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
