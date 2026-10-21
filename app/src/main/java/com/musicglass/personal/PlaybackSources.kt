@@ -11,8 +11,13 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import io.ktor.client.HttpClient
+import androidx.media3.common.Player
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -37,6 +42,34 @@ internal class PlaybackSources(private val context: Context, private val scope: 
     private val streamHttp by lazy { OkHttpStreamDataSource.client() }
     private fun lookupNumber(entry: String): Int = synchronized(lookups) {
         lookups.getOrPut(entry) { ++lookupCount }.also { if (lookups.size > 64) lookups.remove(lookups.keys.first()) }
+    }
+
+    /** The entry last looked up ahead, and that lookup. One try per entry: a failure is not repeated on every event. Main thread. */
+    private var aheadEntry: String? = null
+    private var ahead: Job? = null
+
+    /**
+     * Q18-059: once the selected song plays, the next entry's stream is looked up and kept in the provider's cache,
+     * so a skip to it starts without waiting for the lookup (on the phone about 1.5 s goes to the cipher alone).
+     * The player itself looks the next entry up only near the end of the song. Called after every player event; main thread.
+     */
+    fun lookUpNext(player: Player) {
+        val next = if (player.hasNextMediaItem()) player.getMediaItemAt(player.nextMediaItemIndex) else null
+        if (next == null || !lookAheadWanted(player.isPlaying, player.currentMediaItem?.mediaId, next.localConfiguration?.uri?.scheme,
+                next.mediaId, next.mediaMetadata.extras?.getBoolean("live") == true)) return
+        val entry = next.entryId().ifEmpty { next.mediaId }
+        if (entry == aheadEntry) return
+        aheadEntry = entry; ahead?.cancel()
+        val videoId = next.mediaId.removePrefix("yt:")
+        ahead = scope.launch {
+            // The song that just started has its own lookup and first audio to finish first.
+            delay(LOOK_AHEAD_DELAY_MS)
+            if (withContext(Dispatchers.IO) { offline.audio(offline.currentScope, videoId) } != null) return@launch
+            val start = android.os.SystemClock.elapsedRealtime()
+            provider.resolve(videoId).fold(
+                onSuccess = { events.append("stream_ahead_ready ms=${android.os.SystemClock.elapsedRealtime() - start}") },
+                onFailure = { events.append("stream_ahead_failed type=${it::class.simpleName}") })
+        }
     }
 
     override fun createMediaSource(item: MediaItem): MediaSource {
@@ -98,3 +131,14 @@ internal class PlaybackSources(private val context: Context, private val scope: 
         return DefaultMediaSourceFactory(dataSource).createMediaSource(item)
     }
 }
+
+/**
+ * Q18-059: the next entry is looked up ahead only while a song plays, and only when it would otherwise be looked up
+ * on arrival: an entry from the catalog (a download or a resolved stream needs no lookup), not live (its address
+ * does not keep), and not the song already playing.
+ */
+internal fun lookAheadWanted(playing: Boolean, currentMediaId: String?, nextScheme: String?, nextMediaId: String, nextLive: Boolean): Boolean =
+    playing && nextScheme == "catalog" && !nextLive && nextMediaId.startsWith("yt:") && nextMediaId != currentMediaId
+
+/** How long after a song starts playing the next one is looked up. */
+internal const val LOOK_AHEAD_DELAY_MS = 3_000L

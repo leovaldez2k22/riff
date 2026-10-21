@@ -144,7 +144,7 @@ class MusicPlaybackService : MediaSessionService() {
             repeatMode = Player.REPEAT_MODE_OFF
             addListener(object : Player.Listener {
                 override fun onAudioSessionIdChanged(audioSessionId: Int) = audio.audioSessionChanged(audioSessionId)
-                override fun onEvents(player: Player,events: Player.Events) {audio.update();persistence.save(player);publishState();RiffWidgets.publish(this@MusicPlaybackService,player)}
+                override fun onEvents(player: Player,events: Player.Events) {audio.update();persistence.save(player);publishState();RiffWidgets.publish(this@MusicPlaybackService,player);sources.lookUpNext(player)}
                 override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
                     if(reason==Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) order.edited()
                 }
