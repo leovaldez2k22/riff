@@ -218,6 +218,9 @@ budget.
    from the first frame and accept the risk the comment describes; or a product-level waiver that defines the
    budget from the first frame. This package changed nothing here and awards no credit for it. With system
    animations off or Reduce Motion on, the logo is skipped and the question does not arise.
+   Measured on the owner's phone (I2217, Android 16, animations at 1x) on 21 October 2026, the first benchmark
+   run there after Q18-023: first frame p95 548 ms, usable shell p95 1,838 ms with the Baseline Profile and
+   1,950 ms without, over 20 cold launches each. The gap is the logo, as the arithmetic said.
 
 3. Recorded, not a budget: 24 preference reads on the main thread during a cold start (list above).
 
