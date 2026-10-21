@@ -81,6 +81,7 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
         cipherService = unusedInProcessCipher,
         innerTube = innerTube,
         tokenProvider = streamTokens,
+        logger = { event -> streamStageEvent(event)?.let(playbackEvents::append) },
     )
     // When the streams were last made ready (at start and by warmUp); declared before init, which sets it.
     private val warmLock=Any()
@@ -233,3 +234,14 @@ internal fun streamRewarmDue(lastMs: Long?, nowMs: Long, intervalMs: Long = STRE
 internal fun keepSolverCause(failure:Throwable,solverFailed:Boolean):Throwable =
     if(!solverFailed || generateSequence(failure) {it.cause}.take(16).any {it is SolverUnavailableException}) failure
     else SolverUnavailableException("Online playback resolver unavailable",failure)
+
+/** The extractor's own steps that carry a duration, so a phone run shows where a slow start goes (Q18-059). */
+private val STREAM_STAGES = setOf("prewarm completed", "embedded config ready", "watch page config ready",
+    "player responses received", "cipher processing completed", "cipher fallback completed")
+
+/** Only the step's fixed name and its milliseconds: never a client, profile, track or address. */
+internal fun streamStageEvent(event: com.metrolist.innertubex.InnerTubeLogEvent): String? {
+    if (event.message !in STREAM_STAGES) return null
+    val ms = event.details["elapsedMs"]?.toLongOrNull() ?: return null
+    return "stream_stage ${event.message.replace(' ', '_')} ms=$ms"
+}

@@ -7,7 +7,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
@@ -34,6 +33,8 @@ internal class PlaybackSources(private val context: Context, private val scope: 
     /** The last entries looked up, numbered in the order first seen, so the log can tell a repeat from a new one. */
     private val lookups = LinkedHashMap<String, Int>()
     private var lookupCount = 0
+    /** One pool for every stream request, so a seek or the next song reuses the open connection (Q18-057). */
+    private val streamHttp by lazy { OkHttpStreamDataSource.client() }
     private fun lookupNumber(entry: String): Int = synchronized(lookups) {
         lookups.getOrPut(entry) { ++lookupCount }.also { if (lookups.size > 64) lookups.remove(lookups.keys.first()) }
     }
@@ -84,7 +85,7 @@ internal class PlaybackSources(private val context: Context, private val scope: 
         }
         val headers = queue.headersFor(item.localConfiguration?.uri.toString())
         val source = DataSource.Factory {
-            ProviderMediaDataSource(DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers).createDataSource(),
+            ProviderMediaDataSource(OkHttpStreamDataSource(streamHttp, headers),
                 sabrHttp, findBootstrap = { key -> queue.sabrSelection(key) }, onSabrResponse = { response ->
                     if (response.requestNumber == 0 || response.failureCategory != null)
                         events.append("sabr_response http=${response.httpStatus ?: 0} failure=${response.failureCategory ?: "none"} init=${response.initializationReceived} media=${response.selectedMediaBytes}")

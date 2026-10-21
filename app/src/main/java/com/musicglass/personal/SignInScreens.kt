@@ -61,7 +61,7 @@ import kotlinx.coroutines.delay
         Column(Modifier.fillMaxWidth().signInGlass().padding(RiffSignIn.cardPad), verticalArrangement = Arrangement.spacedBy(RiffSignIn.cardGap)) {
             val profile = provider.accountProfile
             SignInTitle(profile?.name?.takeIf { it.isNotBlank() } ?: string(R.string.your_youtube_music_account))
-            profile?.email?.let { Text(shortEmail(it), color = Muted, fontSize = RiffSignIn.note, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+            (profile?.email ?: profile?.handle)?.let { Text(shortEmail(it), color = Muted, fontSize = RiffSignIn.note, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
             Text(status ?: when (provider.sessionState) {
                 SessionState.Valid -> string(R.string.connected_to_youtube_music)
                 SessionState.Expired -> string(R.string.your_session_has_expired_reconnect_to_contin)

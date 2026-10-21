@@ -505,4 +505,30 @@ class PlaybackRecoveryTest {
         assertTrue(host.attempts.isEmpty()); assertEquals(RecoverySignal(), host.signal)
         assertFalse(recovery.retry())
     }
+
+    /** Q18-064: on the phone the first lookup after the connection came back failed for want of DNS, and recovery stopped. */
+    @Test fun aStreamThatLooksUnplayableJustAfterReconnectingIsTriedOnceMore() = runTest(UnconfinedTestDispatcher()) {
+        val host = Host().apply { isOnline = false }; val recovery = coordinator(host)
+        val unplayable = fault(RecoveryClass.UnsupportedMedia)
+        recovery.failed("e", offline)
+        host.isOnline = true; recovery.connectivityChanged(); pass(500)
+        assertEquals(1, host.attempts.size)
+        recovery.failed("e", unplayable)
+        assertTrue(recovery.active); assertTrue(host.events.contains("recovery_forgive class=unsupported"))
+        pass(1_000); assertEquals(2, host.attempts.size)
+        // Only once: unplayable again is believed.
+        recovery.failed("e", unplayable)
+        assertEquals(RecoverySignal(failure = PlaybackFailureKind.CouldNotPlay), host.signal); assertEquals(2, host.attempts.size)
+    }
+
+    @Test fun aStreamThatLooksUnplayableWithoutAnOutageStopsAtOnce() = runTest(UnconfinedTestDispatcher()) {
+        val host = Host(); val recovery = coordinator(host)
+        recovery.failed("e", fault(RecoveryClass.UnsupportedMedia))
+        assertEquals(RecoverySignal(failure = PlaybackFailureKind.CouldNotPlay), host.signal); assertTrue(host.attempts.isEmpty())
+        // A local file that cannot be decoded is never forgiven, outage or not.
+        val device = Host().apply { isOnline = false }; val other = coordinator(device)
+        other.failed("d", fault(RecoveryClass.Offline)); device.isOnline = true; other.connectivityChanged(); pass(500)
+        other.failed("d", fault(RecoveryClass.UnsupportedMedia, FaultSource.Device))
+        assertEquals(RecoverySignal(failure = PlaybackFailureKind.CouldNotPlay), device.signal)
+    }
 }

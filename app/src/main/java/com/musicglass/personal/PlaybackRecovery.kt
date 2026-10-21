@@ -111,6 +111,20 @@ internal class RecoveryEpisode(val entry: String) {
     private var attestationRefreshed = false
     private var streamRefreshed = false
     private val excluded = linkedSetOf<String>()
+    /** The episode waited for a connection; the first lookup after it may still meet a network that is not ready (Q18-064). */
+    var waitedOnline = false
+    private var forgiven = false
+
+    /**
+     * True once per episode for a stream that looked unplayable right after the connection came back: the lookup
+     * then often fails for want of DNS, and YouTube's extractor reports that as "no playable stream".
+     */
+    fun forgiveUnplayable(fault: PlaybackFault): Boolean {
+        if (!waitedOnline || forgiven || fault.kind != RecoveryClass.UnsupportedMedia) return false
+        if (fault.source != FaultSource.Provider && fault.source != FaultSource.Live) return false
+        forgiven = true
+        return true
+    }
 
     fun spent(ms: Long) { activeMs += ms.coerceAtLeast(0) }
     /** An attempt that was not made after all, because the connection went away first. */
@@ -296,12 +310,17 @@ internal class RecoveryCoordinator(private val scope: CoroutineScope, private va
             var forced = manual
             while (true) {
                 val remote = fault.source == FaultSource.Provider || fault.source == FaultSource.Live
+                if (!forced && current.forgiveUnplayable(fault)) {
+                    host.event("recovery_forgive class=${fault.kind.wire}")
+                    fault = fault.copy(kind = RecoveryClass.Timeout)
+                }
                 val terminal = fault.kind == RecoveryClass.SessionExpired || fault.kind == RecoveryClass.UnsupportedMedia ||
                     fault.kind == RecoveryClass.LocalFileMissing
                 if (!forced && terminal) { stop(current, fault, current.next(fault, jitter) as RecoveryStep.Stop); return@launch }
                 if (!host.wantsPlayback()) { hold(); return@launch }
                 if (remote && !host.online()) {
                     phase = Phase.Waiting
+                    current.waitedOnline = true
                     host.event("recovery_wait_online class=${fault.kind.wire}")
                     host.publish(RecoverySignal(recovery = RecoveryReason.Network))
                     awaitStableOnline()
@@ -321,6 +340,7 @@ internal class RecoveryCoordinator(private val scope: CoroutineScope, private va
                 if (remote && !host.online()) {
                     // The connection went away during the delay: the attempt was not made.
                     current.spent(clock() - started); current.refund()
+                    current.waitedOnline = true
                     fault = fault.copy(kind = RecoveryClass.Offline); continue
                 }
                 val outcome = withTimeoutOrNull(current.remainingMs().coerceAtLeast(1)) { host.attempt(current.entry, step) }

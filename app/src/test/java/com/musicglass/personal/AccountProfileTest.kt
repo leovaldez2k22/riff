@@ -65,4 +65,18 @@ class AccountProfileTest {
         assertEquals("", playerArtistLabel("3:48 · YouTube Music"))
         assertEquals("Artist", playerArtistLabel("YouTube Music · Artist"))
     }
+
+    /** Q18-040: the owner's account menu carried no address; the handle is shown instead and nothing is made up. */
+    @Test fun anAccountWithoutAnAddressKeepsItsHandleAndNoEmail() {
+        val profile = parseAccountProfile(Json.parseToJsonElement("""{"activeAccountHeaderRenderer":{
+            "accountName":{"runs":[{"text":"Alex River"}]},"channelHandle":{"runs":[{"text":"@alexriver"}]}}}"""))!!
+        assertNull(profile.email); assertEquals("@alexriver", profile.handle)
+        assertEquals("@alexriver", shortEmail(profile.email ?: profile.handle))
+        val both = parseAccountProfile(Json.parseToJsonElement("""{"activeAccountHeaderRenderer":{
+            "accountName":{"simpleText":"Alex River"},"email":{"simpleText":"alex.river@example.com"},"channelHandle":{"simpleText":"@alexriver"}}}"""))!!
+        assertEquals("alex.river@example.com", both.email)
+        // Something that is not a handle is left out.
+        assertNull(parseAccountProfile(Json.parseToJsonElement("""{"activeAccountHeaderRenderer":{
+            "accountName":{"simpleText":"Alex River"},"channelHandle":{"simpleText":"alex river"}}}"""))!!.handle)
+    }
 }

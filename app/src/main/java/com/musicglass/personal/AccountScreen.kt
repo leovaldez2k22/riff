@@ -221,7 +221,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                 stepLibrary = true
                 val profile = verified.profile
                 connectedName = profile?.name.orEmpty()
-                connectedEmail = profile?.email
+                connectedEmail = profile?.email ?: profile?.handle
                 (profile?.email ?: provider.accountScopeKey() ?: profile?.name?.takeIf { it.isNotBlank() })?.let {
                     accounts.used(it, profile?.name.orEmpty(), profile?.email, System.currentTimeMillis())
                 }
