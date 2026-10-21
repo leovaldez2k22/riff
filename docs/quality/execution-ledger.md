@@ -2719,11 +2719,23 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   4 s after opening) and 3.25 s (12 s); the stream lookup itself is 2.3 to 3.0 s even when the prewarm finished long
   before. Q18-051: 5 cold starts in airplane mode, no crash or ANR; offline Play fails into a wait for the network.
   Q18-064 logged: when the network returned, the one retry failed while DNS was still down and recovery stopped
-  (1 of 2 tries). Q18-057, streamed song: 10 seeks, every one buffered 0.6 to 0.8 s (median 0.68 s), back seeks too.
+  (1 of 2 tries). Q18-057, streamed song: 10 seeks, every one buffered 0.6 to 0.8 s (median 0.68 s); all landed outside the
+  audio already loaded (corrected below).
   Evidence: artifacts/quality/q19/night21/debug.
 - Cleaned (B10): airplane mode off (as found), auto-rotate 1 and stay-awake 15 (as found), volume 0, test apps
   stopped, the empty Documents/Riff Backup (debug) made by tonight's install removed; Riff Backup (preview) is older
   and kept. The two test packages (macrobenchmark, debug.test) were installed on 20 Oct and stay.
+
+### Fix round for the open bugs (21 October 2026, morning; the owner: "fix all the bugs")
+- 1c98051 (pr lane PASS_LOCAL, every check; unit suite 1140): Q18-064 (one more try for a stream that looks unplayable just after reconnecting), Q18-057 streams over
+  OkHttp so a seek reuses the HTTP/2 connection (the overnight "back seeks too" was wrong: every one of those seeks
+  landed outside the loaded audio, where Media3 drops what it holds), Q18-040 the channel handle where the account
+  menu gives no email, Q18-059 stream stage timings in Diagnostics. Each with its C10 test.
+- Not fixable without the owner or the phone: Q18-056 (Bluetooth question), Q18-023 and Q18-024 (a new androidx.benchmark
+  and an AGP that bundles R8 9.1.29 or newer: both are downloads the owner has to approve), the phone halves of
+  Q18-005, Q18-015, Q18-057, Q18-059, Q18-040 (B5 capture). Q18-061 to Q18-064 need a build after rc5 on the phone.
+- The API 36 emulator (riff_q18_api36, network on) crashed twice with exit 139 while the debug app played, and YouTube
+  Music answered "not available in your country" there, so nothing was measured on it.
 
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
