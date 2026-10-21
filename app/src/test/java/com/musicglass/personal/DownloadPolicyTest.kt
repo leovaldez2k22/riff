@@ -65,18 +65,26 @@ class DownloadPolicyTest {
         assertEquals(NetworkStoragePolicy.Verdict.OverBudget,NetworkStoragePolicy.admit(4*gb,10*mb,4*gb,10*gb,32*gb))
         assertEquals(NetworkStoragePolicy.Verdict.OverBudget,NetworkStoragePolicy.admit(4*gb-10*mb-1,10*mb,4*gb,10*gb,32*gb))
         assertEquals(v,NetworkStoragePolicy.admit(4*gb-10*mb-NetworkStoragePolicy.ASSET_ALLOWANCE,10*mb,4*gb,10*gb,32*gb))
-        // Device: the source and the rebuilt copy exist together, above the reserve (a tenth of 32 GB here).
-        val reserve=NetworkStoragePolicy.deviceReserve(32*gb);assertEquals(32*gb/10,reserve)
+        // Device: the source and the rebuilt copy exist together, above the reserve (2 GB of 32 GB here).
+        val reserve=NetworkStoragePolicy.deviceReserve(32*gb);assertEquals(2*gb,reserve)
         val needed=2*10*mb+NetworkStoragePolicy.ASSET_ALLOWANCE
         assertEquals(v,NetworkStoragePolicy.admit(0,10*mb,4*gb,reserve+needed,32*gb))
         assertEquals(NetworkStoragePolicy.Verdict.DeviceFull,NetworkStoragePolicy.admit(0,10*mb,4*gb,reserve+needed-1,32*gb))
         // One copy would have fitted; before Q09 that was enough.
         assertEquals(NetworkStoragePolicy.Verdict.DeviceFull,NetworkStoragePolicy.admit(0,10*mb,4*gb,reserve+10*mb,32*gb))
         assertEquals("A small device keeps 1 GB",gb,NetworkStoragePolicy.deviceReserve(4*gb))
+        assertEquals("A tenth in between",3*gb/2,NetworkStoragePolicy.deviceReserve(15*gb))
+    }
+    @Test fun aLargePhoneWithTenGigabytesFreeStillDownloads() {
+        // Q18-066: the owner's phone, 101 GB with 10 GB free, refused every song while a tenth was kept back.
+        val total=101*gb
+        assertEquals(2*gb,NetworkStoragePolicy.deviceReserve(total))
+        assertEquals(NetworkStoragePolicy.Verdict.Fits,NetworkStoragePolicy.admit(0,10*mb,4*gb,10*gb,total))
+        assertEquals(NetworkStoragePolicy.Verdict.DeviceFull,NetworkStoragePolicy.admit(0,10*mb,4*gb,2*gb,total))
     }
     @Test fun unlimitedRemovesTheBudgetNotTheDeviceReserve() {
         assertEquals(NetworkStoragePolicy.Verdict.Fits,NetworkStoragePolicy.admit(256*gb,gb/4,Long.MAX_VALUE,100*gb,512*gb))
-        assertEquals(NetworkStoragePolicy.Verdict.DeviceFull,NetworkStoragePolicy.admit(256*gb,gb/4,Long.MAX_VALUE,51*gb,512*gb))
+        assertEquals(NetworkStoragePolicy.Verdict.DeviceFull,NetworkStoragePolicy.admit(256*gb,gb/4,Long.MAX_VALUE,2*gb,512*gb))
         assertEquals(NetworkStoragePolicy.Verdict.DeviceFull,NetworkStoragePolicy.admit(0,10*mb,Long.MAX_VALUE,gb,32*gb))
         assertEquals("No overflow at the top of the range",NetworkStoragePolicy.Verdict.OverBudget,NetworkStoragePolicy.admit(Long.MAX_VALUE-10,100,Long.MAX_VALUE,1000*gb,2000*gb))
     }

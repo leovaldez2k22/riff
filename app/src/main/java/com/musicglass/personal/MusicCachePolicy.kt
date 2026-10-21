@@ -14,7 +14,7 @@ internal fun smartCandidates(rows:List<SmartCandidate>,now:Long):List<SmartCandi
     100.0/(1+days)+minOf(it.plays,20)*2+minOf(1.0,it.listenedMs.toDouble()/it.durationMs)*10+if(it.favorite) 10 else 0
 }
 internal fun downloadFits(currentBytes:Long,expectedBytes:Long,budgetBytes:Long,availableBytes:Long,totalBytes:Long):Boolean {
-    val reserve=maxOf(1_073_741_824L,totalBytes/10)
+    val reserve=NetworkStoragePolicy.deviceReserve(totalBytes)
     return currentBytes>=0 && expectedBytes>0 && expectedBytes<=budgetBytes && currentBytes<=budgetBytes-expectedBytes &&
         expectedBytes<=availableBytes && availableBytes-expectedBytes>=reserve
 }

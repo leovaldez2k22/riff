@@ -438,7 +438,7 @@
     <string name="normalize_volume">Normalize volume</string>
     <string name="not_available">Not available</string>
     <string name="not_downloaded">Not downloaded</string>
-    <string name="not_enough_free_space_free_space_or">Not enough free space. Free space or raise the download budget, then restart.</string>
+    <string name="not_enough_free_space_free_space_or">Not enough free space on this phone. Free up some space, then restart.</string>
     <string name="not_every_download_could_be_deleted_some">Not every download could be deleted. Some may remain; try again.</string>
     <string name="not_everything_could_be_removed_still_on">Not everything could be removed. Still on this phone: %1$s. The rest is gone.</string>
     <string name="not_interested">Not interested</string>

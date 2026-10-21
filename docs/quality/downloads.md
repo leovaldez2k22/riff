@@ -68,7 +68,7 @@ Checked before a transfer, about every megabyte while the source arrives, and ag
 
 - The budget set in Settings counts what the song will occupy when done: its audio plus 9 MB for artwork and lyrics.
 - The device must also hold what exists only while the song is made: the source and the rebuilt copy side by side. That is twice the song's size plus 9 MB.
-- 1 GB or a tenth of the device's storage, whichever is more, is always left free. **Unlimited** removes the budget, not this reserve.
+- A tenth of the device's storage, at least 1 GB and at most 2 GB, is always left free (capped since Q18-066: a tenth of a 128 GB phone held back 10 GB). **Unlimited** removes the budget, not this reserve.
 - One song is never larger than 512 MB.
 
 Changed in Q09: before, one copy of the song had to fit; now two must while it is being made. A download that used to start on a nearly full phone and fail during the rebuild is now refused at the start with **Not enough free space**.

@@ -11,8 +11,11 @@ internal object NetworkStoragePolicy {
     const val SONG_LIMIT = 512L * 1024 * 1024
     private const val GIB = 1_073_741_824L
 
-    /** Left free on the device whatever the budget says, "Unlimited" included: 1 GB or a tenth, whichever is more. */
-    fun deviceReserve(totalBytes: Long) = maxOf(GIB, totalBytes / 10)
+    /**
+     * Left free on the device whatever the budget says, "Unlimited" included: a tenth of the storage, at least 1 GB and
+     * at most 2 GB. Uncapped, a 128 GB phone kept 10 GB back and refused every download with 10 GB free (Q18-066).
+     */
+    fun deviceReserve(totalBytes: Long) = minOf(maxOf(GIB, totalBytes / 10), 2 * GIB)
 
     enum class Verdict { Fits, OverBudget, DeviceFull, Invalid }
 
