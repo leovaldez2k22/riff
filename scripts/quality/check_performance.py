@@ -34,7 +34,7 @@ ACTIONS = ("player_openMs", "queue_openMs", "queue_closeMs", "play_toggleMs", "s
 
 # (label, benchmark method, metric, protocol samples, budget for tier R, budget for tier L)
 BUDGETS = (
-    ("Cold start to usable shell, p95 ms", "coldStartWithBaselineProfile", "timeToFullDisplayMs", 20, 1200, 2000),
+    ("Cold start to usable shell, p95 ms", "coldStartWithBaselineProfile", "timeToFullDisplayMs", 20, 2000, 3000),
     *((f"Action {name[:-2]}, p95 ms", "playerAndQueueActions", name, 30, 150, 250) for name in ACTIONS),
     ("2,000 entry queue, p95 ms", "queueOfTwoThousand", "queue_prepareMs", 10, 2000, 4000),
     ("Local bundle first audio, p95 ms", "firstAudioLocalBundle", "first_audioMs", 20, 500, 800),

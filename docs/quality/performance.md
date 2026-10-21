@@ -98,7 +98,7 @@ a tier.
 
 | Budget | R | L | Protocol | Measured by |
 | --- | --- | --- | --- | --- |
-| Cold start to first usable shell, p95 | 1.2 s | 2.0 s | 20 cold launches, fixture feed | `StartupBenchmark.coldStartWithBaselineProfile`, `timeToFullDisplayMs` |
+| Cold start to first usable shell, p95 | 2.0 s | 3.0 s | 20 cold launches, fixture feed | `StartupBenchmark.coldStartWithBaselineProfile`, `timeToFullDisplayMs` |
 | Player or queue action to responsive visible state, p95 | 150 ms | 250 ms | 30 of each action | `ActionBenchmark.playerAndQueueActions`, six sections |
 | Missed-deadline frames at 60 Hz | 2% | 5% | 5 warmed loops | `FrameBenchmark` (`homeScroll`, `collectionScroll`, `playerAndQueue`), `missedDeadlinePercent` |
 | Missed-deadline frames at a high refresh rate | 3% | 3% | 5 warmed loops | the same, on a display running above 60 Hz |
@@ -209,8 +209,10 @@ budget.
    route's name decides the icon. `AudioRouteTypeTest` covers it. Lint's NewApi check did not report this
    call, so that check cannot be relied on to have found every such call.
 
-2. **Open, needs a product decision: the cold-start budget on Tier R cannot be met with the startup logo as it
-   is.** The logo runs for 1,150 ms and the app's first composition waits for the logo's first 740 ms
+2. **Settled by the owner, 21 October 2026: the cold-start budget is relaxed to 2.0 s on Tier R (3.0 s on Tier L)
+   and the startup logo stays** ("it is fast enough"). The budget table and `check_performance.py` carry the new
+   numbers; the 1,838 ms phone measurement below passes it. What led there: the cold-start budget on Tier R could
+   not be met with the startup logo as it was. The logo runs for 1,150 ms and the app's first composition waits for the logo's first 740 ms
    (deliberately: the comment says the first composition must not stall the logo). The shell is therefore
    usable no sooner than about 1.15 s after the first frame, and the budget is 1.2 s from process start. This
    is arithmetic from `StartupLogo.kt`, not a measurement, but no phone creates a process and draws a first

@@ -72,10 +72,10 @@ class SummaryTest(Files):
         self.assertIn("Cold start without the profile", [row[0] for row in information])
 
     def test_a_slow_start_fails_tier_r_and_passes_tier_l(self):
-        rows, _, _ = self.summary(everything(start=1700.0))
+        rows, _, _ = self.summary(everything(start=2300.0))
         self.assertEqual("FAIL", self.verdicts(rows)["Cold start to usable shell, p95 ms"])
         self.assertEqual(2, perf.status(rows))
-        rows, _, _ = self.summary(everything(start=1700.0), tier="L")
+        rows, _, _ = self.summary(everything(start=2300.0), tier="L")
         self.assertEqual("PASS", self.verdicts(rows)["Cold start to usable shell, p95 ms"])
 
     def test_an_emulator_is_never_a_pass_or_a_fail(self):
