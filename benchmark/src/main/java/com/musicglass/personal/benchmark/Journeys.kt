@@ -27,7 +27,7 @@ internal const val PLAYLIST_SONGS = 4
 internal fun cleanSlate() {
     val device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
     check("Success" in device.executeShellCommand("pm clear $TARGET")) { "Could not clear $TARGET" }
-    device.executeShellCommand("am start -W -n $TARGET/com.musicglass.personal.MainActivity")
+    openTarget(device)
     check(device.wait(Until.hasObject(By.text("Speed dial")), 30_000)) { "The first start did not reach Home" }
     device.executeShellCommand("am force-stop $TARGET")
 }
@@ -63,9 +63,28 @@ internal fun MacrobenchmarkScope.home() {
 
 internal fun MacrobenchmarkScope.coldHome() {
     killProcess()
-    startActivityAndWait()
+    launch()
     home()
 }
+
+/**
+ * Q18-023: `am start -W` through the shell never returned on the owner's phone (its output pipe stayed open after
+ * the launch), and the library's startActivityAndWait runs exactly that, so every benchmark stopped after its first
+ * launch. The app is started from the instrumentation's own context instead, and its first window waited for.
+ * [clearTask] false brings a running app back to the front as the launcher would.
+ */
+internal fun openTarget(device: androidx.test.uiautomator.UiDevice, clearTask: Boolean = true) {
+    val context = InstrumentationRegistry.getInstrumentation().context
+    val intent = android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+        .setClassName(TARGET, "com.musicglass.personal.MainActivity")
+        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+            if (clearTask) android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK else android.content.Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+    context.startActivity(intent)
+    check(device.wait(Until.hasObject(By.pkg(TARGET).depth(0)), 30_000)) { "$TARGET did not open" }
+}
+
+/** startActivityAndWait without the shell (Q18-023). */
+internal fun MacrobenchmarkScope.launch() = openTarget(device)
 
 /** Library, then the invented playlist the account owns, with its Play button ready. */
 internal fun MacrobenchmarkScope.openPlaylist() {

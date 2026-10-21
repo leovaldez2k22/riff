@@ -48,6 +48,9 @@ import kotlin.math.sin
 internal const val HELD_RISE_MS = 220L
 internal const val HELD_RELEASE_MS = 380L
 
+/** How long a line takes to turn white when it starts: one or two frames, so it is lit when it is sung. */
+internal const val LYRIC_LIGHT_MS = 32
+
 private fun smooth(t: Float) = t.coerceIn(0f, 1f).let { it * it * (3 - 2 * it) }
 
 /** How far a held word is grown and raised at [nowMs]: 0 before it, 1 while it is sung, back to 0 after. */
@@ -208,8 +211,9 @@ private fun KaraokeText(text: String, parts: List<LyricPart>, active: Boolean, p
         }
     }
     val letters = remember(layout, highlights) { layout?.let { if (highlights.isEmpty()) null else lyricLetters(text, it, highlights) } }
+    // Q18-056: a line lights at once when it starts (a slow fade read as late); it dims at the usual pace.
     val baseColor by animateColorAsState(if (active) White.copy(alpha = if (parts.isEmpty()) 1f else .38f)
-        else White.copy(alpha = .40f), GlassMotion.timed(GlassMotion.selectionMs, motion), label = "lyric focus")
+        else White.copy(alpha = .40f), GlassMotion.timed(if (active) LYRIC_LIGHT_MS else GlassMotion.selectionMs, motion), label = "lyric focus")
     val scale = animateFloatAsState(if (active && !motion.reduced) 1.025f else 1f,
         GlassMotion.timed(GlassMotion.selectionMs, motion), label = "lyric emphasis")
     Text(text, color = baseColor, style = style, onTextLayout = { layout = it },

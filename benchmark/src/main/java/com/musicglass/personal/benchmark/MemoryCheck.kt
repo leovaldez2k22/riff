@@ -58,7 +58,7 @@ class MemoryCheck {
         pressHome()
         SystemClock.sleep(10_000)
         val report = device.executeShellCommand("dumpsys meminfo $TARGET")
-        device.executeShellCommand("am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n $TARGET/com.musicglass.personal.MainActivity")
+        openTarget(device, clearTask = false)
         shown("playlist_detail")
         val total = Regex("TOTAL PSS:\\s+(\\d+)").find(report) ?: Regex("TOTAL\\s+(\\d+)").find(report)
         val parts = listOf("Java Heap", "Native Heap", "Graphics", "Code").mapNotNull { name ->

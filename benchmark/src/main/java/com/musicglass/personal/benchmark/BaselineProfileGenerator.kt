@@ -20,7 +20,7 @@ class BaselineProfileGenerator {
     @Test fun shellPlayerQueueAndCollection() = rule.collect(packageName = TARGET) {
         plainFeed(); feed("tracks", "200")
         pressHome()
-        startActivityAndWait()
+        launch()
         home()
         scrollScreen()
         openPlaylist()

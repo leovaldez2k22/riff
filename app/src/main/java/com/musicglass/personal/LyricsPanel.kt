@@ -37,6 +37,12 @@ import kotlinx.coroutines.isActive
 
 internal const val DEFAULT_LYRICS_OFFSET_MS = 200L
 
+/**
+ * Q18-056: a frame drawn from the position read now reaches the screen about two refreshes later (the frame being
+ * built, then the compositor), so the lyrics are drawn for the moment they are seen, not the moment they were read.
+ */
+internal fun lyricDisplayLeadMs(refreshRate: Float): Long = (2 * 1000f / refreshRate.coerceIn(30f, 144f)).toLong()
+
 @Composable
 internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvider,
     repository: LyricsRepository, onBack: () -> Unit) {
@@ -79,6 +85,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
     val owner = LocalLifecycleOwner.current
     var position by remember(state.mediaId) { mutableLongStateOf(playback.currentPositionMs()) }
     val timed = document?.timed == true
+    val shownOffsetMs = offsetMs + if (state.playing) lyricDisplayLeadMs(LocalUiRefreshRate.current) else 0L
     LaunchedEffect(playback,state.mediaId,state.playing,timed,owner) {
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             if (state.playing && timed) {
@@ -91,12 +98,12 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
     val songLyrics = document
     // Every line being sung now: two voices can overlap (Q16A). The list only changes when a line starts or ends.
     val activeLines by remember(songLyrics) { derivedStateOf {
-        if (songLyrics?.timed == true) activeLyricLines(songLyrics.lines,position+offsetMs) else emptyList()
+        if (songLyrics?.timed == true) activeLyricLines(songLyrics.lines,position+shownOffsetMs) else emptyList()
     } }
     // Follow the earliest line still sung, so overlapping lines stay in view. Silence has no active line, but
     // reopening must still center the latest sung line.
     val scrollIndex by remember(songLyrics) { derivedStateOf {
-        if (songLyrics?.timed == true) activeLines.firstOrNull() ?: startedLyricLine(songLyrics.lines,position+offsetMs) else -1
+        if (songLyrics?.timed == true) activeLines.firstOrNull() ?: startedLyricLine(songLyrics.lines,position+shownOffsetMs) else -1
     } }
     LaunchedEffect(scrollIndex,follow,songLyrics) {
         if (follow && scrollIndex >= 0) {
@@ -163,7 +170,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                             itemsIndexed(songLyrics.lines,key = { index,line -> "${line.startMs}:$index" }) { index,line ->
                                 val active by remember(songLyrics,index) { derivedStateOf { index in activeLines } }
                                 val backingActive by remember(songLyrics,index) { derivedStateOf {
-                                    line.backing?.let { (position+offsetMs) in it.startMs until it.endMs } == true } }
+                                    line.backing?.let { (position+shownOffsetMs) in it.startMs until it.endMs } == true } }
                                 val chosen = shareRange?.contains(index) == true
                                 val shareable = lyricShareText(line) != null
                                 // F2: a tap seeks as before, or chooses lines while sharing; a hold starts choosing.
@@ -173,7 +180,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                                     position = playback.currentPositionMs(); follow = true }
                                 val hold = { uiHaptic(HapticCue.Confirm); shareAnchor = index; shareRange = index..index; follow = false }
                                 CompositionLocalProvider(LocalViewConfiguration provides holdConfiguration) {
-                                    KaraokeLine(line,active && !sharing,backingActive && !sharing,{ position+offsetMs },motion,"lyric_backing_$index",
+                                    KaraokeLine(line,active && !sharing,backingActive && !sharing,{ position+shownOffsetMs },motion,"lyric_backing_$index",
                                         modifier = Modifier.testTag("lyric_line_$index")
                                             .lyricLineLook(dim = sharing && !chosen, chosen = chosen)
                                             .lyricLineTouch(

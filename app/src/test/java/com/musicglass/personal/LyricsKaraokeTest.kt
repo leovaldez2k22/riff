@@ -168,4 +168,13 @@ class LyricsKaraokeTest {
             for (x in 0 until sung.width) { val c = sung.getPixel(x, y); if (minOf((c shr 16) and 255, (c shr 8) and 255, c and 255) > 225) white++ }
         assertTrue("the background vocal is lit", white > 50)
     }
+
+    /** Q18-056: lines were drawn about 0.14 s after their moment (a 180 ms fade, and two refreshes to reach the screen). */
+    @Test fun lyricsAreDrawnForTheMomentTheyAreSeenAndLightAtOnce() {
+        assertEquals(33L, lyricDisplayLeadMs(60f)); assertEquals(16L, lyricDisplayLeadMs(120f))
+        // A refresh rate not reported yet (0) or absurd is held to a sane range.
+        assertEquals(66L, lyricDisplayLeadMs(0f)); assertEquals(13L, lyricDisplayLeadMs(1000f))
+        assertTrue(LYRIC_LIGHT_MS <= 2 * 1000 / 60)
+        assertTrue(LYRIC_LIGHT_MS < GlassMotion.selectionMs)
+    }
 }

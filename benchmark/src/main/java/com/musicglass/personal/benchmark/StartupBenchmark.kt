@@ -31,7 +31,7 @@ class StartupBenchmark {
         startupMode = StartupMode.COLD, iterations = iterations(20),
         setupBlock = { plainFeed(); pressHome() },
     ) {
-        startActivityAndWait()
+        launch()
         home()
     }
 }
