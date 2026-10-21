@@ -60,15 +60,10 @@ internal fun MacrobenchmarkScope.gone(tag: String) =
     check(device.wait(Until.gone(By.res(tag)), WAIT_MS)) { failed("\"$tag\" stayed on screen") }
 
 /**
- * [message], after a screenshot of what was on screen instead, next to the run's results (the fixture app only shows
- * invented data). Q18-023: the first full run on the phone failed three journeys that pass in JourneyCheck.
+ * [message], with the app that was in front instead. Never a screenshot: on the owner's phone a failed wait showed a
+ * messaging app's notification and then its open chat (Q18-023), so nothing of the screen is kept.
  */
-internal fun MacrobenchmarkScope.failed(message: String): String {
-    val dir = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let { java.io.File(it) }
-        ?: InstrumentationRegistry.getInstrumentation().context.getExternalFilesDir(null)
-    runCatching { device.takeScreenshot(java.io.File(dir, "failed-${System.currentTimeMillis()}.png")) }
-    return message
-}
+internal fun MacrobenchmarkScope.failed(message: String): String = "$message (in front: ${device.currentPackageName})"
 
 /** Home with the invented shelves on it: the first usable shell. */
 internal fun MacrobenchmarkScope.home() {

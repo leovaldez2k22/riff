@@ -2748,6 +2748,18 @@ Asked by the owner the same day ("Yes write the q18-026 test now").
   metadata warnings. pr lane PASS_LOCAL on 6d81f99's branch and on the merge.
 - Next: every fixed bug checked on the phone, on a debug build from af392bc or later.
 
+### Phone checks of the fixes (21 October 2026, late morning; the owner: "first fix every single bug, then check all of them on phone")
+- Riff Debug and its test APK updated in place (side by side, -PriffSideBySide=true; a first build without it was refused by
+  Android over the original Riff's certificate, and the stray com.musicglass.personal.test it brought was removed).
+- Confirmed on the phone: Q18-005 and Q18-057 (streamed seeks 55 to 79 ms, downloaded 52 to 98 ms), Q18-040 (handle shown,
+  no address in the menu), Q18-061, Q18-062, Q18-064 (4 of 4 recovered), Q18-059's visitor fix (no second mint).
+- Found and fixed on the phone: Q18-063 still broken (e1970e6), Q18-023's real cause, vivo's freezer stopping the test
+  process (7def72e, 28846f1); the stage names were redacted in Diagnostics (3ae8fb0, which also adds the :solver ring).
+- Q18-059 what is left: the library's cipher, about 1.5 s on every song (new QuickJS solver per call). First benchmark
+  numbers on the phone: cold start to usable shell p95 1.84 s (the logo decision), first audio and the long queue pass.
+- Mistake: the screenshot-on-failure in 28846f1 captured the owner's messaging app during the second lane; deleted at
+  once, code removed. Frame numbers from that run are not trusted. PR lane PASS_LOCAL on 1e8d26f.
+
 ## Plan v1.1 additions (11 October 2026)
 Plan revised to v1.1; see plan section 22. No application code changed by the revision.
 New packages. Status TODO and implementation not yet authorized unless the line says otherwise (the 9 October authorization covers Q03-Q18 only):
