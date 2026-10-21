@@ -22,7 +22,8 @@ internal class SectionMetric(private val section: String) : TraceMetric() {
 /**
  * Frames the app finished after their deadline, as the platform's frame timeline recorded them, and how many
  * frames there were. This is the budget's "missed-deadline frames"; FrameTimingMetric's percentiles of
- * overrun cannot give a percentage of frames.
+ * overrun cannot give a percentage of frames. The count is deadlineFrameCount: androidx.benchmark 1.5's FrameTimingMetric
+ * reports its own frameCount, and a run refuses two metrics with one name (Q18-023, the first full run on the phone).
  */
 internal class MissedDeadlineMetric : TraceMetric() {
     override fun getMeasurements(captureInfo: CaptureInfo, traceSession: TraceProcessor.Session): List<Measurement> {
@@ -33,7 +34,7 @@ internal class MissedDeadlineMetric : TraceMetric() {
         """.trimIndent()).firstOrNull() ?: return emptyList()
         val frames = row.long("frames")
         if (frames == 0L) return emptyList()
-        return listOf(Measurement("frameCount", frames.toDouble()),
+        return listOf(Measurement("deadlineFrameCount", frames.toDouble()),
             Measurement("missedDeadlinePercent", 100.0 * row.long("missed") / frames))
     }
 }

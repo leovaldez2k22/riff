@@ -25,7 +25,7 @@ def everything(start=900.0, action=100.0, queue=1500.0, local=300.0, online=2000
         bench("queueOfTwoThousand", sampled={"queue_prepareMs": [[queue]] * 10, "queue_mainMs": [[40.0]] * 10}),
         bench("firstAudioLocalBundle", sampled={"first_audioMs": [[local]] * 20}),
         bench("firstAudioOnline", sampled={"first_audioMs": [[online]] * 20}),
-        *(bench(journey, {"frameCount": [200.0] * loops, "missedDeadlinePercent": [missed] * loops}) for journey in perf.FRAME_JOURNEYS),
+        *(bench(journey, {"deadlineFrameCount": [200.0] * loops, "missedDeadlinePercent": [missed] * loops}) for journey in perf.FRAME_JOURNEYS),
     ]
 
 
@@ -105,7 +105,7 @@ class SummaryTest(Files):
     def test_missed_frames_are_weighted_by_frames_and_held_to_the_refresh_rate(self):
         benchmarks = [item for item in everything() if item["name"] != "homeScroll"]
         # 100 frames with 10% missed and 900 with none: 1% of all frames.
-        benchmarks.append(bench("homeScroll", {"frameCount": [100.0, 900.0, 0.0, 0.0, 0.0], "missedDeadlinePercent": [10.0, 0.0, 0.0, 0.0, 0.0]}))
+        benchmarks.append(bench("homeScroll", {"deadlineFrameCount": [100.0, 900.0, 0.0, 0.0, 0.0], "missedDeadlinePercent": [10.0, 0.0, 0.0, 0.0, 0.0]}))
         rows, _, _ = self.summary(benchmarks)
         home = next(row for row in rows if "homeScroll" in row[0])
         self.assertAlmostEqual(1.0, home[3])

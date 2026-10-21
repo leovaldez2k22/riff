@@ -108,7 +108,7 @@ def judge(samples, needed, budget, evidence):
 
 def missed_frames(metrics):
     """Missed-deadline frames over all loops, in percent, weighted by each loop's frame count."""
-    counts, percents = metrics.get("frameCount", []), metrics.get("missedDeadlinePercent", [])
+    counts, percents = metrics.get("deadlineFrameCount", []), metrics.get("missedDeadlinePercent", [])
     if not counts or len(counts) != len(percents) or sum(counts) == 0:
         return None, 0
     return sum(c * p for c, p in zip(counts, percents)) / sum(counts), len(counts)

@@ -45,15 +45,30 @@ internal fun MacrobenchmarkScope.plainFeed() {
 
 /** The node the app tagged [tag]; the journey fails with the tag's name if it does not appear. */
 internal fun MacrobenchmarkScope.shown(tag: String): UiObject2 =
-    checkNotNull(device.wait(Until.findObject(By.res(tag)), WAIT_MS)) { "\"$tag\" did not appear" }
+    checkNotNull(device.wait(Until.findObject(By.res(tag)), WAIT_MS)) { failed("\"$tag\" did not appear") }
 
+/** A tap on [tag]. A node redrawn between finding and clicking it (the player still sliding in) is found again. */
 internal fun MacrobenchmarkScope.tap(tag: String) {
-    shown(tag).click()
+    for (attempt in 1..3) {
+        try { shown(tag).click(); break }
+        catch (stale: androidx.test.uiautomator.StaleObjectException) { if (attempt == 3) throw stale }
+    }
     device.waitForIdle()
 }
 
 internal fun MacrobenchmarkScope.gone(tag: String) =
-    check(device.wait(Until.gone(By.res(tag)), WAIT_MS)) { "\"$tag\" stayed on screen" }
+    check(device.wait(Until.gone(By.res(tag)), WAIT_MS)) { failed("\"$tag\" stayed on screen") }
+
+/**
+ * [message], after a screenshot of what was on screen instead, next to the run's results (the fixture app only shows
+ * invented data). Q18-023: the first full run on the phone failed three journeys that pass in JourneyCheck.
+ */
+internal fun MacrobenchmarkScope.failed(message: String): String {
+    val dir = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let { java.io.File(it) }
+        ?: InstrumentationRegistry.getInstrumentation().context.getExternalFilesDir(null)
+    runCatching { device.takeScreenshot(java.io.File(dir, "failed-${System.currentTimeMillis()}.png")) }
+    return message
+}
 
 /** Home with the invented shelves on it: the first usable shell. */
 internal fun MacrobenchmarkScope.home() {
