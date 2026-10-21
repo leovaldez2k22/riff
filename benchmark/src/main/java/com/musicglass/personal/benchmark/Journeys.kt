@@ -75,6 +75,7 @@ internal fun MacrobenchmarkScope.coldHome() {
  */
 internal fun openTarget(device: androidx.test.uiautomator.UiDevice, clearTask: Boolean = true) {
     val context = InstrumentationRegistry.getInstrumentation().context
+    TestKeepAlive.start(context)
     val intent = android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_LAUNCHER)
         .setClassName(TARGET, "com.musicglass.personal.MainActivity")
         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
