@@ -44,8 +44,8 @@ internal class DiagnosticEvent private constructor(val text: String) {
             "sections", "speed", "standby_bucket", "state", "status", "suppression", "swept", "tailState",
             "unmerged_rows", "unrecognised", "waiting")
         private val booleans = setOf(
-            "applied", "bg_restricted", "complete", "dynamic_retry", "hls", "idle", "init", "main", "mainPlaying",
-            "name", "owner_changed", "photo", "play_when_ready", "playing", "po_token", "power_save", "songs_chip",
+            "applied", "bg_restricted", "cached", "complete", "dynamic_retry", "hls", "idle", "init", "main", "mainPlaying",
+            "name", "owner_changed", "photo", "play_when_ready", "playing", "po_token", "power_save", "preprocessed", "songs_chip",
             "task_removed", "wants")
         private val words = setOf(
             "action", "causes", "class", "failed_stage", "failure", "from", "host", "kind", "owner", "part", "phase",

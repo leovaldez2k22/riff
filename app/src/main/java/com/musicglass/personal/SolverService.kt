@@ -35,7 +35,9 @@ class SolverService : Service() {
 
     // Own preferences file: SharedPreferences are not safe to share between processes.
     private val cipher by lazy {
-        YouTubeCipherService(http, RemotePlayerConfigStore(http, AppPlayerConfigRepository(this, "player_config_solver")))
+        val steps = PlaybackEventLog(this, PlaybackEventLog.SOLVER_FILE)
+        YouTubeCipherService(http, RemotePlayerConfigStore(http, AppPlayerConfigRepository(this, "player_config_solver")),
+            logger = { event -> cipherStepEvent(event.message)?.let(steps::append) })
     }
 
     // The prepared player script survives this process, so a solver started again does not prepare it again.
@@ -83,5 +85,31 @@ class SolverService : Service() {
         runBlocking { runCatching { cipher.dispose() } }
         runCatching { http.close() }
         super.onDestroy()
+    }
+}
+
+/** The library's cipher steps that are timed, by the start of its message, and the name each is kept under. */
+private val CIPHER_STEPS = linkedMapOf(
+    "processFormats start" to "process_start", "processFormats done" to "process_done",
+    "player JS preload done" to "player_preload", "player JS ready" to "player_ready",
+    "EJS bootstrap done" to "ejs_bootstrap", "EJS evaluate done" to "ejs_evaluate",
+    "signature EJS done" to "signature_ejs", "n EJS done" to "n_ejs",
+    "signature fallback done" to "signature_fallback", "n fallback done" to "n_fallback",
+    "n remote config done" to "n_remote", "Faraday zemer config done" to "remote_config")
+
+/**
+ * Q18-059: the cipher step costs about 1.5 s on every song. The library writes its sub-steps as text with the values
+ * inside ("EJS evaluate done preprocessed=true requests=2 elapsed=1400ms player=..."); only the step's fixed name,
+ * its milliseconds, the request count and two flags are kept, never the player id, a challenge or a URL.
+ */
+internal fun cipherStepEvent(message: String): String? {
+    val stage = CIPHER_STEPS.entries.firstOrNull { message.startsWith(it.key + " ") }?.value ?: return null
+    val fields = Regex("""(\w+)=(\S+)""").findAll(message).associate { it.groupValues[1] to it.groupValues[2] }
+    return buildString {
+        append("cipher_step stage=").append(stage)
+        fields["elapsed"]?.removeSuffix("ms")?.toLongOrNull()?.let { append(" ms=").append(it) }
+        (fields["requests"] ?: fields["formats"])?.toIntOrNull()?.let { append(" count=").append(it) }
+        fields["preprocessed"]?.takeIf { it == "true" || it == "false" }?.let { append(" preprocessed=").append(it) }
+        fields["cachedSolver"]?.takeIf { it == "true" || it == "false" }?.let { append(" cached=").append(it) }
     }
 }

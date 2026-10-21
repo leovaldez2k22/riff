@@ -6,8 +6,9 @@ import android.content.Context
  * Small on-device diagnostic ring. Every line passes [DiagnosticEvent.parse] before it is stored or written
  * to logcat, so the ring holds names, numbers and short words and nothing else (Q15).
  */
-internal class PlaybackEventLog(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("playback_events", Context.MODE_PRIVATE)
+internal class PlaybackEventLog(context: Context, file: String = "playback_events") {
+    // The :solver process keeps its own file (SOLVER_FILE): preferences are not safe to share between processes.
+    private val prefs = context.applicationContext.getSharedPreferences(file, Context.MODE_PRIVATE)
     fun append(event: String) = append(DiagnosticEvent.parse(event))
     fun append(event: DiagnosticEvent) {
         android.util.Log.i("RiffPlayback", event.text)
@@ -25,7 +26,10 @@ internal class PlaybackEventLog(context: Context) {
     fun recent(): List<String> = synchronized(lock) {
         prefs.getString("recent", "").orEmpty().lineSequence().filter { it.isNotBlank() }.toList()
     }
-    private companion object { val lock = Any(); const val FORMAT = "format"; const val RING_FORMAT = 2 }
+    companion object {
+        const val SOLVER_FILE = "solver_events"
+        private val lock = Any(); private const val FORMAT = "format"; private const val RING_FORMAT = 2
+    }
 }
 
 internal const val EVENT_LOG_LINES = 200

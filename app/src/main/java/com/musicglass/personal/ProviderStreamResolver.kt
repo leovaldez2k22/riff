@@ -246,7 +246,8 @@ private val STREAM_STAGES = setOf("prewarm completed", "embedded config ready", 
 internal fun streamStageEvent(event: com.metrolist.innertubex.InnerTubeLogEvent): String? {
     if (event.message !in STREAM_STAGES) return null
     val ms = event.details["elapsedMs"]?.toLongOrNull() ?: return null
-    return "stream_stage ${event.message.replace(' ', '_')} ms=$ms"
+    // A field, not a bare word: DiagnosticEvent keeps only listed key=value pairs.
+    return "stream_stage stage=${event.message.replace(' ', '_')} ms=$ms"
 }
 
 /**
