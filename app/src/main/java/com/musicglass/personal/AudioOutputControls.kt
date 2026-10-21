@@ -99,7 +99,7 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
             val routed = if(Build.VERSION.SDK_INT>=33) runCatching {audio.getAudioDevicesForAttributes(mediaAttributes)}.getOrDefault(emptyList()) else emptyList()
             val route=router.systemController.selectedRoutes.firstOrNull()
             val device=routed.firstOrNull()
-            val type=device?.type ?: routeDeviceType(Build.VERSION.SDK_INT,route!=null) {route!!.type}
+            val type=device?.type ?: routeDeviceType(Build.VERSION.SDK_INT,route!=null) {if(Build.VERSION.SDK_INT>=34) route!!.type else -1}
             routeName=if(type in setOf(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,AudioDeviceInfo.TYPE_BUILTIN_EARPIECE)) string(R.string.this_phone)
                 else device?.productName?.toString()?.takeIf(String::isNotBlank) ?:route?.name?.toString()?:string(R.string.audio_output)
             routeKind=outputKind(type,routeName)
