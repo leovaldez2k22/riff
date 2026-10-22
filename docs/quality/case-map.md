@@ -281,6 +281,7 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-080 an unlike stays in Liked songs | ProviderMutationTest (JVM) | Q19B owner session, dummy account | FAIL | Q19G |
 | Q18-081 no way to create a playlist | none | Q19B owner session | FAIL | Q19G (new feature) |
 | Q18-082 lyrics searched in parallel | LyricsRepository tests with timed fakes (planned) | B13 on the phone after the fix | TODO | Q19G, after Q19B |
+| Q18-083 Save on this phone is not a download | none | Q19B test download on Riff Preview | FAIL | Q19G |
 
 ## 6. Totals
 

@@ -2864,3 +2864,11 @@ New contract rule 16: commit each package locally on its branch before starting 
   cannot create a playlist (Q18-081). YouTube Music app not used (it may hold the owner's account).
 - Q18-076: the owner's decision is Pause shown while a song waits for a connection, and pressing it does nothing.
 - Left: the owner resets Boost, Crossfade and Glass and removes the test widget; B8 and B9 nights; the fix round.
+
+### Test download on rc6 after the owner freed space (22 October 2026)
+- 25 GB of 101 GB free, so rc6's reserve (a tenth of storage) no longer refuses downloads (Q18-066 stays fixed in
+  code for the next build). Riff Preview was on the owner's own account; the owner said to finish on it.
+- Diamonds downloaded (6.9 MB, artwork and lyrics saved), played in airplane mode, then removed. Downloads on Riff
+  Preview work again, so B8's downloaded-songs run can use the release build.
+- Q18-083 logged: "Save on this phone" is a local favorite, not a download. Evidence:
+  artifacts/quality/q19/day22/owner/session.txt.
