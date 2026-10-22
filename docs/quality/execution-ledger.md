@@ -2872,3 +2872,9 @@ New contract rule 16: commit each package locally on its branch before starting 
   Preview work again, so B8's downloaded-songs run can use the release build.
 - Q18-083 logged: "Save on this phone" is a local favorite, not a download. Evidence:
   artifacts/quality/q19/day22/owner/session.txt.
+
+### B8 run 1 (22 October 2026, 20:11): void
+- Streaming on Riff Preview rc6, dummy account, 'Pop Summer Hits 2024' (100 songs), sleep timer 120 min, Bluetooth
+  off, volume 3 of 15, screen off, unplugged at 100 % and 31.8 C. The owner needed the phone during the run, so it is
+  void and runs again later. vivo refuses `dumpsys batterystats --reset` from adb (security exception); the record
+  since the unplug at full charge is used instead.
