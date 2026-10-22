@@ -2850,3 +2850,17 @@ New contract rule 16: commit each package locally on its branch before starting 
   data otherwise kept; the app labelled "Riff" and the owner's account untouched.
 - Left in Q19B: B4 F4 haptics and B7 writes with the owner; Q18-032 and Q18-058 with the owner; B8 and B9 on their
   own nights (or BLOCKED).
+
+### Q19B with the owner (22 October 2026, afternoon)
+- Riff Preview rc6 on the dummy account; screen trees only, no pictures. Evidence:
+  artifacts/quality/q19/day22/owner/session.txt.
+- A11Y02 by eye at 200 % text: landscape Settings reaches About, nothing cut off; the queue fails (Q18-079: squeezed
+  with Close queue cut off upright, not shown in landscape, the player stops scrolling). Font and rotation restored.
+- F4 slider haptics PASS (owner, by feel). Q18-032 PASS: the widget reads Play while paused, Pause while playing.
+  Q18-058 PASS: a second account signed in with no store page in the way (owner typed the password), then back
+  to the dummy account.
+- B7 writes, owner's grant for the dummy account: F10 Not interested and its Undo PASS; like PASS; the unlike
+  reports success but the song stays in Liked songs after 10 minutes (Q18-080); no playlist edit possible, Riff
+  cannot create a playlist (Q18-081). YouTube Music app not used (it may hold the owner's account).
+- Q18-076: the owner's decision is Pause shown while a song waits for a connection, and pressing it does nothing.
+- Left: the owner resets Boost, Crossfade and Glass and removes the test widget; B8 and B9 nights; the fix round.

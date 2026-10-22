@@ -69,7 +69,7 @@ section 18); C9 reruns them on the final candidate.
 | PLY06 solver death | SolverFailClosedTest, PlaybackRecoveryTest (JVM, fake solver) | B4: one crash recovers. Q19B (22 Oct, Riff Debug 1880301): solver kept down, "Online playback resolver unavailable" with Retry, class solver, exactly three attempts (Q18-022, artifacts/quality/q19/day22/b3a) | PASS | |
 | PLY07 main-process death | PlaybackOrderDeviceTest process-death steps (emulator: 3,082 ms lost, bound 6,500) | B3 step 4: queue back paused, resumes from 22.2 s; shows 0:00 until Play | PASS | Q18-019 (Low, display) |
 | PLY08 focus, call, noisy route | Q08 focus tests (emulator, another focus request) | A3: notification duck, real call, earbud pause and next, earbuds into the case and Bluetooth off, all during a blend. Car head unit BLOCKED (none) | PASS | car: BLOCKED, optional in the split |
-| PLY09 unknown outcome mutation | ProviderMutationTest (eight unreadable answers, reconcile before retry) (JVM) | Live edit on the test account is in B10 (asked first) | BLOCKED | needs the dummy account: B7, each edit asked first |
+| PLY09 unknown outcome mutation | ProviderMutationTest (eight unreadable answers, reconcile before retry) (JVM) | Q19B owner session (22 Oct, dummy account): like and Not interested reach YouTube; the unlike reports success but the song stays in Liked songs (Q18-080); no playlist edit possible (Q18-081) | FAIL | Q18-080; the playlist edit after Q18-081 |
 | QUE01 authored duplicates | PlaybackStateTest, QueueRegressionTest; PlaybackOrderDeviceTest (emulator, B1) | B3 step 3: menus cannot make two copies; Add to queue says "Added" when it adds nothing | PASS | Q18-018 (Low) |
 | QUE02 filter or sort then play | CollectionToolsTest.alphabeticalSortingAndFilteringDoNotLoseNativeQueuePosition, CollectionSortMenuTest, QueueRegressionTest | A4 UX03 | PASS | |
 | QUE03 remove final item | PlaybackStateTest (only entry: empty paused queue); emulator through the gateway | Widgets after an emptied queue not looked at | PASS | |
@@ -103,7 +103,7 @@ section 18); C9 reruns them on the final candidate.
 |---|---|---|---|---|
 | CAT01 unknown or malformed renderer | ProviderFixtureTest unknown-renderers.json, emptyAndBareAnswersParseToNothing, ProviderContractTest | Live answers in B10 | PASS | |
 | CAT02 continuation loop and cap | ProviderContractTest (repeated token, cycles, page limit), CollectionTruncationUiTest | Playlists over 100 and 2,000 songs in B10 | BLOCKED | playlists over 100 and 2,000 songs need the dummy account: B7 |
-| CAT03 HTTP 200 rejected edit | ProviderMutationTest, ProviderContractTest errors inside 200 | Live edit in B10 (asked first) | BLOCKED | a live edit needs the dummy account: B7, asked first |
+| CAT03 HTTP 200 rejected edit | ProviderMutationTest, ProviderContractTest errors inside 200 | Q19B owner session (22 Oct): the dummy account has no playlist and Riff cannot create one (Q18-081) | BLOCKED | Q18-081, then a live playlist edit on the dummy account |
 | CAT04 provider native sort | ProviderCatalogTest.playlistSortsUseOnlyProviderCommands (JVM); PlaylistSortDeviceTest.nativeSortPreferencesReloadEveryTrackAndRestoreOriginalSelection is a live test in no lane | PlaylistSortDeviceTest or the same steps on the test account in B10, preference restored | BLOCKED | PlaylistSortDeviceTest or the same steps on the dummy account: B7, preference restored |
 | LYR01 word, line, plain, none | ProviderFixtureTest.timedAndPlainLyricsAreToldApart, LyricsTest, LyricsPreloadTest, LyricsKaraokeTest | Q19B B3a (22 Oct, Riff Preview rc6): "Delicate" still reads Line synced, Better Lyrics · Kugou | FAIL | Q18-075 (Q18-003 not fixed on the phone) |
 | LYR02 translation failure or cancel | LyricsTranslationTest (7, JVM: failure, cancel, model refused offline) | Q19B B3c (22 Oct): on Riff Preview rc6 every translation fails with a raw exception (Q18-072); on Riff Debug the original lines stay while the model download waits offline, and the translation completes once online (Q18-034); Back while translating is under a second, too short to time by hand | FAIL | Q18-072; the cancel stays JVM only |
@@ -113,7 +113,7 @@ section 18); C9 reruns them on the final candidate.
 | Case | Tests | Device and manual | Status | Open |
 |---|---|---|---|---|
 | A11Y01 TalkBack and keyboard | AccessibilitySemanticsTest, PlayerControlSemanticsTest, the three sweeps (JVM) | A4 TalkBack: UX01-06, 08-10 and widgets PASS; download phases never announced; four Settings sliders unnamed; "Back to Back". Keyboard: BLOCKED, no keyboard (A5) | BLOCKED | TalkBack DECLINED for Q19 by the owner (19 Oct 2026: no TalkBack checks); Q18-031, Q18-033, Q18-011, Q18-032 fixed in Q18F (JVM sweeps); keyboard BLOCKED, no keyboard; download announcements and slider names by ear are not rerun |
-| A11Y02 200 % text, RTL, narrow, landscape | AccessibilitySweepTest, ...LargeWindowTest, ...LandscapeTest, PseudoLocaleSweepTest; q13-screens (90 pictures) | Q19B B3c (22 Oct, Riff Preview rc6, screen trees, no pictures): Home, Settings, player, queue and lyrics at 200 % text and in landscape; no text past the edge, no crash (artifacts/quality/q19/day22/b3c) | BLOCKED | by eye (owner): Close queue missing from the tree at 200 % and in landscape; landscape Settings' lower sections |
+| A11Y02 200 % text, RTL, narrow, landscape | AccessibilitySweepTest, ...LargeWindowTest, ...LandscapeTest, PseudoLocaleSweepTest; q13-screens (90 pictures) | Q19B B3c (22 Oct, Riff Preview rc6, screen trees): Home, Settings, player, queue and lyrics at 200 % text and in landscape, no text past the edge, no crash. The owner by eye (22 Oct): landscape Settings reaches About, nothing cut off; the queue at 200 % is squeezed with Close queue cut off (upright) or not shown (landscape), and the player stops scrolling (artifacts/quality/q19/day22/owner) | FAIL | Q18-079 |
 | A11Y03 motion and contrast | AccessibilitySemanticsTest reduced motion, ContrastTest (arithmetic) | A1 step 6: Remove animations, nothing moves, glow kept | PASS | owner decision on darker scrims open (split, owner decisions) |
 
 ### Security, release and diagnostics
@@ -150,7 +150,7 @@ Tests per journey are listed in `core-journeys.md`. The phone walk-through is A4
 | UX07 account switch | not run | DEFERRED | A2, by the owner (Q18-009 fixed in Q18F) |
 | UX08 cache, history, download deletion | A4: wording and Cancel; real deletion is A7 | PASS | |
 | UX09 network, session error | A4 (aeroplane mode); B3 | PASS | Q18-020 (Low) |
-| UX10 widgets, lock screen, timer | A4: sleep timer; widgets on Riff Preview. Lock-screen controls not checked | BLOCKED | lock-screen controls by hand: A5; Q18-032 fixed in Q18F |
+| UX10 widgets, lock screen, timer | A4: sleep timer; widgets on Riff Preview. A5 (21 Oct): lock-screen play, pause, next. Q19B owner session (22 Oct): the widget's button reads Play while paused and Pause while playing (Q18-032) | PASS | |
 
 ## 3. Invariants (plan section 3)
 
@@ -248,7 +248,7 @@ artifacts/quality/q19/c3 (no personal data).
 | F7 pins on speed dial | SpeedDialPinsTest, LocalDataTransferTest round trip (JVM); OwnerFeaturesDeviceTest: kept by a new store, drawn first with one badge each, the 28th refused (API 31, 33, 36) | Q19B B11 (22 Oct, Riff Preview rc6): a pin drawn first with its badge on Home in airplane mode, then removed (artifacts/quality/q19/day22/b11/f7.txt); the look in A3 | PASS | |
 | F8 frosted glass by default at 20 % | AccessibilitySettings default and kept choice: OwnerFeaturesDeviceTest (API 31, 33, 36); bar pictures on API 36 (artifacts/quality/q19/glass) | Q19B B11 (22 Oct): a cleared Riff Debug reads frosted glass on at 20 % (artifacts/quality/q19/day22/b11/f8.txt); B6: Home scroll 1.67 % janky frames at 20 %, 1.33 % off; the look in A3 | PASS | |
 | F9 backup on this phone | LocalBackupTest (9, JVM); OwnerFeaturesDeviceTest: MediaStore write, rewrite, read, Off removes (API 31, 33, 36) | Q19B B11 (22 Oct, Riff Debug 1880301, no account): Back up now, uninstall and reinstall, the restore offer, the folder picker, the setting back (shown only after a restart), Off removed this install's files (artifacts/quality/q19/day22/b11/f9.txt); Q18-078 | BLOCKED | Q18-078; the account's waiting file after its sign-in (A2) |
-| F10 Not interested reaches YouTube Music | ProviderMutationTest (3), NotInterestedUndoTest (4), JVM against recorded endpoints | No device part (no fixture server on the device). Live on the dummy account: a dislike, its Undo, and YouTube's own feedback from a Home card (B7, asked) | BLOCKED | B7 |
+| F10 Not interested reaches YouTube Music | ProviderMutationTest (3), NotInterestedUndoTest (4), JVM against recorded endpoints | Q19B owner session (22 Oct, Riff Preview rc6, dummy account): Not interested on a Home card, "Disliked on YouTube Music too", gone from Home, listed in Settings; Undo empties the list and the song is back on Home (artifacts/quality/q19/day22/owner/session.txt) | PASS | |
 | F3b a swipe back always goes to the song before | PlaybackToggleTest.theButtonRestartsAfterTenSecondsButASwipeAlwaysGoesToTheSongBefore (JVM, a recording player) | Swipe at 3 s and past 10 s, and the button past 10 s, on the phone (B4) | BLOCKED | B4 |
 
 ### Bugs logged since the first pass
@@ -277,6 +277,9 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-076 the button reads Play while waiting for a connection | none | Q19B B3b on Riff Debug | FAIL | Q19G |
 | Q18-077 no loudness gain for signed-out streams | LoudnessNormalizationTest (JVM) | Q19B B7 on Riff Debug | FAIL | Q19G (triage first) |
 | Q18-078 backup copies, refresh and leftovers after a reinstall | LocalBackupTest (JVM) | Q19B B11 on Riff Debug | FAIL | Q19G |
+| Q18-079 the queue at 200 % text | AccessibilitySweepTest (JVM) does not see it | Q19B owner session, upright and landscape | FAIL | Q19G |
+| Q18-080 an unlike stays in Liked songs | ProviderMutationTest (JVM) | Q19B owner session, dummy account | FAIL | Q19G |
+| Q18-081 no way to create a playlist | none | Q19B owner session | FAIL | Q19G (new feature) |
 
 ## 6. Totals
 
@@ -304,3 +307,9 @@ Q18-074), BLOCKED 13, DEFERRED 6, DECLINED 1. Invariants: I08 now PASS. Section 
 Q18-050, Q18-051), FAIL 7 (Q18-072 to Q18-078, new), BLOCKED 13, DECLINED 2. The BLOCKED rows wait for the owner (the
 A11Y02 look, F4, Q18-032, Q18-058, B7 writes), B8 and B9, rc7, or TalkBack on an emulator (Q18-031); every FAIL goes
 to the fix round after Q19B.
+
+Q19B owner session, 22 October afternoon (Riff Preview rc6, dummy account; evidence in
+artifacts/quality/q19/day22/owner): the 72 rows PASS 48 (adds UX10), FAIL 7 (adds A11Y02 Q18-079 and PLY09
+Q18-080), BLOCKED 10, DEFERRED 6, DECLINED 1. Section 7, 44 rows: PASS 20 (adds F10), FAIL 10 (adds Q18-079 to
+Q18-081), BLOCKED 12, DECLINED 2. Also passed by the owner: F4 slider haptics, Q18-032 widget names, Q18-058 a
+second account signing in. CAT03 waits for Q18-081 (no way to make a playlist).
