@@ -2796,3 +2796,18 @@ New contract rule 16: commit each package locally on its branch before starting 
   23b7b92; Q18-067 (first song 6.7 s after Riff was killed for memory and tapped during the prewarm), open for Q19G.
 - Left in Q19A for the next candidate: downloads (Q18-066), A4 again (Q18-067), the backup restore after B11 and
   the profile-picture upload (Q18-027).
+
+### Q19B overnight (21 to 22 October 2026): lost to a hung test
+- Plan: docs/quality/q19b-overnight-plan.md, all seven approvals given. Phone connected 23:34; state recorded
+  (artifacts/quality/q19/night22/phone-before.txt); media volume 6 set to 0.
+- B1 device lane on Riff Debug (1880301, rc6 plus Q18-066; no account in it): 62 run, 56 pass, 6 fail. Two need
+  the network off; the others logged as Q18-068 (mini player picture while sliding), Q18-069 (backup test assumes an
+  empty folder), Q18-070 (seeks in a downloaded fixture about 550 ms).
+- 23:50: the network-off tests started again with airplane mode on (NordVPN stayed connected). The first test hung
+  and I had given the run no time limit; I waited for its completion instead of checking on it. Found at 06:05,
+  stopped, airplane mode off. Logged as Q18-071. Nothing else in the plan ran: B6, B3, B7, B11 not done.
+- Owner chose to stop. Cleaned: the backup file the B1 test wrote at 23:45 removed
+  (Documents/Riff Backup (debug)/riff-backup-phone (1).jsonl); test apps stopped; volume 6, airplane off, Wi-Fi on,
+  rotation, stay-awake, timeout, font and refresh as found (phone-after.txt). Riff Debug now holds the B1 fixture
+  data; Riff Preview, the app labelled "Riff" and the owner's account were not touched.
+- New rule for every phone run: a hard time limit on every command and checks on anything long.
