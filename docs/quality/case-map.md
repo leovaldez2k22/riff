@@ -64,9 +64,9 @@ section 18); C9 reruns them on the final candidate.
 | PLY01 pause before resolution | PlaybackStateTest pause while reading; PlaybackOrderDeviceTest (emulator, B1) | B3 step 2: paused 0.3 s after choosing, nothing in 20 s | PASS | |
 | PLY02 rapid skips, replacement | PlaybackStateTest, QueueCoordinatorTest; PlaybackOrderDeviceTest (emulator, B1) | B3 step 1: three tiles in 0.66 s, only the last plays | PASS | |
 | PLY03 Wi-Fi/mobile handover | PlaybackRecoveryTest (JVM) | B3 step 5: Wi-Fi off 33 s on mobile data, continuous | PASS | |
-| PLY04 offline 60 s then online | PlaybackRecoveryTest (virtual time); RecoveryDeviceTest (emulator, B1 with VPN off) | B3 6a and 6b PASS with the VPN off. With a VPN on, Riff believes it is online and the wait is not taken; the session reports ERROR while waiting | BLOCKED | Q18-017, Q18-020 fixed in Q18F (NetworkConditionsTest, WaitingSessionPlayerTest, JVM); RecoveryDeviceTest PASS on API 31, 33 and 36 (Q19C2); with a VPN on the phone: B3 |
+| PLY04 offline 60 s then online | PlaybackRecoveryTest (virtual time); RecoveryDeviceTest (emulator, B1 with VPN off) | B3 6a and 6b PASS with the VPN off. Q19B (22 Oct, Riff Debug 1880301): offline 40 s, the session BUFFERING throughout and PLAYING again on reconnect, never ERROR (Q18-020, artifacts/quality/q19/day22/b3b/q18-020-states-2.txt); while waiting the button reads Play (Q18-076, Low) | PASS | the VPN case on the phone DECLINED by the owner (22 Oct, Q18-017); Q18-076 |
 | PLY05 rejected or expired stream | PlaybackRecoveryTest (AttestationExpired, 403/410 refreshed once), SabrRecoveryPolicyTest (JVM) | Retired as a device case (owner, 19 Oct 2026): ordinary playback never uses the SABR transport where the fault hook sits | PASS (JVM only) | Q18-029 closed |
-| PLY06 solver death | SolverFailClosedTest, PlaybackRecoveryTest (JVM, fake solver) | B4: one crash recovers; kept down, exactly three attempts, but the message and class are wrong | BLOCKED | Q18-022 fixed in Q18F (SolverFailClosedTest, JVM); the kept-down solver on the phone: B3 |
+| PLY06 solver death | SolverFailClosedTest, PlaybackRecoveryTest (JVM, fake solver) | B4: one crash recovers. Q19B (22 Oct, Riff Debug 1880301): solver kept down, "Online playback resolver unavailable" with Retry, class solver, exactly three attempts (Q18-022, artifacts/quality/q19/day22/b3a) | PASS | |
 | PLY07 main-process death | PlaybackOrderDeviceTest process-death steps (emulator: 3,082 ms lost, bound 6,500) | B3 step 4: queue back paused, resumes from 22.2 s; shows 0:00 until Play | PASS | Q18-019 (Low, display) |
 | PLY08 focus, call, noisy route | Q08 focus tests (emulator, another focus request) | A3: notification duck, real call, earbud pause and next, earbuds into the case and Bluetooth off, all during a blend. Car head unit BLOCKED (none) | PASS | car: BLOCKED, optional in the split |
 | PLY09 unknown outcome mutation | ProviderMutationTest (eight unreadable answers, reconcile before retry) (JVM) | Live edit on the test account is in B10 (asked first) | BLOCKED | needs the dummy account: B7, each edit asked first |
@@ -83,14 +83,14 @@ section 18); C9 reruns them on the final candidate.
 | XFD02 buffer, late start, early end | CrossfadeOwnerTest; CrossfadeFixtureDeviceTest two-player cases | none needed beyond A2 | PASS | |
 | XFD03 pause, seek, skip, off, switch | CrossfadeFixtureDeviceTest (created and released counts equal) | A2 step 3; A3 steps 2-5 (fading-out song released in 9-54 ms) | PASS | |
 | XFD04 boost and sleep | VolumeBoostTest, CrossfadeOwnerTest; CrossfadeFixtureDeviceTest boost at maximum, sleep timer in a blend | A2 steps 3 and 4 (200 and 300 %) | PASS | |
-| AUD01 normalization on | LoudnessNormalizationTest (20, JVM); NormalizationDeviceTest (9, emulator, B1) | A2 step 5 by ear. A live loudness value from the provider not read | BLOCKED | the live loudness value needs the dummy account: B7 |
+| AUD01 normalization on | LoudnessNormalizationTest (20, JVM); NormalizationDeviceTest (9, emulator, B1) | A2 step 5 by ear. Q19B B7 (22 Oct, Riff Debug signed out): Normalize volume on, three streamed songs, no gain logged (artifacts/quality/q19/day22/b7/loudness.txt) | FAIL | Q18-077 (triage: signed-out answers may carry no loudness) |
 | AUD02 normalization off or missing | LoudnessNormalizationTest, NormalizationDeviceTest | none needed | PASS | |
 
 ### Downloads
 
 | Case | Tests | Device and manual | Status | Open |
 |---|---|---|---|---|
-| DLD01 kill each transfer phase | DownloadEngineTest six stop points, DownloadReconcileTest each stored state (JVM) | B5: state right after a kill while Downloading and while Saving artwork, never falsely complete; but the song is not resumed. Reboot run PASS once Riff is opened | BLOCKED | Q18-021 fixed in Q18F (DownloadSchedulingTest, JVM); the kill-and-resume on the phone: B3 |
+| DLD01 kill each transfer phase | DownloadEngineTest six stop points, DownloadReconcileTest each stored state (JVM) | Q19B B3b (22 Oct, Riff Debug 1880301): killed while Downloading, killed while Saving artwork and lyrics, and through a reboot; each time requeued and finished soon after Riff was opened (Q18-021, artifacts/quality/q19/day22/b3b) | PASS | |
 | DLD02 bad range, 403, truncate, full disk | DownloadEngineTest; DownloadLifecycleDeviceTest truncated and wrong duration (emulator, B1) | none needed | PASS | |
 | DLD03 offline bundle restart and seek | DownloadLifecycleDeviceTest (emulator; B1 offline with the VPN off) | B8: 2 h offline soak, every song from its download, no stream lookup | PASS | |
 | DLD04 clear playback cache | DownloadControlsTest (JVM) | Not tapped on the phone (destructive, owner's data) | PASS | |
@@ -105,15 +105,15 @@ section 18); C9 reruns them on the final candidate.
 | CAT02 continuation loop and cap | ProviderContractTest (repeated token, cycles, page limit), CollectionTruncationUiTest | Playlists over 100 and 2,000 songs in B10 | BLOCKED | playlists over 100 and 2,000 songs need the dummy account: B7 |
 | CAT03 HTTP 200 rejected edit | ProviderMutationTest, ProviderContractTest errors inside 200 | Live edit in B10 (asked first) | BLOCKED | a live edit needs the dummy account: B7, asked first |
 | CAT04 provider native sort | ProviderCatalogTest.playlistSortsUseOnlyProviderCommands (JVM); PlaylistSortDeviceTest.nativeSortPreferencesReloadEveryTrackAndRestoreOriginalSelection is a live test in no lane | PlaylistSortDeviceTest or the same steps on the test account in B10, preference restored | BLOCKED | PlaylistSortDeviceTest or the same steps on the dummy account: B7, preference restored |
-| LYR01 word, line, plain, none | ProviderFixtureTest.timedAndPlainLyricsAreToldApart, LyricsTest, LyricsPreloadTest, LyricsKaraokeTest | A1 steps 4-6: labels honest, but some songs get line timing although word timing exists | BLOCKED | Q18-003, Q18-004 fixed in Q18F (LyricsWordTimingTest, LyricsTest, JVM); the songs from A1 on the phone: B3 and A1 |
-| LYR02 translation failure or cancel | **none**: no test fails or cancels a translation; TranslationSmokeInstrumentation exists but is not in any lane | not tried | BLOCKED | Q18-034 fixed in Q18F (LyricsTranslationTest, 7, JVM); TranslationSmokeInstrumentation needs the network: B3 |
+| LYR01 word, line, plain, none | ProviderFixtureTest.timedAndPlainLyricsAreToldApart, LyricsTest, LyricsPreloadTest, LyricsKaraokeTest | Q19B B3a (22 Oct, Riff Preview rc6): "Delicate" still reads Line synced, Better Lyrics · Kugou | FAIL | Q18-075 (Q18-003 not fixed on the phone) |
+| LYR02 translation failure or cancel | LyricsTranslationTest (7, JVM: failure, cancel, model refused offline) | Q19B B3c (22 Oct): on Riff Preview rc6 every translation fails with a raw exception (Q18-072); on Riff Debug the original lines stay while the model download waits offline, and the translation completes once online (Q18-034); Back while translating is under a second, too short to time by hand | FAIL | Q18-072; the cancel stays JVM only |
 
 ### Accessibility
 
 | Case | Tests | Device and manual | Status | Open |
 |---|---|---|---|---|
 | A11Y01 TalkBack and keyboard | AccessibilitySemanticsTest, PlayerControlSemanticsTest, the three sweeps (JVM) | A4 TalkBack: UX01-06, 08-10 and widgets PASS; download phases never announced; four Settings sliders unnamed; "Back to Back". Keyboard: BLOCKED, no keyboard (A5) | BLOCKED | TalkBack DECLINED for Q19 by the owner (19 Oct 2026: no TalkBack checks); Q18-031, Q18-033, Q18-011, Q18-032 fixed in Q18F (JVM sweeps); keyboard BLOCKED, no keyboard; download announcements and slider names by ear are not rerun |
-| A11Y02 200 % text, RTL, narrow, landscape | AccessibilitySweepTest, ...LargeWindowTest, ...LandscapeTest, PseudoLocaleSweepTest; q13-screens (90 pictures) | Not looked at on the phone: no sub-phase of the split covers it | BLOCKED | the sweeps pass (JVM); on the phone, font size largest and landscape: B3 (added there, 19 Oct 2026) |
+| A11Y02 200 % text, RTL, narrow, landscape | AccessibilitySweepTest, ...LargeWindowTest, ...LandscapeTest, PseudoLocaleSweepTest; q13-screens (90 pictures) | Q19B B3c (22 Oct, Riff Preview rc6, screen trees, no pictures): Home, Settings, player, queue and lyrics at 200 % text and in landscape; no text past the edge, no crash (artifacts/quality/q19/day22/b3c) | BLOCKED | by eye (owner): Close queue missing from the tree at 200 % and in landscape; landscape Settings' lower sections |
 | A11Y03 motion and contrast | AccessibilitySemanticsTest reduced motion, ContrastTest (arithmetic) | A1 step 6: Remove animations, nothing moves, glow kept | PASS | owner decision on darker scrims open (split, owner decisions) |
 
 ### Security, release and diagnostics
@@ -133,7 +133,7 @@ section 18); C9 reruns them on the final candidate.
 | UPD01 update feed | UpdateNoticeTest (12, scripted feed) | No public release feed exists | BLOCKED | publication decision; Q12A rerun steps |
 | UPD02 update check off | UpdateNoticeTest (zero requests) | none needed | PASS | |
 | DIAG01 exit diagnostics | ExitDiagnosticsTest, DiagnosticsScreenTest; Q15A on the emulator (crash in each process, force-stop, SIGKILL) | ANR and low memory by scripted records only; Diagnostics screen not looked at on the phone | PASS | |
-| PERF01 Baseline Profile | release-content check (profile packaged), Q14 baseline-prof.txt | Q19B6 fallback on rc2 code (Macrobenchmark still hangs, Q18-023): Fully drawn median 1521 ms with the profile, 1606 without (15 cold starts each; Q18: 1457 and 1503) | BLOCKED | Q18-023, Q18-050; the Macrobenchmark comparison |
+| PERF01 Baseline Profile | release-content check (profile packaged), Q14 baseline-prof.txt | Q19B6 (22 Oct, rc6): the Macrobenchmark lane runs now, but its cold-start test reports the app "did not open" (Q18-074). By hand, 15 cold starts each: about 1.5 s to fully drawn with the profile, 1.6 s without (artifacts/quality/q19/day22/b6-hand) | FAIL | Q18-074 (test harness), then the Macrobenchmark comparison |
 
 ## 2. Journeys UX01-UX10 (plan Q12 and Q13)
 
@@ -144,9 +144,9 @@ Tests per journey are listed in `core-journeys.md`. The phone walk-through is A4
 | UX01 first launch, sign-in | A4: Home read in order. A6: Change account cannot finish; the owner asked for a new sign-in page | BLOCKED | Q18-009 fixed and Q18-013 built in Q18F; the screens without an account PASS on API 33 and 36 (Q19C3) and on the phone (Q19B5, signed rc2 Preview); Q18-046 fixed in Q19G; signing in for real: A2 |
 | UX02 search, play, queue | A4 | PASS | Q18-018 (Low) |
 | UX03 filter, sort, play | A4 | PASS | |
-| UX04 download, restart offline, play | A4 follow-up and B5 | BLOCKED | Q18-021, Q18-031 fixed in Q18F (JVM); download, restart offline and play on the phone: B3 |
+| UX04 download, restart offline, play | A4 follow-up and B5; Q19B B3b (22 Oct, Riff Debug): a download killed and reopened finishes (Q18-021); phase announcements need TalkBack, excluded on the phone (Q18-031) | BLOCKED | Q18-031 on an emulator with TalkBack; restart offline and play on rc7 |
 | UX05 mini, full, queue, Home | A4 PASS; A1: doubled title and cover at the mini-player end of the morph | BLOCKED | Q18-001, Q18-002, Q18-008 fixed in Q18F (PlayerFixesTest, JVM); the morph by eye: A1 |
-| UX06 lyrics, timing, translation | A4: +0.2 s dialog. Translation cancel: no test | BLOCKED | Q18-034, Q18-003 fixed in Q18F (JVM); lyrics and translation on the phone: B3 and A1 |
+| UX06 lyrics, timing, translation | A4: +0.2 s dialog. Q19B (22 Oct, Riff Preview rc6): translation fails (Q18-072); Delicate line synced (Q18-075) | FAIL | Q18-072, Q18-075 |
 | UX07 account switch | not run | DEFERRED | A2, by the owner (Q18-009 fixed in Q18F) |
 | UX08 cache, history, download deletion | A4: wording and Cancel; real deletion is A7 | PASS | |
 | UX09 network, session error | A4 (aeroplane mode); B3 | PASS | Q18-020 (Low) |
@@ -163,7 +163,7 @@ Tests per journey are listed in `core-journeys.md`. The phone walk-through is A4
 | I05 authored order and repeats survive | QUE01, QUE02 | PASS |
 | I06 cache clearing keeps downloads; deletion in owned paths | DLD04; OfflineMusicStore.deleteScope canonical parent tests | PASS |
 | I07 one crossfade gain owner | XFD04, AUD01 | PASS |
-| I08 states truthful and actionable | UX09; B4 shows the wrong message when the solver stays down | FAIL (Q18-022) |
+| I08 states truthful and actionable | UX09; Q19B (22 Oct, Riff Debug): the kept-down solver shows "Online playback resolver unavailable" with Retry (Q18-022) | PASS |
 | I09 release has no stress or fixture entry points | REL01 release-content check | PASS on rc1, on the unsigned build of 6328a8d (Q19C1) on the signed 0.10.0-rc2 and rc2-preview (Q19C6), and on the signed rc4 and rc4-preview (C8): no test, stress, fixture or benchmark entry, file or class |
 | I10 ambiguous legacy data preserved | DAT04 | PASS |
 | I11 complete offline bundles need no provider | DLD03, B8 | PASS |
@@ -245,9 +245,9 @@ artifacts/quality/q19/c3 (no personal data).
 | Case | Tests | Device and manual | Status | Open |
 |---|---|---|---|---|
 | F6 the player's clock in hours | NowPlaying clock tests (JVM); OwnerFeaturesDeviceTest: 1:02:05 and -57:55 on a 2-hour episode, m:ss under an hour (API 31, 33, 36) | A long episode on the phone: player, mini player, notification (B11); the look (A3) | BLOCKED | B11, A3 |
-| F7 pins on speed dial | SpeedDialPinsTest, LocalDataTransferTest round trip (JVM); OwnerFeaturesDeviceTest: kept by a new store, drawn first with one badge each, the 28th refused (API 31, 33, 36) | Shown on Home with the network off after a restore (emulator, C7 reinstall); on the phone: pin, close, reopen, offline, unpin (B11); the look (A3) | BLOCKED | B11, A3 |
-| F8 frosted glass by default at 20 % | AccessibilitySettings default and kept choice: OwnerFeaturesDeviceTest (API 31, 33, 36); bar pictures on API 36 (artifacts/quality/q19/glass) | Fresh install on the phone, pictures (B11); the cost to Home scrolling (B6); the look (A3) | BLOCKED | B6, B11, A3 |
-| F9 backup on this phone | LocalBackupTest (9, JVM); OwnerFeaturesDeviceTest: MediaStore write, rewrite, read, Off removes (API 31, 33, 36) | Uninstall, reinstall, picker and restore by hand on API 33; Not now path (C7). On the phone with Riff Preview and the dummy account (B11); the account's waiting file after its sign-in (A2) | BLOCKED | B11, A2 |
+| F7 pins on speed dial | SpeedDialPinsTest, LocalDataTransferTest round trip (JVM); OwnerFeaturesDeviceTest: kept by a new store, drawn first with one badge each, the 28th refused (API 31, 33, 36) | Q19B B11 (22 Oct, Riff Preview rc6): a pin drawn first with its badge on Home in airplane mode, then removed (artifacts/quality/q19/day22/b11/f7.txt); the look in A3 | PASS | |
+| F8 frosted glass by default at 20 % | AccessibilitySettings default and kept choice: OwnerFeaturesDeviceTest (API 31, 33, 36); bar pictures on API 36 (artifacts/quality/q19/glass) | Q19B B11 (22 Oct): a cleared Riff Debug reads frosted glass on at 20 % (artifacts/quality/q19/day22/b11/f8.txt); B6: Home scroll 1.67 % janky frames at 20 %, 1.33 % off; the look in A3 | PASS | |
+| F9 backup on this phone | LocalBackupTest (9, JVM); OwnerFeaturesDeviceTest: MediaStore write, rewrite, read, Off removes (API 31, 33, 36) | Q19B B11 (22 Oct, Riff Debug 1880301, no account): Back up now, uninstall and reinstall, the restore offer, the folder picker, the setting back (shown only after a restart), Off removed this install's files (artifacts/quality/q19/day22/b11/f9.txt); Q18-078 | BLOCKED | Q18-078; the account's waiting file after its sign-in (A2) |
 | F10 Not interested reaches YouTube Music | ProviderMutationTest (3), NotInterestedUndoTest (4), JVM against recorded endpoints | No device part (no fixture server on the device). Live on the dummy account: a dislike, its Undo, and YouTube's own feedback from a Home card (B7, asked) | BLOCKED | B7 |
 | F3b a swipe back always goes to the song before | PlaybackToggleTest.theButtonRestartsAfterTenSecondsButASwipeAlwaysGoesToTheSongBefore (JVM, a recording player) | Swipe at 3 s and past 10 s, and the button past 10 s, on the phone (B4) | BLOCKED | B4 |
 
@@ -265,11 +265,18 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-047 release-content check skips the certificate of a v2-signed APK | check_release_content.py | none | PASS | fixed in Q19G (6bcce26) |
 | Q18-048 share sheet shows an older card | LyricShareDeviceTest (the next card's address differs, one file kept) | B4 rerun with rc4 | BLOCKED | the phone check with rc4 (B4, B13 row) |
 | Q18-049 glass bars too clear over text | none yet | Home and Settings pictures (artifacts/quality/q19/b5) | DECLINED | not a bug (owner); remedy: frosted by default at 20 %, frost to the edges and bending at the rim; the look by eye in A3 |
-| Q18-050 benchmark lane stops on dependency verification | verify.py --lane benchmark | none | BLOCKED | fixed in 10b96ac; the lane on the phone: next B6 |
-| Q18-051 start-up crash reading the provider's state | HomePrefetchTest.theProviderIsBuiltOnTheCallersThreadBeforeAnyScreenReadsIt (JVM) | seen once on the API 36 emulator; cold starts on the phone in B3 | BLOCKED | fixed in code (20 Oct); cold starts on the phone: B3 |
+| Q18-050 benchmark lane stops on dependency verification | verify.py --lane benchmark | Q19B6 (22 Oct): the lane built, installed and ran on the phone | PASS | fixed in 10b96ac; its test failures are Q18-073 and Q18-074 |
+| Q18-051 start-up crash reading the provider's state | HomePrefetchTest.theProviderIsBuiltOnTheCallersThreadBeforeAnyScreenReadsIt (JVM) | Q19B B3a (22 Oct, Riff Preview rc6): ten cold starts, five offline, no crash (artifacts/quality/q19/day22/b3a/coldstarts.txt) | PASS | |
 | Q18-052 a backup removed a waiting import's working copy | LocalBackupTest.aBackupWrittenWhileAnImportWaitsLeavesTheImportsCopyAlone; LocalDataTransferDeviceTest | Found by the C7 lane on API 33 (2 cases); after the fix the lanes pass on API 31, 33 and 36 | PASS | fixed in bb37685; on the phone with B1 |
 | Q18-053 the restore after a reinstall brought nothing back | LocalBackupTest.anEmptyNewInstallNeverOutrunsTheRealBackup | The reinstall by hand on API 33 (artifacts/quality/q19/c7/reinstall2): restored with its notice, the pin on Home offline; Not now kept the offer away and later backups wrote over one file | PASS | fixed in 47bcb8b; on the phone: B11 |
 | Q18-054 a restore offered after an update | LocalBackupTest.anUpdateIsNeverOfferedARestore | Found in C6 on the signed rc4 over rc20 (artifacts/quality/q19/c8/c6) | BLOCKED | fixed in code (9117a18) after rc4 was signed; C6 on the next candidate |
+| Q18-072 translation fails on the release build | LyricsTranslationTest (JVM) does not reach it | Q19B B3c on Riff Preview rc6; Riff Debug translates | FAIL | Q19G |
+| Q18-073 memory growth over the journeys | MemoryCheck (Macrobenchmark) | Q19B6: PSS +28,253 kB against 22,195 kB allowed | FAIL | Q19G |
+| Q18-074 two benchmark waits fail | ActionBenchmark, StartupBenchmark | Q19B6: the queue button and the app open not seen; by hand the app opens every time | FAIL | Q19G (test fix) |
+| Q18-075 Delicate still line synced | LyricsWordTimingTest (JVM) | Q19B B3a on Riff Preview rc6 | FAIL | Q19G |
+| Q18-076 the button reads Play while waiting for a connection | none | Q19B B3b on Riff Debug | FAIL | Q19G |
+| Q18-077 no loudness gain for signed-out streams | LoudnessNormalizationTest (JVM) | Q19B B7 on Riff Debug | FAIL | Q19G (triage first) |
+| Q18-078 backup copies, refresh and leftovers after a reinstall | LocalBackupTest (JVM) | Q19B B11 on Riff Debug | FAIL | Q19G |
 
 ## 6. Totals
 
@@ -290,3 +297,10 @@ C5 on 20 October, after F6 to F10, the swipe change, C7 and the signed rc4: the 
 now on the signed rc4 and rc4-preview), FAIL 0, BLOCKED 21, DEFERRED 6, DECLINED 1. Section 7, 34 rows: PASS 15 (adds
 Q18-052, Q18-053), FAIL 0, BLOCKED 17 (adds F6 to F10, F3b, Q18-054; Q18-048 now waits for rc4 in B4), DECLINED 2.
 Q18-054 is fixed in code after rc4 was signed, so it passes only with C6 on the next candidate.
+
+Q19B by day, 22 October (Riff Preview rc6 and Riff Debug 1880301; evidence in artifacts/quality/q19/day22): the 72
+rows PASS 47 (adds PLY04, PLY06, DLD01), FAIL 5 (AUD01 Q18-077; LYR01 Q18-075; LYR02 and UX06 Q18-072; PERF01
+Q18-074), BLOCKED 13, DEFERRED 6, DECLINED 1. Invariants: I08 now PASS. Section 7, 41 rows: PASS 19 (adds F7, F8,
+Q18-050, Q18-051), FAIL 7 (Q18-072 to Q18-078, new), BLOCKED 13, DECLINED 2. The BLOCKED rows wait for the owner (the
+A11Y02 look, F4, Q18-032, Q18-058, B7 writes), B8 and B9, rc7, or TalkBack on an emulator (Q18-031); every FAIL goes
+to the fix round after Q19B.
