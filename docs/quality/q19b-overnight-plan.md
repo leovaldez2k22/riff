@@ -47,6 +47,14 @@ If something takes longer, the later steps move later; nothing is skipped to sav
 No VPN test of any kind runs on the phone (the owner, 22 October 2026): Q18-017's phone check and the network-off
 device tests are left to the emulator lanes and JVM tests.
 
+## Time limits (after the 21 to 22 October night)
+
+Every phone command has a limit of about twice its expected time; a long run is stopped when it goes silent for about
+10 minutes, not for running long. Airplane mode is turned off again in every case (pass, fail, deadline or crash),
+and a watchdog on the computer checks it every 2 minutes. The airplane-mode checks (Q18-020, Q18-021, Q18-034,
+Q18-051, F7 offline) stay in the plan under these limits, at the owner's word of 22 October; they run with the
+owner's VPN connected, which is recorded with each result.
+
 ## Approvals this plan needs (one yes covers the night)
 
 1. Airplane mode on and off as listed, always back to Wi-Fi at the end.
