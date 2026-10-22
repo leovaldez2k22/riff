@@ -2811,3 +2811,42 @@ New contract rule 16: commit each package locally on its branch before starting 
   rotation, stay-awake, timeout, font and refresh as found (phone-after.txt). Riff Debug now holds the B1 fixture
   data; Riff Preview, the app labelled "Riff" and the owner's account were not touched.
 - New rule for every phone run: a hard time limit on every command and checks on anything long.
+
+### Q19B by day (22 October 2026, 08:30 to 11:35)
+- Owner: "start q19b-overnight-plan.md" with the phone; time limits on every command, a 2-minute airplane watchdog,
+  no VPN tests, bugs logged only. Evidence: artifacts/quality/q19/day22/ (phone-before.txt, phone-after.txt).
+- B6: benchmark lane on rc6 (airplane mode, 37 min): 17 of 20; Q18-073 (memory growth), Q18-074 (two harness
+  waits); 2,000-entry queue, local and online first audio PASS; frames fail at 120 Hz as Q18-023/030. By hand: cold
+  start to fully drawn about 1.5 s with the profile, 1.6 s without (15 each); Home scroll 1.67 % janky frames with
+  frosted glass at 20 %, 1.33 % off.
+- B3a on Riff Preview rc6 (dummy account): Q18-051 PASS (ten cold starts, five offline, no crash or ANR); Q18-014
+  Home content 1.6 to 3.4 s after launch (was 3.1 to 4.1); Q18-011 and Q18-033 PASS by screen tree (no TalkBack);
+  Q18-018 PASS ("Already in the queue", one copy); Q18-019 PASS (0:24 kept after force-stop); F1 PASS; F3 PASS;
+  Q18-003 FAIL, still Line synced (Q18-075); Q18-022 PASS on Riff Debug (resolver unavailable, class=solver).
+  Q18-032 waits for the owner (no widget placed; placing one changes the home screen). Q18-058 waits for the owner
+  (a password would have to be typed).
+- B3b on Riff Debug: Q18-020 PASS (BUFFERING while waiting, PLAYING on reconnect, never ERROR; Q18-076 noted);
+  Q18-066 PASS (downloads with about 10.6 GB free); Q18-021 PASS for a kill while downloading, a kill while saving
+  artwork and lyrics, and a reboot (requeued and finished within about 40 s of opening Riff); Q18-035 PASS (Pause in
+  the notification, then a new download in the same process); Q18-005 downloads half PASS by the log (seek to
+  playing 86 to 224 ms).
+- B3c: Q18-034 on Riff Preview FAIL, translation broken in the release build (Q18-072); on Riff Debug the original
+  lines stay while offline during the model download, and the translation completes once online; Back while
+  translating could not be timed by hand (under a second). Q18-031 BLOCKED: without an accessibility service the
+  app sends no events to uiautomator, and TalkBack checks are excluded. A11Y02 PASS by screen tree at 200 % font and
+  in landscape (no text past the edge, no crash); two points for the owner's eye: Close queue absent at 200 % and in
+  landscape, landscape Settings' lower sections not reached by my scroll.
+- B7 (read-only, dummy account): the 100-song chart playlist loads to its end, no crash; provider canary stream
+  phase Healthy (2 requests, 8.3 s); loudness: no gain logged (Q18-077); a real download on Riff Debug (above).
+- B11: F7 PASS (a pin shows in Speed dial with Home offline; pin removed after); F8 PASS (fresh Riff Debug reads
+  frosted glass on, 20 %); F9 PASS with Q18-078 (Back up now, uninstall and reinstall, restore offer, folder picker,
+  data back, Off removes this install's files).
+- Mistake: a fling loop ran with the search keyboard open and swipe typing filled Riff Preview's search with "by";
+  the owner stopped it. The 23 history entries it made were removed one by one. Rule saved: close the keyboard before
+  any swipe.
+- B10: removed by literal path the five backup files testing made today (benchmark (3) and (5), debug phone (1), (2),
+  signed-out (1)); Riff Debug cleared (no account, 56 test downloads gone) and its notification permission revoked;
+  test searches removed from Riff Preview; volume 15, airplane off, font 1.0, rotation 0, as found. Riff Preview
+  data otherwise kept; the app labelled "Riff" and the owner's account untouched.
+- Left in Q19B: B4 F4 haptics and B7 writes with the owner; Q18-032 and Q18-058 with the owner; B8 and B9 on their
+  own nights (or BLOCKED).
