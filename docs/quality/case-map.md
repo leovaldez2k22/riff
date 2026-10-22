@@ -280,6 +280,7 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-079 the queue at 200 % text | AccessibilitySweepTest (JVM) does not see it | Q19B owner session, upright and landscape | FAIL | Q19G |
 | Q18-080 an unlike stays in Liked songs | ProviderMutationTest (JVM) | Q19B owner session, dummy account | FAIL | Q19G |
 | Q18-081 no way to create a playlist | none | Q19B owner session | FAIL | Q19G (new feature) |
+| Q18-082 lyrics searched in parallel | LyricsRepository tests with timed fakes (planned) | B13 on the phone after the fix | TODO | Q19G, after Q19B |
 
 ## 6. Totals
 
