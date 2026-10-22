@@ -18,7 +18,7 @@ logged with their C10, B13 and A9 checks and fixed afterwards, not during the ni
 | Time | Step | What | Phone changes |
 |---|---|---|---|
 | 23:00 | Start | Settings recorded (done once already: airplane off, rotation off, stay-awake 15, media volume 15, Wi-Fi on); volume to 0; Documents folder listed | volume |
-| 23:10 | B1 | Device lane on Riff Debug (every instrumented test, all of them now that Debug holds no account); then the three network-off tests again with airplane mode on | install Debug and its test APK; airplane mode about 10 min |
+| 23:10 | B1 | Device lane on Riff Debug (every instrumented test, all of them now that Debug holds no account); the three network-off tests are not run on the phone (no VPN tests on it, the owner's decision of 22 Oct); they run on the emulator lanes | install Debug and its test APK |
 | 00:30 | B6 | Benchmark lane once (Q18-023: it runs or is BLOCKED after 15 silent minutes); by hand, 15 cold starts with and without the Baseline Profile; Home scroll (gfxinfo) with frosted glass at 20 % and off, at 120 Hz; `check_performance.py summary --tier R` | install Riff Benchmark rc6; airplane mode on (fixture build) |
 | 02:30 | B3a | Fix checks on Riff Preview, Wi-Fi on: Q18-003 (Delicate word synced), Q18-011 and Q18-033 (screen-tree names), Q18-018 (Already in the queue), Q18-019 (saved time after force-stop), Q18-032 (widget Play/Pause names), Q18-051 (ten cold starts, five offline), Q18-058 (store page), Q18-022 (resolver unavailable), Q18-014 (three cold starts timed from the log, no recording); F1 (tap opens the player), F3 (Previous after 10 s) | airplane mode for Q18-051 |
 | 04:00 | B3b | Network and download checks on Riff Debug: Q18-020 (session states through wait, pause and reconnect, airplane mode), Q18-021 (kill while downloading and while saving artwork and lyrics; then one reboot), Q18-035 (pause a download from its notification, then another), Q18-005 download half, Q18-066 (a download with about 10 GB free) | airplane mode; downloads (removed after); one reboot |
@@ -38,12 +38,14 @@ If something takes longer, the later steps move later; nothing is skipped to sav
 | B8 battery (three 2-hour runs unplugged) | The phone has to be unplugged; adb then cannot reach it | A separate night, or BLOCKED |
 | B9 4-hour live soak | You start the streaming | A separate night |
 | B5 Q18-040 sign-in capture | It is a capture of the screen, which the phone rule forbids; your A2 sign-in covered the welcome row | Recorded as covered by A2 unless you want it |
-| Q18-017 | Needs your VPN connected | Only if you use a VPN on this phone |
 | Q18-001 screen recording | Screen capture; you checked it by eye in A1 | Done |
 | F4 slider haptics, F2 and F6 by feel | Only you can feel them; F2 and F6 you checked in A3 | F4 with you |
 | 60 Hz frames (Q18-023, Q18-030) | You set Standard refresh | If you set it before handing over |
 | F9 on Riff Preview (uninstall deletes its data and the dummy account's sign-in) | Done on Riff Debug instead | After rc7, if you want it on Preview |
 | Downloads on Riff Preview | Refused by Q18-066 on rc6 | rc7 |
+
+No VPN test of any kind runs on the phone (the owner, 22 October 2026): Q18-017's phone check and the network-off
+device tests are left to the emulator lanes and JVM tests.
 
 ## Approvals this plan needs (one yes covers the night)
 

@@ -142,7 +142,7 @@ the phone (B2).
 | Q18-012 | With the dummy account only: search, sign out to signed-out use and back; nothing crosses (the two-account part is A9) |
 | Q18-014 | Three cold starts recorded: real Home content when the logo ends, no placeholder rows |
 | Q18-015 | First song cold and after 10 minutes away, with stream_prewarm and selected_stream_ready (as B4) |
-| Q18-017 | B1's three offline tests with the owner's VPN connected (the owner connects it at hand-over) |
+| Q18-017 | **Declined by the owner (22 Oct 2026): no VPN tests on the phone.** Covered by the JVM test and the emulator lanes' offline tests |
 | Q18-018 | Add to queue on a queued song says "Already in the queue" |
 | Q18-019 | B3 step 4 again: after a force-stop the player shows the saved time and length before Play |
 | Q18-020 | B3 step 6 again with the media session state logged: no ERROR through wait, pause and reconnect |
