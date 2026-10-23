@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.text.TextLayoutResult
@@ -49,6 +50,12 @@ class SignInScreensDeviceTest {
             else -> throw AssertionError("Unexpected playback call ${method.name}")
         }
     } as PlaybackGateway
+
+    /**
+     * The Google button under the saved accounts. Since each address has its own line (Q18-088), five accounts put it
+     * below a 720 x 1280 screen, and a click off screen touches nothing; Welcome scrolls, so it is scrolled to first.
+     */
+    private fun openGoogle() = compose.onNodeWithTag("account_open_google").performScrollTo().performClick()
 
     private fun seed(count: Int) {
         before = prefs.getString("accounts", null)
@@ -148,7 +155,8 @@ class SignInScreensDeviceTest {
         compose.onNodeWithTag("signin_account_remove", useUnmergedTree = true).performClick()
         waitFor { rows() == 4 }
         assertFalse(shows("Fixture One"))
-        assertEquals(listOf("fixture-2", "fixture-3", "fixture-4", "fixture-5"), SavedAccounts(context).all().map { it.key })
+        // Q18-085: an account whose address is known is kept under its address.
+        assertEquals((2..5).map { "fixture.$it@example.test" }, SavedAccounts(context).all().map { it.key })
 
         back()
         waitFor { shows(text(R.string.signin_welcome_back)) && !shows(text(R.string.signin_accounts)) }
@@ -158,7 +166,7 @@ class SignInScreensDeviceTest {
     @Test fun googlesPageOpensInTheFrameAndSaysItDidNotLoadWithTheNetworkOff() {
         seed(2)
         show()
-        compose.onNodeWithTag("account_open_google").performClick()
+        openGoogle()
         waitFor { has("account_browser") && shows(text(R.string.signin_with_google)) }
         // The frame asks for the sign-in hand-off on Google's own hosts and nothing else.
         val asked = arrayOfNulls<String>(1)
@@ -175,7 +183,7 @@ class SignInScreensDeviceTest {
         keep("1-welcome-after-back")
 
         // Start over does the same from the card.
-        compose.onNodeWithTag("account_open_google").performClick()
+        openGoogle()
         waitFor(SIGN_IN_TIMEOUT_MS + 10_000) { has("account_no_load") }
         compose.onNodeWithTag("account_restart").performClick()
         waitFor { shows(text(R.string.signin_welcome_back)) && !has("account_browser") }
@@ -192,7 +200,7 @@ class SignInScreensDeviceTest {
         waitFor { shows(text(R.string.signin_accounts)) }
         compose.onNodeWithTag("signin_back").performClick()
         waitFor { shows(text(R.string.signin_welcome_back)) && !shows(text(R.string.signin_accounts)) }
-        compose.onNodeWithTag("account_open_google").performClick()
+        openGoogle()
         waitFor(SIGN_IN_TIMEOUT_MS + 10_000) { has("account_no_load") }
         back()
         waitFor { shows(text(R.string.signin_welcome_back)) && !has("account_browser") }
