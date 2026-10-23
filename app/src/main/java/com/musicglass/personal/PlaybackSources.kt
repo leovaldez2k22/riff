@@ -18,7 +18,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
@@ -97,7 +96,7 @@ internal class PlaybackSources(private val context: Context, private val scope: 
                     }
                     queue.servedFromDownload(entry, false)
                     val start = android.os.SystemClock.elapsedRealtime()
-                    val stream = withTimeout(if (track.isLive) 60_000 else 30_000) { provider.resolve(track.videoId, track.isLive, video = track.isLive).getOrThrow() }
+                    val stream = withinLookupDeadline(if (track.isLive) 60_000L else 30_000L) { provider.resolve(track.videoId, track.isLive, video = track.isLive) }.getOrThrow()
                     events.append("selected_stream_ready ms=${android.os.SystemClock.elapsedRealtime() - start}")
                     queue.remember(item, stream)
                     audio.learnLoudness(item, stream.loudnessDb)

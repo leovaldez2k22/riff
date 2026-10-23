@@ -149,7 +149,7 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
             val key="$authRevision:$videoId:$live:$video:$download:$quality:$revision"
             streamCache[key]?.takeIf { reusableStream(it.expiresAtMs,dependencies.clocks.wallTimeMillis(),live) }?.let {return Result.success(it)}
             streamFlights[key] ?: runtimeScope.async {
-                val result=withTimeout(60_000) {
+                val result=withinLookupDeadline(60_000) {
                     try {resolveFresh(videoId,live,emptySet(),video,download,quality)}
                     catch(e:CancellationException) {
                         currentCoroutineContext().ensureActive()
@@ -282,6 +282,17 @@ internal suspend fun settleVisitor(current: String?, fetch: suspend () -> String
 }
 
 internal const val STREAM_QUALITY_PREFS = "stream_quality"
+
+/** Q18-103: a lookup that passed its deadline. An IOException, so recovery treats it as the network failing. */
+internal class StreamLookupTimeoutException(ms: Long) : java.io.IOException("Stream lookup took longer than $ms ms")
+
+/**
+ * Q18-103: a lookup past its deadline becomes a failure. withTimeout ends in a CancellationException, which every
+ * caller takes for its own release and passes on silently, so an offline lookup that hung after the player responses
+ * left the song buffering for good and never reached the wait for a connection.
+ */
+internal suspend fun <T> withinLookupDeadline(ms: Long, lookup: suspend () -> Result<T>): Result<T> =
+    withTimeoutOrNull(ms) { lookup() } ?: Result.failure(StreamLookupTimeoutException(ms))
 
 /** Q18-090: formats YouTube serves only to Premium accounts: 256 kbps Opus (774) and 256 kbps AAC (141). */
 internal fun premiumOnlyFormat(itag: Int?): Boolean = itag == 774 || itag == 141

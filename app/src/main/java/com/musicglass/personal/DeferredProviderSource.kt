@@ -26,7 +26,8 @@ internal class DeferredProviderSource(private val item: MediaItem,
         failure=null
         scope=CoroutineScope(SupervisorJob()+Handler(Looper.myLooper()!!).asCoroutineDispatcher()).also {s->s.launch {
             try {val source=resolve();ensureActive();child=source;prepareChildSource(Unit,source)}
-            catch(e:CancellationException){throw e}
+            // Q18-103: only a release cancels this scope; a deadline inside the lookup is its failure, never silence.
+            catch(e:CancellationException){ensureActive();failure=IOException("The selected YouTube track could not be prepared",e)}
             // Keep the cause: recovery (classifyFault) reads it to tell an outage from a bad track.
             catch(e:Exception){failure=IOException("The selected YouTube track could not be prepared",e)}
         }}

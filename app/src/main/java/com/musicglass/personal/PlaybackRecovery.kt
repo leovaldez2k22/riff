@@ -25,7 +25,7 @@ internal data class PlaybackFault(val kind: RecoveryClass, val source: FaultSour
 
 private val networkCauses = listOf("UnknownHostException", "ConnectException", "SocketTimeoutException",
     "NoRouteToHostException", "SocketException", "SSLException", "HttpRequestTimeoutException", "EOFException",
-    "TimeoutCancellationException")
+    "TimeoutCancellationException", "StreamLookupTimeoutException")
 private val unplayableReasons = listOf("NO_PLAYABLE_STREAM", "EXPLICIT_UNSUPPORTED", "UNAVAILABLE", "AGE_RESTRICTED", "NO_MUSIC_VIDEO")
     .map { "Track unavailable: $it" } + listOf("No supported audio stream is available for this track",
     "No playable audio stream is available for this track",
