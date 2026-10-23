@@ -188,7 +188,7 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
             val preferred = downloadClientOverride(download,video,live,excluded)?.let {client->
                 try {extractor.extract(videoId = videoId,hints = hints.copy(playbackClientOverrideId = client),excludedClients = excluded,audioQuality = quality)}
                 catch(e:CancellationException) {throw e}
-                catch(e:Exception) {playbackEvents.append("download_preferred_client_failed type=${e::class.simpleName}");null}
+                catch(e:Exception) {playbackEvents.append("download_preferred_client_failed type=${readableFailureName(e)} causes=${readableFailureCauses(e)}");null}
             }
             val stream = preferred ?: extractor.extract(
                 videoId = videoId,
@@ -282,6 +282,19 @@ internal suspend fun settleVisitor(current: String?, fetch: suspend () -> String
 }
 
 internal const val STREAM_QUALITY_PREFS = "stream_quality"
+
+/**
+ * Q18-089: a failure's class name as it can be read in a release build. A name R8 has shortened (ja5) says nothing,
+ * so the nearest superclass whose name was kept stands in for it (IOException), never a message.
+ */
+internal fun readableFailureName(error: Throwable): String =
+    generateSequence<Class<*>>(error.javaClass) { it.superclass }.map { it.simpleName }
+        .firstOrNull { it.length >= 4 && it[0].isUpperCase() && it.all(Char::isLetterOrDigit) } ?: "Throwable"
+
+/** Q18-089: the cause chain below [error], up to three, each as [readableFailureName] gives it; "none" without one. */
+internal fun readableFailureCauses(error: Throwable): String =
+    generateSequence(error.cause) { it.cause?.takeIf { c -> c !== it } }.take(3).map(::readableFailureName)
+        .joinToString(">").ifEmpty { "none" }
 
 /** Q18-103: a lookup that passed its deadline. An IOException, so recovery treats it as the network failing. */
 internal class StreamLookupTimeoutException(ms: Long) : java.io.IOException("Stream lookup took longer than $ms ms")
