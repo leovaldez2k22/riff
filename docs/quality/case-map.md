@@ -130,7 +130,7 @@ section 18); C9 reruns them on the final candidate.
 | EXP01 export then import | LocalDataTransferTest.aCleanInstallMatchesTheSourceForEverythingIncluded; LocalDataTransferDeviceTest (emulator, B1) | B6: export through the picker, file checked, import preview. Between two phones: BLOCKED (one phone) | PASS | two-phone transfer BLOCKED |
 | EXP02 bad import files | LocalDataTransferTest (corrupt, truncated, newer, oversized, mismatched), LocalDataTransferDeviceTest | none needed | PASS | |
 | OPS01 canary | ProviderCanaryTest, test_provider_canary.py; two live canary runs (Q10A) | The scheduled workflow never ran: nothing pushed, by the owner's choice | PASS | workflow run BLOCKED (no push) |
-| UPD01 update feed | UpdateNoticeTest (12, scripted feed) | No public release feed exists | BLOCKED | publication decision; Q12A rerun steps |
+| UPD01 update feed | UpdateNoticeTest (12, scripted feed) | No public release feed exists; D1 (19 Oct): personal use only, nothing published, so no feed will exist | DECLINED | none; publishing later reopens it (Q12A rerun steps) |
 | UPD02 update check off | UpdateNoticeTest (zero requests) | none needed | PASS | |
 | DIAG01 exit diagnostics | ExitDiagnosticsTest, DiagnosticsScreenTest; Q15A on the emulator (crash in each process, force-stop, SIGKILL) | ANR and low memory by scripted records only; Diagnostics screen not looked at on the phone | PASS | |
 | PERF01 Baseline Profile | release-content check (profile packaged), Q14 baseline-prof.txt | Q19B6 (22 Oct, rc6): the Macrobenchmark lane runs now, but its cold-start test reports the app "did not open" (Q18-074). By hand, 15 cold starts each: about 1.5 s to fully drawn with the profile, 1.6 s without (artifacts/quality/q19/day22/b6-hand) | FAIL | Q18-074 (test harness), then the Macrobenchmark comparison |
@@ -344,3 +344,5 @@ DECLINED 2. Every FAIL and TODO goes to Q19G.
 Same afternoon, after SGN05, F3b and CAT04 on the phone: the 72 rows unchanged (CAT04 stays BLOCKED, now on
 Q18-081). Section 7: PASS 31 (adds SGN05, F3b), FAIL 21, BLOCKED 3 (F9 after rc7, Q18-054 on the next candidate,
 Q18-071 on an emulator), TODO 6, DECLINED 2.
+Owner, 23 Oct: UPD01 recorded DECLINED under D1 (no publication). The 72 rows: PASS 53, FAIL 7, BLOCKED 4, DEFERRED 6,
+DECLINED 2.
