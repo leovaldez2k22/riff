@@ -43,6 +43,7 @@ private val keyLabels: Map<String, Int> = mapOf(
     "Relevance" to R.string.relevance,
     "Remove download" to R.string.remove_download,
     "Remove from queue" to R.string.remove_from_queue,
+    "Remove from Saved on this phone" to R.string.remove_from_saved_on_this_phone,
     "Resume download" to R.string.resume_download,
     "Retry missing assets" to R.string.retry_missing_assets,
     "Samples" to R.string.samples,

@@ -207,10 +207,12 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     fun providerTrack() = ProviderTrack(state.mediaId.removePrefix("yt:"),
         state.title,state.artist,state.artworkUrl,state.artistId,state.albumId,state.album,state.live,state.music)
     val pins = remember(context) { SpeedDialPins.get(context) }
-    fun addToLibrary() {
-        collections.setOnlineFavorite(providerTrack(),true)
+    // Q18-083: Riff's own list on this phone, apart from the YouTube like: added and removed here, never sent anywhere.
+    val keptOnPhone = collections.onlineFavorites.any { it.videoId == videoId }
+    fun keepOnPhone(keep: Boolean) {
+        collections.setOnlineFavorite(providerTrack(), keep)
         uiHaptic(HapticCue.Confirm)
-        onNotice(string(R.string.saved_on_this_phone))
+        onNotice(string(if (keep) R.string.added_to_saved_on_this_phone else R.string.removed_from_saved_on_this_phone))
     }
     fun share(text: String) {
         val intent = Intent(Intent.ACTION_SEND).apply {
@@ -294,7 +296,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             if(open) {
                 InlineQueue(playback,provider,onQueueClose,onLike={
                     if(!provider.capabilities.like.available) onNotice(provider.capabilities.like.reason?:CHECKING_ACCOUNT_NOTICE) else scope.launch {
-                        provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);collections.setOnlineFavorite(providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))})
+                        provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);unlikedOffPhone(collections,providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))})
                     }
                 },onMore={moreExpanded=true},onMoreBounds={moreAnchor=it},artworkModifier=Modifier.sharedBounds(rememberSharedContentState("queue-art"),this))
             } else Box(Modifier.fillMaxSize()) {
@@ -362,7 +364,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 else { likeBusy=true;scope.launch {
                     provider.setSongLike(videoId,!favorite).fold(onSuccess={
                         uiHaptic(HapticCue.Confirm)
-                        collections.setOnlineFavorite(providerTrack(),!favorite)
+                        unlikedOffPhone(collections,providerTrack(),!favorite)
                         onNotice(if(!favorite) string(R.string.liked_on_youtube_music) else string(R.string.removed_from_youtube_music_liked_songs))
                     },onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))});likeBusy=false
                 } }
@@ -389,14 +391,14 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 PlayerActionMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }, anchorBounds=moreAnchor) {
                     if(state.source=="YouTube Music") DownloadSongAction(providerTrack(),onNotice,onDismiss={moreExpanded=false})
                     val options = if (state.source == "YouTube Music")
-                        listOf("View credits", "Add to playlist", "Share song", "View album", "View artist", "Favorite", "Play next", "Add to queue", "Save on this phone", "Library shortcuts", "Sleep timer", if(providerTrack().videoId in pins) "Unpin from speed dial" else "Pin to speed dial") + (if(hasQueue) listOf("Remove from queue") else emptyList()) + (if(state.live) emptyList() else listOf("Not interested"))
+                        listOf("View credits", "Add to playlist", "Share song", "View album", "View artist", "Favorite", "Play next", "Add to queue", if(keptOnPhone) "Remove from Saved on this phone" else "Save on this phone", "Library shortcuts", "Sleep timer", if(providerTrack().videoId in pins) "Unpin from speed dial" else "Pin to speed dial") + (if(hasQueue) listOf("Remove from queue") else emptyList()) + (if(state.live) emptyList() else listOf("Not interested"))
                         else listOf("Library shortcuts", "View credits", "Sleep timer")
                     options.forEach { option ->
                         SongActionItem(if(option=="Sleep timer" && state.sleepDeadlineMs>0) string(R.string.sleep_timer_x_min, sleepMinutesRemaining(state.sleepDeadlineMs,android.os.SystemClock.elapsedRealtime())) else option, onClick = { 
                             moreExpanded = false
                             when (option) {
                                 "Favorite" -> if(!provider.capabilities.like.available) onNotice(provider.capabilities.like.reason?:CHECKING_ACCOUNT_NOTICE) else scope.launch {
-                                    provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);collections.setOnlineFavorite(providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))})
+                                    provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);unlikedOffPhone(collections,providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))})
                                 }
                                 "Remove from queue" -> playback.removeQueueItem(state.index)
                                 "Not interested" -> scope.launch {markNotInterested(context,provider,playback,NotInterestedEntry(videoId,state.title,state.artist,state.artworkUrl),null,onNotice)}
@@ -405,8 +407,9 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                                 "Play next", "Add to queue" -> scope.launch {
                                     provider.resolve(videoId,state.live).fold(onSuccess={playback.enqueueProvider(providerTrack(),it,option=="Play next");onNotice(string(R.string.added_to_queue))},onFailure={onNotice(it.message?:string(R.string.could_not_add_to_queue))})
                                 }
-                                "Save on this phone" -> if (collectionsCanSave(collections)) addToLibrary()
+                                "Save on this phone" -> if (collectionsCanSave(collections)) keepOnPhone(true)
                                     else onNotice(saveUnavailableNotice(provider.accountScope()))
+                                "Remove from Saved on this phone" -> keepOnPhone(false)
                                 "Add to playlist" -> playlistTrack=providerTrack()
                                 "Sleep timer" -> sleepTimerVisible=true
                                 "Library shortcuts" -> onLibrary()
@@ -485,4 +488,12 @@ internal fun PlaybackProblem(notice: String?, error: String?, failure: PlaybackF
             } }
         }
     }
+}
+
+/**
+ * Q18-083: a like is YouTube's alone and no longer adds the song to Riff's list on this phone; an unlike also takes
+ * it off that list, so a song the owner no longer likes is not left under Liked songs.
+ */
+internal fun unlikedOffPhone(collections: LocalCollections, track: ProviderTrack, liked: Boolean) {
+    if (!liked) collections.setOnlineFavorite(track, false)
 }

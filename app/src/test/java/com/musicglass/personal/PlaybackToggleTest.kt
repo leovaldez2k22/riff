@@ -24,6 +24,14 @@ class PlaybackToggleTest {
         assertFalse(toggleShouldPause(isPlaying = false, playWhenReady = false, idle = false, ended = true))
     }
 
+    /** Q18-076, the owner's decision: a song waiting for a connection shows Pause, and the button does nothing then. */
+    @Test fun aSongWaitingForAConnectionShowsPause() {
+        assertTrue(waitingForConnection(RecoveryReason.Network, held = false))
+        assertFalse("paused by the user before: it shows Play", waitingForConnection(RecoveryReason.Network, held = true))
+        assertFalse("a stream retry is not a wait for a connection", waitingForConnection(RecoveryReason.ProviderStream, held = false))
+        assertFalse(waitingForConnection(null, held = false))
+    }
+
     @Test fun previousGoesBackAfterTenSecondsAndToTheSongBeforeUntilThen() {
         assertFalse(previousRestartsSong(positionMs = 4_000, hasPrevious = true))
         assertFalse(previousRestartsSong(positionMs = 10_000, hasPrevious = true))

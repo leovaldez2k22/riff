@@ -194,7 +194,8 @@ internal class MusicPlaybackGateway(context: Context,
             sleepDeadlineMs=player.sessionExtras.getLong("sleepDeadlineMs"),
             ready = true,
             index = player.currentMediaItemIndex.coerceAtLeast(0),
-            playing = if((embeddedId!=null && embeddedId==player.currentMediaItem?.mediaId)) embeddedPlaying else player.isPlaying,
+            playing = if((embeddedId!=null && embeddedId==player.currentMediaItem?.mediaId)) embeddedPlaying
+                else player.isPlaying || waitingForConnection(recovery, extras.getBoolean("recoveryHeld")),
             wantsPlayback = if((embeddedId!=null && embeddedId==player.currentMediaItem?.mediaId)) embeddedPlaying else player.playWhenReady,
             positionMs = player.currentPosition.coerceAtLeast(0),
             durationMs = knownDurationMs(player),
@@ -240,6 +241,8 @@ internal class MusicPlaybackGateway(context: Context,
             return@withPlayer
         }
         commandError = null
+        // Q18-076, the owner's decision: while a song waits for a connection the button shows Pause and does nothing.
+        if (waitingForConnection(state.playback.recovery, it.sessionExtras.getBoolean("recoveryHeld"))) return@withPlayer
         if (toggleShouldPause(it.isPlaying,it.playWhenReady,it.playbackState==Player.STATE_IDLE,it.playbackState==Player.STATE_ENDED)) { transport(false); it.pause() }
         else { transport(true); start(it) }
     }
@@ -457,6 +460,9 @@ internal class MusicPlaybackGateway(context: Context,
  */
 internal fun toggleShouldPause(isPlaying: Boolean, playWhenReady: Boolean, idle: Boolean, ended: Boolean = false): Boolean =
     !idle && !ended && (isPlaying || playWhenReady)
+
+/** Q18-076: a song waiting for a connection (not one the user paused) shows Pause; the song starts by itself on reconnect. */
+internal fun waitingForConnection(recovery: RecoveryReason?, held: Boolean): Boolean = recovery == RecoveryReason.Network && !held
 
 /** F3: once a song has played past this, Previous starts it again instead of going to the song before. */
 internal const val PREVIOUS_RESTARTS_AFTER_MS = 10_000L

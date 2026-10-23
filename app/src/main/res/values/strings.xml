@@ -566,7 +566,10 @@
     <string name="samples">Samples</string>
     <string name="save_album">Save album</string>
     <string name="save_listening_history">Save listening history</string>
-    <string name="save_on_this_phone">Save on this phone</string>
+    <string name="save_on_this_phone">Add to Saved on this phone</string>
+    <string name="remove_from_saved_on_this_phone">Remove from Saved on this phone</string>
+    <string name="added_to_saved_on_this_phone">Added to Saved on this phone. YouTube Music is not told.</string>
+    <string name="removed_from_saved_on_this_phone">Removed from Saved on this phone</string>
     <string name="save_playlist">Save playlist</string>
     <string name="saved">Saved</string>
     <string name="saved_before_riff_kept_history_and_queues">Saved before Riff kept history and queues separately for each account.</string>
