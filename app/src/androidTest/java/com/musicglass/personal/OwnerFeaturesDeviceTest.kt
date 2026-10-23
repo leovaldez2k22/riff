@@ -161,7 +161,8 @@ class OwnerFeaturesDeviceTest {
             val outcome = backup.backUp(force = true)
             assertTrue("$outcome", outcome is BackupOutcome.Done && outcome.files >= 1)
             val written = folder.list().filterKeys { backupBaseName(it) != null }
-            assertTrue("this phone's file: ${written.keys}", "riff-backup-phone.jsonl" in written)
+            // Q18-069: beside an earlier install's file of the same name Android numbers this one ("riff-backup-phone (1).jsonl").
+            assertTrue("this phone's file: ${written.keys}", written.keys.any { backupBaseName(it) == "riff-backup-phone.jsonl" })
             written.values.forEach { open -> assertTrue(open().bufferedReader().use { it.readLine() }.startsWith("{\"riff\":\"local-data\"")) }
             assertTrue(backup.lastBackupAt > 0)
             assertEquals(written.size, backup.turnBackup(false))
