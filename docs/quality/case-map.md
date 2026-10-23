@@ -144,7 +144,7 @@ Tests per journey are listed in `core-journeys.md`. The phone walk-through is A4
 | UX01 first launch, sign-in | A4: Home read in order. A6: Change account cannot finish; the owner asked for a new sign-in page | BLOCKED | Q18-009 fixed and Q18-013 built in Q18F; the screens without an account PASS on API 33 and 36 (Q19C3) and on the phone (Q19B5, signed rc2 Preview); Q18-046 fixed in Q19G; signing in for real: A2 |
 | UX02 search, play, queue | A4 | PASS | Q18-018 (Low) |
 | UX03 filter, sort, play | A4 | PASS | |
-| UX04 download, restart offline, play | A4 follow-up and B5; Q19B B3b (22 Oct, Riff Debug): a download killed and reopened finishes (Q18-021); phase announcements need TalkBack, excluded on the phone (Q18-031) | BLOCKED | Q18-031 on an emulator with TalkBack; restart offline and play on rc7 |
+| UX04 download, restart offline, play | A4 follow-up and B5; Q19B B3b (22 Oct, Riff Debug): a download killed and reopened finishes (Q18-021); phase announcements need TalkBack, excluded on the phone (Q18-031); Q19B 23 Oct, Riff Preview rc6: downloaded, force-stopped, airplane mode, played from Downloads and seeked offline, then removed: PASS (artifacts/quality/q19/ux04) | BLOCKED | Q18-031 on an emulator with TalkBack (the only part left) |
 | UX05 mini, full, queue, Home | A4 PASS; A1: doubled title and cover at the mini-player end of the morph | BLOCKED | Q18-001, Q18-002, Q18-008 fixed in Q18F (PlayerFixesTest, JVM); the morph by eye: A1 |
 | UX06 lyrics, timing, translation | A4: +0.2 s dialog. Q19B (22 Oct, Riff Preview rc6): translation fails (Q18-072); Delicate line synced (Q18-075) | FAIL | Q18-072, Q18-075 |
 | UX07 account switch | not run | DEFERRED | A2, by the owner (Q18-009 fixed in Q18F) |

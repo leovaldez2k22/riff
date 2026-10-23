@@ -2896,3 +2896,14 @@ New contract rule 16: commit each package locally on its branch before starting 
   medians (soak.py, after Q19B), and Q18-073's memory fix is checked against this curve.
 - Restored: Bluetooth on. Media volume left at 3 (the volume keys did not reach media with the music paused); the
   owner sets it. Two volume-up presses may have raised the ring volume (now 7 of 7, not recorded before).
+
+### UX04 restart offline and play (23 October 2026, morning)
+- Owner: "Can we try ux04", then "plugged in, on dummy account, go". USB adb (airplane mode drops the Wi-Fi link),
+  Riff Preview rc6, dummy account, no screenshots. Evidence: artifacts/quality/q19/ux04/session.txt.
+- One song downloaded from the player's song options (3.7 MB, 144 kbps WebM, artwork and lyrics saved); Riff
+  Preview force-stopped; airplane mode on with a 3-minute on-phone restore; opened again offline, the song listed in
+  Downloads, played (8.3 to 14.3 s, no error) and seeked to 3:06 and kept playing. PASS. Tapping the Downloads row
+  opened the player paused at 0:05; Play started it (noted, not logged as a bug).
+- Restored: airplane mode off, Wi-Fi on, download removed (Downloads 0 songs, as before). Wi-Fi adb went offline
+  with airplane mode; it pairs again from Wireless debugging when needed.
+- UX04 stays BLOCKED only for the phase announcements (Q18-031, TalkBack on an emulator).
