@@ -232,6 +232,12 @@ internal const val MORPH_SHOWN = .001f
  */
 internal fun morphCopyAlpha(p: Float): Float = (if (p > MORPH_SHOWN) 1f else 0f) * (1f - morphHandoff(p))
 
+/** The mini player's border alpha; the morph's border starts from it (Q18-068: with solid controls it is brighter). */
+internal fun miniBorderAlpha(solidControls: Boolean) = if (solidControls) .72f else .42f
+
+/** The morph's border at [p]: the mini player's own at first, fading out as the surface becomes the player. */
+internal fun morphBorderAlpha(p: Float, solidControls: Boolean) = (miniBorderAlpha(solidControls) * (1f - p) + .10f * p) * (1f - p)
+
 /** How much of the real mini player shows at [p]: all of it at rest, none once its copies are drawn. */
 internal fun miniPlayerAlpha(p: Float): Float = if (p > MORPH_SHOWN) 0f else 1f
 
@@ -317,7 +323,7 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
             .clip(shape)
             .background(if (solidControls) Color(0xFF11131A) else Color.Black.copy(alpha = p))
             // As deep as the mini player's own border, which it replaces in the same frame (Q18-055).
-            .border(1.dp, White.copy(alpha = (.42f * (1f - p) + .10f * p) * (1f - p)), shape)) {
+            .border(1.dp, White.copy(alpha = morphBorderAlpha(p, solidControls)), shape)) {
             if (p > .001f) {
                 Box(Modifier.wrapContentSize(Alignment.TopStart, unbounded = true)
                     .requiredWidth(fullWidth).requiredHeight(fullHeight - fullY)

@@ -111,10 +111,19 @@ class PlayerFixesDeviceTest {
      * Slid up a little (inside the hand-over, where the owner saw two titles), the mini player must look as it does at
      * rest: the copies lie on it pixel for pixel. A second title a few px off changes hundreds of pixels.
      */
-    @Test fun aSlowSlideUpShowsOneTitle() {
+    @Test fun aSlowSlideUpShowsOneTitle() = slowSlideUp(solid = false)
+
+    /** Q18-068: with solid controls (Riff Lite's default) the mini player's border is brighter, and the morph's was not. */
+    @Test fun aSlowSlideUpShowsOneTitleWithSolidControls() = slowSlideUp(solid = true)
+
+    private fun slowSlideUp(solid: Boolean) {
         val provider = YouTubeMusicProvider.shared(compose.activity)
         val progress = mutableFloatStateOf(0f)
         val accessibility = AccessibilitySettings(compose.activity)
+        // Whatever an earlier test or run left stored is not what this one checks (Q18-068): set it, put it back after.
+        val stored = accessibility.solidControls
+        accessibility.updateSolidControls(solid)
+        try {
         val model = ShellModel().apply { miniVisible = true }
         var miniBounds: Rect? by mutableStateOf(null)
         val elements = mutableStateMapOf<String, Rect>()
@@ -155,9 +164,10 @@ class PlayerFixesDeviceTest {
                     kotlin.math.abs(android.graphics.Color.blue(a) - android.graphics.Color.blue(b)))
                 if (d > 48) changed++
             }
-            Log.i("RiffQ18", "q18-055 p=$p changed=$changed of ${rest.width * rest.height}")
-            assertTrue("at p=$p, $changed pixels differ from the mini player at rest", changed < rest.width * rest.height / 400)
+            Log.i("RiffQ18", "q18-055 solid=$solid p=$p changed=$changed of ${rest.width * rest.height}")
+            assertTrue("at p=$p (solid controls $solid), $changed pixels differ from the mini player at rest", changed < rest.width * rest.height / 400)
         }
+        } finally { accessibility.updateSolidControls(stored) }
     }
 
     private fun shell(command: String) = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)

@@ -88,8 +88,7 @@ internal fun ChromeBar(model: ShellModel, compact: Boolean, playback: PlaybackGa
         if (model.miniVisible) {
             Surface(shape = RoundedCornerShape(32.dp),
                 color = if (accessibility.solidControls) Color(0xFF11131A) else Color.Transparent,
-                border = BorderStroke(1.dp, Color.White.copy(
-                    alpha = if (accessibility.solidControls) .72f else .42f)),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = miniBorderAlpha(accessibility.solidControls))),
                 modifier = Modifier.fillMaxWidth().height(62.dp).testTag("mini_player")
                     .onGloballyPositioned { if(miniProgress<.001f) onMiniBounds(it.boundsInRoot()) }
                     .graphicsLayer { alpha = miniPlayerAlpha(miniProgress) }
