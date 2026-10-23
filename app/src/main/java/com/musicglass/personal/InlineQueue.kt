@@ -71,7 +71,8 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
     fun finishDrag() {autoScroll?.cancel();autoScroll=null;draggingKey=null;dragIndex=-1;uiHaptic(HapticCue.DragEnd)}
     DisposableEffect(Unit) {onDispose {autoScroll?.cancel()}}
     Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal=20.dp).testTag("inline_queue")) {
-        Row(Modifier.fillMaxWidth().height(62.dp),verticalAlignment=Alignment.CenterVertically) {
+        // Q18-079: the header rows grow with large text rather than cut it off.
+        Row(Modifier.fillMaxWidth().heightIn(min=62.dp),verticalAlignment=Alignment.CenterVertically) {
             // Keep the hit target outside the shared artwork layer: its animated overlay can
             // otherwise leave touch coordinates at the full-size hero's position.
             Box(Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
@@ -91,7 +92,7 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
             IconButton(hapticClick(onMore),modifier=Modifier.testTag("queue_more").onGloballyPositioned {val r=it.boundsInWindow();onMoreBounds(IntRect(r.topLeft.round(),r.bottomRight.round()))}) {Icon(Icons.Rounded.MoreHoriz,string(R.string.song_options),tint=White)}
             IconButton(hapticClick(onClose),modifier=Modifier.testTag("queue_back")) {Icon(Icons.Rounded.ExpandMore,string(R.string.close_queue),tint=White)}
         }
-        Row(Modifier.fillMaxWidth().height(46.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth().heightIn(min=46.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             FilterChip(state.shuffle,hapticClick(playback::toggleShuffle),label={Icon(Icons.Rounded.Shuffle,string(R.string.shuffle),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f),shape=RoundedCornerShape(50))
             FilterChip(state.repeat!=0,hapticClick(playback::cycleRepeat),label={Icon(if(state.repeat==1) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,string(R.string.repeat),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f),shape=RoundedCornerShape(50))
             FilterChip(state.queueMessage !in setOf("Album order","Collection order"),{},enabled=false,label={Icon(Icons.Rounded.AllInclusive,string(R.string.youtube_music_recommendations),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f),shape=RoundedCornerShape(50))

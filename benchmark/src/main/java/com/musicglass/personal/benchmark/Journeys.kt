@@ -91,7 +91,12 @@ internal fun openTarget(device: androidx.test.uiautomator.UiDevice, clearTask: B
         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
             if (clearTask) android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK else android.content.Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
     context.startActivity(intent)
-    check(device.wait(Until.hasObject(By.pkg(TARGET).depth(0)), 30_000)) { "$TARGET did not open" }
+    if (device.wait(Until.hasObject(By.pkg(TARGET).depth(0)), 30_000)) return
+    // Q18-074: once on the owner's phone a cold start with the profile never showed a window, though by hand the same
+    // build opened 30 times in 30. The launch is sent once more before the run is called failed, and the failure
+    // names what was in front.
+    context.startActivity(intent)
+    check(device.wait(Until.hasObject(By.pkg(TARGET).depth(0)), 30_000)) { "$TARGET did not open (in front: ${device.currentPackageName})" }
 }
 
 /** startActivityAndWait without the shell (Q18-023). */
@@ -153,7 +158,20 @@ internal fun MacrobenchmarkScope.paused() =
 
 internal fun MacrobenchmarkScope.openPlayer() { tap("mini_player"); shown("playback_toggle") }
 internal fun MacrobenchmarkScope.closePlayer() { tap("player_close"); shown("navigation") }
-internal fun MacrobenchmarkScope.openQueue() { tap("player_queue_bottom"); shown("queue_list") }
+internal fun MacrobenchmarkScope.openQueue() { reveal("player_queue_bottom"); tap("player_queue_bottom"); shown("queue_list") }
+
+/**
+ * Q18-074: the player scrolls when the window is short or the text large, and then its bottom row (Open queue) is
+ * below the fold, where uiautomator cannot find it. The player is scrolled up, in its middle, until [tag] shows.
+ */
+internal fun MacrobenchmarkScope.reveal(tag: String) {
+    repeat(4) {
+        if (device.wait(Until.hasObject(By.res(tag)), 1_000)) return
+        val x = device.displayWidth / 2
+        device.swipe(x, device.displayHeight * 7 / 10, x, device.displayHeight * 3 / 10, 12)
+        device.waitForIdle()
+    }
+}
 internal fun MacrobenchmarkScope.closeQueue() { tap("queue_back"); gone("queue_list") }
 
 /** One down and up pass over the scrolling content of the screen tagged [tag]. */

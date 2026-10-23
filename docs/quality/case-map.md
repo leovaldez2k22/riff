@@ -277,12 +277,12 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-071 a network-off download test hung | DownloadLifecycleDeviceTest (device) | B1 offline rerun (21 Oct): hung with airplane mode and a VPN on; no VPN tests on the phone (owner, 22 Oct) | BLOCKED | Q19G on the emulator (a test VPN or a deadline in the test) |
 | Q18-072 translation fails on the release build | LyricsTranslationTest (8, JVM), check_registrars gate on the release build | Q19B B3c on Riff Preview rc6; Riff Debug translates | BLOCKED | G3 on rc7 (translate on Riff Preview) |
 | Q18-073 memory growth over the journeys | MemoryCheck (Macrobenchmark) | Q19B6: PSS +28,253 kB against 22,195 kB allowed | FAIL | Q19G |
-| Q18-074 two benchmark waits fail | ActionBenchmark, StartupBenchmark | Q19B6: the queue button and the app open not seen; by hand the app opens every time | FAIL | Q19G (test fix) |
+| Q18-074 two benchmark waits fail | benchmark harness (builds); benchmark lane run | Q19B6: the queue button and the app open not seen; by hand the app opens every time | BLOCKED | benchmark lane on rc7 (phone) |
 | Q18-075 Delicate still line synced | LyricsWordTimingTest (JVM) | Q19B B3a on Riff Preview rc6; the owner, 23 Oct: now word synced | PASS | none (closed by the owner) |
 | Q18-076 the button reads Play while waiting for a connection | PlaybackToggleTest.aSongWaitingForAConnectionShowsPause (JVM) | Q19B B3b on Riff Debug | BLOCKED | G3 on rc7 (airplane mode) |
 | Q18-077 no loudness gain for signed-out streams | LoudnessNormalizationTest (JVM) | Q19B B7 on Riff Debug | BLOCKED | B13 on rc7 (signed out) |
 | Q18-078 backup copies, refresh and leftovers after a reinstall | LocalBackupTest (JVM: numbered copy, Off leftovers, settings after restore) | Q19B B11 on Riff Debug | BLOCKED | G3 on rc7 (Riff Debug, F9 steps) |
-| Q18-079 the queue at 200 % text | AccessibilitySweepTest (JVM) does not see it | Q19B owner session, upright and landscape | FAIL | Q19G |
+| Q18-079 the queue at 200 % text | PlayerHeroHeightTest (JVM) | Q19B owner session, upright and landscape | BLOCKED | G3 on rc7 (largest font, A11Y02) |
 | Q18-080 an unlike stays in Liked songs | LikedSongsCountTest (JVM: VLLM every page, read again after an unlike) | Q19B owner session, dummy account | BLOCKED | G3 on rc7 (dummy account) |
 | Q18-081 no way to create a playlist | PlaylistCreateTest (6, JVM) | Q19B owner session | BLOCKED | G3 on rc7 (dummy account; then CAT03/PLY09) |
 | Q18-082 lyrics searched in parallel | LyricsParallelSearchTest (12, JVM timed fakes); LyricsTest, LyricsPreloadTest, LyricsWordTimingTest, AdditionalLyricsProvidersTest | B13 on the phone after the fix | BLOCKED | B13 on rc7 (Delicate) |

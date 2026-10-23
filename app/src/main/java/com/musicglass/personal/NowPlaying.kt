@@ -99,6 +99,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Velocity
@@ -227,12 +228,15 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     val viewportHeight = LocalWindowInfo.current.containerSize.height / density
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navigationInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomSpace = navigationInset + 10.dp
     val heroHeight = (viewportHeight / 2f).dp
     val fontScale = LocalDensity.current.fontScale
     val controlHeight = (viewportHeight.dp - navigationInset -
         heroHeight - 10.dp).coerceAtLeast((330f * fontScale.coerceIn(1f, 2f)).dp)
     val allowScroll = viewportHeight < 730f || fontScale >= 1.3f
     val scrollState = rememberScrollState()
+    // Q18-079: the open queue locks the player's scrolling, so it opens at the top, wherever Open queue was pressed.
+    LaunchedEffect(queueOpen) { if (queueOpen) scrollState.scrollTo(0) }
     val swipeDrag by rememberUpdatedState(onSwipeDrag)
     val swipeRelease by rememberUpdatedState(onSwipeRelease)
     val swipeConnection = remember(scrollState) {
@@ -260,9 +264,9 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         .drawBehind {drawRect(if(state.video || state.live) Brush.verticalGradient(listOf(Color.Black,Color.Black)) else playerBackground(artworkColor.value))}
         .then(if(queueOpen) Modifier else Modifier.nestedScroll(swipeConnection))
         .verticalScroll(scrollState, enabled = (interactive || dragging) && allowScroll && !queueOpen)
-        .padding(bottom = navigationInset + 10.dp),
+        .padding(bottom = bottomSpace),
         verticalArrangement = Arrangement.Top) {
-        Box(Modifier.fillMaxWidth().height(heroHeight)
+        Box(Modifier.fillMaxWidth().height(playerHeroHeight(viewportHeight, bottomSpace, queueOpen))
             .then(if ((interactive || dragging) && !allowScroll && !queueOpen) Modifier.pointerInput(state.mediaId,queueOpen) {
             var pull = 0f
             var lastTime = 0L
@@ -496,4 +500,13 @@ internal fun PlaybackProblem(notice: String?, error: String?, failure: PlaybackF
  */
 internal fun unlikedOffPhone(collections: LocalCollections, track: ProviderTrack, liked: Boolean) {
     if (!liked) collections.setOnlineFavorite(track, false)
+}
+
+/**
+ * The player's top area: half the window for the artwork; the whole window above the navigation bar for the open
+ * queue (Q18-079), which at the largest text needed more than half for its heading alone.
+ */
+internal fun playerHeroHeight(viewportHeightDp: Float, bottomSpace: Dp, queueOpen: Boolean): Dp {
+    val half = (viewportHeightDp / 2f).dp
+    return if (queueOpen) (viewportHeightDp.dp - bottomSpace).coerceAtLeast(half) else half
 }
