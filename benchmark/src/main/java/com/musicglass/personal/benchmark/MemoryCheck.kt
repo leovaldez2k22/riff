@@ -57,11 +57,16 @@ class MemoryCheck {
     private fun MacrobenchmarkScope.memory(): Pair<Int, String> {
         pressHome()
         SystemClock.sleep(10_000)
-        val report = device.executeShellCommand("dumpsys meminfo $TARGET")
+        // Q18-073: the median of three readings 5 s apart. One reading caught the Java heap before or after a collection:
+        // on the API 33 emulator it moved 12 MB between blocks of ten journeys while the native heap levelled off.
+        fun totalOf(text: String) = Regex("TOTAL PSS:\\s+(\\d+)").find(text) ?: Regex("TOTAL\\s+(\\d+)").find(text)
+        val reports = (0 until 3).map { if (it > 0) SystemClock.sleep(5_000); device.executeShellCommand("dumpsys meminfo $TARGET") }
         openTarget(device, clearTask = false)
         shown("playlist_detail")
-        val total = Regex("TOTAL PSS:\\s+(\\d+)").find(report) ?: Regex("TOTAL\\s+(\\d+)").find(report)
-        val parts = listOf("Java Heap", "Native Heap", "Graphics", "Code").mapNotNull { name ->
+        val report = reports.sortedBy { totalOf(it)?.groupValues?.get(1)?.toInt() ?: 0 }[1]
+        val total = totalOf(report)
+        // Q18-073: every row of the App Summary, so growth outside the heaps (28 MB grew, 9 MB of it in the four rows read before) is placed.
+        val parts = listOf("Java Heap", "Native Heap", "Graphics", "Code", "Stack", "Private Other", "System").mapNotNull { name ->
             Regex("$name:\\s+(\\d+)").find(report)?.let { "$name ${it.groupValues[1]}" }
         }
         return checkNotNull(total) { "No total in dumpsys meminfo" }.groupValues[1].toInt() to parts.joinToString(", ")

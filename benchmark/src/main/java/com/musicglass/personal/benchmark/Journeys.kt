@@ -107,7 +107,10 @@ internal fun MacrobenchmarkScope.openPlaylist() {
     tap("tab_library")
     // Library keeps the screen it was left on: the playlist may already be open.
     val row = java.util.regex.Pattern.compile("catalog_playlist_VLPLfixtureOwned.*")
-    check(device.wait(Until.hasObject(By.res(java.util.regex.Pattern.compile("playlist_detail|$row"))), WAIT_MS)) { "The fixture playlist is not in Library" }
+    val target = By.res(java.util.regex.Pattern.compile("playlist_detail|$row"))
+    // Q18-073: on the API 33 emulator the first tap on a tab after the app's data was cleared was lost; once more.
+    if (!device.wait(Until.hasObject(target), 5_000)) tap("tab_library")
+    check(device.wait(Until.hasObject(target), WAIT_MS)) { "The fixture playlist is not in Library" }
     if (!device.hasObject(By.res("playlist_detail"))) device.findObject(By.res(row)).click()
     shown("playlist_detail")
     check(device.wait(Until.hasObject(By.res("album_play").enabled(true)), WAIT_MS)) { "The playlist did not finish loading" }
