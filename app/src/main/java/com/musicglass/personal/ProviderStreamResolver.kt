@@ -84,7 +84,11 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
                 try { configParser.fetchConfig(videoId, useLoginCookies) }
                 catch (_: IllegalStateException) {
                     configParser.fetchEmbeddedConfig(videoId, useLoginCookies = false)
-                }.also { config -> config.playerUrl.takeIf { it.isNotBlank() }?.let { configPlayers[useLoginCookies] = it } }
+                }.also { config -> config.playerUrl.takeIf { it.isNotBlank() }?.let {
+                    configPlayers[useLoginCookies] = it
+                    // Q18-098: kept for the next start, so the other player can be fetched beside the first.
+                    if (qualityPrefs.getString(playerKey(useLoginCookies), null) != it) qualityPrefs.edit().putString(playerKey(useLoginCookies), it).apply()
+                } }
         },
         cipherService = unusedInProcessCipher,
         innerTube = innerTube,
@@ -121,17 +125,28 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
         }
     }
 
+    private fun playerKey(signedIn:Boolean)=if(signedIn) "player:signed_in" else "player:signed_out"
+    private suspend fun preloadSecondPlayer(player:String,early:Boolean) {
+        val second=dependencies.clocks.monotonicMillis()
+        requireSolver().preloadPlayerCode(player)
+        playbackEvents.append("stream_prewarm_player ms=${dependencies.clocks.monotonicMillis()-second} phase=${if(early) "early" else "late"}")
+    }
+
     private suspend fun prewarm(reason:String) {
         val started=dependencies.clocks.monotonicMillis()
         suspendCatching {
-            settleVisitor(innerTube.sessionSnapshot().visitorData) {innerTube.fetchFreshVisitorData(innerTube.sessionSnapshot())}
-            extractor.prewarm()
             val premiumHigh=premiumConfirmed() && chosenQuality(false)==AudioQuality.HIGH
-            secondPlayerToPreload(session.signedIn,premiumHigh,configPlayers[false],configPlayers[true])?.let {player->
-                val second=dependencies.clocks.monotonicMillis()
-                requireSolver().preloadPlayerCode(player)
-                playbackEvents.append("stream_prewarm_player ms=${dependencies.clocks.monotonicMillis()-second}")
+            // Q18-098: the players YouTube named last time; when they differ, the second is fetched beside the first
+            // instead of after it, so a song tapped during the start-up prewarm does not wait for both in turn.
+            val early=secondPlayerToPreload(session.signedIn,premiumHigh,qualityPrefs.getString(playerKey(false),null),qualityPrefs.getString(playerKey(true),null))
+            coroutineScope {
+                val beside=early?.let {player->async {suspendCatching {preloadSecondPlayer(player,early=true)}}}
+                settleVisitor(innerTube.sessionSnapshot().visitorData) {innerTube.fetchFreshVisitorData(innerTube.sessionSnapshot())}
+                extractor.prewarm()
+                beside?.await()
             }
+            laterPlayerToPreload(early,secondPlayerToPreload(session.signedIn,premiumHigh,configPlayers[false],configPlayers[true]))
+                ?.let {preloadSecondPlayer(it,early=false)}
         }.fold(
             onSuccess={playbackEvents.append("stream_prewarm reason=$reason ms=${dependencies.clocks.monotonicMillis()-started}")},
             onFailure={playbackEvents.append("stream_prewarm_failed reason=$reason type=${it::class.simpleName}")})
@@ -332,3 +347,6 @@ internal fun downloadClientOverride(download: Boolean, video: Boolean, live: Boo
  */
 internal fun secondPlayerToPreload(signedIn: Boolean, premiumHigh: Boolean, signedOutPlayer: String?, signedInPlayer: String?): String? =
     signedOutPlayer?.takeIf { signedIn && !premiumHigh && !signedInPlayer.isNullOrBlank() && it.isNotBlank() && it != signedInPlayer }
+
+/** Q18-098: the second player still to fetch once this start's own answers are in: none when the early one was it. */
+internal fun laterPlayerToPreload(early: String?, now: String?): String? = now?.takeIf { it != early }

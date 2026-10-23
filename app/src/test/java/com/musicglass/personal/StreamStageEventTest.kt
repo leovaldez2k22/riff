@@ -63,6 +63,17 @@ class StreamStageEventTest {
         assertNull(secondPlayerToPreload(true, false, null, "/s/player/bbb/base.js"))
     }
 
+    /** Q18-098: last start's players are fetched beside the first; afterwards only a player that early fetch missed. */
+    @Test fun theSecondPlayerIsFetchedOnceEarlyOrLate() {
+        val early = secondPlayerToPreload(true, false, "/s/player/aaa/base.js", "/s/player/bbb/base.js")
+        assertEquals("/s/player/aaa/base.js", early)
+        assertNull("fetched early: not again", laterPlayerToPreload(early, "/s/player/aaa/base.js"))
+        assertEquals("YouTube moved to a new player since", "/s/player/ccc/base.js", laterPlayerToPreload(early, "/s/player/ccc/base.js"))
+        assertEquals("nothing remembered: as before", "/s/player/aaa/base.js", laterPlayerToPreload(null, "/s/player/aaa/base.js"))
+        assertNull(laterPlayerToPreload(early, null))
+        assertEquals("stream_prewarm_player ms=2982 phase=early", DiagnosticEvent.parse("stream_prewarm_player ms=2982 phase=early").text)
+    }
+
     /** Q18-059: the prewarm and the first song must mint for the same visitor, so a session without one gets it first. */
     @Test fun aSessionWithoutAVisitorFetchesOneBeforeThePrewarm() = kotlinx.coroutines.runBlocking {
         var fetched = 0
