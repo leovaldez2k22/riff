@@ -129,15 +129,12 @@ private fun acceptWord(allowed: Set<String>) = { v: Any? -> (v as? String)?.take
 private val SETTINGS = listOf(
     SettingSpec("accessibility_display", "haptic_feedback", acceptBool), SettingSpec("accessibility_display", "solid_controls", acceptBool),
     SettingSpec("accessibility_display", "reduce_motion", acceptBool), SettingSpec("accessibility_display", "frosted_glass", acceptBool),
-    SettingSpec("accessibility_display", "glass_intensity", acceptFloat(0f..1.5f)),
-    SettingSpec("accessibility_display", "frosted_intensity", acceptFloat(0f..1.5f)),
+    SettingSpec("accessibility_display", "glass_intensity", acceptFloat(0f..1.5f)), SettingSpec("accessibility_display", "frosted_intensity", acceptFloat(0f..1.5f)),
     SettingSpec(AUDIO_BOOST_PREFS, "enabled", acceptBool), SettingSpec(AUDIO_BOOST_PREFS, "percent", acceptInt { it in 100..300 }),
     SettingSpec(AUDIO_BOOST_PREFS, NORMALIZE_KEY, acceptBool),
     SettingSpec(CROSSFADE_PREFS, "enabled", acceptBool), SettingSpec(CROSSFADE_PREFS, "seconds", acceptInt { it in 1..12 }),
-    SettingSpec(DATA_SAVER_PREFS, "enabled", acceptBool),
-    SettingSpec(DATA_SAVER_PREFS, SONG_QUALITY_KEY, acceptWord(SongQuality.entries.map { it.key }.toSet())),
-    SettingSpec("music_collections", "history_enabled", acceptBool),
-    SettingSpec("music_collections", RETENTION_KEY, acceptInt { it in setOf(30, 90, 365) }),
+    SettingSpec(DATA_SAVER_PREFS, "enabled", acceptBool), SettingSpec(DATA_SAVER_PREFS, SONG_QUALITY_KEY, acceptWord(SongQuality.entries.map { it.key }.toSet())),
+    SettingSpec("music_collections", "history_enabled", acceptBool), SettingSpec("music_collections", RETENTION_KEY, acceptInt { it in setOf(30, 90, 365) }),
 ).associateBy { it.name }
 private const val RETENTION_KEY = "history_retention_days"
 private const val RETENTION_NAME = "music_collections.$RETENTION_KEY"

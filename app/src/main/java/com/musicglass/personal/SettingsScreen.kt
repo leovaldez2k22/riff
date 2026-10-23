@@ -260,16 +260,16 @@ import kotlinx.coroutines.withContext
 }
 /** Q18-099: High, Medium or Low for streamed songs; Data saver wins while it is on, and the row says so. */
 @Composable private fun SongQualityRow(dataSaver:DataSaverSettings) {
-    Column(Modifier.fillMaxWidth().padding(vertical=10.dp).testTag("settings_song_quality")) {
-        Text(string(R.string.song_quality),color=White,fontSize=15.sp)
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(top=4.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical=RiffSpace.item).testTag("settings_song_quality")) {
+        Text(string(R.string.song_quality),color=White,fontSize=RiffType.rowTitle)
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(top=RiffSpace.tight),horizontalArrangement=Arrangement.spacedBy(RiffSpace.item)) {
             SongQuality.entries.forEach {choice->
                 FilterChip(dataSaver.songQuality==choice,{ uiHaptic(HapticCue.Selection); dataSaver.updateSongQuality(choice)},{Text(songQualityLabel(choice))},
                     modifier=Modifier.testTag("settings_song_quality_${choice.key}"))
             }
         }
         Text(string(if(dataSaver.enabled) R.string.song_quality_data_saver_on else R.string.song_quality_note),
-            color=Muted,fontSize=RiffType.detail,modifier=Modifier.padding(top=4.dp).testTag("settings_song_quality_note"))
+            color=Muted,fontSize=RiffType.detail,modifier=Modifier.padding(top=RiffSpace.tight).testTag("settings_song_quality_note"))
     }
 }
 internal fun songQualityLabel(choice:SongQuality) = string(when(choice) {

@@ -54,6 +54,8 @@ internal object RiffType {
     val message = 16.sp
     val body = 14.sp
     val detail = 12.sp
+    /** The title of a settings row. */
+    val rowTitle = 15.sp
 }
 
 /** Q16A: the lyrics screen's sung lines, their background vocals and the emphasis on held words. */

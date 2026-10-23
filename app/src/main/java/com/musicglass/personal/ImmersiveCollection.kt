@@ -102,7 +102,7 @@ import kotlinx.coroutines.launch
                 CatalogArtwork(data.artworkUrl,collectionId,Modifier.fillMaxSize().testTag("collection_artwork"))
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha=.18f),.46f to Color.Transparent,1f to tone)))
                 Box(Modifier.statusBarsPadding().padding(horizontal=16.dp)) {BackHeading(string(R.string.back),model::back,overPicture=true)}
-                if(manageable) Box(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(horizontal=8.dp)) {
+                if(manageable) Box(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(horizontal=RiffSpace.item)) {
                     IconButton({ uiHaptic(); playlistMenu=true},modifier=Modifier.testTag("playlist_options")) {
                         Icon(Icons.Rounded.MoreVert,string(R.string.playlist_options),tint=White)
                     }
