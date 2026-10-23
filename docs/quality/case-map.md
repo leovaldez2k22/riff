@@ -352,3 +352,7 @@ Q19G fix round, 23 October (every open Q18 bug fixed or judged, each with a test
 PASS_LOCAL): the 72 rows PASS 53, FAIL 0, BLOCKED 11 (adds PLY09, AUD01, CAT02, LYR02, UX06, A11Y02 and PERF01, each
 waiting for its phone check on rc7), DEFERRED 6, DECLINED 2. Section 7, 63 rows: PASS 32 (adds Q18-071 on the
 emulator), FAIL 0, BLOCKED 29 (the fixed bugs, on rc7), DECLINED 2. G01 waits for rc7 and the G3 phone checks.
+
+G3 fix round, 24 October (Q18-089, 097 to 099 and 101 to 104 fixed, Q18-100 diagnostic only; PR lane and emulator lane
+PASS_LOCAL): no row changes status from this round. Every fix waits for its phone check on the next candidate, and the
+rows keep the status G3 left them in (LYR02 DECLINED with Q18-101, UX06 PASS).

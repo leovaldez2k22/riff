@@ -3073,3 +3073,26 @@ New contract rule 16: commit each package locally on its branch before starting 
   the screen off; Riff Debug has Reduce motion on (the Q18-078 restore marker) and a riff-backup-signed-out.jsonl it
   wrote at 00:57 in Documents/Riff Backup (debug).
 - New bugs: Q18-097 to Q18-104.
+
+### G3 fix round (24 October 2026, overnight)
+- Owner, before sleeping: run the tests left, log bugs, lock the phone, then fix the bugs, run the emulator tests and
+  go as far as possible without help. Phone work ended with G3 (above); nothing was installed on the phone afterwards,
+  and fix builds went to the emulator only (emulator-5554, never the phone).
+- Fixed, each with its test, one commit each: Q18-101 lyrics translation removed with ML Kit (d91af79); Q18-099 Song
+  quality High, Medium, Low (f13bca2); Q18-102 every Privacy and data action asks first (9fe4d8b); Q18-103 a lookup
+  past its deadline now fails into the wait for a connection (9985937); Q18-104 rename and delete a playlist the
+  account can edit (799aaec); Q18-089 readable failure names and kept exception class names (2ed393d); Q18-097
+  benchmark journeys retry a lost tap and wait 30 s for a cold start (49693d6); Q18-098 the second player fetched
+  beside the first at start (859734a); static-check findings from these (d6953ea).
+- Q18-100: diagnostic only (e3b5edb). session_accounts now logs cookie, status, rows, parsed, found and a reason,
+  never an address, id, cookie or body; the fix waits for that line from the phone.
+- JVM suite: 1,218 tests, 0 failures. PR lane: run 1 FAIL on static checks (two screens over their raw-measure
+  allowance, LocalDataTransfer.kt at 703 lines, LyricsPanel's allowance to lower), fixed in d6953ea; run 2 PASS_LOCAL,
+  every gate. Emulator lane (API 33, cold boot, --allow-install --serial emulator-5554): PASS_LOCAL, OK (69 tests)
+  (artifacts/quality/lanes/emulator-20261023T205245Z).
+- Q18-097 on the emulator: Riff Benchmark built for x86_64 for that run only (the ABI filter put back, not
+  committed); ActionBenchmark OK (5 tests, three iterations), MemoryCheck with three blocks OK, 105.8 to 107.7 MB
+  (artifacts/quality/q19/fix-round-20261024).
+- Bugs: Q18-100 open (waits for the phone). Fixed and waiting for their phone checks on the next candidate: Q18-076
+  (through Q18-103), 089, 097, 098, 099, 101 to 104. Not done: rc8 (signing is the owner's), pushing, anything on the
+  owner's account or the phone.
