@@ -158,8 +158,6 @@
     <string name="audio_files_indexed_by_android_on_this">Audio files indexed by Android on this phone</string>
     <string name="audio_output">Audio output</string>
     <string name="audio_you_play_from_this_phone_will">Audio you play from this phone will appear here.</string>
-    <string name="auto_detect">Auto detect</string>
-    <string name="auto_language">Auto language</string>
     <string name="back">Back</string>
     <string name="back_to_player">Back to player</string>
     <string name="back_to_riff">Back to Riff</string>
@@ -178,7 +176,6 @@
     <string name="checking_audio">Checking audio</string>
     <string name="checking_your_account_try_again_in_a">Checking your account. Try again in a moment.</string>
     <string name="choose_an_editable_playlist">Choose an editable playlist</string>
-    <string name="choose_the_original_language_to_translate_th">Choose the original language to translate these lyrics.</string>
     <string name="choose_where_to_save">Choose where to save</string>
     <string name="circle">Circle</string>
     <string name="clear">Clear</string>
@@ -313,7 +310,6 @@
     <string name="earlier_searches_deleted">Earlier searches deleted</string>
     <string name="earphones">Earphones</string>
     <string name="education">Education</string>
-    <string name="english_translation">English translation</string>
     <string name="episode">Episode</string>
     <string name="export_cancelled_no_file_was_written">Export cancelled. No file was written.</string>
     <string name="export_local_data">Export local data</string>
@@ -359,7 +355,6 @@
     <string name="history_is_kept_for_x">History is kept for %1$s</string>
     <string name="history_is_kept_until_you_clear_it">History is kept until you clear it</string>
     <string name="home">Home</string>
-    <string name="identifying_language">Identifying language…</string>
     <string name="import_cancelled_nothing_was_changed">Import cancelled. Nothing was changed.</string>
     <string name="import_finished">Import finished</string>
     <string name="import_for_x">Import for %1$s</string>
@@ -439,7 +434,6 @@
     <string name="no_downloaded_songs_yet">No downloaded songs yet.</string>
     <string name="no_live_stations_could_be_reached_try">No live stations could be reached. Try again when online.</string>
     <string name="no_lyrics_found">No lyrics found</string>
-    <string name="no_lyrics_to_translate">No lyrics to translate</string>
     <string name="no_matching_results">No matching results.</string>
     <string name="no_more_playable_recommendations_right_now">No more playable recommendations right now</string>
     <string name="no_music_files_were_found_on_this">No music files were found on this phone.</string>
@@ -512,7 +506,6 @@
     <string name="position">Position</string>
     <string name="preparing_download">Preparing download</string>
     <string name="preparing_highest_quality_audio">Preparing highest-quality audio</string>
-    <string name="preparing_language_model">Preparing language model…</string>
     <string name="preparing_playback_timed_out_try_again">Preparing playback timed out. Try again.</string>
     <string name="previous_track">Previous track</string>
     <string name="privacy_and_data">Privacy and data</string>
@@ -771,9 +764,6 @@
     <string name="today">Today</string>
     <string name="top_voted">Top voted</string>
     <string name="touch_and_hold_your_home_screen_choose">Touch and hold your home screen, choose Widgets, then Riff.</string>
-    <string name="translating_x_of_x_lines">Translating %1$s of %2$s lines…</string>
-    <string name="translation_unavailable_try_again">Translation unavailable. Try again.</string>
-    <string name="translation_needs_a_connection">Translating needs a connection the first time, to download the language model.</string>
     <string name="true_crime">True crime</string>
     <string name="try_again">Try again</string>
     <string name="turns_down_louder_songs_from_youtube_music">Turns down louder songs from YouTube Music when it supplies loudness data</string>

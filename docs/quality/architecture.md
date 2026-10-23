@@ -52,7 +52,7 @@ plan's ADRs: [adr.md](adr.md).
 
 Everything that crosses the edge of the app goes through one of: `ProviderSessionManager.http` (YouTube
 Music and YouTube, with cookies), the lyrics client (no cookies), `MoodPhotos` (Openverse, Wikimedia),
-ML Kit, the pre-processed player fetch the pinned library makes in `:solver`, and `UpdateNotice` (inactive in this
+the pre-processed player fetch the pinned library makes in `:solver`, and `UpdateNotice` (inactive in this
 build). [Privacy](../privacy.md) lists each destination and what it is sent.
 
 ## Who owns what

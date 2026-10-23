@@ -280,9 +280,8 @@ No high-severity issue is known to be open. That statement is only as good as th
 - *Content addresses in the sign-in browser* (section 2).
 - *Session cookies are stored as WebView stores them*, in app-private storage, not additionally encrypted.
   Backup and device transfer exclude them. On a rooted phone they can be read.
-- *ML Kit*, used for on-device lyric translation, ships Google's data-transport component and sends SDK usage
-  metrics to Google (`docs/privacy.md`). The app does not control that channel; it is not part of the
-  diagnostic ring.
+- *ML Kit* is gone (24 Oct 2026, Q18-101): lyric translation was removed at the owner's word, and with it Google's
+  data-transport component and the SDK usage metrics it sent.
 - *The shape check cannot tell a short identifier from a word* (section 1).
 - *Heading of the report* contains the phone's maker and model, as before; it is cut to 64 plain characters.
 - *Actions' code was not read* (section 8).

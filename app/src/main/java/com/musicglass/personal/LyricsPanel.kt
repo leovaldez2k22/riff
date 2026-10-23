@@ -20,7 +20,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalViewConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.preferredFrameRate
@@ -65,13 +64,6 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
     BackHandler(enabled = sharing) { shareRange = null }
     val artworkTone = rememberArtworkColor(state.artworkUrl)
     val holdConfiguration = rememberLyricHoldConfiguration()
-    val context=LocalContext.current
-    var translate by rememberSaveable(state.mediaId) {mutableStateOf(false)}
-    var sourceLanguage by rememberSaveable(state.mediaId) {mutableStateOf<String?>(null)}
-    val translation=remember(state.mediaId) {LyricTranslationRun {lines,source,status->englishLyrics(context,lines,source,status)}}
-    var languageMenu by remember {mutableStateOf(false)}
-    val languages=remember {com.google.mlkit.nl.translate.TranslateLanguage.getAllLanguages().sortedBy {java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.ENGLISH)}}
-    LaunchedEffect(translate,document,sourceLanguage) {translation.run(translate,document?.lines,sourceLanguage)}
     val motion = LocalMotionPolicy.current
     val list = rememberLazyListState()
     val dragged by list.interactionSource.collectIsDraggedAsState()
@@ -147,18 +139,6 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                     Icon(Icons.Rounded.Tune,string(R.string.adjust_lyrics_timing),tint = if (timed) White else Muted)
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal=24.dp),verticalAlignment=Alignment.CenterVertically) {
-                FilterChip(translate,{ uiHaptic(HapticCue.Selection); translate=!translate},enabled=songLyrics?.lines?.isNotEmpty()==true,label={Text(string(R.string.english_translation))},
-                    leadingIcon={Icon(Icons.Rounded.Translate,null,modifier=Modifier.size(18.dp))},modifier=Modifier.testTag("lyrics_translate"))
-                Spacer(Modifier.width(RiffSpace.item))
-                Box {TextButton({ uiHaptic(); languageMenu=true}) {Text(sourceLanguage?.let {java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.ENGLISH)}?:string(R.string.auto_language),maxLines=1)}
-                    SongActionMenu(languageMenu,{languageMenu=false},modifier=Modifier.heightIn(max=340.dp)) {
-                        DropdownMenuItem(text={Text(string(R.string.auto_detect))},onClick={ uiHaptic(); sourceLanguage=null;languageMenu=false})
-                        languages.forEach {language->DropdownMenuItem(text={Text(java.util.Locale.forLanguageTag(language).getDisplayLanguage(java.util.Locale.ENGLISH))},onClick={ uiHaptic(); sourceLanguage=language;languageMenu=false})}
-                    }
-                }
-            }
-            if(translate && translation.status.isNotBlank()) Text(translation.status,color=Muted,fontSize=RiffType.detail,modifier=Modifier.padding(horizontal=28.dp,vertical=RiffSpace.tight))
             when {
                 songLyrics?.instrumental == true -> LyricsMessage(string(R.string.instrumental),string(R.string.this_recording_has_no_sung_lyrics),Modifier.weight(1f))
                 songLyrics != null && songLyrics.lines.isNotEmpty() -> {
@@ -189,8 +169,6 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                                                 onLongPress = if (shareable) { if (sharing) choose else hold } else null,
                                                 longPressLabel = string(R.string.share_lyrics)))
                                 }
-                                if(translate) translation.english.getOrNull(index)?.let {english->Text(english,color=if(active) White else Muted,fontSize=18.sp,
-                                    modifier=Modifier.padding(top=RiffSpace.item).testTag("lyric_english_$index"))}
                             }
                         }
                     }

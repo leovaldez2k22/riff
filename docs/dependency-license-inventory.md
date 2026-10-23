@@ -1,6 +1,7 @@
 # Dependency, asset and code inventory for 0.10.0-rc1
 
-Regenerated 15 October 2026 (Q17) for Riff 0.10.0-rc1 (version code 22).
+Regenerated 15 October 2026 (Q17) for Riff 0.10.0-rc1 (version code 22). The result was regenerated again on
+24 October 2026 after lyrics translation was removed (Q18-101), which took ML Kit and everything it brought out.
 
 **This is an inventory of declared metadata. It is not legal advice, a legal review or a certification of compliance.** It lists what the build resolves and what each artifact's Maven metadata says its license is. Nobody has read every included notice file or compared every license's conditions with GPL-3.0 distribution.
 
@@ -15,17 +16,15 @@ The script reads each resolved coordinate's POM from the local Gradle cache and 
 
 ## Result
 
-233 resolved release runtime dependencies: 229 licenses from POM declarations, 4 from upstream sources (three Guava modules, SLF4J). None unresolved.
+210 resolved release runtime dependencies: 206 licenses from POM declarations, 4 from upstream sources (three Guava modules, SLF4J). None unresolved.
 
 | Declared license | Artifacts |
 |---|---:|
-| Apache-2.0 (under three spellings) | 223 |
-| ML Kit Terms of Service (`com.google.mlkit:common`, `language-id`, `language-id-common`, `translate`) | 4 |
-| Android Software Development Kit License (`com.google.android.gms:play-services-base`, `-basement`, `-tasks`) | 3 |
+| Apache-2.0 (under three spellings) | 207 |
 | GNU GPL-3.0 (`innertubex`, `innertubex-android`) | 2 |
 | MIT (`slf4j-api`) | 1 |
 
-**Open item, needs a qualified review before any public distribution:** seven artifacts (ML Kit and the Play services parts it brings) are under Google's proprietary terms, not an open-source license, in an app licensed GPL-3.0. Whether distributing them together is permitted, and on what terms, has not been assessed. Removing lyrics translation would remove all seven.
+**Closed 24 October 2026:** the seven artifacts under Google's proprietary terms (ML Kit and the Play services parts it brought) are gone with lyrics translation (Q18-101), and so are the Firebase components and Google data-transport libraries ML Kit used. Every artifact left is under an open-source license.
 
 ## Main components
 
@@ -41,7 +40,6 @@ The script reads each resolved coordinate's POM from the local Gradle cache and 
 | QuickJS for Kotlin (`quickjs-kt`) | 1.0.14 | Apache-2.0; [upstream](https://github.com/dokar3/quickjs-kt) |
 | Guava (transitive) | 33.3.1-android | Apache-2.0; [upstream](https://github.com/google/guava) |
 | SLF4J API (transitive) | 2.0.18 | MIT; [license](https://www.slf4j.org/license.html) |
-| ML Kit Translation, Language Identification | 17.0.3, 17.0.6 | [ML Kit Terms of Service](https://developers.google.com/ml-kit/terms) |
 | Tests only, never in the APK: JUnit, Robolectric, AndroidX Test, Macrobenchmark | 4.13.2, 4.17, 1.5.0, 1.5.0 | EPL-1.0 (JUnit); Apache-2.0 (the rest) |
 
 The build obtains dependencies from Google Maven, Maven Central and JitPack, checked against `gradle/verification-metadata.xml`.

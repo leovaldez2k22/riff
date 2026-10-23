@@ -224,11 +224,9 @@ dependencies {
     implementation(libs.ktor.content.negotiation)
     implementation(libs.ktor.serialization.json)
     debugImplementation(libs.compose.tooling)
-    implementation("com.google.mlkit:translate:17.0.3")
     // Q14: installs the Baseline Profile packaged with a release; the profile comes from :benchmark.
     implementation(libs.profileinstaller)
     baselineProfile(project(":benchmark"))
-    implementation("com.google.mlkit:language-id:17.0.6")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.17")
     testImplementation(platform(libs.compose.bom))
