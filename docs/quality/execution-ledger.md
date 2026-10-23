@@ -2878,3 +2878,21 @@ New contract rule 16: commit each package locally on its branch before starting 
   off, volume 3 of 15, screen off, unplugged at 100 % and 31.8 C. The owner needed the phone during the run, so it is
   void and runs again later. vivo refuses `dumpsys batterystats --reset` from adb (security exception); the record
   since the unplug at full charge is used instead.
+
+### B8 run 1 and B9 overnight (23 October 2026, 00:31 to 06:32)
+- Riff Preview rc6 on the dummy account, 'Pop Summer Hits 2024' (100 songs, Repeat all), Bluetooth off, media volume
+  3 of 15, phone unplugged and locked; watched over Wi-Fi adb only (no taps, no screenshots). Evidence:
+  artifacts/quality/q19/night23 (night.log, b8-summary.json, b8 battery reports, b9/summary.json, b9/samples.jsonl).
+- B8 run 1 RECORDED: 120 min streaming, screen asleep and playing at every 15-minute read, never plugged in.
+  Battery 100 to 94 % (about 3 % an hour), 37.2 to 34.4 C. The charge counter fell 1,988,000 to 1,813,000 but reads
+  about 2,000 mAh at full, so it is not used as mAh. vivo refuses the stats reset, so the battery report's per-app
+  figures cover more than the run and Riff's own share is not isolated: recorded as not measured.
+- B9: 240 min, 67 songs, one process throughout (no crash), no crash-buffer lines, playing at every sample; the
+  three hourly skips reached Riff Preview on the first try and no other app took a media key. Battery 94 to 77 %.
+  Memory (PSS, every 10 min): 312 to 344 MB for the whole run, one reading of 370 MB at 231 min, 351 MB at the end.
+  The script's rule (one reading at hour 1 against the last) gives 313 to 351 MB, +37.6 MB against 31.3 MB
+  allowed: FAIL by the rule. The medians of hour 1 and of the last hour are both about 334 MB, so the curve shows
+  no steady growth; the rule compares single noisy readings. Recorded FAIL as measured; the rule is to compare
+  medians (soak.py, after Q19B), and Q18-073's memory fix is checked against this curve.
+- Restored: Bluetooth on. Media volume left at 3 (the volume keys did not reach media with the music paused); the
+  owner sets it. Two volume-up presses may have raised the ring volume (now 7 of 7, not recorded before).
