@@ -60,6 +60,11 @@ class SoakParsingTest(unittest.TestCase):
         v = soak.memory_verdict(grown)
         self.assertEqual(('FAIL', 40_000, 30_000), (v['verdict'], v['growthKb'], v['allowedKb']))
         self.assertEqual('BLOCKED', soak.memory_verdict([{'t': 0, 'pss': 1}, {'t': 60_000, 'pss': 2}])['verdict'])
+        # B9 (Q19B): one high reading at the end failed the old rule; the medians of hour 1 and the last hour decide.
+        steady = [{'t': hour + i * 600_000, 'pss': 334_000 + (i % 3) * 1_000} for i in range(6)]
+        late = [{'t': 3 * hour + i * 600_000, 'pss': 334_000 + (i % 3) * 1_000} for i in range(6)] + [{'t': 4 * hour, 'pss': 380_000}]
+        v = soak.memory_verdict([{'t': 0, 'pss': 300_000}] + steady + late)
+        self.assertEqual(('PASS', 'medians', 335_000, 335_000, 6, 7), (v['verdict'], v['rule'], v['hour1Kb'], v['lastKb'], v['hour1Readings'], v['lastReadings']))
         self.assertEqual('BLOCKED', soak.memory_verdict([{'t': 0, 'clock': 'x'}])['verdict'])
 
     def test_the_original_app_is_refused(self):

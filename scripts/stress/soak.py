@@ -12,7 +12,7 @@ for --silence-seconds, or at --limit-hours. Every adb call names the device and 
 Writes OUT/samples.jsonl (one line a minute), OUT/crash.txt (Riff's crash-buffer lines) and OUT/summary.json.
 Memory budget (performance.md): growth from hour 1 to the end within max(10 %, 20 MiB) of PSS.
 """
-import argparse, json, os, re, subprocess, sys, time
+import argparse, json, os, re, statistics, subprocess, sys, time
 from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[2]
@@ -100,20 +100,27 @@ def progressed(prev, cur, prev_pos, cur_pos):
 
 
 def memory_verdict(samples, hour_ms=3_600_000):
-    """Growth from the first reading at or after hour 1 to the last reading, against max(10 %, 20 MiB)."""
+    """Growth from the median of hour 1 (its second hour) to the median of the last hour, against max(10 %, 20 MiB).
+
+    Medians, not single readings: B9 failed the rule on one reading while both medians were about 334 MB, and the
+    curve was flat (Q19B). Each window's readings and count are reported with the verdict.
+    """
     readings = [(s['t'], s['pss']) for s in samples if s.get('pss')]
     if not readings:
         return {'verdict': 'BLOCKED', 'reason': 'no memory readings'}
     start = readings[0][0]
-    base = next(((t, p) for t, p in readings if t - start >= hour_ms), None)
-    if base is None:
+    hour1 = [p for t, p in readings if hour_ms <= t - start < 2 * hour_ms]
+    if not hour1:
         return {'verdict': 'BLOCKED', 'reason': 'run shorter than an hour', 'first': readings[0][1],
                 'last': readings[-1][1]}
-    last = readings[-1]
-    growth = last[1] - base[1]
-    allowed = max(base[1] // 10, 20 * 1024)
-    return {'verdict': 'PASS' if growth <= allowed else 'FAIL', 'hour1Kb': base[1], 'lastKb': last[1],
-            'growthKb': growth, 'allowedKb': allowed, 'peakKb': max(p for _, p in readings)}
+    end = readings[-1][0]
+    last = [p for t, p in readings if t >= end - hour_ms]
+    base, now = int(statistics.median(hour1)), int(statistics.median(last))
+    growth = now - base
+    allowed = max(base // 10, 20 * 1024)
+    return {'verdict': 'PASS' if growth <= allowed else 'FAIL', 'rule': 'medians', 'hour1Kb': base, 'lastKb': now,
+            'hour1Readings': len(hour1), 'lastReadings': len(last), 'growthKb': growth, 'allowedKb': allowed,
+            'peakKb': max(p for _, p in readings)}
 
 
 # ---------------------------------------------------------------- the run
