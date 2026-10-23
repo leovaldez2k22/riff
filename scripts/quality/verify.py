@@ -93,6 +93,15 @@ OUTSIDE_THE_LANES = {
 }
 
 
+# Q18-071: a device test that waits on something that never comes fails after this long instead of holding the lane.
+TEST_TIMEOUT_MS = 300_000
+
+
+def instrument_command(classes):
+    """The am instrument call for the fixture classes, with a time limit on every test (AndroidJUnitRunner timeout_msec)."""
+    return ["shell", "am", "instrument", "-w", "-r", "-e", "timeout_msec", str(TEST_TIMEOUT_MS), "-e", "class", ",".join(classes), RUNNER]
+
+
 def fixture_classes(lane, api):
     """The fixture suite for this lane and API level."""
     return FIXTURE_CLASSES + [name for name, since in EMULATOR_CLASSES.items() if lane == "emulator" and (api or 0) >= since]
@@ -489,7 +498,7 @@ class Lane:
         app, test = self.app, self.test
         log = self.evidence / "instrumentation.txt"
         start = datetime.now(timezone.utc).isoformat()
-        result = self.adb("shell", "am", "instrument", "-w", "-r", "-e", "class", ",".join(fixture_classes(self.args.lane, self.device["api"])), RUNNER, timeout=7200)
+        result = self.adb(*instrument_command(fixture_classes(self.args.lane, self.device["api"])), timeout=7200)
         log.write_text(result.stdout + result.stderr, encoding="utf-8")
         end = datetime.now(timezone.utc).isoformat()
         command = [self.python, "scripts/quality/collect_results.py", "--collect-only", "--variant", "debug",

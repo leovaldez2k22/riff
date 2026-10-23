@@ -36,20 +36,30 @@ class SeekTimingDeviceTest {
 
     private fun <T> main(block: () -> T): T { var out: T? = null; instrumentation.runOnMainSync { out = block() }; @Suppress("UNCHECKED_CAST") return out as T }
 
-    /** Milliseconds from the seek until the player plays from [targetMs] with its position moving. */
-    private fun seek(targetMs: Long): Long {
+    /** One seek: milliseconds until the player is ready again, and until its position moves from the target. */
+    private data class Seek(val readyMs: Long, val movingMs: Long)
+
+    /**
+     * Q18-070: the two are told apart. Ready is the player's own work (finding the seek point, decoding, buffering);
+     * the rest is the device's audio output starting again after the flush, about 0.45 s on the owner's phone and
+     * under 0.1 s on the emulator. The seek-bar taps timed on the phone (52 to 98 ms) were the first.
+     */
+    private fun seek(targetMs: Long): Seek {
         val start = SystemClock.elapsedRealtime()
         main { player!!.seekTo(targetMs) }
+        var ready = 10_000L
         while (SystemClock.elapsedRealtime() - start < 10_000) {
             val (state, playing, position) = main { Triple(player!!.playbackState, player!!.isPlaying, player!!.currentPosition) }
-            if (state == Player.STATE_READY && playing && position >= targetMs + 60) return SystemClock.elapsedRealtime() - start
+            val now = SystemClock.elapsedRealtime() - start
+            if (state == Player.STATE_READY && ready == 10_000L) ready = now
+            if (state == Player.STATE_READY && playing && position >= targetMs + 60) return Seek(ready, now)
             Thread.sleep(5)
         }
-        return 10_000
+        return Seek(ready, 10_000)
     }
 
     /** The owner's pattern: ahead past what is buffered, back into what was played, far back, ahead again. */
-    private fun seeks(file: File, name: String): List<Long> {
+    private fun seeks(file: File, name: String): List<Seek> {
         main {
             player?.release()
             player = ExoPlayer.Builder(context, riffAudioRenderers(context, VolumeBoostProcessor())).setLoadControl(riffLoadControl())
@@ -57,18 +67,22 @@ class SeekTimingDeviceTest {
                     setMediaSource(offlineMediaSource(context, MediaItem.fromUri(Uri.fromFile(file)))); prepare(); play()
                 }
         }
-        assertTrue("never started", seek(1_000) < 10_000)
+        assertTrue("never started", seek(1_000).movingMs < 10_000)
         Thread.sleep(3_000)
         return listOf(165_000L, 38_000L, 196_000L, 29_000L, 100_000L, 4_000L, 150_000L).map { seek(it).also { Thread.sleep(1_200) } }
-            .also { Log.i("RiffQ18", "q18-057 $name seeks ms=$it") }
+            .also { Log.i("RiffQ18", "q18-057 $name seeks ready ms=${it.map(Seek::readyMs)} moving ms=${it.map(Seek::movingMs)}") }
     }
 
     /**
-     * Quick enough: none over a second and half of them under half a second. The old file took up to 3.3 s; on the
-     * software-drawn emulator, under the whole lane's load, one seek in a good file took 520 ms.
+     * Quick enough: playing again within a second every time, and ready within half a second for half of them. The
+     * old file took up to 3.3 s, nearly all of it before ready; on the software-drawn emulator, under the whole lane's
+     * load, one seek in a good file took 520 ms.
      */
-    private fun assertQuick(times: List<Long>) =
-        assertTrue("seeks took $times ms", times.all { it < 1_000 } && times.sorted()[times.size / 2] < 500)
+    private fun assertQuick(times: List<Seek>) {
+        val ready = times.map(Seek::readyMs); val moving = times.map(Seek::movingMs)
+        assertTrue("seeks moving after $moving ms (ready after $ready)", moving.all { it < 1_000 })
+        assertTrue("seeks ready after $ready ms", ready.sorted()[ready.size / 2] < 500)
+    }
 
     /** How every download was stored before Q18-057: Android's WebM writer. */
     private fun oldStore(input: File, output: File) {

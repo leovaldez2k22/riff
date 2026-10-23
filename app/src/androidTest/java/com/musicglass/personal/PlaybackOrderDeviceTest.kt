@@ -20,6 +20,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.*
@@ -60,13 +61,14 @@ internal open class PlaybackDeviceHarness {
         assumeTrue("Install holds a non-fixture account",!provider.signedIn || sync?.startsWith("fixture-sync-")==true)
     }
     fun connect() {
-        runBlocking {process.stateReady.await()}
+        // Q18-071: every wait here has a deadline, so a test that cannot start fails instead of hanging.
+        runBlocking {withTimeout(30_000) {process.stateReady.await()}}
         controller=MediaController.Builder(target,MediaSessionToken(target,ComponentName(target,MusicPlaybackService::class.java)))
             .setApplicationLooper(Looper.getMainLooper()).buildAsync().get(15,TimeUnit.SECONDS)
     }
-    fun signedOut() = runBlocking {withContext(Dispatchers.Main) {
+    fun signedOut() = runBlocking {withTimeout(30_000) {withContext(Dispatchers.Main) {
         process.sessions.transition("fixture_sign_out",AccountScope.Guest) {provider.signOut();CookieManager.getInstance().removeAllCookies(null);true}
-    }}
+    }}}
     fun emptyPlayer() {
         onMain {controller.stop();controller.clearMediaItems()}
         await("empty player") {ids().isEmpty()}

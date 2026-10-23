@@ -19,6 +19,16 @@ class Args:
         self.__dict__.update(values)
 
 
+class InstrumentCommandTest(unittest.TestCase):
+    def test_every_device_test_has_a_time_limit(self):
+        # Q18-071: a network-off download test waited six hours with no limit.
+        command = verify.instrument_command(["a.B", "a.C"])
+        self.assertEqual(str(verify.TEST_TIMEOUT_MS), command[command.index("timeout_msec") + 1])
+        self.assertLessEqual(verify.TEST_TIMEOUT_MS, 600_000)
+        self.assertEqual("a.B,a.C", command[command.index("class") + 1])
+        self.assertEqual(verify.RUNNER, command[-1])
+
+
 class SummaryTest(unittest.TestCase):
     def test_every_required_gate_pass_is_pass_local(self):
         gates = {name: dict(status="PASS") for name in verify.LANES["pr"]}

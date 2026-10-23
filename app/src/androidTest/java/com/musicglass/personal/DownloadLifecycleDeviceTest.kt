@@ -13,7 +13,9 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.Timeout
 import org.junit.runner.RunWith
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -28,6 +30,11 @@ import java.io.IOException
 @RunWith(AndroidJUnit4::class)
 @androidx.annotation.OptIn(markerClass=[androidx.media3.common.util.UnstableApi::class])
 class DownloadLifecycleDeviceTest {
+    /**
+     * Q18-071: run by hand with no limit, a network-off test here waited six hours. withTimeout around the engine
+     * cannot stop blocking work, so the whole test, set-up included, ends after five minutes.
+     */
+    @get:Rule val deadline: Timeout = Timeout.seconds(300)
     private val device=PlaybackDeviceHarness()
     private var gateway:MusicPlaybackGateway?=null
     private var started=0L

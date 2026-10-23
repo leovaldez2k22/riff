@@ -273,8 +273,8 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-067 first song slow after more than 10 minutes away | none (timing on the phone) | Q19A with the owner, A4 second try (21 Oct): about 6.7 s by the owner's count | FAIL | Q19G; A4 again on the next candidate |
 | Q18-068 a slow slide-up shows two titles | PlayerFixesDeviceTest.aSlowSlideUpShowsOneTitle (device) | B1 on the phone (21 Oct): 3,922 pixels differ at p=0.002 | FAIL | Q19G; same test, also with frosted glass off |
 | Q18-069 backup test wants an unnumbered file | OwnerFeaturesDeviceTest (device, base-name check) | B1 on the phone (21 Oct): the backup wrote a numbered file | BLOCKED | Q19G emulator lane |
-| Q18-070 seeks in downloaded songs over 500 ms | SeekTimingDeviceTest (device) | B1 on the phone (21 Oct): 511 to 601 ms, median about 550 | FAIL | Q19G |
-| Q18-071 a network-off download test hung | DownloadLifecycleDeviceTest (device) | B1 offline rerun (21 Oct): hung with airplane mode and a VPN on; no VPN tests on the phone (owner, 22 Oct) | BLOCKED | Q19G on the emulator (a test VPN or a deadline in the test) |
+| Q18-070 seeks in downloaded songs over 500 ms | SeekTimingDeviceTest (device; ready and moving apart) | Emulator API 33 (23 Oct): both tests pass | BLOCKED | device lane on rc7 (phone) |
+| Q18-071 a network-off download test hung | DownloadLifecycleDeviceTest (device, Timeout rule); test_verify InstrumentCommandTest | Emulator API 33, network off (23 Oct): 6 of 6 pass with the deadlines | PASS | fixed in Q19G; no VPN test on the phone (owner) |
 | Q18-072 translation fails on the release build | LyricsTranslationTest (8, JVM), check_registrars gate on the release build | Q19B B3c on Riff Preview rc6; Riff Debug translates | BLOCKED | G3 on rc7 (translate on Riff Preview) |
 | Q18-073 memory growth over the journeys | MemoryCheck (Macrobenchmark) | Q19B6: PSS +28,253 kB against 22,195 kB allowed | FAIL | Q19G |
 | Q18-074 two benchmark waits fail | benchmark harness (builds); benchmark lane run | Q19B6: the queue button and the app open not seen; by hand the app opens every time | BLOCKED | benchmark lane on rc7 (phone) |
