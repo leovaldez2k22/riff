@@ -316,7 +316,7 @@ internal fun RiffApp() {
                 }
             }
             CardPeekLayer(cardPeek, model, provider, playback, onNotice = { scope.launch { snackbar.showSnackbar(it) } })
-            RestoreOffer(onNotice = { scope.launch { snackbar.showSnackbar(it) } })
+            RestoreOffer(onNotice = { scope.launch { snackbar.showSnackbar(it) } }, onRestored = { collections.refresh() })
             SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter)
                 .padding(WindowInsets.safeDrawing.asPaddingValues()).padding(top = 12.dp))
         }

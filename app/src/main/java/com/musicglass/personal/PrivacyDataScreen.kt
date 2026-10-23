@@ -194,7 +194,7 @@ internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult): St
                 }
             }
         }
-        item { LocalBackupSection(onNotice) }
+        item { LocalBackupSection(onNotice) { collections.refresh(); retention = historyRetentionDays(context); onSettingsImported(); refresh++ } }
         item {
             LocalDataTransferSection(provider, ownerKey, owner, onNotice, transfer, documents) {
                 // What is on screen is read again from what the import stored.

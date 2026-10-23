@@ -75,6 +75,8 @@ internal class ProviderLibraryRepository(private val session: ProviderSessionMan
     }
     private suspend fun libraryCatalogFresh(kind: String, token: String? = null): Result<CatalogPage> = providerResult {
         check(signedIn) { string(R.string.sign_in_to_view_your_youtube_music_2) }
+        // Q18-080: Liked songs is the Liked music playlist (VLLM). The library's Songs list keeps a song after it is unliked.
+        if(kind=="Favorites") return@providerResult catalog.likedSongsPage(token).getOrThrow().let {CatalogPage(it.tracks.map(ProviderTrack::homeCard),it.nextToken)}
         requestCatalog(when(kind) { "Playlists" -> "FEmusic_liked_playlists"; "Albums" -> "FEmusic_liked_albums"
             "Artists" -> "FEmusic_library_corpus_track_artists"; "Podcasts" -> "FEmusic_library_non_music_audio_list"; "All" -> "FEmusic_library_landing"; else -> "FEmusic_liked_videos" },token)
     }
@@ -145,6 +147,25 @@ internal class ProviderLibraryRepository(private val session: ProviderSessionMan
     suspend fun addPlaylistSong(id:String,videoId:String):Result<Unit> {
         if(!videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) return Result.failure(IllegalStateException(string(R.string.this_song_cannot_be_added_to_a)))
         return playlistMutation(id,"add:$videoId",{page->page.albumTracks.any {it.videoId==videoId}}) {innerTube.addToPlaylist(YouTubeClient.WEB_REMIX,id,videoId)}
+    }
+    /**
+     * Q18-081: makes a private playlist through YouTube Music's own create call, so it is a real playlist on the
+     * account. Never sent twice: an unanswered create may have made one, and the library shows whether it did.
+     */
+    suspend fun createPlaylist(title:String):Result<String> = sessionSafeMutation {
+        check(signedIn) {string(R.string.sign_in_to_edit_youtube_music_playlists)}
+        val name=title.trim()
+        require(name.isNotEmpty() && name.length<=PLAYLIST_TITLE_LIMIT) {string(R.string.name_the_playlist)}
+        val revision=authRevision
+        var fault:Exception?=null;var body=""
+        val outcome=sentOutcome({fault=it}) {val response=innerTube.createPlaylist(YouTubeClient.WEB_REMIX,name);body=response.bodyAsText();createPlaylistOutcome(response.status.value,body)}
+        check(revision==authRevision) {string(R.string.account_changed_while_updating_playlist)}
+        libraryRevision++
+        when(outcome) {
+            MutationOutcome.Acknowledged -> {playbackEvents.append("provider_playlist_created");"VL"+createdPlaylistId(body)!!}
+            MutationOutcome.Rejected -> error(fault?.let(::providerErrorMessage)?:string(R.string.youtube_music_could_not_create_the_playlist))
+            MutationOutcome.Unknown -> {playbackEvents.append("provider_playlist_create_unknown");throw MutationUnconfirmed(string(R.string.youtube_music_did_not_confirm_the_new_playlist))}
+        }
     }
     suspend fun removePlaylistSong(id:String,card:ProviderHomeCard):Result<Unit> {
         val setId=card.setVideoId;val videoId=card.videoId
@@ -258,3 +279,6 @@ internal class ProviderLibraryRepository(private val session: ProviderSessionMan
         songLikes[videoId] = false; libraryRevision++
     }
 }
+
+/** YouTube Music's longest playlist name. */
+internal const val PLAYLIST_TITLE_LIMIT = 150

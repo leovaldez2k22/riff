@@ -67,6 +67,18 @@ internal suspend fun addTrackToPlaylist(reader:ProviderCatalogReader,mutations:P
     var loading by remember {mutableStateOf(true)};var busy by remember {mutableStateOf(false)}
     var error by remember {mutableStateOf<String?>(null)};var progress by remember {mutableStateOf("")}
     var retry by remember {mutableIntStateOf(0)}
+    var naming by remember {mutableStateOf(false)};var newName by remember {mutableStateOf("")}
+    fun create() {
+        val name=newName.trim();if(name.isEmpty() || busy) return
+        busy=true;error=null;progress=name;val revision=provider.authRevision
+        scope.launch {
+            val result=if(provider.authRevision!=revision) Result.failure(IllegalStateException(string(R.string.account_changed)))
+                else newPlaylistWith(provider,name,track)
+            busy=false;provider.refreshLibraryIndex()
+            result.fold(onSuccess={uiHaptic(HapticCue.Confirm);onNotice(string(R.string.added_to_new_playlist_x,name));onDismiss()},
+                onFailure={uiHaptic(HapticCue.Reject);error=it.message;naming=false;newName="";retry++})
+        }
+    }
     LaunchedEffect(provider.authRevision,retry) {
         loading=true;error=null
         provider.editablePlaylists().fold(onSuccess={pages=it},onFailure={error=it.message});loading=false
@@ -77,7 +89,7 @@ internal suspend fun addTrackToPlaylist(reader:ProviderCatalogReader,mutations:P
             if(loading || busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             if(busy) Text(progress)
             error?.let {Text(it,color=Pink);if(pages.isEmpty()) TextButton({retry++}) {Text(string(R.string.retry))}}
-            if(!loading && error==null && pages.isEmpty()) Text(string(R.string.create_a_playlist_in_youtube_music_to))
+            if(!loading && error==null && pages.isEmpty() && !naming) Text(string(R.string.no_playlists_yet_make_one))
             LazyColumn(Modifier.heightIn(max=360.dp)) {items(pages,key={it.key()}) {card->
                 val id=card.browseId?:return@items
                 Row(Modifier.fillMaxWidth().clickable(enabled=!busy) {selected=if(id in selected) selected-id else selected+id;uiHaptic(HapticCue.Selection)}.padding(vertical=6.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
@@ -85,6 +97,14 @@ internal suspend fun addTrackToPlaylist(reader:ProviderCatalogReader,mutations:P
                     Text(card.title,maxLines=2,modifier=Modifier.weight(1f),overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 }
             }}
+            if(!loading && provider.signedIn) {
+                if(naming) Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+                    OutlinedTextField(newName,{newName=it.take(PLAYLIST_TITLE_LIMIT)},enabled=!busy,singleLine=true,
+                        label={Text(string(R.string.playlist_name))},modifier=Modifier.weight(1f).testTag("new_playlist_name"))
+                    TextButton(enabled=newName.isNotBlank() && !busy,onClick={create()},modifier=Modifier.testTag("create_playlist")) {Text(string(R.string.create))}
+                } else TextButton(enabled=!busy,onClick={naming=true;uiHaptic(HapticCue.Selection)},modifier=Modifier.testTag("new_playlist")) {Text(string(R.string.new_playlist))}
+                if(naming) Text(string(R.string.new_playlists_are_private),color=Muted)
+            }
         }},confirmButton={TextButton(enabled=selected.isNotEmpty() && !busy && !loading,onClick={
             busy=true;error=null;val revision=provider.authRevision;val requested=selected
             scope.launch {
@@ -99,6 +119,38 @@ internal suspend fun addTrackToPlaylist(reader:ProviderCatalogReader,mutations:P
                 else {uiHaptic(HapticCue.Reject);error=result.summary()}
             }
         }) {Text(if(busy) string(R.string.saving) else string(R.string.add_to_x_playlists, selected.size))}},
+        dismissButton={TextButton(enabled=!busy,onClick=onDismiss) {Text(string(R.string.cancel))}})
+}
+
+/**
+ * Q18-081: a new playlist with [track] in it. A playlist made a moment ago cannot hold the song yet, so it is
+ * added without reading first. When the add fails the playlist is still made; the message says so.
+ */
+internal suspend fun newPlaylistWith(mutations:ProviderMutations,name:String,track:ProviderTrack):Result<String> {
+    val id=mutations.createPlaylist(name).getOrElse {return Result.failure(it)}
+    return mutations.addPlaylistSong(id,track.videoId).fold(onSuccess={Result.success(id)},
+        onFailure={Result.failure(IllegalStateException(string(R.string.x_was_made_the_song_was_not_added,name.trim(),it.message.orEmpty().trimEnd('.'))))})
+}
+
+/** Q18-081: Library's New playlist. An empty private playlist on the account; [onCreated] hears its name. */
+@Composable internal fun NewPlaylistDialog(provider:YouTubeMusicProvider,onDismiss:()->Unit,onCreated:(String)->Unit) {
+    val scope=rememberCoroutineScope()
+    var name by remember {mutableStateOf("")};var busy by remember {mutableStateOf(false)};var error by remember {mutableStateOf<String?>(null)}
+    AlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.new_playlist))},
+        text={Column(Modifier.testTag("new_playlist_dialog")) {
+            OutlinedTextField(name,{name=it.take(PLAYLIST_TITLE_LIMIT)},enabled=!busy,singleLine=true,
+                label={Text(string(R.string.playlist_name))},modifier=Modifier.fillMaxWidth().testTag("new_playlist_name"))
+            if(busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top=RiffSpace.item))
+            Text(string(R.string.new_playlists_are_private),color=Muted,modifier=Modifier.padding(top=RiffSpace.item))
+            error?.let {Text(it,color=Pink,modifier=Modifier.padding(top=RiffSpace.item))}
+        }},
+        confirmButton={TextButton(enabled=name.isNotBlank() && !busy,modifier=Modifier.testTag("create_playlist"),onClick={
+            busy=true;error=null;val title=name.trim()
+            scope.launch {
+                provider.createPlaylist(title).fold(onSuccess={uiHaptic(HapticCue.Confirm);provider.refreshLibraryIndex();onCreated(title)},
+                    onFailure={uiHaptic(HapticCue.Reject);error=it.message;busy=false})
+            }
+        }) {Text(string(R.string.create))}},
         dismissButton={TextButton(enabled=!busy,onClick=onDismiss) {Text(string(R.string.cancel))}})
 }
 

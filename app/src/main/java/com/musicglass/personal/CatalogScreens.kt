@@ -228,14 +228,16 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
 @Composable internal fun AccountLibraryScreen(model:ShellModel,bottom:Dp,collections:LocalCollections,
     playback:PlaybackGateway,provider:YouTubeMusicProvider,onNotice:(String)->Unit) {
     val scope=rememberCoroutineScope();val kind=model.libraryFilter
-    var cards by remember(kind) {mutableStateOf(provider.cachedLibrary(if(kind=="Favorites") "Songs" else kind)?.cards.orEmpty())};var next by remember(kind){mutableStateOf<String?>(null)}
+    var cards by remember(kind) {mutableStateOf(provider.cachedLibrary(kind)?.cards.orEmpty())};var next by remember(kind){mutableStateOf<String?>(null)}
     var loading by remember(kind){mutableStateOf(false)};var error by remember(kind){mutableStateOf<String?>(null)};var retry by remember(kind){mutableIntStateOf(0)}
     var moreError by remember(kind){mutableStateOf<String?>(null)}
+    var newPlaylist by remember {mutableStateOf(false)}
+    if(newPlaylist) NewPlaylistDialog(provider,onDismiss={newPlaylist=false}) {name->newPlaylist=false;onNotice(string(R.string.made_playlist_x,name))}
     LaunchedEffect(kind,provider.authRevision,provider.libraryRevision,retry) {
         next=null;error=null;moreError=null
         if(provider.signedIn && kind !in setOf("History","On device")) {
             loading=provider.cachedLibrary(kind)==null
-            val result=provider.libraryCatalog(if(kind=="Favorites") "Songs" else kind)
+            val result=provider.libraryCatalog(kind)
             result.fold(onSuccess={cards=if(kind=="All" && provider.libraryScanRevision>0) it.cards.filterNot {it.kind==CatalogKind.Playlist}+provider.libraryPlaylistSnapshot else if(kind=="Playlists" && provider.libraryScanRevision>0) provider.libraryPlaylistSnapshot else it.cards;next=if(kind=="Playlists" && provider.libraryScanRevision>0) null else it.next},onFailure={error=it.message});loading=false
         }
     }
@@ -257,6 +259,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         }}
         item {LibraryShortcutTiles(model)}
         if(!provider.signedIn) item {ToolLink(string(R.string.sign_in_to_youtube_music)){model.push(Route.Account)}}
+        if(provider.signedIn && kind=="Playlists") item(key="new_playlist") {ToolLink(string(R.string.new_playlist)) {uiHaptic();newPlaylist=true}}
         if(loading && cards.isEmpty()) item(key="state:loading") {ListSkeleton(string(R.string.loading_your_library))}
         error?.let {item(key="state:problem") {ContentProblem(it,onRetry={retry++},onSignIn={model.push(Route.Account)})}}
         items(cards,key={it.key()}) {card->CatalogCardRow(card,onEnqueue={next->scope.launch{enqueueRealTrack(provider,playback,card,next,onNotice)}}){open(card)}}
@@ -264,8 +267,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         if(next!=null) item {Button({ uiHaptic(); 
             val token=next?:return@Button;val revision=provider.authRevision;loading=true;moreError=null
             scope.launch {
-                val result=if(kind=="Favorites") provider.likedSongsPage(token).map{CatalogPage(it.tracks.map(ProviderTrack::homeCard),it.nextToken)}
-                    else provider.libraryCatalog(kind,token)
+                val result=provider.libraryCatalog(kind,token)
                 if(model.libraryFilter==kind && revision==provider.authRevision) {result.fold(onSuccess={cards=(cards+it.cards).distinctBy {c->c.key()};next=it.next?.takeUnless {n->n==token}},onFailure={moreError=it.message?:string(R.string.could_not_load_more)});loading=false}
             }
         },enabled=!loading,modifier=Modifier.testTag("library_load_more")){Text(string(R.string.load_more))}}

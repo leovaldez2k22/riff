@@ -55,4 +55,25 @@ class LikedSongsCountTest {
         assertTrue(w.provider.likedSongsCount { seen += it }.isFailure)
         assertEquals(listOf(100), seen)
     }
+
+    /** Q18-080: Liked songs reads Liked music, first page and the rest, and is read again after a like changes. */
+    @Test fun likedSongsIsLikedMusicAndIsReadAgainAfterAnUnlike() = runBlocking {
+        val w = world { call ->
+            when {
+                call.endpoint.startsWith("like/") -> ProviderWorld.Reply("""{"responseContext":{}}""")
+                call.continuation == null -> { assertEquals("VLLM", call.browseId); ProviderWorld.Reply(fixtureCollectionPage(1..100, "p2")) }
+                else -> ProviderWorld.Reply(fixtureCollectionPage(101..120))
+            }
+        }
+        val first = w.provider.libraryCatalog("Favorites", null).getOrThrow()
+        assertEquals(100, first.cards.size)
+        assertEquals("p2", first.next)
+        assertEquals(20, w.provider.libraryCatalog("Favorites", "p2").getOrThrow().cards.size)
+        assertTrue(w.calls.none { it.browseId == "FEmusic_liked_videos" })
+        w.provider.libraryCatalog("Favorites", null).getOrThrow()
+        assertEquals(2, w.calls.size)
+        w.provider.setSongLike(first.cards.first().videoId!!, false).getOrThrow()
+        w.provider.libraryCatalog("Favorites", null).getOrThrow()
+        assertEquals(2, w.calls.count { it.browseId == "VLLM" && it.continuation == null })
+    }
 }

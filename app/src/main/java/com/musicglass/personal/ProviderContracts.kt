@@ -52,6 +52,8 @@ internal interface ProviderMutations {
     suspend fun setSongLike(videoId: String, liked: Boolean): Result<Unit>
     suspend fun saveAlbum(browseId: String): Result<Unit>
     suspend fun addPlaylistSong(id: String, videoId: String): Result<Unit>
+    /** Q18-081: a new private playlist on the account, the same one YouTube Music shows. Answers its browse id. */
+    suspend fun createPlaylist(title: String): Result<String>
     suspend fun removePlaylistSong(id: String, card: ProviderHomeCard): Result<Unit>
     /** May write a sort preference, when the provider's own sort menu supplied one. */
     suspend fun sortedCollection(id: String, endpoint: CollectionSortEndpoint): Result<CatalogPage>
@@ -170,6 +172,18 @@ internal fun playlistEditOutcome(status: Int, body: String): MutationOutcome {
         null -> MutationOutcome.Unknown
         else -> MutationOutcome.Rejected
     }
+}
+
+/** The new playlist's id from YouTube Music's create answer, or null when the answer names none. */
+internal fun createdPlaylistId(body: String): String? =
+    (parsedBody(body)?.get("playlistId") as? JsonPrimitive)?.contentOrNull?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{3,200}")) }
+
+/** A create is applied only when the answer names the new playlist. */
+internal fun createPlaylistOutcome(status: Int, body: String): MutationOutcome {
+    statusOutcome(status)?.let { return it }
+    val root = parsedBody(body) ?: return MutationOutcome.Unknown
+    if (root["error"] != null) return MutationOutcome.Rejected
+    return if (createdPlaylistId(body) != null) MutationOutcome.Acknowledged else MutationOutcome.Unknown
 }
 
 /**

@@ -20,8 +20,9 @@ import kotlinx.coroutines.launch
  * The system folder picker, opening at the backup folder. The folder chosen is kept with read and write access,
  * restored from, and from then on written to; null when the user backs out.
  */
-@Composable internal fun rememberBackupRestore(onNotice: (String) -> Unit): () -> Unit {
+@Composable internal fun rememberBackupRestore(onNotice: (String) -> Unit, onRestored: () -> Unit = {}): () -> Unit {
     val context = LocalContext.current
+    val accessibility = LocalAccessibilitySettings.current
     val scope = rememberCoroutineScope()
     val container = remember(context) { AppContainer.get(context) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree: Uri? ->
@@ -33,10 +34,18 @@ import kotlinx.coroutines.launch
                 container.localBackup.restore(PickedBackupFolder(context.contentResolver, tree), tree.toString())
             }.getOrNull()
             onNotice(restoreText(outcome))
-            if (outcome != null && outcome.restored > 0) { uiHaptic(HapticCue.Confirm); container.backUpSoon(force = true) }
+            if (outcome != null && outcome.restored > 0) {
+                readAgainAfterRestore(context, accessibility); onRestored()
+                uiHaptic(HapticCue.Confirm); container.backUpSoon(force = true)
+            }
         }
     }
     return { runCatching { launcher.launch(PickedBackupFolder.initialUri(backupFolderName(context.packageName))) } }
+}
+
+/** Q18-078: what is on screen is read again from what a restore stored, as after an import. */
+internal fun readAgainAfterRestore(context: android.content.Context, accessibility: AccessibilitySettings) {
+    accessibility.reload(); CrossfadeSettings.get(context).reload()
 }
 
 internal fun restoreText(outcome: RestoreOutcome?): String = when {
@@ -50,16 +59,25 @@ internal fun restoreText(outcome: RestoreOutcome?): String = when {
 }
 
 /** Settings → Privacy and data: the backup on this phone. */
-@Composable internal fun LocalBackupSection(onNotice: (String) -> Unit) {
+@Composable internal fun LocalBackupSection(onNotice: (String) -> Unit, onRestored: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val container = remember(context) { AppContainer.get(context) }
     val backup = container.localBackup
-    val restore = rememberBackupRestore(onNotice)
+    val restore = rememberBackupRestore(onNotice, onRestored)
     var turningOff by remember { mutableStateOf(false) }
+    var leftovers by remember { mutableIntStateOf(0) }
+    if (leftovers > 0) FrostedAlertDialog(onDismissRequest = { leftovers = 0 }, title = { Text(string(R.string.remove_older_backup_files)) },
+        text = { Text(quantity(R.plurals.n_older_backup_files_are_still_in_x, leftovers, backup.place)) },
+        confirmButton = { TextButton({ leftovers = 0; scope.launch { onNotice(quantity(R.plurals.n_backup_files_removed, backup.removeLeftovers())) } },
+            modifier = Modifier.testTag("backup_leftovers_remove")) { Text(string(R.string.remove), color = Pink) } },
+        dismissButton = { TextButton({ leftovers = 0 }, modifier = Modifier.testTag("backup_leftovers_keep")) { Text(string(R.string.keep)) } })
     if (turningOff) FrostedAlertDialog(onDismissRequest = { turningOff = false }, title = { Text(string(R.string.turn_off_the_backup)) },
         text = { Text(string(R.string.the_backup_files_riff_made_in_x_are_removed, backup.place)) },
-        confirmButton = { TextButton({ turningOff = false; scope.launch { backup.turnBackup(false); onNotice(string(R.string.backup_turned_off)) } },
+        confirmButton = { TextButton({ turningOff = false; scope.launch {
+            backup.turnBackup(false); onNotice(string(R.string.backup_turned_off))
+            leftovers = suspendCatching { backup.leftovers().size }.getOrDefault(0)
+        } },
             modifier = Modifier.testTag("backup_off_confirm")) { Text(string(R.string.turn_off), color = Pink) } },
         dismissButton = { TextButton({ turningOff = false }) { Text(string(R.string.cancel)) } })
     SettingsSection(string(R.string.backup_on_this_phone)) {
@@ -89,12 +107,12 @@ internal fun restoreText(outcome: RestoreOutcome?): String = when {
 }
 
 /** On the first start of a new install with nothing in it: offer the backup an earlier install may have left. */
-@Composable internal fun RestoreOffer(onNotice: (String) -> Unit) {
+@Composable internal fun RestoreOffer(onNotice: (String) -> Unit, onRestored: () -> Unit = {}) {
     val context = LocalContext.current
     val backup = remember(context) { AppContainer.get(context).localBackup }
     var offer by remember { mutableStateOf(false) }
     LaunchedEffect(backup) { offer = suspendCatching { backup.shouldOfferRestore() }.getOrDefault(false) }
-    val restore = rememberBackupRestore(onNotice)
+    val restore = rememberBackupRestore(onNotice, onRestored)
     if (offer) FrostedAlertDialog(onDismissRequest = { offer = false; backup.restoreDeclined() },
         title = { Text(string(R.string.restore_your_riff_backup)) },
         text = { Text(string(R.string.if_you_used_riff_on_this_phone_before_x, backup.place)) },

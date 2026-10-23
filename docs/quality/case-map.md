@@ -281,10 +281,10 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-075 Delicate still line synced | LyricsWordTimingTest (JVM) | Q19B B3a on Riff Preview rc6; the owner, 23 Oct: now word synced | PASS | none (closed by the owner) |
 | Q18-076 the button reads Play while waiting for a connection | PlaybackToggleTest.aSongWaitingForAConnectionShowsPause (JVM) | Q19B B3b on Riff Debug | BLOCKED | G3 on rc7 (airplane mode) |
 | Q18-077 no loudness gain for signed-out streams | LoudnessNormalizationTest (JVM) | Q19B B7 on Riff Debug | FAIL | Q19G (triage first) |
-| Q18-078 backup copies, refresh and leftovers after a reinstall | LocalBackupTest (JVM) | Q19B B11 on Riff Debug | FAIL | Q19G |
+| Q18-078 backup copies, refresh and leftovers after a reinstall | LocalBackupTest (JVM: numbered copy, Off leftovers, settings after restore) | Q19B B11 on Riff Debug | BLOCKED | G3 on rc7 (Riff Debug, F9 steps) |
 | Q18-079 the queue at 200 % text | AccessibilitySweepTest (JVM) does not see it | Q19B owner session, upright and landscape | FAIL | Q19G |
-| Q18-080 an unlike stays in Liked songs | ProviderMutationTest (JVM) | Q19B owner session, dummy account | FAIL | Q19G |
-| Q18-081 no way to create a playlist | none | Q19B owner session | FAIL | Q19G (new feature) |
+| Q18-080 an unlike stays in Liked songs | LikedSongsCountTest (JVM: VLLM every page, read again after an unlike) | Q19B owner session, dummy account | BLOCKED | G3 on rc7 (dummy account) |
+| Q18-081 no way to create a playlist | PlaylistCreateTest (6, JVM) | Q19B owner session | BLOCKED | G3 on rc7 (dummy account; then CAT03/PLY09) |
 | Q18-082 lyrics searched in parallel | LyricsRepository tests with timed fakes (planned) | B13 on the phone after the fix | TODO | Q19G, after Q19B |
 | Q18-083 Save on this phone is not a download | SavedOnThisPhoneTest (JVM) | Q19B test download on Riff Preview | BLOCKED | G3 on rc7 (add and remove) |
 | Q18-084 a held word at a row's end drawn over the row's start | LyricsTest.aHeldWordIsItsLettersWithoutTheSpaceAfterIt (JVM) | owner's recording, 23 Oct | BLOCKED | G3 on rc7 (Heavy, "lost") |

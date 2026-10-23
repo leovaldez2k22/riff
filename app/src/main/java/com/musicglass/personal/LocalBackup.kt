@@ -66,6 +66,19 @@ internal class LocalBackup(context: Context, private val transfer: LocalDataTran
                 val outcome = transfer.export(setOf(owner.key), { folder.output(name) })
                 if (outcome is ExportOutcome.Done) written += name else failed++
             }
+            // Q18-078: copies Android numbered ("riff-backup-phone (1)") while an earlier install's file held the name
+            // go once the name itself is written, which the folder the user chose allows. Only a copy that a restore
+            // would never use goes: older than the file just written, which holds something.
+            val seen = try { folder.list() } catch (_: IOException) { emptyMap() } catch (_: SecurityException) { emptyMap() }
+            suspend fun dated(open: () -> java.io.InputStream): Pair<Long, Boolean>? =
+                (transfer.open(open) as? ImportOpen.Ready)?.plan?.let { plan -> (plan.exportedAt to (plan.total == 0)).also { transfer.discard(plan) } }
+            for ((name, open) in seen) {
+                val base = backupBaseName(name) ?: continue
+                if (name == base || base !in written) continue
+                val mine = seen[base]?.let { dated(it) } ?: continue
+                val copy = dated(open) ?: continue
+                if (!mine.second && copy.first <= mine.first) try { folder.delete(name) } catch (_: IOException) {} catch (_: SecurityException) {}
+            }
             // A mirror: what this install wrote for an owner whose data is gone is removed. A file waiting for its
             // account, or one this install never wrote, is left alone.
             val waitingNames = pendingFiles().mapTo(HashSet()) { it.name }
@@ -155,6 +168,24 @@ internal class LocalBackup(context: Context, private val transfer: LocalDataTran
             val removed = names.count { runCatching { folder.delete(it) }.isSuccess }
             prefs.edit { remove("written"); remove("last_at") }; lastBackupAt = 0L
             removed
+        }
+    }
+
+    /**
+     * Q18-078: backup files still in the folder once the backup is off: an earlier install's, which Off does not
+     * remove on its own. Listed only while the backup is off.
+     */
+    suspend fun leftovers(): List<String> = withContext(io) {
+        if (enabled) return@withContext emptyList()
+        try { folder().list().keys.filter { backupBaseName(it) != null }.sorted() } catch (_: IOException) { emptyList() } catch (_: SecurityException) { emptyList() }
+    }
+    /** Removes [leftovers], when the user says so; never anything that is not a Riff backup file. */
+    suspend fun removeLeftovers(): Int = withContext(io) {
+        lock.withLock {
+            if (enabled) return@withLock 0
+            val folder = folder()
+            val names = try { folder.list().keys.filter { backupBaseName(it) != null } } catch (_: IOException) { emptyList() } catch (_: SecurityException) { emptyList() }
+            names.count { try { folder.delete(it); true } catch (_: IOException) { false } catch (_: SecurityException) { false } }.also { event("local_backup action=remove_leftovers files=$it") }
         }
     }
 

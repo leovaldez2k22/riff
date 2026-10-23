@@ -109,8 +109,10 @@ class LocalBackupTest {
 
     @Test fun ofTwoFilesForOneOwnerTheNewestIsRestored() = runBlocking {
         val old = Install(); old.play(DEVICE_LOCAL_SCOPE_KEY, 1); old.backup.backUp(force = true)
-        File(documents, "riff-backup-phone.jsonl").renameTo(File(documents, "riff-backup-phone (1).jsonl"))
+        val first = File(documents, "riff-backup-phone.jsonl").readBytes()
         clock.advance(60_000); old.play(DEVICE_LOCAL_SCOPE_KEY, 2); old.backup.backUp(force = true)
+        // Put beside the newer file after it was written: a backup would have removed it (Q18-078).
+        File(documents, "riff-backup-phone (1).jsonl").writeBytes(first)
         File(documents, "notes.txt").writeText("not a backup")
         uninstall()
         val fresh = Install()
@@ -181,5 +183,42 @@ class LocalBackupTest {
         assertNull(backupBaseName("riff-local-data-2026-10-20.jsonl")); assertNull(backupBaseName("riff-backup-phone.txt"))
         assertEquals("Riff Backup", backupFolderName("com.musicglass.personal"))
         assertEquals("Riff Backup (preview)", backupFolderName("com.musicglass.personal.preview"))
+    }
+
+    /** Q18-078 (1): a copy Android numbered while an earlier install's file held the name goes once the name is written. */
+    @Test fun writingTheNameRemovesTheNumberedCopy() = runBlocking {
+        val install = Install(); install.play(DEVICE_LOCAL_SCOPE_KEY, 1)
+        install.backup.backUp(force = true)
+        File(documents, "riff-backup-phone.jsonl").renameTo(File(documents, "riff-backup-phone (1).jsonl"))
+        File(documents, "riff-backup-account-0123456789abcdef (1).jsonl").writeText("no file of that name here: kept")
+        clock.advance(BACKUP_GAP_MS); install.play(DEVICE_LOCAL_SCOPE_KEY, 2)
+        assertTrue(install.backup.backUp(force = true) is BackupOutcome.Done)
+        val names = install.folder.names()
+        assertTrue(names.toString(), "riff-backup-phone.jsonl" in names && "riff-backup-phone (1).jsonl" !in names)
+        assertTrue(names.toString(), "riff-backup-account-0123456789abcdef (1).jsonl" in names)
+    }
+
+    /** Q18-078 (3): Off removes what it wrote; an earlier install's files are offered, and removed only when asked. */
+    @Test fun offOffersTheEarlierInstallsFilesAndRemovesOnlyBackups() = runBlocking {
+        val install = Install(); install.play(accountA, 1)
+        assertTrue("nothing to offer while on", install.backup.leftovers().isEmpty())
+        install.backup.backUp(force = true)
+        File(documents, "riff-backup-account-0123456789abcdef.jsonl").writeText("earlier install")
+        File(documents, "someone-elses.txt").writeText("kept")
+        assertEquals(0, install.backup.removeLeftovers())
+        install.backup.turnBackup(false)
+        assertEquals(listOf("riff-backup-account-0123456789abcdef.jsonl"), install.backup.leftovers())
+        assertEquals(1, install.backup.removeLeftovers())
+        assertEquals(listOf("someone-elses.txt"), install.folder.names())
+    }
+
+    /** Q18-078 (2): after a restore the open Settings show what it stored, without a restart. */
+    @Test fun aRestoredSettingShowsAtOnce() {
+        val settings = AccessibilitySettings(context)
+        settings.updateReduceMotion(false)
+        context.getSharedPreferences("accessibility_display", Context.MODE_PRIVATE).edit().putBoolean("reduce_motion", true).commit()
+        assertFalse(settings.reduceMotion)
+        readAgainAfterRestore(context, settings)
+        assertTrue(settings.reduceMotion)
     }
 }

@@ -12,6 +12,8 @@
     <plurals name="a_queue_of_n_songs"><item quantity="one">a queue of %1$d song</item><item quantity="other">a queue of %1$d songs</item></plurals>
     <plurals name="a_queue_of_n_songs_was_saved"><item quantity="one">A queue of %1$d song was saved by an earlier version. It was not loaded automatically because it may belong to another account.</item><item quantity="other">A queue of %1$d songs was saved by an earlier version. It was not loaded automatically because it may belong to another account.</item></plurals>
     <plurals name="n_accounts_restore_when_they_sign_in"><item quantity="one">%1$d account is restored when it signs in.</item><item quantity="other">%1$d accounts are restored when they sign in.</item></plurals>
+    <plurals name="n_older_backup_files_are_still_in_x"><item quantity="one">%1$d backup file an earlier install of Riff made is still in %2$s. Remove it too?</item><item quantity="other">%1$d backup files an earlier install of Riff made are still in %2$s. Remove them too?</item></plurals>
+    <plurals name="n_backup_files_removed"><item quantity="one">%1$d backup file removed</item><item quantity="other">%1$d backup files removed</item></plurals>
     <plurals name="n_backup_files_could_not_be_read"><item quantity="one">%1$d backup file could not be read.</item><item quantity="other">%1$d backup files could not be read.</item></plurals>
     <plurals name="n_seconds"><item quantity="one">%1$d second</item><item quantity="other">%1$d seconds</item></plurals>
     <plurals name="n_percent"><item quantity="one">%1$d percent</item><item quantity="other">%1$d percent</item></plurals>
@@ -78,6 +80,8 @@
     <string name="riff_can_suggest_this_again_youtube_music_kept_the_dislike">Riff can suggest this again. YouTube Music did not remove the dislike</string>
     <string name="riff_could_not_read_that_folder">Riff could not read that folder</string>
     <string name="the_backup_could_not_be_written">The backup could not be written. Riff will try again later</string>
+    <string name="remove_older_backup_files">Remove older backup files?</string>
+    <string name="keep">Keep</string>
     <string name="the_backup_files_riff_made_in_x_are_removed">The backup files Riff made in %1$s are removed. Nothing kept in Riff changes.</string>
     <string name="the_backup_stays_when_riff_is_deleted">One file for this phone and one for each account, with settings, history, saved songs, searches, hidden items and pins; not downloaded audio or sign-ins. It stays when Riff is deleted, and Riff offers to bring it back when installed again. It is not encrypted: apps allowed to read all files can read it.</string>
     <string name="turn_off">Turn off</string>
@@ -243,7 +247,17 @@
     <string name="could_not_verify_your_account_check_your">Could not verify your account. Check your connection and try again.</string>
     <string name="couldn_t_load_lyrics">Couldn\'t load lyrics</string>
     <string name="couldn_t_load_recommendations_your_current_s">Couldn\'t load recommendations. Your current song can keep playing.</string>
-    <string name="create_a_playlist_in_youtube_music_to">Create a playlist in YouTube Music to add songs here.</string>
+    <string name="no_playlists_yet_make_one">No playlists yet. Make one with New playlist.</string>
+    <string name="new_playlist">New playlist</string>
+    <string name="playlist_name">Playlist name</string>
+    <string name="create">Create</string>
+    <string name="new_playlists_are_private">New playlists are private. YouTube Music shows them in your library.</string>
+    <string name="name_the_playlist">Name the playlist.</string>
+    <string name="added_to_new_playlist_x">Added to %1$s</string>
+    <string name="made_playlist_x">Made %1$s</string>
+    <string name="youtube_music_could_not_create_the_playlist">YouTube Music could not make the playlist.</string>
+    <string name="youtube_music_did_not_confirm_the_new_playlist">YouTube Music did not confirm the new playlist. Look in your library before trying again.</string>
+    <string name="x_was_made_the_song_was_not_added">%1$s was made, but the song was not added: %2$s.</string>
     <string name="credits">Credits</string>
     <string name="crossfade">Crossfade</string>
     <string name="crossfade_length">Crossfade length</string>
