@@ -280,7 +280,7 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-074 two benchmark waits fail | ActionBenchmark, StartupBenchmark | Q19B6: the queue button and the app open not seen; by hand the app opens every time | FAIL | Q19G (test fix) |
 | Q18-075 Delicate still line synced | LyricsWordTimingTest (JVM) | Q19B B3a on Riff Preview rc6; the owner, 23 Oct: now word synced | PASS | none (closed by the owner) |
 | Q18-076 the button reads Play while waiting for a connection | PlaybackToggleTest.aSongWaitingForAConnectionShowsPause (JVM) | Q19B B3b on Riff Debug | BLOCKED | G3 on rc7 (airplane mode) |
-| Q18-077 no loudness gain for signed-out streams | LoudnessNormalizationTest (JVM) | Q19B B7 on Riff Debug | FAIL | Q19G (triage first) |
+| Q18-077 no loudness gain for signed-out streams | LoudnessNormalizationTest (JVM) | Q19B B7 on Riff Debug | BLOCKED | B13 on rc7 (signed out) |
 | Q18-078 backup copies, refresh and leftovers after a reinstall | LocalBackupTest (JVM: numbered copy, Off leftovers, settings after restore) | Q19B B11 on Riff Debug | BLOCKED | G3 on rc7 (Riff Debug, F9 steps) |
 | Q18-079 the queue at 200 % text | AccessibilitySweepTest (JVM) does not see it | Q19B owner session, upright and landscape | FAIL | Q19G |
 | Q18-080 an unlike stays in Liked songs | LikedSongsCountTest (JVM: VLLM every page, read again after an unlike) | Q19B owner session, dummy account | BLOCKED | G3 on rc7 (dummy account) |
@@ -292,10 +292,10 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-086 no warning before Sign out | AccountScreenSessionTest.signOutQuiescesTheAccountThenBindsGuest, cancellingTheSignOutQuestionKeepsTheAccount (JVM) | owner's request, 23 Oct | BLOCKED | G3 on rc7 (dummy account) |
 | Q18-087 switching accounts always goes through Google's page | SignInDesignTest.aDirectSwitchNeedsAKnownAccountAndLandsOnlyOnIt, googlesAccountListIsReadDefensively (JVM) | owner's request, 23 Oct | BLOCKED | G3 on rc7 (switch both ways) |
 | Q18-088 full email on account rows | SignInDesignTest.googlesSessionFillsInAddressesAndPositions (JVM) | owner's request, 23 Oct | BLOCKED | G3 on rc7 (full addresses) |
-| Q18-089 bitrate depends on which YouTube client answered | resolver test: 774 from WEB_REMIX picked over a fallback's 251 (planned) | audio quality investigation, 23 Oct; downloads recorded at 273, 144 and 132 kbps as Highest available | FAIL | Q19G |
-| Q18-090 Premium never passed to the extraction library | stream hints carry Premium only when confirmed (planned) | audio quality investigation, 23 Oct | FAIL | Q19G |
-| Q18-091 format picker ignores DRC copies | fixture with 251 and 251-drc picks the non-DRC one (planned) | audio quality investigation, 23 Oct; no DRC format seen yet | TODO | Q19G (triage first) |
-| Q18-092 16-bit boost limiter changes loud music | processor tests: float input, unity gain bit-exact, no limiting below full scale (planned) | audio quality investigation, 23 Oct | FAIL | Q19G |
+| Q18-089 bitrate depends on which YouTube client answered | StreamQualityTest (JVM) | audio quality investigation, 23 Oct; downloads recorded at 273, 144 and 132 kbps as Highest available | BLOCKED | B13 on rc7 (ten downloads) |
+| Q18-090 Premium never passed to the extraction library | StreamQualityTest (JVM) | audio quality investigation, 23 Oct | BLOCKED | B13 on rc7 (owner's account) |
+| Q18-091 format picker ignores DRC copies | OriginalAudioPolicyTest (JVM: isDrc, xtags, encoded xtags) | audio quality investigation, 23 Oct; no DRC format seen yet | BLOCKED | B13 on rc7 (capture) |
+| Q18-092 16-bit boost limiter changes loud music | VolumeBoostTest, LoudnessNormalizationTest (JVM) | audio quality investigation, 23 Oct | BLOCKED | B13 on rc7 (boost on a loud song) |
 | Q18-093 song count and total length on a playlist | ProviderCatalogTest.aCollectionSaysHowManySongsAndHowLongInOneLine (JVM) | owner's request, 23 Oct | BLOCKED | G3 on rc7 (a playlist and an album) |
 | Q18-094 an official playlist's row says "Playlist · Playlist" | ProviderCatalogTest.aSearchRowNamesItsKindOnce (JVM) | Q19B CAT02 check on Riff Preview rc6, 23 Oct (the HTML codes first listed were the dump's escaping, not Riff) | BLOCKED | G3 on rc7 (search an official playlist) |
 | Q18-095 a 940-track playlist queues 815 songs with no notice | ProviderCatalogTest.collectionSummary (JVM); loader checked against the live pages (815 of 940 listed) | Q19B CAT02 check on Riff Preview rc6, 23 Oct | BLOCKED | G3 on rc7 (open the playlist) |

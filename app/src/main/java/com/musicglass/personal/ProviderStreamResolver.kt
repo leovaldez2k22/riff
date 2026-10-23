@@ -55,6 +55,9 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
     private val authRevision get() = session.authRevision
     private val cacheLock = Any()
     private val dataSaverPrefs=appContext.getSharedPreferences(DATA_SAVER_PREFS,Context.MODE_PRIVATE)
+    private val qualityPrefs=appContext.getSharedPreferences(STREAM_QUALITY_PREFS,Context.MODE_PRIVATE)
+    /** Q18-090: Premium is known for an account only once YouTube served it a Premium-only format. */
+    private fun premiumConfirmed():Boolean = session.signedIn && session.accountScopeKey()?.let {qualityPrefs.getBoolean("premium:$it",false)}==true
     private var streamRevision=0L
     private val streamCache=linkedMapOf<String,ProviderStream>()
     private val streamFlights=mutableMapOf<String,Deferred<Result<ProviderStream>>>()
@@ -169,13 +172,18 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
             val revision = authRevision
             require(videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) { "Invalid video ID" }
             requireSolver()
-            val stream = extractor.extract(
+            val hints = streamHints(video,live,download,quality,premiumConfirmed())
+            val excluded = excludedProfiles + if(live || video) setOf("WEB_REMIX","WEB_REMIX_SABR","ANDROID_MUSIC","IOS_MUSIC") else emptySet()
+            // Q18-089: a download asks WEB_REMIX first, the client that gives the best formats; any other answers if it cannot.
+            val preferred = downloadClientOverride(download,video,live,excluded)?.let {client->
+                try {extractor.extract(videoId = videoId,hints = hints.copy(playbackClientOverrideId = client),excludedClients = excluded,audioQuality = quality)}
+                catch(e:CancellationException) {throw e}
+                catch(e:Exception) {playbackEvents.append("download_preferred_client_failed type=${e::class.simpleName}");null}
+            }
+            val stream = preferred ?: extractor.extract(
                 videoId = videoId,
-                hints = ContentHints(wantVideo = video,isLive = live,maxVideoHeight=if(quality==AudioQuality.LOW) 360 else 720).withStreamCapabilities(
-                    // Tokenless SABR can fail after its first chunk; HLS can adapt between
-                    // variants. Direct audio retains the format selected for this quality setting.
-                    allowHls = !download && (video || live), allowSabr = video || live || download, allowBoundedRange = download),
-                excludedClients = excludedProfiles + if(live || video) setOf("WEB_REMIX","WEB_REMIX_SABR","ANDROID_MUSIC","IOS_MUSIC") else emptySet(),
+                hints = hints,
+                excludedClients = excluded,
                 audioQuality = quality,
             ) ?: return@withContext failure(
                 IllegalStateException("No playable audio stream is available for this track"))
@@ -184,7 +192,9 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
             playbackEvents.append("stream_resolved profile=${stream.profileId} " +
                 "transport=${if (stream.sabrBootstrap != null) "SABR" else if (
                     stream.mimeType?.contains("mpegurl", ignoreCase = true) == true) "HLS" else "DIRECT"} " +
-                "po_token=${stream.sabrBootstrap?.poToken != null}")
+                "po_token=${stream.sabrBootstrap?.poToken != null} itag=${stream.itag ?: 0} kbps=${(stream.bitrate?:0)/1000} " +
+                "premium_hint=${hints.premium} loudness=${validLoudnessDb(stream.loudnessDb) != null}")
+            if (premiumOnlyFormat(stream.itag)) session.accountScopeKey()?.let {qualityPrefs.edit().putBoolean("premium:$it",true).apply()}
             if (!download && (stream.requireBoundedRange || stream.useRangeChunks)) {
                 return@withContext Result.failure(
                     IllegalStateException("This track requires bounded-range streaming, which this player does not support"))
@@ -260,3 +270,22 @@ internal suspend fun settleVisitor(current: String?, fetch: suspend () -> String
     fetch()
     return true
 }
+
+internal const val STREAM_QUALITY_PREFS = "stream_quality"
+
+/** Q18-090: formats YouTube serves only to Premium accounts: 256 kbps Opus (774) and 256 kbps AAC (141). */
+internal fun premiumOnlyFormat(itag: Int?): Boolean = itag == 774 || itag == 141
+
+/**
+ * What Riff asks the library for. Tokenless SABR can fail after its first chunk; HLS can adapt between variants; direct
+ * audio keeps the format selected for the quality setting. Q18-090: Premium is passed only once it is confirmed, and
+ * only for high-quality audio, so the library tries its Premium-capable signed-in clients first.
+ */
+internal fun streamHints(video: Boolean, live: Boolean, download: Boolean, quality: AudioQuality, premium: Boolean): ContentHints =
+    ContentHints(wantVideo = video, isLive = live, maxVideoHeight = if (quality == AudioQuality.LOW) 360 else 720).withStreamCapabilities(
+        allowHls = !download && (video || live), allowSabr = video || live || download, allowBoundedRange = download)
+        .let { if (premium && quality == AudioQuality.HIGH && !video && !live) it.withPremium() else it }
+
+/** Q18-089: the client a download asks first, or null to let the library choose. */
+internal fun downloadClientOverride(download: Boolean, video: Boolean, live: Boolean, excluded: Set<String>): String? =
+    "WEB_REMIX".takeIf { download && !video && !live && it !in excluded }

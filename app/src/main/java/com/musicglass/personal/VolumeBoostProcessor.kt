@@ -12,6 +12,11 @@ import kotlin.math.roundToInt
 /**
  * The one place a player's samples are scaled: the booster's gain (1 to 3) times the track's normalization
  * gain ([trim], at most 1). A change of either ramps over 30 ms. Both channels use the same gain for each PCM frame.
+ *
+ * Q18-092: a boosted frame that would pass full scale is turned down just enough by a limiter, which lets go over
+ * 100 ms; everything below full scale is scaled exactly. (Before, a soft knee bent every peak above 80 % of full
+ * scale, which audibly changed loud music.) The samples stay 16-bit: with float output on, Media3 1.11.1's audio sink
+ * leaves the app's processors out of the chain for high-resolution PCM, so Boost and Normalize would stop working.
  */
 internal class PcmVolumeBoost {
     @Volatile var targetGain = 1f
@@ -20,7 +25,9 @@ internal class PcmVolumeBoost {
     @Volatile var trim = 1f
         set(value) { field = if (value.isFinite()) value.coerceIn(NORMALIZE_MIN_GAIN, 1f) else 1f }
     private var gain = 1f
-    fun reset() { gain = targetGain * trim }
+    /** The limiter's own gain: 1 when it is not acting. */
+    private var limit = 1f
+    fun reset() { gain = targetGain * trim; limit = 1f }
     fun process(input: ByteBuffer, output: ByteBuffer, sampleRate: Int, channels: Int) {
         require(sampleRate > 0 && channels > 0 && input.remaining() % (2 * channels) == 0)
         if (!input.hasRemaining()) return
@@ -28,28 +35,33 @@ internal class PcmVolumeBoost {
         val target = targetGain * trim
         if (gain == 1f && target == 1f) { output.put(input); return }
         val step = 2f / (sampleRate * .03f)
+        val release = 1f / (sampleRate * LIMITER_RELEASE_S)
         while (input.hasRemaining()) {
             gain += (target - gain).coerceIn(-step, step)
+            if (gain > 1f) {
+                // The loudest channel of the frame decides, so every channel keeps the same gain.
+                val at = input.position()
+                var peak = 0
+                for (channel in 0 until channels) peak = maxOf(peak, abs(input.getShort(at + 2 * channel).toInt()))
+                val boosted = peak / 32768f * gain
+                limit = minOf(1f, limit + release).let { if (boosted * it > LIMITER_CEILING) LIMITER_CEILING / boosted else it }
+            } else limit = 1f
             repeat(channels) {
                 val sample = input.short
                 val value = if (gain == 1f) sample.toInt()
                 // Turning down cannot leave the PCM range, so nothing is limited and quiet tracks keep their shape.
                 else if (gain < 1f) (sample * gain).roundToInt()
-                else {
-                    val amplified = sample / 32768f * gain
-                    val magnitude = abs(amplified)
-                    // A continuous soft knee keeps boosted peaks inside the PCM range, without wrapping.
-                    val limited = if (magnitude <= .8f) magnitude else {
-                        val excess = magnitude - .8f
-                        .8f + .2f * excess / (.2f + excess)
-                    }
-                    (limited * if (amplified < 0f) -32768f else 32768f).roundToInt().coerceIn(-32768, 32767)
-                }
+                else (sample * gain * limit).roundToInt().coerceIn(-32768, 32767)
                 output.putShort(value.toShort())
             }
         }
     }
 }
+
+/** The highest a boosted sample may reach: full scale in 16-bit PCM. */
+private const val LIMITER_CEILING = 32767f / 32768f
+/** How long the limiter takes to let go of a peak. */
+private const val LIMITER_RELEASE_S = .1f
 
 @androidx.annotation.OptIn(markerClass = [UnstableApi::class])
 internal class VolumeBoostProcessor : BaseAudioProcessor() {

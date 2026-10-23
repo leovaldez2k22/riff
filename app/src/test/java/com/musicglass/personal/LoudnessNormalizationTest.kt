@@ -197,7 +197,7 @@ class LoudnessNormalizationTest {
         }
     }
     @Test fun theBoosterAtItsMaximumStillHasTheLastWordOnPeaks() {
-        // 3 times 0.71 is above 1: the soft knee limits the product, exactly as it limits the booster alone.
+        // 3 times 0.71 is above 1: the limiter holds the product at full scale, exactly as it holds the booster alone.
         val boosted=apply(stage(3f,3.0),tone(32_767))
         assertTrue(boosted.maxOf {abs(it)} in 28_000..32_767)
         // 3 times 0.25 is below 1: plain scaling.
@@ -243,5 +243,14 @@ class LoudnessNormalizationTest {
         assertFalse(settings.enabled);settings.updateEnabled(true);assertTrue(AudioBoostSettings(context).normalize)
         settings.updateNormalize(false);assertFalse(AudioBoostSettings(context).normalize);assertTrue(AudioBoostSettings(context).enabled)
         prefs.edit().clear().commit()
+    }
+    /** Q18-077: each track says whether its loudness was known, so "no value" and "a quiet song" read apart. */
+    @Test fun eachTrackSaysWhetherItsLoudnessWasKnown() {
+        assertEquals("loudness_track known=false enabled=true gain_db=0.0",loudnessTrackEvent(true,null,1f))
+        assertEquals("loudness_track known=true enabled=true loudness_db=-2.5 gain_db=0.0",loudnessTrackEvent(true,-2.5,1f))
+        assertEquals("loudness_track known=true enabled=true loudness_db=6.0 gain_db=-6.0",loudnessTrackEvent(true,6.0,normalizationGain(true,6.0)))
+        assertEquals("loudness_track known=false enabled=false gain_db=0.0",loudnessTrackEvent(false,Double.NaN,1f))
+        for(event in listOf(loudnessTrackEvent(true,6.0,.5f),loudnessTrackEvent(false,null,1f)))
+            assertEquals("every field is kept by the diagnostic log",event,DiagnosticEvent.parse(event).text)
     }
 }

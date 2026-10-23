@@ -28,6 +28,22 @@ class VolumeBoostTest {
         assertTrue(result[0] in 30000..32767);assertTrue(result[1] in -32768..-30000)
         assertTrue(result[2]>0 && result[3]<0);assertTrue(result[2]<result[0])
     }
+    /** Q18-092: below full scale a boost is exact; above it only the frames that would clip are turned down, then let go. */
+    @Test fun nothingBelowFullScaleIsLimitedAndALimitedPeakIsLetGo() {
+        val boost=PcmVolumeBoost().apply {targetGain=2f;reset()}
+        assertEquals("0.45 and 0.49 of full scale doubled exactly (the old knee bent both)",listOf(29490,32112,-29490),apply(boost,pcm(14745,16056,-14745)))
+        val loud=PcmVolumeBoost().apply {targetGain=2f;reset()}
+        val after=apply(loud,pcm(30000,*IntArray(9_600) {8000}))
+        assertEquals(32767,after[0])
+        assertTrue("held down just after the peak",after[1]<16000)
+        assertEquals("back to exact doubling within 100 ms",16000,after.last())
+        assertTrue(after.drop(1).zipWithNext().all {(a,b)->b>=a})
+        val stereo=PcmVolumeBoost().apply {targetGain=3f;reset()}
+        apply(stereo,pcm(30000,1000,1000,30000),channels=2).let {
+            assertEquals("the loud channel sets the frame's gain: the quiet one is turned down with it",1000*32767/30000.0,it[1].toDouble(),1.0)
+            assertEquals(it[0],it[3]);assertEquals(it[1],it[2])
+        }
+    }
     @Test fun liveGainRampsAndUsesIdenticalGainForStereoChannels() {
         val boost=PcmVolumeBoost().apply {targetGain=3f}
         val result=apply(boost,pcm(*IntArray(3000) {1000}),channels=2)

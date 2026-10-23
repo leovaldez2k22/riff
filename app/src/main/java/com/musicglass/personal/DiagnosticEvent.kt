@@ -38,18 +38,18 @@ internal class DiagnosticEvent private constructor(val text: String) {
         private val numbers = setOf(
             "active_ms", "added", "ahead", "ahead_ms", "aliases", "at", "attempt", "attempts", "code", "conflicts",
             "count", "damaged", "delay_ms", "delta", "elapsed", "elapsedMs", "expired", "failed", "files", "filtered_shelves", "found", "gain_db",
-            "hold_ms", "http", "importance", "imported", "index", "left", "lookup", "mainState", "malformed", "media",
+            "hold_ms", "http", "importance", "imported", "index", "itag", "kbps", "left", "lookup", "loudness_db", "mainState", "malformed", "media",
             "mixed_rows", "mixed_shelves", "mixed_song_rows", "ms", "not_stored", "over_limit", "playback_state",
             "present", "pss_kb", "records", "rejected", "remaining", "removals", "removed", "requeued", "restored", "rss_kb",
             "sections", "speed", "standby_bucket", "state", "status", "suppression", "swept", "tailState",
             "unmerged_rows", "unrecognised", "waiting")
         private val booleans = setOf(
-            "applied", "bg_restricted", "cached", "complete", "dynamic_retry", "hls", "idle", "init", "main", "mainPlaying",
-            "name", "owner_changed", "photo", "play_when_ready", "playing", "po_token", "power_save", "preprocessed", "songs_chip",
+            "applied", "bg_restricted", "cached", "complete", "dynamic_retry", "enabled", "hls", "idle", "init", "known", "loudness", "main", "mainPlaying",
+            "name", "owner_changed", "photo", "play_when_ready", "playing", "po_token", "power_save", "premium_hint", "preprocessed", "songs_chip",
             "task_removed", "wants")
         private val words = setOf(
-            "action", "causes", "class", "failed_stage", "failure", "from", "host", "kind", "owner", "part", "phase",
-            "player_error", "process", "profile", "reason", "result", "scheme", "session_state", "stage", "to",
+            "action", "cache", "causes", "class", "failed_stage", "failure", "from", "host", "kind", "owner", "part", "phase",
+            "player_error", "process", "profile", "reason", "result", "scheme", "session_state", "source", "stage", "to",
             "transport", "type")
 
         /** Every key a field may have. A new one is added here, with its shape, or the field is not kept. */

@@ -29,6 +29,8 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
     private var tailAudioEffects: AudioSessionEffects? = null
     private var tailNormalization: Pair<Player, PcmVolumeBoost>? = null
     private var loggedNormalization = 1f
+    /** Q18-077: the entry and loudness last written as loudness_track, so each track says once what it had. */
+    private var loggedTrack: Pair<String, Double?>? = null
     /** Provider loudness by queue entry, learned when an entry's stream or download is opened. Durable values only. */
     private val entryLoudness = java.util.Collections.synchronizedMap(object : LinkedHashMap<String, Double>(64, .75f, true) {
         // Most recently used last; the playing entry is read at every change, so it is never the one dropped.
@@ -57,6 +59,12 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         player()?.let {
             val gain = normalizationFor(it.currentMediaItem); volumeBoost.boost.trim = gain
             if (gain != loggedNormalization) { loggedNormalization = gain; events.append("normalize gain_db=${normalizationDecibels(gain)}") }
+            val entry = it.currentMediaItem?.entryId().orEmpty()
+            val track = entry to entryLoudness[entry]
+            if (entry.isNotEmpty() && track != loggedTrack) {
+                loggedTrack = track
+                events.append(loudnessTrackEvent(boostPrefs.getBoolean(NORMALIZE_KEY, false), track.second, gain))
+            }
         }
         tailNormalization?.let { (tail, stage) -> stage.trim = normalizationFor(tail.currentMediaItem) }
     }

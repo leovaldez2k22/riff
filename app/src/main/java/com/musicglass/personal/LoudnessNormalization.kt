@@ -24,6 +24,17 @@ internal fun normalizationGain(enabled: Boolean, loudnessDb: Double?): Float {
     return 10.0.pow(-min(loudness, NORMALIZE_MAX_ATTENUATION_DB) / 20).toFloat().coerceIn(NORMALIZE_MIN_GAIN, 1f)
 }
 
+/**
+ * Q18-077: what one track had, once per track: whether its loudness is known and the gain it got. "normalize gain_db"
+ * is written only when the gain changes, so a track left at 0.0 could not tell an unknown value from a quiet song.
+ */
+internal fun loudnessTrackEvent(enabled: Boolean, loudnessDb: Double?, gain: Float): String {
+    val loudness = validLoudnessDb(loudnessDb)
+    return "loudness_track known=${loudness != null} enabled=$enabled" +
+        (loudness?.let { " loudness_db=" + String.format(java.util.Locale.ROOT, "%.1f", it) } ?: "") +
+        " gain_db=${normalizationDecibels(gain)}"
+}
+
 /** A gain as text for the event log, one decimal: "-6.0", or "0.0" for unchanged. */
 internal fun normalizationDecibels(gain: Float): String =
     String.format(java.util.Locale.ROOT, "%.1f", if (gain >= 1f) 0.0 else 20 * kotlin.math.log10(gain.toDouble()))

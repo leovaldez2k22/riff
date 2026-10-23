@@ -283,7 +283,7 @@ internal class LyricsRepository(private val directory: File,
                                 it.header("X-RateLimit-Remaining")?.trim()?.toIntOrNull())
                             // Q18-075: a slow answer and a miss in Better Lyrics' cache look alike without this.
                             if (BuildConfig.DEBUG && url.host == "api.betterlyrics.org") diagnosticLogcat("RiffLyrics",
-                                "lyrics_answer endpoint=${url.encodedPath} status=${it.code} cache=${it.header("X-Cache-Status") ?: "none"} " +
+                                "lyrics_answer source=${betterLyricsSource(url.encodedPath)} status=${it.code} cache=${it.header("X-Cache-Status") ?: "none"} " +
                                 "ms=${(System.nanoTime() - asked)/1_000_000}")
                             val text = if (it.isSuccessful) {
                                 val body = it.body
@@ -402,6 +402,9 @@ internal fun lyricsUnreachable(errors: Int, answered: Int): Boolean = errors > 0
 internal fun lyricsOutranks(doc: LyricsDocument, shown: LyricsDocument?, shownForMs: Long, swapWindowMs: Long): Boolean =
     shown == null || doc.quality > shown.quality || (doc.quality == shown.quality &&
         lyricsProviderPriority(doc.source) < lyricsProviderPriority(shown.source) && shownForMs <= swapWindowMs)
+
+/** A Better Lyrics endpoint as one word for the diagnostic log. */
+internal fun betterLyricsSource(path: String): String = when { path.startsWith("/qq/") -> "qq"; path.startsWith("/kugou/") -> "kugou"; else -> "main" }
 
 /** Each Better Lyrics endpoint has its own queue; any other site has one. */
 internal fun lyricsQueueKey(host: String, path: String): String = if (host == "api.betterlyrics.org") host + path else host

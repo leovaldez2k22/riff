@@ -4,19 +4,43 @@ import kotlinx.serialization.json.*
 import java.net.URLDecoder
 
 /** Preserve source-language audio before codec/bitrate ranking; a locale default can be a dub. */
-internal fun originalAudioPlayerResponse(raw:String):String {
+internal fun originalAudioPlayerResponse(raw:String):String = sourceLanguageAudio(withoutCompressedAudio(raw))
+
+private fun audioFormat(f:JsonObject)=f["mimeType"]?.textOrNull?.startsWith("audio/")==true || f["audioQuality"]!=null || f["audioTrack"]!=null
+private fun formatTags(f:JsonObject):String {
+    val tag=f["xtags"]?.textOrNull.orEmpty()
+    val url=f["url"]?.textOrNull.orEmpty()
+    val encoded=Regex("[?&]xtags=([^&]+)").find(url)?.groupValues?.get(1).orEmpty()
+    return runCatching {URLDecoder.decode("$tag:$encoded","UTF-8")}.getOrDefault(tag).lowercase()
+}
+
+/**
+ * Q18-091: YouTube can offer a dynamic-range-compressed copy of a format beside the normal one (isDrc, or drc=1 in its
+ * tags); the compressed copy squashes a song's loud and quiet parts. It is dropped whenever a normal copy is offered.
+ */
+internal fun withoutCompressedAudio(raw:String):String {
+    if(!raw.contains("isDrc") && !raw.contains("drc")) return raw
+    val root=Json.parseToJsonElement(raw) as? JsonObject ?: return raw
+    val data=root["streamingData"] as? JsonObject ?: return raw
+    val arrays=listOf("adaptiveFormats","formats")
+    fun compressed(f:JsonObject)=(f["isDrc"] as? JsonPrimitive)?.booleanOrNull==true || Regex("(?:^|[:;&])drc=1(?:$|[:;&])").containsMatchIn(formatTags(f))
+    val audios=arrays.flatMap {(data[it] as? JsonArray).orEmpty()}.filterIsInstance<JsonObject>().filter(::audioFormat)
+    if(audios.none(::compressed) || audios.all(::compressed)) return raw
+    val edited=data.toMutableMap()
+    for(key in arrays) (data[key] as? JsonArray)?.let {array->
+        edited[key]=JsonArray(array.filter {node->(node as? JsonObject)?.let {!audioFormat(it) || !compressed(it)}?:true})
+    }
+    return JsonObject(root.toMutableMap().apply {put("streamingData",JsonObject(edited))}).toString()
+}
+
+private fun sourceLanguageAudio(raw:String):String {
     if(!raw.contains("audioTrack") && !raw.contains("acont")) return raw
     val root=Json.parseToJsonElement(raw) as? JsonObject ?: return raw
     val data=root["streamingData"] as? JsonObject ?: return raw
     val arrays=listOf("adaptiveFormats","formats")
     val formats=arrays.flatMap {(data[it] as? JsonArray).orEmpty()}.filterIsInstance<JsonObject>()
-    fun audio(f:JsonObject)=f["mimeType"]?.textOrNull?.startsWith("audio/")==true || f["audioQuality"]!=null || f["audioTrack"]!=null
-    fun tags(f:JsonObject):String {
-        val tag=f["xtags"]?.textOrNull.orEmpty()
-        val url=f["url"]?.textOrNull.orEmpty()
-        val encoded=Regex("[?&]xtags=([^&]+)").find(url)?.groupValues?.get(1).orEmpty()
-        return runCatching {URLDecoder.decode("$tag:$encoded","UTF-8")}.getOrDefault(tag).lowercase()
-    }
+    fun audio(f:JsonObject)=audioFormat(f)
+    fun tags(f:JsonObject)=formatTags(f)
     fun name(f:JsonObject)=((f["audioTrack"] as? JsonObject)?.get("displayName") as? JsonPrimitive)?.contentOrNull.orEmpty().lowercase()
     fun id(f:JsonObject)=((f["audioTrack"] as? JsonObject)?.get("id") as? JsonPrimitive)?.contentOrNull
     fun original(f:JsonObject)=Regex("(?:^|[:;&])acont=original(?:$|[:;&])").containsMatchIn(tags(f)) || name(f).contains("original")

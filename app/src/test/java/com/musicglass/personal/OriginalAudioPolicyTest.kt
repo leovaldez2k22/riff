@@ -35,4 +35,19 @@ class OriginalAudioPolicyTest {
         val audio=Json.parseToJsonElement(originalAudioPlayerResponse(raw)).jsonObject["streamingData"]!!.jsonObject["adaptiveFormats"]!!.jsonArray
         assertEquals(1,audio.size)
     }
+    /** Q18-091: of 251 and its compressed copy, the normal one is kept; a song offered only compressed still plays. */
+    @Test fun aCompressedCopyIsDroppedWhenTheNormalOneIsOffered() {
+        val normal="""{"itag":251,"mimeType":"audio/webm","url":"normal","bitrate":140000}"""
+        for(drc in listOf("""{"itag":251,"mimeType":"audio/webm","url":"drc","bitrate":150000,"isDrc":true}""",
+            """{"itag":251,"mimeType":"audio/webm","url":"drc","bitrate":150000,"xtags":"drc=1"}""",
+            """{"itag":251,"mimeType":"audio/webm","url":"https://example.test/a?xtags=drc%3D1&sig=x","bitrate":150000}""")) {
+            val data=Json.parseToJsonElement(originalAudioPlayerResponse(response("$drc,$normal"))).jsonObject["streamingData"]!!.jsonObject
+            assertEquals(listOf("normal"),data["adaptiveFormats"]!!.jsonArray.map {it.jsonObject["url"]!!.jsonPrimitive.content})
+            assertEquals("the video format stays",1,data["formats"]!!.jsonArray.size)
+        }
+        val only=response("""{"itag":251,"mimeType":"audio/webm","url":"drc","isDrc":true}""")
+        assertEquals(only,originalAudioPlayerResponse(only))
+        val plain=response(normal+""","""+"""{"itag":140,"mimeType":"audio/mp4","url":"x","xtags":"lang=en"}""")
+        assertEquals("no compressed copy: unchanged",plain,originalAudioPlayerResponse(plain))
+    }
 }
