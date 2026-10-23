@@ -94,6 +94,9 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
     var changingAccount by rememberSaveable { mutableStateOf(false) }
     var pickedEmail by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedAccountIndex by rememberSaveable { mutableStateOf<String?>(null) }
+    // Q18-087: switching to a saved account without Google's page; the scope the switch must land on.
+    var directScope by rememberSaveable { mutableStateOf<String?>(null) }
+    var confirmSignOut by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf(if (provider.sessionState == SessionState.Expired)
         string(R.string.your_session_has_expired_reconnect_your_yout) else null) }
     var web by remember { mutableStateOf<WebView?>(null) }
@@ -128,12 +131,19 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
     }
     val nowMs = remember(phase, accounts.revision) { System.currentTimeMillis() }
     val saved = remember(accounts.revision) { accounts.all() }
-    val currentKey = provider.accountProfile?.email ?: provider.accountScopeKey()
-    // The account in use is on the list too, so the welcome screen can show it as Current.
+    val currentScope = (provider.accountScope() as? AccountScope.Provider)?.opaqueId
+    val currentEmail = provider.accountProfile?.email
+    val currentKey = saved.firstOrNull { (currentScope != null && it.scope == currentScope) || it.key == provider.accountScopeKey() ||
+        (currentEmail != null && it.email.equals(currentEmail, ignoreCase = true)) }?.key ?: currentEmail ?: provider.accountScopeKey()
+    // The account in use is on the list too, so the welcome screen can show it as Current; a row saved for it
+    // under another key is merged into it (Q18-085), and Google's session fills in addresses and positions.
     LaunchedEffect(provider.signedIn, provider.accountProfile) {
         val profile = provider.accountProfile
-        if (provider.signedIn && profile != null && saved.none { it.key == (profile.email ?: currentKey) })
-            (profile.email ?: currentKey)?.let { accounts.used(it, profile.name, profile.email, System.currentTimeMillis()) }
+        if (!provider.signedIn || profile == null) return@LaunchedEffect
+        (profile.email ?: currentScope ?: provider.accountScopeKey())?.let {
+            accounts.used(it, profile.name, profile.email, System.currentTimeMillis(), currentScope, aliases = setOfNotNull(provider.accountScopeKey()))
+        }
+        accounts.learn(provider.sessionAccounts())
     }
 
     fun closeBrowser() {
@@ -143,18 +153,32 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
         stopSheet = false
     }
 
-    fun restart(changeAccount: Boolean, email: String? = null) {
+    /**
+     * Opens Google's page, or with [direct] (a saved account Google's session still holds, Q18-087) goes straight to
+     * that account's YouTube Music behind the checking screen. A direct switch commits only if it lands on that
+     * account; anything else falls back to Google's page.
+     */
+    fun restart(changeAccount: Boolean, email: String? = null, direct: SavedAccount? = null) {
         closeBrowser()
         generation = attempt.restart()
         changingAccount = changeAccount
         pickedEmail = email
-        selectedAccountIndex = null
-        choseOnGoogle = email != null
+        val straight = directSwitchAccount(direct, provider.signedIn)
+        directScope = straight?.scope
+        selectedAccountIndex = straight?.index
+        choseOnGoogle = email != null || straight != null
         pageLoading = true; pageShown = false; mainFrameFailed = false; onMusic = false
         stepFound = false; stepLibrary = false; checkFailed = null; ticks = 0
         counting?.cancel(); likedCount = null; playlistCount = null
         startedAt = SystemClock.elapsedRealtime()
-        go(SignInPhase.Google)
+        go(if (straight != null) SignInPhase.Checking else SignInPhase.Google)
+    }
+
+    /** Q18-087: the direct switch did not land on the picked account; Google's page, with that account's address. */
+    fun directFailed() {
+        if (directScope == null) return
+        PlaybackEventLog(context).append("account_switch_direct_fallback")
+        restart(changingAccount, pickedEmail)
     }
 
     /** Q18-038: counts Liked music and the playlists while the animation plays; an account change drops them. */
@@ -213,18 +237,26 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
             if (!attempt.accepts(token) || navigation != verifyNavigation) return@launch
             // The coordinator stops the outgoing account's playback and transfers before the commit.
             val verified = outcome?.getOrNull()
+            // Q18-087: a direct switch that reached another account, or none, commits nothing and goes to Google's page.
+            if (directScope != null && (verified == null || !directSwitchLanded(directScope, provider.signInScope(verified)))) {
+                timeline.cancel(); directFailed(); return@launch
+            }
             val switched = verified?.let {
                 sessions.transition("sign_in", provider.signInScope(it)) { provider.commitSignIn(it) }
             }
             if (switched is SessionTransition.Committed && verified != null) {
+                directScope = null
                 startCounting()
                 stepLibrary = true
                 val profile = verified.profile
                 connectedName = profile?.name.orEmpty()
                 connectedEmail = profile?.email ?: profile?.handle
-                (profile?.email ?: provider.accountScopeKey() ?: profile?.name?.takeIf { it.isNotBlank() })?.let {
-                    accounts.used(it, profile?.name.orEmpty(), profile?.email, System.currentTimeMillis())
+                val committedScope = (provider.accountScope() as? AccountScope.Provider)?.opaqueId
+                (profile?.email ?: committedScope ?: provider.accountScopeKey() ?: profile?.name?.takeIf { it.isNotBlank() })?.let {
+                    accounts.used(it, profile?.name.orEmpty(), profile?.email, System.currentTimeMillis(), committedScope,
+                        verified.candidate.accountIndex, setOfNotNull(provider.accountScopeKey()))
                 }
+                scope.launch { accounts.learn(provider.sessionAccounts()) }
                 status = null
                 // The last step's tick and the full ring are seen before the record moves on.
                 if (!timeline.await()) return@launch
@@ -254,7 +286,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                 }
             }
             SignInPhase.NoLoad -> { closeBrowser(); go(SignInPhase.Welcome) }
-            SignInPhase.Checking -> if (checkFailed != null) { closeBrowser(); go(SignInPhase.Welcome) }
+            SignInPhase.Checking -> if (checkFailed != null || directScope != null) { closeBrowser(); directScope = null; go(SignInPhase.Welcome) }
             SignInPhase.Connected -> leave()
         }
     }
@@ -272,6 +304,12 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
             verification?.cancel()
             picker?.onReceiveValue(null)
         }
+    }
+    // Q18-087: a direct switch whose page never reaches the check in time goes to Google's page.
+    LaunchedEffect(generation, directScope) {
+        if (directScope == null) return@LaunchedEffect
+        delay(SIGN_IN_DIRECT_MS)
+        if (directScope != null && verification?.isActive != true) directFailed()
     }
     // Q18-013 point 3: no banner while a page is working; only when nothing of this navigation ever showed.
     LaunchedEffect(generation, navigation, phase, foreground, picker != null) {
@@ -337,8 +375,10 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                                 view.stopLoading(); PlaybackEventLog(context).append("sign_in_store_page")
                                 view.loadUrl(signInMusicUrl(selectedAccountIndex)); return
                             }
+                            // Q18-087: Google asking to sign in means its session no longer holds the picked account.
+                            if (directScope != null && googleAccountsPage(url.orEmpty())) { view.stopLoading(); directFailed(); return }
                             verification?.cancel()
-                            if (phase == SignInPhase.Checking && checkFailed == null) go(SignInPhase.Google)
+                            if (phase == SignInPhase.Checking && checkFailed == null && directScope == null) go(SignInPhase.Google)
                             signInSelectedAccount(url.orEmpty())?.let { selectedAccountIndex = it }
                             url?.toUri()?.host?.let { host = it }
                             navigation++; startedAt = SystemClock.elapsedRealtime()
@@ -353,7 +393,8 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                             pageLoading = false
                             if (!mainFrameFailed) pageShown = true
                             if (googleAccountsPage(url.orEmpty())) choseOnGoogle = true
-                            if (phase == SignInPhase.Google && shouldVerifyFinishedSignIn(url.orEmpty(), changingAccount, choseOnGoogle)) verify(view, token)
+                            if ((phase == SignInPhase.Google || directScope != null) &&
+                                shouldVerifyFinishedSignIn(url.orEmpty(), changingAccount, choseOnGoogle)) verify(view, token)
                         }
                         override fun onFormResubmission(view: WebView, dontResend: android.os.Message, resend: android.os.Message) {
                             dontResend.sendToTarget()
@@ -397,7 +438,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
             }
             DisposableEffect(browser) {
                 web = browser
-                browser.loadUrl(signInStartUrl(changingAccount, pickedEmail))
+                browser.loadUrl(if (directScope != null) signInMusicUrl(selectedAccountIndex) else signInStartUrl(changingAccount, pickedEmail))
                 onDispose {
                     if (web === browser) web = null
                     picker?.onReceiveValue(null); picker = null
@@ -435,20 +476,13 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                         onReconnect = { restart(changeAccount = false, provider.accountProfile?.email) },
                         onVerify = { restart(changeAccount = false) },
                         onImported = { onNotice(string(R.string.older_app_saved_tracks_imported_to_this)) },
-                        onSignOut = {
-                            scope.launch {
-                                val result = sessions.transition("sign_out", AccountScope.Guest) { provider.signOut(); true }
-                                if (result is SessionTransition.Committed) {
-                                    status = string(R.string.signed_out_on_this_phone_reconnect_whenever)
-                                    go(SignInPhase.Welcome)
-                                } else onNotice(string(R.string.could_not_sign_out_safely_try_again))
-                            }
-                        })
+                        // Q18-086: signing out clears Google's whole web session, so it asks first.
+                        onSignOut = { confirmSignOut = true })
                     SignInPhase.Welcome -> WelcomeScreen(saved, currentKey.takeIf { provider.signedIn }, nowMs, status,
                         onClose = ::leave,
                         onPick = { account ->
                             if (provider.signedIn && account.key == currentKey && signedInNow()) go(SignInPhase.Manage)
-                            else restart(changeAccount = provider.signedIn, account.email)
+                            else restart(changeAccount = provider.signedIn, account.email, account)
                         },
                         onSeeAll = { go(SignInPhase.AllAccounts) },
                         onAnother = { restart(changeAccount = provider.signedIn || saved.isNotEmpty()) })
@@ -456,7 +490,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                         onBack = { go(SignInPhase.Welcome) },
                         onPick = { account ->
                             if (provider.signedIn && account.key == currentKey && signedInNow()) go(SignInPhase.Manage)
-                            else restart(changeAccount = provider.signedIn, account.email)
+                            else restart(changeAccount = provider.signedIn, account.email, account)
                         },
                         onRemove = { accounts.remove(it.key) },
                         onAdd = { restart(changeAccount = true) })
@@ -506,6 +540,25 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
         if (phase == SignInPhase.Google) StopSheet(stopSheet, reduced, onKeep = { stopSheet = false },
             onStop = { closeBrowser(); go(SignInPhase.Welcome) })
     }
+
+    // Q18-086: Google's web session holds every account signed in through Riff; signing out ends all of them.
+    if (confirmSignOut) FrostedAlertDialog(onDismissRequest = { confirmSignOut = false },
+        title = { Text(string(R.string.sign_out_all_title)) },
+        text = { Text(string(R.string.sign_out_all_body), modifier = Modifier.testTag("sign_out_prompt")) },
+        confirmButton = {
+            TextButton(onClick = {
+                confirmSignOut = false
+                scope.launch {
+                    val result = sessions.transition("sign_out", AccountScope.Guest) { provider.signOut(); true }
+                    if (result is SessionTransition.Committed) {
+                        accounts.clear()
+                        status = string(R.string.signed_out_on_this_phone_reconnect_whenever)
+                        go(SignInPhase.Welcome)
+                    } else onNotice(string(R.string.could_not_sign_out_safely_try_again))
+                }
+            }, modifier = Modifier.testTag("confirm_sign_out")) { Text(string(R.string.sign_out), color = Pink) }
+        },
+        dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text(string(R.string.cancel)) } })
 }
 
 internal val SIGN_IN_FOOTER_HEIGHT: Dp = RiffSignIn.footer

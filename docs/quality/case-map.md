@@ -288,10 +288,10 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-082 lyrics searched in parallel | LyricsRepository tests with timed fakes (planned) | B13 on the phone after the fix | TODO | Q19G, after Q19B |
 | Q18-083 Save on this phone is not a download | none | Q19B test download on Riff Preview | FAIL | Q19G |
 | Q18-084 a held word at a row's end drawn over the row's start | LyricsTest.aHeldWordIsItsLettersWithoutTheSpaceAfterIt (JVM) | owner's recording, 23 Oct | BLOCKED | G3 on rc7 (Heavy, "lost") |
-| Q18-085 one account listed twice after sign-out | SavedAccounts test (planned) | owner's screenshot, 23 Oct | FAIL | Q19G |
-| Q18-086 no warning before Sign out | none | owner's request, 23 Oct | TODO | Q19G |
-| Q18-087 switching accounts always goes through Google's page | none | owner's request, 23 Oct | TODO | Q19G (design first) |
-| Q18-088 full email on account rows | none | owner's request, 23 Oct | TODO | Q19G |
+| Q18-085 one account listed twice after sign-out | SignInDesignTest.oneAccountSavedBeforeAndAfterItsAddressWasKnownIsOneRow (JVM) | owner's screenshot, 23 Oct | BLOCKED | G3 on rc7 (Welcome back, two accounts) |
+| Q18-086 no warning before Sign out | AccountScreenSessionTest.signOutQuiescesTheAccountThenBindsGuest, cancellingTheSignOutQuestionKeepsTheAccount (JVM) | owner's request, 23 Oct | BLOCKED | G3 on rc7 (dummy account) |
+| Q18-087 switching accounts always goes through Google's page | SignInDesignTest.aDirectSwitchNeedsAKnownAccountAndLandsOnlyOnIt, googlesAccountListIsReadDefensively (JVM) | owner's request, 23 Oct | BLOCKED | G3 on rc7 (switch both ways) |
+| Q18-088 full email on account rows | SignInDesignTest.googlesSessionFillsInAddressesAndPositions (JVM) | owner's request, 23 Oct | BLOCKED | G3 on rc7 (full addresses) |
 | Q18-089 bitrate depends on which YouTube client answered | resolver test: 774 from WEB_REMIX picked over a fallback's 251 (planned) | audio quality investigation, 23 Oct; downloads recorded at 273, 144 and 132 kbps as Highest available | FAIL | Q19G |
 | Q18-090 Premium never passed to the extraction library | stream hints carry Premium only when confirmed (planned) | audio quality investigation, 23 Oct | FAIL | Q19G |
 | Q18-091 format picker ignores DRC copies | fixture with 251 and 251-drc picks the non-DRC one (planned) | audio quality investigation, 23 Oct; no DRC format seen yet | TODO | Q19G (triage first) |

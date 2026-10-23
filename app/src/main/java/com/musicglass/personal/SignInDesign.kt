@@ -53,47 +53,95 @@ import kotlin.math.ceil
 
 // Q18-013: the agreed sign-in design (docs/quality/sign-in-design.md): the record, Riff's glass, saved accounts.
 
-/** An account used on this phone. Riff keeps who it was and when, never its sign-in cookies. */
-internal data class SavedAccount(val key: String, val name: String, val email: String?, val lastUsedMs: Long)
+/**
+ * An account used on this phone. Riff keeps who it was and when, never its sign-in cookies. [scope] is the account's
+ * opaque Riff scope (a digest, never a raw account id) and [index] Google's position for it in the web session when
+ * last seen; both let Riff switch to it without Google's page (Q18-087).
+ */
+internal data class SavedAccount(val key: String, val name: String, val email: String?, val lastUsedMs: Long,
+    val scope: String? = null, val index: String? = null)
 
 internal const val SAVED_ACCOUNTS_LIMIT = 20
+
+/** An account Google's web session holds, as Riff may keep it: the address, its position and its opaque scope. */
+internal data class SessionAccount(val email: String?, val index: String, val scope: String?, val signedIn: Boolean)
 
 /** The short list of accounts used on this phone, most recent first. Removing one never touches the Google account. */
 internal class SavedAccounts(private val prefs: SharedPreferences) {
     constructor(context: Context) : this(context.getSharedPreferences("saved_accounts", Context.MODE_PRIVATE))
     var revision by mutableIntStateOf(0); private set
 
-    fun all(): List<SavedAccount> = runCatching {
+    fun all(): List<SavedAccount> = merged(runCatching {
         val list = JSONArray(prefs.getString("accounts", "[]"))
         (0 until list.length()).map { list.getJSONObject(it) }.map {
-            SavedAccount(it.getString("key"), it.optString("name"), it.optString("email").takeIf(String::isNotBlank), it.optLong("used"))
+            SavedAccount(it.getString("key"), it.optString("name"), it.optString("email").takeIf(String::isNotBlank), it.optLong("used"),
+                it.optString("scope").takeIf(String::isNotBlank), it.optString("index").takeIf(String::isNotBlank))
         }
-    }.getOrDefault(emptyList()).sortedByDescending { it.lastUsedMs }
+    }.getOrDefault(emptyList()))
 
-    fun used(key: String, name: String, email: String?, nowMs: Long) {
-        val previous = all().firstOrNull { it.key == key }
-        val account = SavedAccount(key, name.ifBlank { previous?.name.orEmpty() }, email ?: previous?.email, nowMs)
-        save(listOf(account) + all().filter { it.key != key })
+    /**
+     * Q18-085: one account is one row. A row saved before the account's address was known (keyed by its scope) and
+     * one saved after (keyed by the address) are the same account when they share the scope or the address; [aliases]
+     * are other keys this account was saved under, such as its storage key.
+     */
+    fun used(key: String, name: String, email: String?, nowMs: Long, scope: String? = null, index: String? = null,
+        aliases: Set<String> = emptySet()) {
+        val rows = all()
+        val same = rows.filter { it.key == key || it.key in aliases || sameAccount(it, email, scope) }
+        val previous = same.maxByOrNull { it.lastUsedMs }
+        val known = email ?: same.firstNotNullOfOrNull { it.email }
+        val kept = scope ?: same.firstNotNullOfOrNull { it.scope }
+        val account = SavedAccount(known ?: kept ?: key, name.ifBlank { previous?.name.orEmpty() }, known, nowMs, kept,
+            index ?: previous?.index)
+        save(listOf(account) + (rows - same.toSet()))
+    }
+
+    /** What Google's web session says: fills a missing address and the position of each account Riff already has. */
+    fun learn(session: List<SessionAccount>) {
+        val rows = all()
+        val updated = rows.map { row ->
+            val found = session.firstOrNull { it.scope != null && it.scope == row.scope }
+                ?: session.firstOrNull { it.email != null && it.email.equals(row.email, ignoreCase = true) }
+                ?: return@map row
+            row.copy(key = if (row.email == null && found.email != null) found.email else row.key,
+                email = row.email ?: found.email, scope = row.scope ?: found.scope, index = found.index)
+        }
+        if (updated != rows) save(updated)
     }
 
     fun remove(key: String) = save(all().filter { it.key != key })
 
+    /** Q18-086: signing out of all accounts leaves none on the list. */
+    fun clear() = save(emptyList())
+
     private fun save(accounts: List<SavedAccount>) {
         val list = JSONArray()
-        accounts.sortedByDescending { it.lastUsedMs }.take(SAVED_ACCOUNTS_LIMIT).forEach {
-            list.put(JSONObject().put("key", it.key).put("name", it.name).put("email", it.email ?: "").put("used", it.lastUsedMs))
+        merged(accounts).take(SAVED_ACCOUNTS_LIMIT).forEach {
+            list.put(JSONObject().put("key", it.key).put("name", it.name).put("email", it.email ?: "").put("used", it.lastUsedMs)
+                .put("scope", it.scope ?: "").put("index", it.index ?: ""))
         }
         prefs.edit().putString("accounts", list.toString()).apply()
         revision++
     }
-}
 
-/** "leovaldez2k20@gmail.com" becomes "leov…20@gmail.com": enough to tell accounts apart, short enough for a row. */
-internal fun shortEmail(email: String?): String {
-    if (email == null) return ""
-    val local = email.substringBefore('@'); val domain = email.substringAfter('@', "")
-    if (domain.isEmpty()) return email
-    return (if (local.length <= 8) local else local.take(4) + "…" + local.takeLast(2)) + "@" + domain
+    private companion object {
+        fun sameAccount(row: SavedAccount, email: String?, scope: String?) =
+            (email != null && row.email.equals(email, ignoreCase = true)) || (scope != null && (row.scope == scope || row.key == scope))
+
+        /** Rows that are one account become one, the most recent first, with every detail either row knew. */
+        fun merged(rows: List<SavedAccount>): List<SavedAccount> {
+            val out = mutableListOf<SavedAccount>()
+            for (row in rows.sortedByDescending { it.lastUsedMs }) {
+                val at = out.indexOfFirst { it.key == row.key || sameAccount(it, row.email, row.scope) || sameAccount(row, it.email, it.scope) }
+                if (at < 0) { out += row; continue }
+                val kept = out[at]
+                val email = kept.email ?: row.email
+                out[at] = kept.copy(key = if (kept.email == null && email != null) email else kept.key,
+                    name = kept.name.ifBlank { row.name }, email = email, scope = kept.scope ?: row.scope, index = kept.index ?: row.index)
+            }
+            return out
+        }
+    }
 }
 
 /** When an account was last used, in words. */
@@ -258,8 +306,8 @@ internal fun Modifier.signInGlass(shape: Shape = RoundedCornerShape(RiffSignIn.g
 }
 
 /**
- * One saved account: avatar colour and initial, name, shortened email, and "Current" or when it was last used.
- * Q18-046: the name has the row's full width; the time sits on the second line beside the email.
+ * One saved account: avatar colour and initial, name, email, and "Current" or when it was last used.
+ * Q18-046: the name has the row's full width. Q18-088: the email has a line of its own, the time the line under it.
  */
 @Composable internal fun SavedAccountRow(account: SavedAccount, current: Boolean, nowMs: Long, onPick: () -> Unit,
     onRemove: (() -> Unit)? = null) {
@@ -274,12 +322,11 @@ internal fun Modifier.signInGlass(shape: Shape = RoundedCornerShape(RiffSignIn.g
         Column(Modifier.weight(1f)) {
             Text(account.name.ifBlank { string(R.string.your_youtube_music_account) }, color = White, fontSize = RiffSignIn.rowTitle,
                 fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("signin_account_name"))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RiffSpace.item)) {
-                if (account.email != null) Text(shortEmail(account.email), color = Muted, fontSize = RiffType.detail, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                Text(if (current) string(R.string.signin_current) else lastUsedLabel(nowMs, account.lastUsedMs),
-                    color = if (current) Pink else Muted, fontSize = RiffType.detail, maxLines = 1, softWrap = false)
-            }
+            // Q18-088: the whole address, on its own line; shortened in the middle only when it cannot fit.
+            if (account.email != null) Text(account.email, color = Muted, fontSize = RiffType.detail, maxLines = 1,
+                overflow = TextOverflow.MiddleEllipsis, modifier = Modifier.testTag("signin_account_email"))
+            Text(if (current) string(R.string.signin_current) else lastUsedLabel(nowMs, account.lastUsedMs),
+                color = if (current) Pink else Muted, fontSize = RiffType.detail, maxLines = 1, softWrap = false)
         }
         if (onRemove != null) Box {
             IconButton({ uiHaptic(); menu = true }, Modifier.testTag("signin_account_menu")) {

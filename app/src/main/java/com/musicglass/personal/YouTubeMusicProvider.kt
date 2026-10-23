@@ -79,6 +79,7 @@ internal class YouTubeMusicProvider(context: Context,
     suspend fun verifySignIn(candidate:WebSignInCandidate)=sessionManager.verifySignIn(candidate)
     fun commitSignIn(verified:VerifiedSignIn)=sessionManager.commitSignIn(verified)
     fun signOut()=sessionManager.signOut()
+    suspend fun sessionAccounts()=sessionManager.sessionAccounts()
     override fun accountScope()=sessionManager.accountScope()
     fun signInScope(verified:VerifiedSignIn)=sessionManager.signInScope(verified)
     fun accountScopeKey()=sessionManager.accountScopeKey()

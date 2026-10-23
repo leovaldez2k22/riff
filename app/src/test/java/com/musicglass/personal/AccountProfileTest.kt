@@ -71,7 +71,6 @@ class AccountProfileTest {
         val profile = parseAccountProfile(Json.parseToJsonElement("""{"activeAccountHeaderRenderer":{
             "accountName":{"runs":[{"text":"Alex River"}]},"channelHandle":{"runs":[{"text":"@alexriver"}]}}}"""))!!
         assertNull(profile.email); assertEquals("@alexriver", profile.handle)
-        assertEquals("@alexriver", shortEmail(profile.email ?: profile.handle))
         val both = parseAccountProfile(Json.parseToJsonElement("""{"activeAccountHeaderRenderer":{
             "accountName":{"simpleText":"Alex River"},"email":{"simpleText":"alex.river@example.com"},"channelHandle":{"simpleText":"@alexriver"}}}"""))!!
         assertEquals("alex.river@example.com", both.email)

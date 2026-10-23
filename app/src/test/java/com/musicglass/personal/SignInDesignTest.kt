@@ -45,10 +45,65 @@ class SignInDesignTest {
         assertEquals(SAVED_ACCOUNTS_LIMIT, store.all().size)
     }
 
-    @Test fun emailsAreShortenedAndLastUseIsInWords() {
-        assertEquals("leov…20@gmail.com", shortEmail("leovaldez2k20@gmail.com"))
-        assertEquals("ann@example.com", shortEmail("ann@example.com"))
-        assertEquals("", shortEmail(null))
+    @Test fun oneAccountSavedBeforeAndAfterItsAddressWasKnownIsOneRow() {
+        // Q18-085: the dummy account was listed twice, once by its scope (no address) and once by its address.
+        val prefs = context.getSharedPreferences("saved_accounts_merge", Context.MODE_PRIVATE).also { it.edit().clear().commit() }
+        val store = SavedAccounts(prefs)
+        store.used("storage-key-d", "Dee", null, 1_000)
+        store.used("o@example.com", "Owen", "o@example.com", 1_500, scope = "s2_owen")
+        store.used("d@example.com", "Dee", "d@example.com", 2_000, scope = "s2_dee", aliases = setOf("storage-key-d"))
+        assertEquals(listOf("d@example.com", "o@example.com"), store.all().map { it.key })
+        assertEquals("s2_dee", store.all().first().scope)
+        // Saved again by its scope alone, it is still the one row, with its address kept.
+        store.used("s2_dee", "", null, 3_000, scope = "s2_dee", index = "1")
+        assertEquals(2, store.all().size)
+        assertEquals(SavedAccount("d@example.com", "Dee", "d@example.com", 3_000, "s2_dee", "1"), store.all().first())
+        // A list written before the fix, with the account twice, reads as one row.
+        prefs.edit().putString("accounts", """[{"key":"s2_x","name":"Ex","email":"","used":5,"scope":"s2_x"},
+            {"key":"x@example.com","name":"Ex","email":"x@example.com","used":4,"scope":"s2_x"}]""").commit()
+        assertEquals(listOf(SavedAccount("x@example.com", "Ex", "x@example.com", 5, "s2_x", null)), store.all())
+        store.clear()
+        assertEquals(emptyList<SavedAccount>(), store.all())
+    }
+
+    @Test fun googlesSessionFillsInAddressesAndPositions() {
+        // Q18-087, Q18-088: YouTube sends no address for some accounts; Google's own account list does.
+        val store = SavedAccounts(context.getSharedPreferences("saved_accounts_learn", Context.MODE_PRIVATE).also { it.edit().clear().commit() })
+        store.used("s2_owner", "Owner", null, 2_000, scope = "s2_owner")
+        store.used("d@example.com", "Dee", "d@example.com", 1_000, scope = "s2_dee", index = "0")
+        store.learn(listOf(SessionAccount("d@example.com", "1", "s2_dee", true), SessionAccount("owner@example.com", "0", "s2_owner", true),
+            SessionAccount("stranger@example.com", "2", "s2_stranger", true)))
+        assertEquals(listOf(SavedAccount("owner@example.com", "Owner", "owner@example.com", 2_000, "s2_owner", "0"),
+            SavedAccount("d@example.com", "Dee", "d@example.com", 1_000, "s2_dee", "1")), store.all())
+    }
+
+    @Test fun googlesAccountListIsReadDefensively() {
+        val body = """)]}'
+            ["gaia.l.a.r",[["gaia.l.a",1,"Owner","owner@example.com","https://p/1",1,1,0,null,1,"111222333",null,null,null,0,1],
+            ["gaia.l.a",1,"Dee","d@example.com","https://p/2",1,1,0,null,1,"444555666",null,null,null,0,1],
+            ["gaia.l.a",1,"Gone","gone@example.com","https://p/3",1,1,0,null,1,"777888999",null,null,null,1,1]]]"""
+        assertEquals(listOf(GoogleSessionEntry("owner@example.com", "0", "111222333", true), GoogleSessionEntry("d@example.com", "1", "444555666", true),
+            GoogleSessionEntry("gone@example.com", "", "777888999", false)), parseGoogleSessionAccounts(body))
+        assertEquals(emptyList<GoogleSessionEntry>(), parseGoogleSessionAccounts("<html>sign in</html>"))
+        assertEquals(emptyList<GoogleSessionEntry>(), parseGoogleSessionAccounts("""["gaia.l.a.r"]"""))
+        // A field that is not an address or an id is left out, never guessed.
+        assertEquals(listOf(GoogleSessionEntry(null, "0", null, true)), parseGoogleSessionAccounts("""["gaia.l.a.r",[["gaia.l.a",1,"N","not an email",null,1,1,0,null,1,"id with spaces"]]]"""))
+    }
+
+    @Test fun aDirectSwitchNeedsAKnownAccountAndLandsOnlyOnIt() {
+        // Q18-087: straight to the account only when Riff is signed in and knows its scope and Google position.
+        val known = SavedAccount("d@example.com", "Dee", "d@example.com", 1, "s2_dee", "1")
+        assertEquals(known, directSwitchAccount(known, signedIn = true))
+        assertNull("signed out: Google's session holds nobody", directSwitchAccount(known, signedIn = false))
+        assertNull("no position yet: Google's page", directSwitchAccount(known.copy(index = null), signedIn = true))
+        assertNull("no scope: nothing to check it against", directSwitchAccount(known.copy(scope = null), signedIn = true))
+        assertTrue(directSwitchLanded("s2_dee", AccountScope.Provider("s2_dee")))
+        assertFalse("another account at that position commits nothing", directSwitchLanded("s2_dee", AccountScope.Provider("s2_other")))
+        assertFalse(directSwitchLanded("s2_dee", AccountScope.Unverified))
+        assertFalse(directSwitchLanded(null, AccountScope.Provider("s2_dee")))
+    }
+
+    @Test fun lastUseIsInWords() {
         assertEquals("Today", lastUsedLabel(10 * day, 10 * day - 1_000))
         assertEquals("Yesterday", lastUsedLabel(10 * day, 9 * day))
         assertEquals("3 days ago", lastUsedLabel(10 * day, 7 * day))

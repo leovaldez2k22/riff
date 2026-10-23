@@ -61,7 +61,8 @@ import kotlinx.coroutines.delay
         Column(Modifier.fillMaxWidth().signInGlass().padding(RiffSignIn.cardPad), verticalArrangement = Arrangement.spacedBy(RiffSignIn.cardGap)) {
             val profile = provider.accountProfile
             SignInTitle(profile?.name?.takeIf { it.isNotBlank() } ?: string(R.string.your_youtube_music_account))
-            (profile?.email ?: profile?.handle)?.let { Text(shortEmail(it), color = Muted, fontSize = RiffSignIn.note, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+            (profile?.email ?: profile?.handle)?.let { Text(it, color = Muted, fontSize = RiffSignIn.note, textAlign = TextAlign.Center, maxLines = 1,
+                overflow = TextOverflow.MiddleEllipsis, modifier = Modifier.fillMaxWidth().testTag("account_email")) }
             Text(status ?: when (provider.sessionState) {
                 SessionState.Valid -> string(R.string.connected_to_youtube_music)
                 SessionState.Expired -> string(R.string.your_session_has_expired_reconnect_to_contin)
@@ -239,7 +240,8 @@ import kotlinx.coroutines.delay
         Item(0) {
             Column(Modifier.fillMaxWidth().signInGlass().padding(RiffSignIn.cardPad), verticalArrangement = Arrangement.spacedBy(RiffSignIn.cardGap)) {
                 Item(1) { SignInTitle(title, Modifier.testTag("account_connected")) }
-                Item(2) { Text(shortEmail(email), color = Muted, fontSize = RiffType.body, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+                Item(2) { Text(email.orEmpty(), color = Muted, fontSize = RiffType.body, textAlign = TextAlign.Center, maxLines = 1,
+                    overflow = TextOverflow.MiddleEllipsis, modifier = Modifier.fillMaxWidth()) }
                 Item(3) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         CountUp(liked, shown >= 3, string(R.string.signin_liked_songs), reduced)

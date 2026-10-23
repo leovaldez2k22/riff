@@ -672,6 +672,8 @@
     <string name="sign_in_to_view_your_youtube_music_2">Sign in to view your YouTube Music library</string>
     <string name="sign_in_to_youtube_music">Sign in to YouTube Music</string>
     <string name="sign_out">Sign out</string>
+    <string name="sign_out_all_title">Sign out of all accounts?</string>
+    <string name="sign_out_all_body">Riff signs out of every Google account signed in here and clears its list of accounts. Downloads and songs saved on this phone stay.</string>
     <string name="signed_out_listening">Signed-out listening</string>
     <string name="signed_out_on_this_phone_reconnect_whenever">Signed out on this phone. Reconnect whenever you\'re ready.</string>
     <string name="skip">Skip</string>

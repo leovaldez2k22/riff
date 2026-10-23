@@ -56,6 +56,16 @@ internal fun signInOutsideLink(url: String): Boolean = url.toUri().scheme == "ht
 /** Loading deadlines apply to navigation, never to a user completing a loaded Google form. */
 internal const val SIGN_IN_TIMEOUT_MS = 45_000L
 internal const val SIGN_IN_VERIFY_MS = 20_000L
+/** Q18-087: how long a direct switch may take to reach its check before Google's page is shown instead. */
+internal const val SIGN_IN_DIRECT_MS = 15_000L
+
+/** Q18-087: a saved account Riff can switch to without Google's page: signed in now, its scope and position known. */
+internal fun directSwitchAccount(account: SavedAccount?, signedIn: Boolean): SavedAccount? =
+    account?.takeIf { signedIn && it.scope != null && it.index != null }
+
+/** Q18-087: a direct switch commits only when the account it reached is the one picked. */
+internal fun directSwitchLanded(expectedScope: String?, reached: AccountScope): Boolean =
+    expectedScope != null && (reached as? AccountScope.Provider)?.opaqueId == expectedScope
 
 /** Q18-013: the agreed screens (docs/quality/sign-in-design.md); the stop sheet sits over [Google]. */
 internal enum class SignInPhase { Manage, Welcome, AllAccounts, Google, NoLoad, Checking, Connected }
@@ -114,3 +124,32 @@ internal fun signInStorePage(url: String): Boolean {
     val uri = url.toUri()
     return uri.scheme == "market" || (uri.scheme == "https" && uri.host == "play.google.com")
 }
+
+/** Google's list of the accounts in this web session: the list Chrome reads for its account chooser. */
+internal const val GOOGLE_SESSION_ACCOUNTS_URL = "https://accounts.google.com/ListAccounts?gpsia=1&source=ChromiumBrowser&json=standard"
+internal const val GOOGLE_ACCOUNTS_ORIGIN = "https://accounts.google.com"
+
+/** One account of Google's list. [stableId] is only turned into a scope digest and dropped; it is never kept or logged. */
+internal data class GoogleSessionEntry(val email: String?, val index: String, val stableId: String?, val signedIn: Boolean)
+
+/**
+ * Q18-085, Q18-087, Q18-088: reads Google's account list, ["gaia.l.a.r", [["gaia.l.a", 1, name, email, photo, …,
+ * valid at 9, id at 10, …, signed out at 14], …]]. Each signed-in account's position is its authuser index. Anything
+ * unexpected gives an empty list, and Riff carries on with Google's own page.
+ */
+internal fun parseGoogleSessionAccounts(body: String): List<GoogleSessionEntry> = runCatching {
+    val root = org.json.JSONArray(body.trim().removePrefix(")]}'").trim())
+    val rows = root.optJSONArray(1) ?: return emptyList()
+    var index = 0
+    (0 until rows.length()).mapNotNull { at ->
+        val row = rows.optJSONArray(at) ?: return@mapNotNull null
+        fun field(i: Int): Any? = if (i < row.length()) row.opt(i) else null
+        fun on(value: Any?) = value == true || value == 1
+        val email = (field(3) as? String)?.trim()
+            ?.takeIf { it.length in 3..254 && it.count { c -> c == '@' } == 1 && ' ' !in it }
+        val id = (field(10) as? String)?.takeIf { it.isNotBlank() && it.all(Char::isLetterOrDigit) }
+        val signedIn = !on(field(14)) && (field(9) == null || on(field(9)))
+        // Signed-out accounts are listed after the signed-in ones and have no position.
+        if (signedIn) GoogleSessionEntry(email, (index++).toString(), id, true) else GoogleSessionEntry(email, "", id, false)
+    }
+}.getOrDefault(emptyList())

@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.Dispatchers
@@ -82,13 +83,20 @@ class AccountScreenSessionTest {
                 override suspend fun quiesce(outgoing: SessionToken) { log += "quiesce signedIn=${provider.signedIn}" }
                 override suspend fun bind(current: SessionToken) { log += "bind ${current.scope} signedIn=${provider.signedIn}" }
             })
+            SavedAccounts(context).used("other@example.com", "Other", "other@example.com", 1_000)
             show(provider, sessions, notices)
             compose.onNodeWithTag("account_sign_out").performSemanticsAction(SemanticsActions.OnClick)
+            compose.waitForIdle()
+            // Q18-086: it asks first, and nothing has happened yet.
+            compose.onNodeWithText("Sign out of all accounts?").assertExists()
+            assertTrue(log.isEmpty()); assertTrue(provider.signedIn)
+            compose.onNodeWithTag("confirm_sign_out").performSemanticsAction(SemanticsActions.OnClick)
             compose.waitForIdle()
             assertEquals(listOf("quiesce signedIn=true", "bind ${AccountScope.Guest} signedIn=false"), log)
             assertFalse(provider.signedIn)
             compose.onNodeWithTag("account_status").assertTextContains("Signed out", substring = true)
             assertTrue(notices.isEmpty())
+            assertEquals("signing out of all accounts leaves none listed", emptyList<SavedAccount>(), SavedAccounts(context).all())
         } finally { provider.close() }
     }
 
@@ -103,8 +111,30 @@ class AccountScreenSessionTest {
             show(provider, sessions, notices)
             compose.onNodeWithTag("account_sign_out").performSemanticsAction(SemanticsActions.OnClick)
             compose.waitForIdle()
+            compose.onNodeWithTag("confirm_sign_out").performSemanticsAction(SemanticsActions.OnClick)
+            compose.waitForIdle()
             assertTrue(provider.signedIn)
             assertEquals(listOf("Could not sign out safely. Try again."), notices)
+            compose.onNodeWithTag("account_sign_out").assertExists()
+        } finally { provider.close() }
+    }
+
+    @Test fun cancellingTheSignOutQuestionKeepsTheAccount() {
+        val provider = provider("fixture-sync-A")
+        try {
+            val log = mutableListOf<String>()
+            val sessions = SessionCoordinator({ provider.session.value })
+            sessions.register(object : SessionParticipant {
+                override suspend fun quiesce(outgoing: SessionToken) { log += "quiesce" }
+                override suspend fun bind(current: SessionToken) { log += "bind" }
+            })
+            show(provider, sessions, mutableListOf())
+            compose.onNodeWithTag("account_sign_out").performSemanticsAction(SemanticsActions.OnClick)
+            compose.waitForIdle()
+            compose.onNodeWithText("Cancel").performSemanticsAction(SemanticsActions.OnClick)
+            compose.waitForIdle()
+            compose.onNodeWithText("Sign out of all accounts?").assertDoesNotExist()
+            assertTrue(log.isEmpty()); assertTrue(provider.signedIn)
             compose.onNodeWithTag("account_sign_out").assertExists()
         } finally { provider.close() }
     }

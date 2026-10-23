@@ -275,6 +275,25 @@ internal class ProviderSessionManager(context: Context, internal val dependencie
         }
     }
 
+    /**
+     * Q18-085, Q18-087, Q18-088: the accounts Google's web session holds, with their addresses and positions; empty
+     * when Google does not say. Google's cookies go only to Google's account host; no cookie or raw id is kept or logged.
+     */
+    suspend fun sessionAccounts(): List<SessionAccount> {
+        if (!signedIn) return emptyList()
+        val cookies = CookieManager.getInstance().getCookie(GOOGLE_ACCOUNTS_ORIGIN) ?: return emptyList()
+        return withContext(dependencies.dispatchers.io) {
+            try {
+                val response = http.get(GOOGLE_SESSION_ACCOUNTS_URL) { header("Cookie", cookies) }
+                if (response.status.value >= 400) emptyList()
+                else parseGoogleSessionAccounts(response.bodyAsText()).map { entry ->
+                    SessionAccount(entry.email, entry.index, entry.stableId?.let { providerScope(VerifiedAccountIdentity(it)).opaqueId }, entry.signedIn)
+                }
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { emptyList() }
+        }
+    }
+
     /** Signed in without a stable identifier is Unverified, never Guest. */
     override fun accountScope(): AccountScope = if (!signedIn) AccountScope.Guest
         else verifiedAccountIdentity(dataSyncId)?.let(::providerScope) ?: AccountScope.Unverified
