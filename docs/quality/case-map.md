@@ -287,6 +287,7 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-086 no warning before Sign out | none | owner's request, 23 Oct | TODO | Q19G |
 | Q18-087 switching accounts always goes through Google's page | none | owner's request, 23 Oct | TODO | Q19G (design first) |
 | Q18-088 full email on account rows | none | owner's request, 23 Oct | TODO | Q19G |
+| Q18-089 song count and total length on a playlist | collection summary test (planned) | owner's request, 23 Oct | TODO | Q19G |
 
 ## 6. Totals
 
