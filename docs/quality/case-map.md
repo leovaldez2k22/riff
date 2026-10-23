@@ -287,6 +287,10 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-086 no warning before Sign out | none | owner's request, 23 Oct | TODO | Q19G |
 | Q18-087 switching accounts always goes through Google's page | none | owner's request, 23 Oct | TODO | Q19G (design first) |
 | Q18-088 full email on account rows | none | owner's request, 23 Oct | TODO | Q19G |
+| Q18-089 bitrate depends on which YouTube client answered | resolver test: 774 from WEB_REMIX picked over a fallback's 251 (planned) | audio quality investigation, 23 Oct; downloads recorded at 273, 144 and 132 kbps as Highest available | FAIL | Q19G |
+| Q18-090 Premium never passed to the extraction library | stream hints carry Premium only when confirmed (planned) | audio quality investigation, 23 Oct | FAIL | Q19G |
+| Q18-091 format picker ignores DRC copies | fixture with 251 and 251-drc picks the non-DRC one (planned) | audio quality investigation, 23 Oct; no DRC format seen yet | TODO | Q19G (triage first) |
+| Q18-092 16-bit boost limiter changes loud music | processor tests: float input, unity gain bit-exact, no limiting below full scale (planned) | audio quality investigation, 23 Oct | FAIL | Q19G |
 | Q18-093 song count and total length on a playlist | collection summary test (planned) | owner's request, 23 Oct | TODO | Q19G |
 
 ## 6. Totals
