@@ -97,7 +97,8 @@ class LyricsTest {
         assertEquals(doc,decodeLyricsDocument(encodeLyricsDocument(doc)))
     }
     private fun lrclib() = Json.parseToJsonElement("""{"id":12,"trackName":"Morning Path","artistName":"Paper Birds","duration":20,"syncedLyrics":"[00:02.00]Morning path\n[00:07.00]A new day"}""")
-    @Test fun betterLyricsWinsWithoutContactingOtherProvidersAndCachesOffline() = runBlocking {
+    /** Q18-082: the word-timed sources are asked together; word timing from Better Lyrics means no line-timed source is asked. */
+    @Test fun betterLyricsWinsWithoutAskingTheLineTimedSourcesAndCachesOffline() = runBlocking {
         val dir = Files.createTempDirectory("lyrics-test").toFile()
         var calls = 0
         val repo = LyricsRepository(dir) { endpoint,_ ->
@@ -111,7 +112,7 @@ class LyricsTest {
         try {
             val updates = repo.lyrics(track) { null }.toList()
             assertEquals(listOf(true),updates.map { it.wordTimed })
-            assertEquals(1,calls)
+            assertEquals("Better Lyrics, QQ and NetEase's search; never LRCLIB",3,calls)
             val count = calls
             val cached = repo.lyrics(track) { error("Cached lookup should not contact YouTube") }.toList()
             assertTrue(cached.single().wordTimed)
@@ -128,7 +129,8 @@ class LyricsTest {
         }
         try {val docs=repo.lyrics(track) {null}.toList()
             assertTrue(docs.single().source.startsWith("Better Lyrics"));assertTrue(docs.single().timed)
-            assertTrue(calls.any {it.contains("lrclib")});assertTrue(calls.any {it.contains("music.163.com")})
+            // Q18-082: NetEase may still have word timing, so it is asked; nothing LRCLIB could find would be shown.
+            assertFalse(calls.any {it.contains("lrclib")});assertTrue(calls.any {it.contains("music.163.com")})
         } finally {repo.close();dir.listFiles().orEmpty().forEach {it.delete()};dir.delete()}
     }
     @Test fun providerFailureDoesNotPreventTheIndependentFallback() = runBlocking {
@@ -141,16 +143,17 @@ class LyricsTest {
     }
     @Test fun changingTrackCancelsRequestsRatherThanPublishingStaleLyrics() = runBlocking {
         val dir = Files.createTempDirectory("lyrics-test").toFile()
-        var canceled = 0
+        var canceled = 0; var began = 0
         val started=CompletableDeferred<Unit>()
         val repo = LyricsRepository(dir) { _,_ ->
-            started.complete(Unit)
+            began++; started.complete(Unit)
             try { delay(10_000); lrclib() } finally { canceled++ }
         }
         try {
             val job = launch { repo.lyrics(track) { null }.toList() }
             withTimeout(3000) {started.await()}; job.cancelAndJoin()
-            assertEquals(1,canceled)
+            // Q18-082: the word-timed sources run together, and every one of them is cancelled.
+            assertTrue(began >= 1); assertEquals(began,canceled)
             assertTrue(dir.listFiles().orEmpty().isEmpty())
         } finally { repo.close(); dir.listFiles().orEmpty().forEach { it.delete() }; dir.delete() }
     }

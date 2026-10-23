@@ -12,6 +12,7 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -25,9 +26,14 @@ import okhttp3.Response
 
 /** Public metadata only. This client never receives YouTube/account cookies. */
 internal class LyricsRepository(private val directory: File,
-    /** How long one provider (search plus candidates) may take before the next is asked. */
+    /** How long one provider (search plus candidates) may take. */
     private val providerLimitMs: Long = 15_000,
+    /** Q18-082: how long the word-timed sources have to themselves before the others are asked too. */
+    private val staggerMs: Long = 1_000,
+    /** Q18-082: a same-tier answer from a higher-ranked source replaces what is shown only this soon after it was shown. */
+    private val swapWindowMs: Long = 2_000,
     private val transport: (suspend (String,Map<String,String>) -> JsonElement?)? = null) {
+    private val clock: () -> Long = { System.nanoTime()/1_000_000 }
     private constructor(context: Context): this(File(context.cacheDir,"timed-lyrics-v1")) {
         offlineReader={track->if(track.mediaId.startsWith("yt:")) OfflineMusicStore.get(context).let {it.lyrics(it.currentScope,track.mediaId.removePrefix("yt:"))} else null}
     }
@@ -44,8 +50,7 @@ internal class LyricsRepository(private val directory: File,
     }
     private val client = OkHttpClient.Builder().connectTimeout(5,TimeUnit.SECONDS)
         .readTimeout(8,TimeUnit.SECONDS).callTimeout(10,TimeUnit.SECONDS).build()
-    private val gates = listOf("lrclib.net", "api.betterlyrics.org", "music.163.com", "api.lyrics.ovh").associateWith { Mutex() }
-    private val nextRequest = mutableMapOf<String,Long>()
+    private val gates = LyricsGates()
     private val missing = mutableMapOf<String,Long>()
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -96,87 +101,114 @@ internal class LyricsRepository(private val directory: File,
         if (upgrading && !force && !withContext(Dispatchers.IO) { wordRetryDue(key) }) return@channelFlow
         if (!force && !upgrading && synchronized(missing) { (missing[key] ?: 0) > (System.nanoTime()/1_000_000) }) return@channelFlow
         var best: LyricsDocument? = known
-        var errors = 0
-        var answered = 0
+        var shownAt = clock()
+        val errors = java.util.concurrent.atomic.AtomicInteger()
+        val answered = java.util.concurrent.atomic.AtomicInteger()
+        val ranking = Mutex()
+        // Q18-082: the sources are asked together, not one after another. Each one running is a job; one that can no
+        // longer give anything better than what is shown is cancelled.
+        class Source(val name: String, val bestTier: Int, val run: suspend () -> Unit) { var job: Job? = null; var timedOut = false }
+        val running = mutableListOf<Source>()
+        val settled = kotlinx.coroutines.flow.MutableStateFlow(0)
+        fun canStillOutrank(source: Source): Boolean {
+            val shown = best ?: return true
+            return source.bestTier > shown.quality || (source.bestTier == shown.quality &&
+                lyricsProviderPriority(source.name) < lyricsProviderPriority(shown.source) && clock() - shownAt <= swapWindowMs)
+        }
+        fun cancelOutranked() = synchronized(running) { running.filter { it.job?.isActive == true && !canStillOutrank(it) }.forEach { it.job?.cancel() } }
         suspend fun offer(doc: LyricsDocument?) {
             if (doc == null || (!doc.instrumental && doc.lines.isEmpty())) return
-            // Providers run in priority order. Only a better timing tier replaces a result.
-            if (best == null || doc.quality > best!!.quality ||
-                (doc.quality == best!!.quality && lyricsProviderPriority(doc.source) < lyricsProviderPriority(best!!.source))) {
-                best = doc; send(doc)
+            ranking.withLock {
+                if (lyricsOutranks(doc, best, clock() - shownAt, swapWindowMs)) { best = doc; shownAt = clock(); send(doc) }
             }
+            cancelOutranked(); settled.update { it + 1 }
         }
         suspend fun request(url: String, params: Map<String,String>): JsonElement? = try {
-            get(url,params).also { answered++ }
+            get(url,params).also { answered.incrementAndGet() }
         } catch (e: CancellationException) { throw e }
-        catch (_: LyricsCacheMiss) { answered++; null }
-        catch (_: Exception) { errors++; null }
-        /** Runs [block] unless word timing is already found; true when it ran out of time. */
-        suspend fun provider(block: suspend () -> Unit): Boolean {
-            if (best?.wordTimed == true) return false
-            // Bound a whole provider (search plus candidates), not just each HTTP call.
-            return try {
-                (withTimeoutOrNull(providerLimitMs) { block(); true } == null).also { if (it) errors++ }
-            } catch (e: CancellationException) { throw e }
-            catch (_: Exception) { errors++; false }
+        catch (_: LyricsCacheMiss) { answered.incrementAndGet(); null }
+        catch (_: Exception) { errors.incrementAndGet(); null }
+        /** Starts [source] unless nothing it can find would be shown. A whole source (search plus candidates) is bounded. */
+        fun CoroutineScope.start(source: Source) {
+            if (!canStillOutrank(source)) return
+            synchronized(running) { running += source }
+            source.timedOut = false
+            source.job = launch {
+                try {
+                    if (withTimeoutOrNull(providerLimitMs) { source.run(); true } == null) { source.timedOut = true; errors.incrementAndGet() }
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { errors.incrementAndGet() }
+                finally { settled.update { it + 1 } }
+            }
+        }
+        /** Waits for every source started, cancelling those the swap window has put out of reach as it closes. */
+        suspend fun CoroutineScope.awaitSources() {
+            val watch = launch { while (true) { delay(LYRICS_WATCH_MS); cancelOutranked() } }
+            synchronized(running) { running.mapNotNull { it.job } }.joinAll(); watch.cancel()
         }
         val title = lyricsQueryTitle(track.title)
         val artist = playerArtistLabel(track.artist).removeSuffix(" - Topic")
         val params = mapOf("s" to title, "a" to artist, "al" to track.album,
             "d" to ((track.durationMs + 500)/1000).toString())
-        val wordSources: List<suspend () -> Unit> = listOf({
+        val wordSources = listOf(Source("Better Lyrics", 3) {
             // A miss is asked once more the way the Better Lyrics extension fills its cache (Q18-065).
             val row = (request("https://api.betterlyrics.org/getLyrics",params)
                 ?: betterLyricsLooserQuery(params)?.let { request("https://api.betterlyrics.org/getLyrics",it) }) as? JsonObject
             val score = row?.get("score")?.jsonPrimitive?.doubleOrNull
             offer(row?.get("ttml")?.jsonPrimitive?.contentOrNull?.takeIf { score == null || score >= .8 }
                 ?.let { parseTtml(it,track.durationMs) })
-        },{
+        }, Source("Better Lyrics · QQ", 3) {
             val row = request("https://api.betterlyrics.org/qq/getLyrics",params) as? JsonObject
             val score = row?.get("score")?.jsonPrimitive?.doubleOrNull
             offer(row?.get("lyrics")?.jsonPrimitive?.contentOrNull?.takeIf { score == null || score >= .8 }
                 ?.let { parseQrc(it,track.durationMs,track.title,track.artist) })
-        },{ offer(netEase(track,::request)) })
-        val slow = wordSources.filter { provider(it) }
-        if (!upgrading) {
-            provider {
-                val row = request("https://api.betterlyrics.org/kugou/getLyrics",params) as? JsonObject
-                val score = row?.get("score")?.jsonPrimitive?.doubleOrNull
-                offer(row?.get("lyrics")?.jsonPrimitive?.contentOrNull?.takeIf { score == null || score >= .8 }
-                    ?.let { parseLrc(it,track.durationMs,"Better Lyrics · Kugou","https://betterlyrics.org") })
+        }, Source("NetEase Cloud Music", 3) { offer(netEase(track,::request)) })
+        val lineSources = listOf(Source("Better Lyrics · Kugou", 2) {
+            val row = request("https://api.betterlyrics.org/kugou/getLyrics",params) as? JsonObject
+            val score = row?.get("score")?.jsonPrimitive?.doubleOrNull
+            offer(row?.get("lyrics")?.jsonPrimitive?.contentOrNull?.takeIf { score == null || score >= .8 }
+                ?.let { parseLrc(it,track.durationMs,"Better Lyrics · Kugou","https://betterlyrics.org") })
+        }, Source("LRCLIB", 2) {
+            val query = mutableMapOf("track_name" to title, "artist_name" to artist,
+                "duration" to (track.durationMs/1000.0).toString())
+            if (track.album.isNotBlank()) query["album_name"] = track.album
+            val exact = request("https://lrclib.net/api/get",query) as? JsonObject
+            val doc = exact?.let { fromLrclib(it,track) }
+            offer(doc)
+            if (doc?.wordTimed != true && doc?.instrumental != true) {
+                val results = request("https://lrclib.net/api/search",query.filterKeys { it != "duration" }) as? JsonArray
+                results.orEmpty().mapNotNull { it as? JsonObject }.sortedByDescending { score(it,track) }
+                    .filter { score(it,track) > 0 }.forEach { offer(fromLrclib(it,track)) }
             }
-            provider {
-                val query = mutableMapOf("track_name" to title, "artist_name" to artist,
-                    "duration" to (track.durationMs/1000.0).toString())
-                if (track.album.isNotBlank()) query["album_name"] = track.album
-                val exact = request("https://lrclib.net/api/get",query) as? JsonObject
-                val doc = exact?.let { fromLrclib(it,track) }
-                offer(doc)
-                if (doc?.wordTimed != true && doc?.instrumental != true) {
-                    val results = request("https://lrclib.net/api/search",query.filterKeys { it != "duration" }) as? JsonArray
-                    results.orEmpty().mapNotNull { it as? JsonObject }.sortedByDescending { score(it,track) }
-                        .filter { score(it,track) > 0 }.forEach { offer(fromLrclib(it,track)) }
+        }) + listOfNotNull(if (track.mediaId.startsWith("yt:")) Source("YouTube Music", 2) {
+            try { offer(youtube()); answered.incrementAndGet() } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { errors.incrementAndGet() }
+        } else null)
+        // This provider supplies plain text, so it is asked only when nothing synced was found.
+        val plain = Source("Lyrics.ovh", 0) { offer(ovh(track,::request)) }
+        coroutineScope {
+            wordSources.forEach { start(it) }
+            if (!upgrading) {
+                // The others start a moment later, and only while no word timing has come: the three that may have it
+                // answer first without sharing the connection.
+                withTimeoutOrNull(staggerMs) {
+                    settled.first { best?.wordTimed == true || wordSources.none { it.job?.isActive == true } }
                 }
+                lineSources.forEach { start(it) }
             }
-            if (track.mediaId.startsWith("yt:")) provider {
-                try { offer(youtube()); answered++ } catch (e: CancellationException) { throw e }
-                catch (_: Exception) { errors++ }
-            }
-            // This provider supplies plain text, so there is no benefit in requesting it after synced lyrics.
-            if (best?.timed != true && best?.instrumental != true) provider {
-                offer(ovh(track,::request))
-            }
+            awaitSources()
         }
+        if (!upgrading && best?.timed != true && best?.instrumental != true) coroutineScope { start(plain); awaitSources() }
         // A word-timed source that answered too slowly the first time (BetterLyrics on a song's first request can
         // take longer than the limit) gets one more turn; its answer replaces the line timing already shown.
-        if (best?.wordTimed != true) slow.forEach { provider(it) }
+        if (best?.wordTimed != true) coroutineScope { wordSources.filter { it.timedOut }.forEach { start(it) }; awaitSources() }
         if (upgrading) {
             withContext(Dispatchers.IO) { if (best !== known) writeCache(key,best!!) else markWordRetry(key) }
             return@channelFlow
         }
         val found = best
         if (found != null) withContext(Dispatchers.IO) { writeCache(key,found) }
-        else if (lyricsUnreachable(errors,answered)) throw IOException("Lyrics providers could not be reached")
+        else if (lyricsUnreachable(errors.get(),answered.get())) throw IOException("Lyrics providers could not be reached")
         else synchronized(missing) {
             if (missing.size > 100) missing.clear()
             missing[key] = (System.nanoTime()/1_000_000)+5*60_000
@@ -231,10 +263,9 @@ internal class LyricsRepository(private val directory: File,
         val url = endpoint.toHttpUrl().newBuilder().apply {
             params.forEach { (name,value) -> addQueryParameter(name,value.take(220)) }
         }.build()
-        return gates.getValue(url.host).withLock {
-            val wait = synchronized(nextRequest) { (nextRequest[url.host] ?: 0)-(System.nanoTime()/1_000_000) }
-            if (wait > 30_000) throw IOException("Lyrics source is cooling down")
-            if (wait > 0) delay(wait)
+        val queue = lyricsQueueKey(url.host, url.encodedPath)
+        return gates.run(url.host, queue) {
+            val asked = System.nanoTime()
             val request = Request.Builder().url(url).header("Accept","application/json")
                 .header("User-Agent","Riff/${BuildConfig.VERSION_NAME} (Android app)")
                 .apply { if (url.host == "music.163.com") header("Referer","https://music.163.com/") }
@@ -248,8 +279,12 @@ internal class LyricsRepository(private val directory: File,
                     }
                     override fun onResponse(call: Call, response: Response) {
                         try { response.use {
-                            val cooldown = if (it.code == 429) retryAfterMs(it.header("Retry-After")) else 400L
-                            synchronized(nextRequest) { nextRequest[url.host] = (System.nanoTime()/1_000_000)+cooldown }
+                            gates.answered(url.host, queue, it.code, if (it.code == 429) retryAfterMs(it.header("Retry-After")) else 0L,
+                                it.header("X-RateLimit-Remaining")?.trim()?.toIntOrNull())
+                            // Q18-075: a slow answer and a miss in Better Lyrics' cache look alike without this.
+                            if (BuildConfig.DEBUG && url.host == "api.betterlyrics.org") diagnosticLogcat("RiffLyrics",
+                                "lyrics_answer endpoint=${url.encodedPath} status=${it.code} cache=${it.header("X-Cache-Status") ?: "none"} " +
+                                "ms=${(System.nanoTime() - asked)/1_000_000}")
                             val text = if (it.isSuccessful) {
                                 val body = it.body
                                 if (body.contentLength() > 1_000_000) throw IOException("Lyrics response too large")
@@ -362,3 +397,48 @@ internal fun betterLyricsLooserQuery(params: Map<String,String>): Map<String,Str
 
 /** "Couldn't load lyrics" only when no source answered; otherwise the song simply has none. */
 internal fun lyricsUnreachable(errors: Int, answered: Int): Boolean = errors > 0 && answered == 0
+
+/** Q18-082: a better timing tier always replaces what is shown; the same tier from a higher-ranked source only soon after. */
+internal fun lyricsOutranks(doc: LyricsDocument, shown: LyricsDocument?, shownForMs: Long, swapWindowMs: Long): Boolean =
+    shown == null || doc.quality > shown.quality || (doc.quality == shown.quality &&
+        lyricsProviderPriority(doc.source) < lyricsProviderPriority(shown.source) && shownForMs <= swapWindowMs)
+
+/** Each Better Lyrics endpoint has its own queue; any other site has one. */
+internal fun lyricsQueueKey(host: String, path: String): String = if (host == "api.betterlyrics.org") host + path else host
+
+/**
+ * Q18-082 (7): requests to a lyrics site. One at a time in each queue, [spacingMs] apart; a 429 from any queue pauses
+ * every queue of that site for its Retry-After, and while the site says few requests are left its queues go one at a
+ * time together. Better Lyrics' rate limit is per address and shared by its endpoints.
+ */
+internal class LyricsGates(private val spacingMs: Long = 400, private val clock: () -> Long = { System.nanoTime()/1_000_000 }) {
+    private val queues = java.util.concurrent.ConcurrentHashMap<String,Mutex>()
+    private val together = java.util.concurrent.ConcurrentHashMap<String,Mutex>()
+    private val nextAt = mutableMapOf<String,Long>()
+    private val pausedUntil = mutableMapOf<String,Long>()
+    private val low = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    fun waitMs(host: String, queue: String): Long = synchronized(this) { maxOf(nextAt[queue] ?: 0, pausedUntil[host] ?: 0) - clock() }
+    suspend fun <T> run(host: String, queue: String, block: suspend () -> T): T {
+        suspend fun inQueue() = queues.getOrPut(queue) { Mutex() }.withLock {
+            val wait = waitMs(host, queue)
+            if (wait > 30_000) throw IOException("Lyrics source is cooling down")
+            if (wait > 0) delay(wait)
+            block()
+        }
+        return if (host in low) together.getOrPut(host) { Mutex() }.withLock { inQueue() } else inQueue()
+    }
+    fun answered(host: String, queue: String, code: Int, retryAfterMs: Long, remaining: Int?) {
+        synchronized(this) {
+            nextAt[queue] = clock() + spacingMs
+            if (code == 429) pausedUntil[host] = clock() + retryAfterMs
+        }
+        when {
+            remaining == null -> Unit
+            remaining <= LYRICS_FEW_REQUESTS_LEFT -> low += host
+            else -> low -= host
+        }
+    }
+}
+internal const val LYRICS_FEW_REQUESTS_LEFT = 5
+/** How often a search checks whether a running source has been put out of reach by the swap window closing. */
+private const val LYRICS_WATCH_MS = 100L

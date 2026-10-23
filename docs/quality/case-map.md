@@ -285,7 +285,7 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-079 the queue at 200 % text | AccessibilitySweepTest (JVM) does not see it | Q19B owner session, upright and landscape | FAIL | Q19G |
 | Q18-080 an unlike stays in Liked songs | LikedSongsCountTest (JVM: VLLM every page, read again after an unlike) | Q19B owner session, dummy account | BLOCKED | G3 on rc7 (dummy account) |
 | Q18-081 no way to create a playlist | PlaylistCreateTest (6, JVM) | Q19B owner session | BLOCKED | G3 on rc7 (dummy account; then CAT03/PLY09) |
-| Q18-082 lyrics searched in parallel | LyricsRepository tests with timed fakes (planned) | B13 on the phone after the fix | TODO | Q19G, after Q19B |
+| Q18-082 lyrics searched in parallel | LyricsParallelSearchTest (12, JVM timed fakes); LyricsTest, LyricsPreloadTest, LyricsWordTimingTest, AdditionalLyricsProvidersTest | B13 on the phone after the fix | BLOCKED | B13 on rc7 (Delicate) |
 | Q18-083 Save on this phone is not a download | SavedOnThisPhoneTest (JVM) | Q19B test download on Riff Preview | BLOCKED | G3 on rc7 (add and remove) |
 | Q18-084 a held word at a row's end drawn over the row's start | LyricsTest.aHeldWordIsItsLettersWithoutTheSpaceAfterIt (JVM) | owner's recording, 23 Oct | BLOCKED | G3 on rc7 (Heavy, "lost") |
 | Q18-085 one account listed twice after sign-out | SignInDesignTest.oneAccountSavedBeforeAndAfterItsAddressWasKnownIsOneRow (JVM) | owner's screenshot, 23 Oct | BLOCKED | G3 on rc7 (Welcome back, two accounts) |
