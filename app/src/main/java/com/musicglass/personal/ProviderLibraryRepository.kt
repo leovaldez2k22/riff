@@ -167,6 +167,31 @@ internal class ProviderLibraryRepository(private val session: ProviderSessionMan
             MutationOutcome.Unknown -> {playbackEvents.append("provider_playlist_create_unknown");throw MutationUnconfirmed(string(R.string.youtube_music_did_not_confirm_the_new_playlist))}
         }
     }
+    /** Q18-104: through YouTube Music's own edit call; an unanswered rename is settled by reading the title back. */
+    suspend fun renamePlaylist(id:String,title:String):Result<Unit> {
+        val name=title.trim()
+        if(name.isEmpty() || name.length>PLAYLIST_TITLE_LIMIT) return Result.failure(IllegalArgumentException(string(R.string.name_the_playlist)))
+        return playlistMutation(id,"rename:$name",{page->page.title==name}) {innerTube.renamePlaylist(YouTubeClient.WEB_REMIX,id,name)}
+    }
+    /**
+     * Q18-104: through YouTube Music's own delete call. Never sent twice: an unanswered delete may have removed it,
+     * and the library shows whether it did.
+     */
+    suspend fun deletePlaylist(id:String):Result<Unit> = sessionSafeMutation {
+        check(signedIn) {string(R.string.sign_in_to_edit_youtube_music_playlists)}
+        require(id.startsWith("VL") && id.length>2 && id!="VLLM" && id!="VLSE" && id.matches(Regex("[A-Za-z0-9_-]{3,200}"))) {string(R.string.choose_an_editable_playlist)}
+        val revision=authRevision
+        var fault:Exception?=null
+        val outcome=sentOutcome({fault=it}) {val response=innerTube.deletePlaylist(YouTubeClient.WEB_REMIX,id);likeOutcome(response.status.value,response.bodyAsText())}
+        collectionCache.invalidate(feedKey("collection:$id"))
+        check(revision==authRevision) {string(R.string.account_changed_while_updating_playlist)}
+        libraryRevision++
+        when(outcome) {
+            MutationOutcome.Acknowledged -> playbackEvents.append("provider_playlist_deleted")
+            MutationOutcome.Rejected -> error(fault?.let(::providerErrorMessage)?:string(R.string.youtube_music_could_not_delete_the_playlist))
+            MutationOutcome.Unknown -> throw MutationUnconfirmed(string(R.string.youtube_music_did_not_confirm_the_delete))
+        }
+    }
     suspend fun removePlaylistSong(id:String,card:ProviderHomeCard):Result<Unit> {
         val setId=card.setVideoId;val videoId=card.videoId
         if(setId==null || videoId==null) return Result.failure(IllegalStateException(string(R.string.youtube_music_did_not_supply_this_playlist)))

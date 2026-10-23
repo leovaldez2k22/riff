@@ -154,6 +154,47 @@ internal suspend fun newPlaylistWith(mutations:ProviderMutations,name:String,tra
         dismissButton={TextButton(enabled=!busy,onClick=onDismiss) {Text(string(R.string.cancel))}})
 }
 
+/** Q18-104: a new name for a playlist the account can edit. */
+@Composable internal fun RenamePlaylistDialog(provider:YouTubeMusicProvider,id:String,current:String,onDismiss:()->Unit,onRenamed:(String)->Unit) {
+    val scope=rememberCoroutineScope()
+    var name by remember {mutableStateOf(current)};var busy by remember {mutableStateOf(false)};var error by remember {mutableStateOf<String?>(null)}
+    AlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.rename_playlist))},
+        text={Column(Modifier.testTag("rename_playlist_dialog")) {
+            OutlinedTextField(name,{name=it.take(PLAYLIST_TITLE_LIMIT)},enabled=!busy,singleLine=true,
+                label={Text(string(R.string.playlist_name))},modifier=Modifier.fillMaxWidth().testTag("rename_playlist_name"))
+            if(busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top=RiffSpace.item))
+            error?.let {Text(it,color=Pink,modifier=Modifier.padding(top=RiffSpace.item))}
+        }},
+        confirmButton={TextButton(enabled=name.isNotBlank() && name.trim()!=current && !busy,modifier=Modifier.testTag("rename_playlist_confirm"),onClick={
+            busy=true;error=null;val title=name.trim()
+            scope.launch {
+                provider.renamePlaylist(id,title).fold(onSuccess={uiHaptic(HapticCue.Confirm);provider.refreshLibraryIndex();onRenamed(title)},
+                    onFailure={uiHaptic(HapticCue.Reject);error=it.message;busy=false})
+            }
+        }) {Text(string(R.string.save))}},
+        dismissButton={TextButton(enabled=!busy,onClick=onDismiss,modifier=Modifier.testTag("rename_playlist_cancel")) {Text(string(R.string.cancel))}})
+}
+
+/** Q18-104: asks first, naming the playlist and that YouTube Music loses it too. */
+@Composable internal fun DeletePlaylistDialog(provider:YouTubeMusicProvider,id:String,title:String,onDismiss:()->Unit,onDeleted:()->Unit) {
+    val scope=rememberCoroutineScope()
+    var busy by remember {mutableStateOf(false)};var error by remember {mutableStateOf<String?>(null)}
+    AlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.delete_x_q,title))},
+        text={Column(Modifier.testTag("delete_playlist_dialog")) {
+            Text(string(R.string.delete_playlist_body))
+            if(busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top=RiffSpace.item))
+            error?.let {Text(it,color=Pink,modifier=Modifier.padding(top=RiffSpace.item))}
+        }},
+        confirmButton={TextButton(enabled=!busy,modifier=Modifier.testTag("delete_playlist_confirm"),onClick={
+            busy=true;error=null
+            scope.launch {
+                provider.deletePlaylist(id).fold(onSuccess={uiHaptic(HapticCue.Confirm);provider.refreshLibraryIndex();onDeleted()},
+                    onFailure={uiHaptic(HapticCue.Reject);error=it.message;busy=false})
+            }
+        }) {Text(string(R.string.delete),color=Pink)}},
+        dismissButton={TextButton(enabled=!busy,onClick=onDismiss,modifier=Modifier.testTag("delete_playlist_cancel")) {Text(string(R.string.cancel))}})
+}
+
 /** Shared action used by player, search, album and playlist rows. */
 @Composable internal fun AddToPlaylistAction(track:ProviderTrack,onDismiss:()->Unit,onSelect:(ProviderTrack)->Unit) {
     if(track.isMusic && !track.isLive) SongActionItem("Add to playlist") {onDismiss();uiHaptic();onSelect(track)}

@@ -138,6 +138,8 @@ internal class YouTubeMusicProvider(context: Context,
     override suspend fun saveAlbum(browseId:String)=library.saveAlbum(browseId)
     override suspend fun addPlaylistSong(id:String,videoId:String)=library.addPlaylistSong(id,videoId)
     override suspend fun createPlaylist(title:String)=library.createPlaylist(title)
+    override suspend fun renamePlaylist(id:String,title:String)=library.renamePlaylist(id,title)
+    override suspend fun deletePlaylist(id:String)=library.deletePlaylist(id)
     override suspend fun removePlaylistSong(id:String,card:ProviderHomeCard)=library.removePlaylistSong(id,card)
     override suspend fun sortedCollection(id:String,endpoint:CollectionSortEndpoint)=library.sortedCollection(id,endpoint)
     override suspend fun sendNotInterested(videoId:String?,token:String?)=library.sendNotInterested(videoId,token)

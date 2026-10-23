@@ -104,6 +104,16 @@
     <string name="restore_from_a_backup_q">Restore from a backup?</string>
     <string name="restore_from_a_backup_body">You choose the backup folder next. What the backup holds is added to what Riff keeps on this phone, and its settings replace the ones here. Nothing is removed, and YouTube Music is not changed.</string>
     <string name="export_local_data_q">Export local data?</string>
+    <string name="playlist_options">Playlist options</string>
+    <string name="save">Save</string>
+    <string name="rename_playlist">Rename playlist</string>
+    <string name="delete_playlist">Delete playlist</string>
+    <string name="delete_x_q">Delete %1$s?</string>
+    <string name="delete_playlist_body">The playlist is deleted from your YouTube Music account too, everywhere you use it. This cannot be undone.</string>
+    <string name="playlist_renamed">Playlist renamed</string>
+    <string name="playlist_deleted">Playlist deleted</string>
+    <string name="youtube_music_could_not_delete_the_playlist">YouTube Music could not delete the playlist.</string>
+    <string name="youtube_music_did_not_confirm_the_delete">YouTube Music did not confirm the delete. Look in your library before trying again.</string>
     <string name="x_of_x">%1$d of %2$d</string>
     <string name="x_seconds_short">%1$ss</string>
     <string name="signed_out_listening_2">signed-out listening</string>

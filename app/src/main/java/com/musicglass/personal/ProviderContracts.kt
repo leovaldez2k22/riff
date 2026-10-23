@@ -55,6 +55,10 @@ internal interface ProviderMutations {
     /** Q18-081: a new private playlist on the account, the same one YouTube Music shows. Answers its browse id. */
     suspend fun createPlaylist(title: String): Result<String>
     suspend fun removePlaylistSong(id: String, card: ProviderHomeCard): Result<Unit>
+    /** Q18-104: a new name for a playlist the account can edit. */
+    suspend fun renamePlaylist(id: String, title: String): Result<Unit>
+    /** Q18-104: removes a playlist from the account, as YouTube Music's own delete does. */
+    suspend fun deletePlaylist(id: String): Result<Unit>
     /** May write a sort preference, when the provider's own sort menu supplied one. */
     suspend fun sortedCollection(id: String, endpoint: CollectionSortEndpoint): Result<CatalogPage>
     suspend fun sendNotInterested(videoId: String?, token: String?): Result<NotInterestedSent>

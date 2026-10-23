@@ -48,6 +48,15 @@ import kotlinx.coroutines.launch
     val source=sortedPage?:data
     // What can be offered for this list as it stands: the session, whether it is editable, and whether it is the whole collection.
     val caps=collectionCapabilities(source,complete,playlist,provider.capabilities)
+    // Q18-104: rename and delete for a playlist the account can edit; never Liked songs or episodes for later.
+    val manageable=caps.removeEntries.available && collectionId !in setOf("VLLM","VLSE")
+    var renamedTitle by remember(collectionId) {mutableStateOf<String?>(null)}
+    val shownTitle=renamedTitle?:data.title.ifBlank {collectionTitle}
+    var playlistMenu by remember {mutableStateOf(false)}
+    var renaming by remember {mutableStateOf(false)}
+    var deleting by remember {mutableStateOf(false)}
+    if(renaming) RenamePlaylistDialog(provider,collectionId,shownTitle,{renaming=false}) {title->renaming=false;renamedTitle=title;onNotice(string(R.string.playlist_renamed))}
+    if(deleting) DeletePlaylistDialog(provider,collectionId,shownTitle,{deleting=false}) {deleting=false;onNotice(string(R.string.playlist_deleted));model.back()}
     val songs=if(source.albumTracks.isNotEmpty()) source.albumTracks else source.cards.filter {it.kind in setOf(CatalogKind.Song,CatalogKind.Episode)}
     var query by rememberSaveable(collectionId) {mutableStateOf("")}
     var sortName by rememberSaveable(collectionId) {mutableStateOf((data.selectedSort?:CollectionSort.Original).name)}
@@ -93,9 +102,18 @@ import kotlinx.coroutines.launch
                 CatalogArtwork(data.artworkUrl,collectionId,Modifier.fillMaxSize().testTag("collection_artwork"))
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha=.18f),.46f to Color.Transparent,1f to tone)))
                 Box(Modifier.statusBarsPadding().padding(horizontal=16.dp)) {BackHeading(string(R.string.back),model::back,overPicture=true)}
+                if(manageable) Box(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(horizontal=8.dp)) {
+                    IconButton({ uiHaptic(); playlistMenu=true},modifier=Modifier.testTag("playlist_options")) {
+                        Icon(Icons.Rounded.MoreVert,string(R.string.playlist_options),tint=White)
+                    }
+                    SongActionMenu(playlistMenu,{playlistMenu=false}) {
+                        SongActionItem(string(R.string.rename_playlist)) {playlistMenu=false;renaming=true}
+                        SongActionItem(string(R.string.delete_playlist)) {playlistMenu=false;deleting=true}
+                    }
+                }
                 Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().wordsOverPicture(tone).padding(24.dp),
                     horizontalAlignment=if(artist) Alignment.Start else Alignment.CenterHorizontally) {
-                    Text(data.title.ifBlank {collectionTitle},color=White,fontSize=if(artist) 34.sp else 28.sp,
+                    Text(shownTitle,color=White,fontSize=if(artist) 34.sp else 28.sp,
                         fontWeight=FontWeight.SemiBold,maxLines=3,overflow=TextOverflow.Ellipsis)
                     if(!artist && data.artistName.isNotBlank()) Text(data.artistName,color=White.copy(alpha=.8f),fontSize=22.sp,
                         modifier=Modifier.padding(top=6.dp).then(if(data.artistId!=null) Modifier.clickable { uiHaptic(); model.openCollection(data.artistId,data.artistName)} else Modifier))
