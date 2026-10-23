@@ -136,8 +136,10 @@ class PrivacyDataScreenTest {
 
     private fun show(process: AppContainer, model: ShellModel = ShellModel(), data: LocalDataController = process.localData): LocalCollections {
         val collections = LocalCollections(context, process.provider.accountScopeKey())
-        compose.setContent { PrivacyDataScreen(model, 0.dp, process.provider, collections, gateway, { notices += it }, process, data,
-            documents = documents.picker, onSettingsImported = { settingsReloads++ }) }
+        // The app provides the accessibility settings around every screen (RiffApp); a restore reads them again (Q18-078).
+        compose.setContent { androidx.compose.runtime.CompositionLocalProvider(LocalAccessibilitySettings provides AccessibilitySettings(context)) {
+            PrivacyDataScreen(model, 0.dp, process.provider, collections, gateway, { notices += it }, process, data,
+            documents = documents.picker, onSettingsImported = { settingsReloads++ }) } }
         return collections
     }
 
