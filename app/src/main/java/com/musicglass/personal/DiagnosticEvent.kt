@@ -39,12 +39,12 @@ internal class DiagnosticEvent private constructor(val text: String) {
             "active_ms", "added", "ahead", "ahead_ms", "aliases", "at", "attempt", "attempts", "code", "conflicts",
             "count", "damaged", "delay_ms", "delta", "elapsed", "elapsedMs", "expired", "failed", "files", "filtered_shelves", "found", "gain_db",
             "hold_ms", "http", "importance", "imported", "index", "itag", "kbps", "left", "lookup", "loudness_db", "mainState", "malformed", "media",
-            "mixed_rows", "mixed_shelves", "mixed_song_rows", "ms", "not_stored", "over_limit", "playback_state",
+            "mixed_rows", "mixed_shelves", "mixed_song_rows", "ms", "not_stored", "over_limit", "parsed", "playback_state",
             "present", "pss_kb", "records", "rejected", "remaining", "removals", "removed", "requeued", "restored", "rss_kb",
-            "sections", "speed", "standby_bucket", "state", "status", "suppression", "swept", "tailState",
+            "rows", "sections", "speed", "standby_bucket", "state", "status", "suppression", "swept", "tailState",
             "unmerged_rows", "unrecognised", "waiting")
         private val booleans = setOf(
-            "applied", "bg_restricted", "cached", "complete", "dynamic_retry", "enabled", "hls", "idle", "init", "known", "loudness", "main", "mainPlaying",
+            "applied", "bg_restricted", "cached", "complete", "cookie", "dynamic_retry", "enabled", "hls", "idle", "init", "known", "loudness", "main", "mainPlaying",
             "name", "owner_changed", "photo", "play_when_ready", "playing", "po_token", "power_save", "premium_hint", "preprocessed", "songs_chip",
             "task_removed", "wants")
         private val words = setOf(

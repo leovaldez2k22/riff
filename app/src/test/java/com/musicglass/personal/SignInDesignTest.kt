@@ -90,6 +90,22 @@ class SignInDesignTest {
         assertEquals(listOf(GoogleSessionEntry(null, "0", null, true)), parseGoogleSessionAccounts("""["gaia.l.a.r",[["gaia.l.a",1,"N","not an email",null,1,1,0,null,1,"id with spaces"]]]"""))
     }
 
+    @Test fun theAccountsAnswerIsDescribedByCountsAndAReasonOnly() {
+        // Q18-100: which way Google's list came back empty is logged, never an address, id or the body's text.
+        fun shape(body: String) = googleSessionAccountsShape(body, parseGoogleSessionAccounts(body))
+        val body = """)]}'
+["gaia.l.a.r",[["gaia.l.a",1,"Owner","owner@example.com","https://p/1",1,1,0,null,1,"111222333"],
+            ["gaia.l.a",1,"Gone","gone@example.com","https://p/3",1,1,0,null,1,"777888999",null,null,null,1,1]]]"""
+        assertEquals("rows=2 parsed=2 found=1 reason=read", shape(body))
+        assertEquals("rows=0 parsed=0 found=0 reason=empty", shape(""))
+        assertEquals("rows=0 parsed=0 found=0 reason=not_json_array", shape("<html>owner@example.com</html>"))
+        assertEquals("rows=0 parsed=0 found=0 reason=no_rows", shape("""["gaia.l.a.r"]"""))
+        assertEquals("rows=1 parsed=0 found=1 reason=no_addresses", shape("""["gaia.l.a.r",[["gaia.l.a",1,"N","not an email"]]]"""))
+        val logged = DiagnosticEvent.parse("session_accounts cookie=true status=200 " + shape(body)).text
+        assertEquals("session_accounts cookie=true status=200 rows=2 parsed=2 found=1 reason=read", logged)
+        assertFalse(logged.contains("example") || logged.contains("111222333"))
+    }
+
     @Test fun aDirectSwitchNeedsAKnownAccountAndLandsOnlyOnIt() {
         // Q18-087: straight to the account only when Riff is signed in and knows its scope and Google position.
         val known = SavedAccount("d@example.com", "Dee", "d@example.com", 1, "s2_dee", "1")

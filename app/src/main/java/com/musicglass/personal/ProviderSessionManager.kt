@@ -281,16 +281,27 @@ internal class ProviderSessionManager(context: Context, internal val dependencie
      */
     suspend fun sessionAccounts(): List<SessionAccount> {
         if (!signedIn) return emptyList()
-        val cookies = CookieManager.getInstance().getCookie(GOOGLE_ACCOUNTS_ORIGIN) ?: return emptyList()
+        // Q18-100: every way this list comes back empty is logged, as counts and a reason only, so the phone shows which.
+        val cookies = CookieManager.getInstance().getCookie(GOOGLE_ACCOUNTS_ORIGIN)
+            ?: return emptyList<SessionAccount>().also { playbackEvents.append("session_accounts cookie=false") }
         return withContext(dependencies.dispatchers.io) {
             try {
                 val response = http.get(GOOGLE_SESSION_ACCOUNTS_URL) { header("Cookie", cookies) }
-                if (response.status.value >= 400) emptyList()
-                else parseGoogleSessionAccounts(response.bodyAsText()).map { entry ->
-                    SessionAccount(entry.email, entry.index, entry.stableId?.let { providerScope(VerifiedAccountIdentity(it)).opaqueId }, entry.signedIn)
+                if (response.status.value >= 400) emptyList<SessionAccount>().also {
+                    playbackEvents.append("session_accounts cookie=true status=${response.status.value} reason=http_error")
+                } else {
+                    val body = response.bodyAsText()
+                    val entries = parseGoogleSessionAccounts(body)
+                    playbackEvents.append("session_accounts cookie=true status=${response.status.value} ${googleSessionAccountsShape(body, entries)}")
+                    entries.map { entry ->
+                        SessionAccount(entry.email, entry.index, entry.stableId?.let { providerScope(VerifiedAccountIdentity(it)).opaqueId }, entry.signedIn)
+                    }
                 }
             } catch (error: CancellationException) { throw error }
-            catch (_: Exception) { emptyList() }
+            catch (error: Exception) {
+                playbackEvents.append("session_accounts cookie=true reason=request_failed failure=${error.javaClass.simpleName.ifBlank { "Exception" }}")
+                emptyList()
+            }
         }
     }
 

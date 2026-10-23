@@ -137,6 +137,23 @@ internal data class GoogleSessionEntry(val email: String?, val index: String, va
  * valid at 9, id at 10, …, signed out at 14], …]]. Each signed-in account's position is its authuser index. Anything
  * unexpected gives an empty list, and Riff carries on with Google's own page.
  */
+/**
+ * Q18-100: what Google's answer looked like, for the diagnostic log: how many rows it held, how many gave an address,
+ * how many are signed in, and a reason when none could be read. Never an address, id or any of the body's text.
+ */
+internal fun googleSessionAccountsShape(body: String, entries: List<GoogleSessionEntry>): String {
+    val root = runCatching { org.json.JSONArray(body.trim().removePrefix(")]}'").trim()) }.getOrNull()
+    val rows = root?.optJSONArray(1)
+    val reason = when {
+        body.isBlank() -> "empty"
+        root == null -> "not_json_array"
+        rows == null -> "no_rows"
+        rows.length() > 0 && entries.none { it.email != null } -> "no_addresses"
+        else -> "read"
+    }
+    return "rows=${rows?.length() ?: 0} parsed=${entries.count { it.email != null }} found=${entries.count { it.signedIn }} reason=$reason"
+}
+
 internal fun parseGoogleSessionAccounts(body: String): List<GoogleSessionEntry> = try {
     val root = org.json.JSONArray(body.trim().removePrefix(")]}'").trim())
     val rows = root.optJSONArray(1) ?: return emptyList()
