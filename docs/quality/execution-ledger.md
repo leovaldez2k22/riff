@@ -3024,3 +3024,16 @@ New contract rule 16: commit each package locally on its branch before starting 
   LYR02, UX06, A11Y02 and PERF01 moved from FAIL to BLOCKED on rc7). Section 7, 63 rows: PASS 32, FAIL 0, BLOCKED 29,
   DECLINED 2.
 - Next, with the owner: rc7 (the owner signs it), the G3 phone checks, then Q19R.
+
+### rc7 prepared (23 October 2026)
+- Owner: "build rc7". Version 0.10.0-rc7, code 28 (32318db), on top of the Q19G fix round and Q18-096; clean
+  worktree ..\Riff-rc7. No phone work: nothing installed, no account touched.
+- PR lane in the worktree: PASS_LOCAL on the fourth run. Run 1: two AccessibilitySweepLandscapeTest cases
+  (searchFailure, librarySignedOut) failed under full-suite load and passed 15 of 15 twice alone (a flake, the code
+  as 426efb0, where the lane passed). Run 2: the collector would not overwrite run 1's evidence folder. Run 3: the
+  release APK and lint report were up to date from run 2, so older than the run (cleaned, then run 4). Every earlier
+  run's evidence is kept beside it in artifacts/quality/q19/rc7.
+- Side-by-side builds (-PriffSideBySide=true) in artifacts/quality/q19/rc7/candidates.txt: benchmark 23c58498...a523,
+  debug-androidTest 25ba0503...84b4, debug-sidebyside b14a6f37...d5bc, macrobenchmark 8d1a6e2f...4ed2.
+- Waiting for the owner to sign: build-release-candidate.ps1 -Preview -Offline in ..\Riff-rc7 with -Toolchain at
+  this checkout's .toolchain; nothing else builds in that folder meanwhile.
