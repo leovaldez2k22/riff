@@ -2907,3 +2907,7 @@ New contract rule 16: commit each package locally on its branch before starting 
 - Restored: airplane mode off, Wi-Fi on, download removed (Downloads 0 songs, as before). Wi-Fi adb went offline
   with airplane mode; it pairs again from Wireless debugging when needed.
 - UX04 stays BLOCKED only for the phase announcements (Q18-031, TalkBack on an emulator).
+
+### Q18-075 closed by the owner (23 October 2026)
+- Owner: "Q18-075: delicate now has word synced lyrics, dont worry about it". Q18-075 closed with nothing to fix;
+  LYR01 PASS; UX06 stays FAIL for Q18-072 only. Which build and lyrics source showed it was not recorded.

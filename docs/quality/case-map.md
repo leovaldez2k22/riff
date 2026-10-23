@@ -105,7 +105,7 @@ section 18); C9 reruns them on the final candidate.
 | CAT02 continuation loop and cap | ProviderContractTest (repeated token, cycles, page limit), CollectionTruncationUiTest | Playlists over 100 and 2,000 songs in B10 | BLOCKED | playlists over 100 and 2,000 songs need the dummy account: B7 |
 | CAT03 HTTP 200 rejected edit | ProviderMutationTest, ProviderContractTest errors inside 200 | Q19B owner session (22 Oct): the dummy account has no playlist and Riff cannot create one (Q18-081) | BLOCKED | Q18-081, then a live playlist edit on the dummy account |
 | CAT04 provider native sort | ProviderCatalogTest.playlistSortsUseOnlyProviderCommands (JVM); PlaylistSortDeviceTest.nativeSortPreferencesReloadEveryTrackAndRestoreOriginalSelection is a live test in no lane | PlaylistSortDeviceTest or the same steps on the test account in B10, preference restored | BLOCKED | PlaylistSortDeviceTest or the same steps on the dummy account: B7, preference restored |
-| LYR01 word, line, plain, none | ProviderFixtureTest.timedAndPlainLyricsAreToldApart, LyricsTest, LyricsPreloadTest, LyricsKaraokeTest | Q19B B3a (22 Oct, Riff Preview rc6): "Delicate" still reads Line synced, Better Lyrics · Kugou | FAIL | Q18-075 (Q18-003 not fixed on the phone) |
+| LYR01 word, line, plain, none | ProviderFixtureTest.timedAndPlainLyricsAreToldApart, LyricsTest, LyricsPreloadTest, LyricsKaraokeTest | Q19B B3a (22 Oct, Riff Preview rc6): "Delicate" still read Line synced, Better Lyrics · Kugou; the owner, 23 Oct: Delicate now has word-synced lyrics (Q18-075 closed) | PASS | none |
 | LYR02 translation failure or cancel | LyricsTranslationTest (7, JVM: failure, cancel, model refused offline) | Q19B B3c (22 Oct): on Riff Preview rc6 every translation fails with a raw exception (Q18-072); on Riff Debug the original lines stay while the model download waits offline, and the translation completes once online (Q18-034); Back while translating is under a second, too short to time by hand | FAIL | Q18-072; the cancel stays JVM only |
 
 ### Accessibility
@@ -146,7 +146,7 @@ Tests per journey are listed in `core-journeys.md`. The phone walk-through is A4
 | UX03 filter, sort, play | A4 | PASS | |
 | UX04 download, restart offline, play | A4 follow-up and B5; Q19B B3b (22 Oct, Riff Debug): a download killed and reopened finishes (Q18-021); phase announcements need TalkBack, excluded on the phone (Q18-031); Q19B 23 Oct, Riff Preview rc6: downloaded, force-stopped, airplane mode, played from Downloads and seeked offline, then removed: PASS (artifacts/quality/q19/ux04) | BLOCKED | Q18-031 on an emulator with TalkBack (the only part left) |
 | UX05 mini, full, queue, Home | A4 PASS; A1: doubled title and cover at the mini-player end of the morph | BLOCKED | Q18-001, Q18-002, Q18-008 fixed in Q18F (PlayerFixesTest, JVM); the morph by eye: A1 |
-| UX06 lyrics, timing, translation | A4: +0.2 s dialog. Q19B (22 Oct, Riff Preview rc6): translation fails (Q18-072); Delicate line synced (Q18-075) | FAIL | Q18-072, Q18-075 |
+| UX06 lyrics, timing, translation | A4: +0.2 s dialog. Q19B (22 Oct, Riff Preview rc6): translation fails (Q18-072); Delicate line synced (Q18-075, closed by the owner 23 Oct: now word synced) | FAIL | Q18-072 |
 | UX07 account switch | not run | DEFERRED | A2, by the owner (Q18-009 fixed in Q18F) |
 | UX08 cache, history, download deletion | A4: wording and Cancel; real deletion is A7 | PASS | |
 | UX09 network, session error | A4 (aeroplane mode); B3 | PASS | Q18-020 (Low) |
@@ -278,7 +278,7 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-072 translation fails on the release build | LyricsTranslationTest (JVM) does not reach it | Q19B B3c on Riff Preview rc6; Riff Debug translates | FAIL | Q19G |
 | Q18-073 memory growth over the journeys | MemoryCheck (Macrobenchmark) | Q19B6: PSS +28,253 kB against 22,195 kB allowed | FAIL | Q19G |
 | Q18-074 two benchmark waits fail | ActionBenchmark, StartupBenchmark | Q19B6: the queue button and the app open not seen; by hand the app opens every time | FAIL | Q19G (test fix) |
-| Q18-075 Delicate still line synced | LyricsWordTimingTest (JVM) | Q19B B3a on Riff Preview rc6 | FAIL | Q19G |
+| Q18-075 Delicate still line synced | LyricsWordTimingTest (JVM) | Q19B B3a on Riff Preview rc6; the owner, 23 Oct: now word synced | PASS | none (closed by the owner) |
 | Q18-076 the button reads Play while waiting for a connection | none | Q19B B3b on Riff Debug | FAIL | Q19G |
 | Q18-077 no loudness gain for signed-out streams | LoudnessNormalizationTest (JVM) | Q19B B7 on Riff Debug | FAIL | Q19G (triage first) |
 | Q18-078 backup copies, refresh and leftovers after a reinstall | LocalBackupTest (JVM) | Q19B B11 on Riff Debug | FAIL | Q19G |
