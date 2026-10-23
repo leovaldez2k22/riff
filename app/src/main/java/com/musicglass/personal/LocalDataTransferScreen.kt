@@ -188,8 +188,10 @@ private sealed interface TransferStep {
 
     when (val now = step) {
         null -> Unit
-        is TransferStep.ChooseExport -> FrostedAlertDialog(onDismissRequest = { step = null }, title = { Text(string(R.string.export_local_data)) },
+        is TransferStep.ChooseExport -> FrostedAlertDialog(onDismissRequest = { step = null }, title = { Text(string(R.string.export_local_data_q)) },
             text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+                // Q18-102: the warning comes first, before whose data goes into the file.
+                Text(EXPORT_WARNING, color = White, fontSize = 13.sp, modifier = Modifier.padding(bottom = 12.dp).testTag("export_warning"))
                 var other = 0
                 now.owners.forEach { item ->
                     val name = ownerName(item.kind, item.key, if (item.kind == OwnerKind.Provider && item.key != ownerKey) ++other else 0)
@@ -197,7 +199,6 @@ private sealed interface TransferStep {
                         chosen = if (it) chosen + item.key else chosen - item.key
                     }
                 }
-                Text(EXPORT_WARNING, color = White, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp).testTag("export_warning"))
             } },
             confirmButton = { TextButton(enabled = chosen.isNotEmpty(), onClick = { uiHaptic(); export() }, modifier = Modifier.testTag("export_confirm")) {
                 Text(string(R.string.choose_where_to_save), color = Pink) } },

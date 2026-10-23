@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ComposeTimeoutException
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.isRoot
@@ -122,6 +123,8 @@ class PrivacyDataScreenTest {
     private fun awaitTag(tag: String) = await("tag $tag") { tagged(tag) }
     private fun awaitGone(tag: String) = await("$tag to close") { !tagged(tag) }
     private fun tap(tag: String) { awaitTag(tag); compose.onNodeWithTag(tag).performSemanticsAction(SemanticsActions.OnClick) }
+    private fun hasTestTagStartingWith(prefix: String) = SemanticsMatcher("tag starts with $prefix") {
+        it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(prefix) == true }
     private fun awaitNotice(text: String) { await("notice \"$text\", have $notices") { text in notices } }
 
     /** Stands in for the system picker: [content] is the document the user would choose to import. */
@@ -191,7 +194,8 @@ class PrivacyDataScreenTest {
 
     @Test fun everyConfirmationSaysWhoseDataThatItIsPermanentAndThatTheProviderIsNotChanged() {
         val data = LocalDataSummary(accountPlays = 3, devicePlays = 1, searches = 2, downloads = 2, savedTracks = 1, hasQueue = true)
-        PrivacyAction.entries.forEach { action ->
+        val settings = setOf(PrivacyAction.HistoryOff, PrivacyAction.HistoryOn, PrivacyAction.ChangeRetention)
+        (PrivacyAction.entries - settings).forEach { action ->
             val prompt = privacyPrompt(action, "Fixture Listener", data, retentionDays = 30, retentionCount = 4)
             assertTrue("$action permanence: ${prompt.body}", prompt.body.contains("cannot be undone"))
             if (action == PrivacyAction.ClearDeviceHistory) assertTrue(prompt.body.contains("no account's history is changed"))
@@ -201,6 +205,15 @@ class PrivacyDataScreenTest {
         assertTrue(privacyPrompt(PrivacyAction.ClearAccountHistory, "x", data).body.contains("audio stored on this phone is kept"))
         assertTrue(privacyPrompt(PrivacyAction.DeleteAccountData, "x", data).body.contains("You stay signed in"))
         assertEquals("Clear 1 play?", privacyPrompt(PrivacyAction.ClearDeviceHistory, "x", data).title)
+        // Q18-102: the settings that remove nothing ask too, saying for whom and that they can be changed back.
+        settings.forEach { action ->
+            listOf(30, 0).forEach { days ->
+                val body = privacyPrompt(action, "Fixture Listener", data, retentionDays = days).body
+                assertTrue("$action whom: $body", body.contains("every account on this phone"))
+                assertTrue("$action undo: $body", body.contains("at any time") || body.contains("Nothing is removed now"))
+                assertFalse("$action never says it is permanent", body.contains("cannot be undone"))
+            }
+        }
     }
 
     @Test fun partialAndFailedOutcomesNeverReadAsSuccess() {
@@ -290,14 +303,21 @@ class PrivacyDataScreenTest {
 
     // ---- saving and retention
 
-    @Test fun turningSavingOffKeepsWhatIsSaved() {
+    @Test fun turningSavingOffAsksFirstAndKeepsWhatIsSaved() { // Q18-102
         val process = start(); val owner = process.provider.storageScopeKey()
         process.seed(owner)
         show(process)
         tap("settings_history")
+        awaitText("Stop saving listening history?")
+        tap("privacy_cancel"); awaitGone("privacy_cancel")
+        assertTrue("cancel changes nothing", historyEnabled(context))
+        tap("settings_history"); tap("privacy_confirm")
         await("saving to be off") { !historyEnabled(context) }
+        awaitNotice("Listening history is off")
         assertEquals(3, process.history.count(owner))
         awaitText("3 plays")
+        tap("settings_history"); awaitText("Save listening history?"); tap("privacy_confirm")
+        await("saving to be on") { historyEnabled(context) }
     }
 
     private val day = 86_400_000L
@@ -317,16 +337,58 @@ class PrivacyDataScreenTest {
         assertEquals(30, historyRetentionDays(context)); assertEquals(1, process.history.count(owner)); assertEquals(0, process.history.count(DEVICE_LOCAL_SCOPE_KEY))
     }
 
-    @Test fun aPeriodThatRemovesNothingAppliesWithoutAsking() {
+    @Test fun aPeriodThatRemovesNothingStillAsksAndCancelKeepsThePeriod() { // Q18-102
         val process = start(); val owner = process.provider.storageScopeKey()
         process.play(owner)
         show(process)
         tap("privacy_retention_365")
-        awaitNotice("History is kept for 1 year")
-        assertFalse(tagged("privacy_confirm")); assertEquals(365, historyRetentionDays(context))
+        awaitText("Keep history for 1 year?")
+        awaitText("Nothing is removed now. From now on, plays older than 1 year are removed, for every account on this phone.")
+        tap("privacy_cancel"); awaitGone("privacy_cancel")
+        assertNull(historyRetentionDays(context))
+        tap("privacy_retention_365"); tap("privacy_confirm")
+        awaitNotice("History is kept for 1 year"); assertEquals(365, historyRetentionDays(context))
         tap("privacy_retention_keep")
+        awaitText("Plays are kept until you clear them, for every account on this phone. Nothing is removed now.")
+        tap("privacy_confirm")
         awaitNotice("History is kept until you clear it")
         assertNull(historyRetentionDays(context)); assertEquals(1, process.history.count(owner))
+    }
+
+    @Test fun theBackupsActionsAskFirstAndCancelChangesNothing() { // Q18-102
+        val process = start(); val backup = process.localBackup
+        show(process)
+        assertTrue("on by default", backup.enabled)
+        tap("backup_now")
+        awaitText("Back up now?")
+        tap("backup_ask_cancel"); awaitGone("backup_ask")
+        assertEquals("nothing was written", 0L, backup.lastBackupAt)
+        tap("backup_restore")
+        awaitText("Restore from a backup?")
+        tap("backup_ask_cancel"); awaitGone("backup_ask")
+        tap("backup_enabled"); awaitTag("backup_off_confirm")
+        tap("backup_off_cancel"); awaitGone("backup_off_confirm")
+        assertTrue(backup.enabled)
+        tap("backup_enabled"); tap("backup_off_confirm")
+        await("the backup to be off") { !backup.enabled }
+        tap("backup_enabled")
+        awaitText("Keep a backup on this phone?")
+        tap("backup_ask_cancel"); awaitGone("backup_ask")
+        assertFalse(backup.enabled)
+        tap("backup_enabled"); tap("backup_ask_confirm")
+        await("the backup to be on") { backup.enabled }
+    }
+
+    @Test fun theExportChooserWarnsBeforeWhoseDataItHolds() { // Q18-102
+        val process = start()
+        show(process)
+        tap("privacy_export")
+        awaitText("Export local data?")
+        val warning = compose.onNodeWithTag("export_warning").fetchSemanticsNode().boundsInRoot.top
+        val firstOwner = compose.onAllNodes(hasTestTagStartingWith("export_owner_")).fetchSemanticsNodes().first().boundsInRoot.top
+        assertTrue("the warning is above the owners", warning < firstOwner)
+        tap("export_cancel"); awaitGone("export_cancel")
+        assertNull(documents.created)
     }
 
     // ---- export and import (Q05A)

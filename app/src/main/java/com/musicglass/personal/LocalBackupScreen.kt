@@ -58,7 +58,10 @@ internal fun restoreText(outcome: RestoreOutcome?): String = when {
     ).joinToString(" ").ifEmpty { string(R.string.nothing_new_in_the_backup) }
 }
 
-/** Settings → Privacy and data: the backup on this phone. */
+/** Q18-102: the backup's actions that ask first, besides turning it off. */
+internal enum class BackupAsk { TurnOn, BackUpNow, Restore }
+
+/** Settings → Privacy and data: the backup on this phone. Every action asks first; cancelling changes nothing. */
 @Composable internal fun LocalBackupSection(onNotice: (String) -> Unit, onRestored: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -66,6 +69,7 @@ internal fun restoreText(outcome: RestoreOutcome?): String = when {
     val backup = container.localBackup
     val restore = rememberBackupRestore(onNotice, onRestored)
     var turningOff by remember { mutableStateOf(false) }
+    var asking by remember { mutableStateOf<BackupAsk?>(null) }
     var leftovers by remember { mutableIntStateOf(0) }
     if (leftovers > 0) FrostedAlertDialog(onDismissRequest = { leftovers = 0 }, title = { Text(string(R.string.remove_older_backup_files)) },
         text = { Text(quantity(R.plurals.n_older_backup_files_are_still_in_x, leftovers, backup.place)) },
@@ -79,29 +83,42 @@ internal fun restoreText(outcome: RestoreOutcome?): String = when {
             leftovers = suspendCatching { backup.leftovers().size }.getOrDefault(0)
         } },
             modifier = Modifier.testTag("backup_off_confirm")) { Text(string(R.string.turn_off), color = Pink) } },
-        dismissButton = { TextButton({ turningOff = false }) { Text(string(R.string.cancel)) } })
-    SettingsSection(string(R.string.backup_on_this_phone)) {
-        val last = backup.lastBackupAt.takeIf { it > 0 }?.let {
-            android.text.format.DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS).toString()
+        dismissButton = { TextButton({ turningOff = false }, modifier = Modifier.testTag("backup_off_cancel")) { Text(string(R.string.cancel)) } })
+    asking?.let { ask ->
+        val (title, body, confirm) = when (ask) {
+            BackupAsk.TurnOn -> Triple(string(R.string.keep_a_backup_on_this_phone_q), string(R.string.keep_a_backup_body, backup.place), string(R.string.turn_on))
+            BackupAsk.BackUpNow -> Triple(string(R.string.back_up_now_q), string(R.string.back_up_now_body, backup.place), string(R.string.back_up))
+            BackupAsk.Restore -> Triple(string(R.string.restore_from_a_backup_q), string(R.string.restore_from_a_backup_body), string(R.string.choose_the_folder))
         }
-        SettingsToggleRow(string(R.string.keep_a_backup_on_this_phone), backup.enabled, { on ->
-            if (on) scope.launch { backup.turnBackup(true); container.backUpSoon(force = true) } else turningOff = true
-        }, Icons.Rounded.Backup, "backup_enabled",
-            subtitle = if (!backup.enabled) string(R.string.off) else listOfNotNull(backup.place, last?.let { string(R.string.last_backup_x, it) },
-                backup.waiting.takeIf { it > 0 }?.let { quantity(R.plurals.n_accounts_restore_when_they_sign_in, it) }).joinToString(" · "))
-        if (backup.enabled) {
-            SettingsDivider()
-            SettingsLinkRow(string(R.string.back_up_now), null, Icons.Rounded.Backup, "backup_now") {
-                scope.launch {
+        FrostedAlertDialog(onDismissRequest = { asking = null }, title = { Text(title) },
+            text = { Text(body, modifier = Modifier.testTag("backup_ask")) },
+            confirmButton = { TextButton({ asking = null; uiHaptic(HapticCue.Confirm); when (ask) {
+                BackupAsk.TurnOn -> scope.launch { backup.turnBackup(true); container.backUpSoon(force = true) }
+                BackupAsk.BackUpNow -> scope.launch {
                     onNotice(when (val outcome = backup.backUp(force = true)) {
                         is BackupOutcome.Done -> string(R.string.backed_up_to_x, backup.place)
                         else -> string(R.string.the_backup_could_not_be_written).also { if (outcome is BackupOutcome.Failed) uiHaptic(HapticCue.Reject) }
                     })
                 }
-            }
+                BackupAsk.Restore -> restore()
+            } }, modifier = Modifier.testTag("backup_ask_confirm")) { Text(confirm, color = Pink) } },
+            dismissButton = { TextButton({ asking = null }, modifier = Modifier.testTag("backup_ask_cancel")) { Text(string(R.string.cancel)) } })
+    }
+    SettingsSection(string(R.string.backup_on_this_phone)) {
+        val last = backup.lastBackupAt.takeIf { it > 0 }?.let {
+            android.text.format.DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS).toString()
+        }
+        SettingsToggleRow(string(R.string.keep_a_backup_on_this_phone), backup.enabled, { on ->
+            if (on) asking = BackupAsk.TurnOn else turningOff = true
+        }, Icons.Rounded.Backup, "backup_enabled",
+            subtitle = if (!backup.enabled) string(R.string.off) else listOfNotNull(backup.place, last?.let { string(R.string.last_backup_x, it) },
+                backup.waiting.takeIf { it > 0 }?.let { quantity(R.plurals.n_accounts_restore_when_they_sign_in, it) }).joinToString(" · "))
+        if (backup.enabled) {
+            SettingsDivider()
+            SettingsLinkRow(string(R.string.back_up_now), null, Icons.Rounded.Backup, "backup_now") { asking = BackupAsk.BackUpNow }
         }
         SettingsDivider()
-        SettingsLinkRow(string(R.string.restore_from_a_backup), null, Icons.Rounded.Restore, "backup_restore", restore)
+        SettingsLinkRow(string(R.string.restore_from_a_backup), null, Icons.Rounded.Restore, "backup_restore") { asking = BackupAsk.Restore }
         Text(string(R.string.the_backup_stays_when_riff_is_deleted), color = Muted, fontSize = RiffType.detail, modifier = Modifier.padding(top = RiffSpace.tight))
     }
 }

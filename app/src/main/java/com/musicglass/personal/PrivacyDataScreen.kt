@@ -29,7 +29,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-internal enum class PrivacyAction { ClearAccountHistory, ClearDeviceHistory, ClearSearches, DeleteDownloads, DeleteAccountData, ShortenRetention }
+internal enum class PrivacyAction { ClearAccountHistory, ClearDeviceHistory, ClearSearches, DeleteDownloads, DeleteAccountData, ShortenRetention,
+    HistoryOff, HistoryOn, ChangeRetention }
 
 
 /** How the owner is named in confirmations: the account's name, or what signed-out use is called elsewhere. */
@@ -41,7 +42,10 @@ internal fun ownerLabel(provider: YouTubeMusicProvider, ownerKey: String): Strin
 
 internal data class PrivacyPrompt(val title: String, val body: String, val confirm: String)
 
-/** Each confirmation says whose data, that it cannot be undone, and that YouTube Music is not changed. */
+/**
+ * Each confirmation says whose data, that it cannot be undone, and that YouTube Music is not changed. Q18-102: every
+ * action here asks first, also the history switch and a retention that removes nothing (retentionDays 0: until cleared).
+ */
 internal fun privacyPrompt(action: PrivacyAction, owner: String, data: LocalDataSummary, retentionDays: Int = 0, retentionCount: Int = 0): PrivacyPrompt = when (action) {
     PrivacyAction.ClearAccountHistory -> PrivacyPrompt(quantity(R.plurals.clear_n_plays, data.accountPlays),
         string(R.string.removes_the_listening_history_of_x_from, owner), string(R.string.clear))
@@ -55,26 +59,37 @@ internal fun privacyPrompt(action: PrivacyAction, owner: String, data: LocalData
         string(R.string.removes_everything_riff_keeps_on_this_phone, owner), string(R.string.delete))
     PrivacyAction.ShortenRetention -> PrivacyPrompt(string(R.string.keep_history_for_x, retentionLabel(retentionDays).lowercase()),
         quantity(R.plurals.n_older_plays_will_be_removed_now, retentionCount), string(R.string.remove_and_keep_x, retentionLabel(retentionDays).lowercase()))
+    PrivacyAction.HistoryOff -> PrivacyPrompt(string(R.string.stop_saving_listening_history),
+        string(R.string.stop_saving_listening_history_body), string(R.string.turn_off))
+    PrivacyAction.HistoryOn -> PrivacyPrompt(string(R.string.start_saving_listening_history),
+        string(R.string.start_saving_listening_history_body), string(R.string.turn_on))
+    PrivacyAction.ChangeRetention -> PrivacyPrompt(string(R.string.keep_history_for_x, retentionLabel(retentionDays).lowercase()),
+        if (retentionDays == 0) string(R.string.keep_history_until_cleared_body) else string(R.string.keep_history_for_x_body, retentionLabel(retentionDays).lowercase()),
+        string(R.string.keep_x, retentionLabel(retentionDays).lowercase()))
 }
 
 internal fun retentionLabel(days: Int?) = when (days) { 30 -> string(R.string.n_30_days); 90 -> string(R.string.n_90_days); 365 -> string(R.string.n_1_year); else -> string(R.string.until_cleared) }
 
 /** What to tell the user once an action has run. Partial and failed outcomes never read as success. */
-internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult): String = when (result) {
+internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult, retentionDays: Int = 0): String = when (result) {
     is DataActionResult.Done -> when (action) {
         PrivacyAction.ClearAccountHistory, PrivacyAction.ClearDeviceHistory -> quantity(R.plurals.n_plays_cleared, result.removed)
         PrivacyAction.ClearSearches -> quantity(R.plurals.n_searches_cleared, result.removed)
         PrivacyAction.DeleteDownloads -> quantity(R.plurals.n_downloads_deleted, result.removed)
         PrivacyAction.DeleteAccountData -> string(R.string.local_data_for_this_account_deleted)
         PrivacyAction.ShortenRetention -> quantity(R.plurals.n_older_plays_removed, result.removed)
+        PrivacyAction.HistoryOff -> string(R.string.listening_history_is_off)
+        PrivacyAction.HistoryOn -> string(R.string.listening_history_is_on)
+        PrivacyAction.ChangeRetention -> if (retentionDays == 0) string(R.string.history_is_kept_until_you_clear_it)
+            else string(R.string.history_is_kept_for_x, retentionLabel(retentionDays).lowercase())
     }
     is DataActionResult.Partial -> string(R.string.not_everything_could_be_removed_still_on, result.remaining.joinToString(", ") { keyLabel(it) })
     is DataActionResult.Failed -> string(R.string.nothing_was_removed_riff_could_not_change)
 }
 
 /**
- * Settings → Privacy and data. Everything here acts on this phone only. Clearing and deleting name
- * the owner they apply to and ask first; cancelling changes nothing.
+ * Settings → Privacy and data. Everything here acts on this phone only. Every action asks first, and clearing
+ * and deleting name the owner they apply to; cancelling changes nothing.
  */
 @Composable internal fun PrivacyDataScreen(model: ShellModel, bottom: Dp, provider: YouTubeMusicProvider, collections: LocalCollections,
     playback: PlaybackGateway, onNotice: (String) -> Unit, process: AppContainer = AppContainer.get(LocalContext.current),
@@ -121,9 +136,13 @@ internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult): St
                         withTimeoutOrNull(2_000) { while (playback.hasProviderItems()) delay(50) }
                     }
                     PrivacyAction.ShortenRetention -> data.setRetention(pendingRetention).also { retention = historyRetentionDays(context) }
+                    PrivacyAction.ChangeRetention -> data.setRetention(pendingRetention.takeIf { it > 0 }).also { retention = historyRetentionDays(context) }
+                    PrivacyAction.HistoryOff, PrivacyAction.HistoryOn -> {
+                        collections.updateHistoryPreference(action == PrivacyAction.HistoryOn); DataActionResult.Done(0)
+                    }
                 }
                 collections.refresh()
-                if (result is DataActionResult.Done) { asking = null; failure = null; uiHaptic(HapticCue.Confirm); onNotice(privacyOutcome(action, result)) }
+                if (result is DataActionResult.Done) { asking = null; failure = null; uiHaptic(HapticCue.Confirm); onNotice(privacyOutcome(action, result, pendingRetention)) }
                 else failure = privacyOutcome(action, result)
             } finally { working = false; refresh++ }
         }
@@ -135,8 +154,8 @@ internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult): St
         if (days == retention || working) return
         scope.launch {
             val older = if (days == null) 0 else data.retentionPreview(days)
-            if (days != null && older > 0) { pendingRetention = days; pendingRetentionCount = older; failure = null; asking = PrivacyAction.ShortenRetention }
-            else { data.setRetention(days); retention = historyRetentionDays(context); onNotice(if (days == null) string(R.string.history_is_kept_until_you_clear_it) else string(R.string.history_is_kept_for_x, retentionLabel(days).lowercase())) }
+            pendingRetention = days ?: 0; pendingRetentionCount = older; failure = null
+            asking = if (days != null && older > 0) PrivacyAction.ShortenRetention else PrivacyAction.ChangeRetention
         }
     }
     asking?.let { action ->
@@ -156,7 +175,8 @@ internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult): St
         item { ScreenTitle(string(R.string.privacy_and_data), string(R.string.what_riff_keeps_on_this_phone_nothing)) }
         item {
             SettingsSection(string(R.string.listening_history)) {
-                SettingsToggleRow(string(R.string.save_listening_history), collections.historyEnabled, hapticToggle(collections::updateHistoryPreference),
+                SettingsToggleRow(string(R.string.save_listening_history), collections.historyEnabled,
+                    { on -> uiHaptic(); failure = null; asking = if (on) PrivacyAction.HistoryOn else PrivacyAction.HistoryOff },
                     Icons.Rounded.History, "settings_history",
                     string(R.string.for_every_account_on_this_phone_turning))
                 SettingsDivider()
