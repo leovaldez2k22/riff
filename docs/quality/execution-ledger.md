@@ -2948,3 +2948,9 @@ New contract rule 16: commit each package locally on its branch before starting 
 - Verdict: three runs done; performance.md sets no battery budget, and the measurement is coarse (1 % steps; a
   charge counter that is not mAh on vivo; no stats reset, so Riff's share comes only from the subtraction above).
   Recorded as measured, neither PASS nor FAIL.
+
+### B9 accepted by the owner (23 October 2026)
+- Owner: "accept b9". The 4-hour soak of 23 October stands as PASS on stability (240 min, 67 songs, one process,
+  no crash lines) with the memory rule's FAIL noted: one reading at hour 1 against the last gave +37.6 MB (31.3 MB
+  allowed), while the medians of hour 1 and of the last hour were both about 334 MB. No rerun; soak.py moves to
+  medians in Q19G.
