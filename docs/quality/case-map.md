@@ -299,6 +299,7 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-093 song count and total length on a playlist | ProviderCatalogTest.aCollectionSaysHowManySongsAndHowLongInOneLine (JVM) | owner's request, 23 Oct | BLOCKED | G3 on rc7 (a playlist and an album) |
 | Q18-094 an official playlist's row says "Playlist · Playlist" | ProviderCatalogTest.aSearchRowNamesItsKindOnce (JVM) | Q19B CAT02 check on Riff Preview rc6, 23 Oct (the HTML codes first listed were the dump's escaping, not Riff) | BLOCKED | G3 on rc7 (search an official playlist) |
 | Q18-095 a 940-track playlist queues 815 songs with no notice | ProviderCatalogTest.collectionSummary (JVM); loader checked against the live pages (815 of 940 listed) | Q19B CAT02 check on Riff Preview rc6, 23 Oct | BLOCKED | G3 on rc7 (open the playlist) |
+| Q18-096 scrolling to the end of a song's queue loads more | QueueLoadMoreTest (JVM) | not yet (reported by the owner, 23 Oct) | BLOCKED | G3 on rc7 (play one song, scroll its queue to the end) |
 
 ## 6. Totals
 

@@ -97,7 +97,8 @@ class AccessibilitySemanticsTest {
         compose.runOnIdle { actions(4).first { it.label == "Move up" }.action() }
         compose.runOnIdle { actions(4).first { it.label == "Move down" }.action() }
         compose.runOnIdle { actions(4).first { it.label == "Remove from queue" }.action() }
-        assertEquals(listOf("moveQueueItem(4,2)", "moveQueueItem(4,3)", "moveQueueItem(4,5)", "removeQueueItem(4)"), player.asked)
+        assertEquals(listOf("moveQueueItem(4,2)", "moveQueueItem(4,3)", "moveQueueItem(4,5)", "removeQueueItem(4)"),
+            player.asked.filter { it != "loadMoreQueue()" }) // Q18-096: a short queue also asks for more songs
     }
 
     @Test fun theDragHandleIsNotASecondStopForAScreenReader() {

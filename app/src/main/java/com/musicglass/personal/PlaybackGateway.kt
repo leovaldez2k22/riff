@@ -53,6 +53,8 @@ internal interface PlaybackGateway {
     fun currentPositionMs(): Long = positionMs
     fun toggle()
     fun setSleepTimer(minutes:Int)
+    /** Q18-096: the open queue reached its last song; asks for more recommendations. */
+    fun loadMoreQueue() {}
     fun pause()
     fun resume()
     /** Tries the selected entry again after a failure, and plays it. */
@@ -253,6 +255,7 @@ internal class MusicPlaybackGateway(context: Context,
         player.sendCustomCommand(SessionCommand(RETRY_PLAYBACK, Bundle.EMPTY), Bundle().apply { putString("entry", player.currentMediaItem?.entryId().orEmpty()) })
     }
     override fun retry() { transport(true); withPlayer { commandError = null; start(it) } }
+    override fun loadMoreQueue() = withPlayer {it.sendCustomCommand(SessionCommand(LOAD_MORE_QUEUE,Bundle.EMPTY),Bundle.EMPTY)}
     override fun setSleepTimer(minutes:Int) = withPlayer {it.sendCustomCommand(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY),Bundle().apply {putInt("minutes",minutes)})}
     override fun pause() { transport(false); withPlayer { it.pause();if(state.embedded) embeddedControl?.invoke(false) } }
     override fun resume() { transport(true); withPlayer { start(it) } }

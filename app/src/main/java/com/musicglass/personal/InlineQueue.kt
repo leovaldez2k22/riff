@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.scrollBy
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -40,6 +41,9 @@ internal fun queueRowActions(index:Int,current:Int,size:Int):List<QueueRowAction
     QueueRowAction.PlayNext.takeIf {index!=current && index!=current+1},QueueRowAction.Remove)
 /** Where a row lands so that it plays straight after the current one. */
 internal fun playNextTarget(index:Int,current:Int)=if(index<current) current else current+1
+/** Q18-096: the last of the [upNext] songs is on screen, so more are wanted. */
+internal fun queueWantsMore(lastVisible:Int,upNext:Int)=upNext>0 && lastVisible>=upNext-1
+
 internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==current) string(R.string.playing_now_x_of_x, index+1, size) else string(R.string.x_of_x, index+1, size)
 
 @Composable internal fun InlineQueue(playback:PlaybackGateway,provider:YouTubeMusicProvider,
@@ -67,6 +71,13 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
         val to=latestVisible.getOrNull(target.index)?.index?:return
         if(dragIndex in latestQueue.indices && to!=dragIndex) {val from=dragIndex;dragIndex=to;val anchor=listState.firstVisibleItemIndex;val offset=listState.firstVisibleItemScrollOffset
             playback.moveQueueItem(from,to);listState.requestScrollToItem(anchor,offset);uiHaptic(HapticCue.Selection)}
+    }
+    // Q18-096: scrolling to the last song asks for more recommendations; a collection is already whole.
+    val radio=!history && state.queueMessage !in setOf("Album order","Collection order")
+    LaunchedEffect(listState,radio) {
+        if(!radio) return@LaunchedEffect
+        snapshotFlow {queueWantsMore(listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index?:-1,latestVisible.size) to latestQueue.size}
+            .distinctUntilChanged().collect {(wants,_)->if(wants) playback.loadMoreQueue()}
     }
     fun finishDrag() {autoScroll?.cancel();autoScroll=null;draggingKey=null;dragIndex=-1;uiHaptic(HapticCue.DragEnd)}
     DisposableEffect(Unit) {onDispose {autoScroll?.cancel()}}
@@ -160,6 +171,7 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
                         }.padding(4.dp))
                 }
             }
+            if(visible.isNotEmpty() && !history && state.queueLoading) item {Text(string(R.string.finding_more_music),color=White.copy(alpha=.6f),fontSize=RiffType.body,modifier=Modifier.padding(RiffSpace.rowGap).testTag("queue_loading_more"))}
             if(visible.isEmpty()) item {Text(if(state.queueLoading) string(R.string.finding_more_music) else string(R.string.you_re_at_the_end_of_this),color=White.copy(alpha=.6f),fontSize=13.sp,modifier=Modifier.padding(12.dp))}
         }
     }

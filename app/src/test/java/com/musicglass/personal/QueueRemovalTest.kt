@@ -38,6 +38,8 @@ class QueueRemovalTest {
                 "toString"->"Queue removal fixture"
                 "getState"->state
                 "getPositionMs"->0L
+                // Q18-096: two songs up next are all on screen, so the queue asks for more.
+                "loadMoreQueue"->null
                 "removeQueueItem"->{val index=args!![0] as Int;removed+=index;state=state.copy(queue=state.queue.filterIndexed {i,_->i!=index});null}
                 else->error("Unexpected gateway call: ${method.name}")
             }

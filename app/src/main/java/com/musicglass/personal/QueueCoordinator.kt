@@ -85,6 +85,8 @@ internal class QueueCoordinator(private val context: Context, private val scope:
     var radioSeed: String? = null
         private set
     private var radioContinuation: String? = null
+    /** YouTube Music gave its last page of recommendations for this queue (Q18-096). */
+    private var radioEnded = false
     private val candidates = ArrayDeque<ProviderTrack>()
     private val queuedIds = linkedSetOf<String>()
     private val streamHeaders = ConcurrentHashMap<String, Map<String, String>>()
@@ -143,7 +145,7 @@ internal class QueueCoordinator(private val context: Context, private val scope:
     fun reset() {
         replacement = null; resolvedStreams.clear(); downloadServed.clear()
         onReset(); autoEntries.clear()
-        generation++; radioJob?.cancel(); radioJob = null; radioSeed = null; radioContinuation = null; candidates.clear()
+        generation++; radioJob?.cancel(); radioJob = null; radioSeed = null; radioContinuation = null; radioEnded = false; candidates.clear()
         player()?.setPlaylistMetadata(MediaMetadata.EMPTY)
     }
     /** [reset], and the addresses handed to the player for the old queue stop being answerable. */
@@ -259,11 +261,15 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         player.setPlaylistMetadata(MediaMetadata.Builder().setSubtitle(message)
             .setExtras(Bundle().apply { putBoolean("queueLoading", loading) }).build())
     }
-    /** Adds recommendations when a queue that was started from one song is close to its end. */
-    fun replenish(player: Player) {
+    /**
+     * Adds recommendations when a queue that was started from one song is close to its end, or at once when the open
+     * queue was scrolled to its last song ([onDemand], Q18-096).
+     */
+    fun replenish(player: Player, onDemand: Boolean = false) {
         val seed = radioSeed ?: return
-        if (player.playbackState != Player.STATE_READY || !player.isPlaying) return
-        if (radioJob?.isActive == true || player.mediaItemCount - player.currentMediaItemIndex > 4 || player.mediaItemCount >= 80) return
+        if (!radioShouldExtend(onDemand, player.playbackState == Player.STATE_READY, player.isPlaying,
+                player.mediaItemCount - player.currentMediaItemIndex, player.mediaItemCount, radioJob?.isActive == true)) return
+        if (radioEnded && candidates.isEmpty()) { if (onDemand) status(player, false, string(R.string.no_more_playable_recommendations_right_now)); return }
         val started = generation; val owner = sessions.capture()
         radioJob = scope.launch {
             status(player, true, string(R.string.finding_more_music_on_youtube_music))
@@ -271,7 +277,7 @@ internal class QueueCoordinator(private val context: Context, private val scope:
                 if (candidates.isEmpty()) {
                     val (tracks, token) = provider.recommendations(seed, radioContinuation).getOrThrow()
                     if (started != generation || !sessions.accepts(owner)) return@launch
-                    radioContinuation = token
+                    radioContinuation = token; radioEnded = token == null
                     val known = (0 until player.mediaItemCount).map { val m = player.getMediaItemAt(it).mediaMetadata; queueRecordingKey(m.title.toString(), m.artist.toString()) }.toSet()
                     val hidden = NotInterestedStore.get(context).keys
                     candidates.addAll(queueCandidates(tracks, queuedIds + hidden, known))
@@ -359,3 +365,15 @@ internal fun enqueueNotice(outcome: EnqueueOutcome, next: Boolean) = when (outco
     EnqueueOutcome.AlreadyQueued -> string(R.string.already_in_the_queue)
     else -> if (next) string(R.string.playing_next) else string(R.string.added_to_queue)
 }
+
+/** Recommendations stop at this many entries in the queue when they are added on their own. */
+internal const val RADIO_QUEUE_AUTO_LIMIT = 80
+/** And at this many when the listener scrolls for more (Q18-096). */
+internal const val RADIO_QUEUE_LIMIT = 200
+
+/**
+ * Whether to fetch more recommendations now. On their own: while playing, within four entries of the end. Asked for
+ * by scrolling to the last song: whenever nothing is being fetched already, up to [RADIO_QUEUE_LIMIT].
+ */
+internal fun radioShouldExtend(onDemand: Boolean, ready: Boolean, playing: Boolean, remaining: Int, size: Int, busy: Boolean): Boolean =
+    !busy && if (onDemand) size < RADIO_QUEUE_LIMIT else ready && playing && remaining <= 4 && size < RADIO_QUEUE_AUTO_LIMIT
