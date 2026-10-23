@@ -13,6 +13,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
@@ -165,6 +167,8 @@ import kotlinx.coroutines.withContext
                 Icons.Rounded.DataSaverOn,"settings_data_saver",
                 string(R.string.lower_bitrate_audio_and_up_to_360p))
             SettingsDivider()
+            SongQualityRow(dataSaver)
+            SettingsDivider()
             DownloadSettings(model,onNotice)
         }}
         item {SettingsCompartment("library",string(R.string.settings_library_and_privacy),Icons.Rounded.Lock,
@@ -254,6 +258,22 @@ import kotlinx.coroutines.withContext
         }
     }
 }
+/** Q18-099: High, Medium or Low for streamed songs; Data saver wins while it is on, and the row says so. */
+@Composable private fun SongQualityRow(dataSaver:DataSaverSettings) {
+    Column(Modifier.fillMaxWidth().padding(vertical=10.dp).testTag("settings_song_quality")) {
+        Text(string(R.string.song_quality),color=White,fontSize=15.sp)
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(top=4.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            SongQuality.entries.forEach {choice->
+                FilterChip(dataSaver.songQuality==choice,{ uiHaptic(HapticCue.Selection); dataSaver.updateSongQuality(choice)},{Text(songQualityLabel(choice))},
+                    modifier=Modifier.testTag("settings_song_quality_${choice.key}"))
+            }
+        }
+        Text(string(if(dataSaver.enabled) R.string.song_quality_data_saver_on else R.string.song_quality_note),
+            color=Muted,fontSize=RiffType.detail,modifier=Modifier.padding(top=4.dp).testTag("settings_song_quality_note"))
+    }
+}
+internal fun songQualityLabel(choice:SongQuality) = string(when(choice) {
+    SongQuality.High -> R.string.song_quality_high; SongQuality.Medium -> R.string.song_quality_medium; SongQuality.Low -> R.string.song_quality_low })
 @Composable internal fun SettingsDivider() {HorizontalDivider(color=White.copy(alpha=.08f))}
 @Composable internal fun SettingsToggleRow(title:String,checked:Boolean,onChange:(Boolean)->Unit,
     icon:ImageVector,tag:String,subtitle:String?=null) {

@@ -83,6 +83,7 @@ class LocalDataTransferTest {
         prefs(CROSSFADE_PREFS).edit().putBoolean("enabled", true).putInt("seconds", 9).commit()
         prefs(AUDIO_BOOST_PREFS).edit().putInt("percent", 150).putBoolean(NORMALIZE_KEY, true).commit()
         prefs("music_collections").edit().putBoolean("history_enabled", true).commit()
+        prefs(DATA_SAVER_PREFS).edit().putString(SONG_QUALITY_KEY, SongQuality.High.key).commit()
         // Never exported: they could start transfers or use mobile data on the other phone.
         prefs("offline_settings").edit().putBoolean("smart_enabled", true).putBoolean("allow_mobile_data", true).putLong("budget_bytes", 1073741824L).commit()
     }
@@ -138,12 +139,12 @@ class LocalDataTransferTest {
         assertEquals(Kept(emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptySet()), fresh.kept(accountA))
         val plan = fresh.plan(bytes)
         assertEquals(listOf(Destination.Direct, Destination.Direct, Destination.Account), plan.sections.map { it.destination })
-        assertEquals(SectionCounts(settings = 7, hidden = 1, plays = 4, pins = 2), plan.sections[0].counts)
+        assertEquals(SectionCounts(settings = 8, hidden = 1, plays = 4, pins = 2), plan.sections[0].counts)
         assertEquals(SectionCounts(searches = 2, plays = 4), plan.sections[1].counts)
         assertEquals(SectionCounts(saved = 3, recents = 2, searches = 2, plays = 4, downloads = 2), plan.sections[2].counts)
         assertEquals(0, plan.malformed)
         val report = runBlocking { (fresh.transfer.import(plan) as ImportOutcome.Finished).report }
-        assertEquals(ImportReport(added = SectionCounts(settings = 7, hidden = 1, saved = 3, recents = 2, searches = 4, plays = 12, downloads = 2, pins = 2)), report)
+        assertEquals(ImportReport(added = SectionCounts(settings = 8, hidden = 1, saved = 3, recents = 2, searches = 4, plays = 12, downloads = 2, pins = 2)), report)
         assertEquals(pinsBefore, fresh.pins.cards)
         owners.forEach { assertEquals(it, before[it], fresh.kept(it)) }
         assertEquals(hiddenBefore, fresh.hidden.entries)
@@ -311,6 +312,16 @@ class LocalDataTransferTest {
         assertTrue(phone.open("\uFEFF".toByteArray() + bytes) is ImportOpen.Ready)
     }
 
+    @Test fun songQualityTravelsOnlyAsOneOfItsThreeChoices() { // Q18-099
+        val phone = Phone()
+        val key = "$DATA_SAVER_PREFS.$SONG_QUALITY_KEY"
+        val plan = phone.plan(file("""{"t":"owner","kind":"device"}""", """{"t":"setting","k":"$key","v":"ultra"}""",
+            """{"t":"setting","k":"$key","v":3}""", """{"t":"setting","k":"$key","v":"low"}"""))
+        assertEquals(2, plan.malformed)
+        runBlocking { phone.transfer.import(plan) }
+        assertEquals(SongQuality.Low.key, prefs(DATA_SAVER_PREFS).getString(SONG_QUALITY_KEY, null))
+    }
+
     @Test fun recordsThatCannotBeReadAreSkippedOneByOne() {
         val phone = Phone()
         val bytes = file(
@@ -369,7 +380,7 @@ class LocalDataTransferTest {
         val phone = Phone(); phone.report(bytes)
         val once = owners.map { phone.kept(it) }; val settingsOnce = settings()
         val again = phone.report(bytes)
-        assertEquals(SectionCounts(settings = 7), again.added) // settings are written again with the same values
+        assertEquals(SectionCounts(settings = 8), again.added) // settings are written again with the same values
         assertEquals(12 + 5 + 4 + 2 + 1, again.present)
         assertEquals(once, owners.map { phone.kept(it) }); assertEquals(settingsOnce, settings())
         assertEquals(1, phone.hidden.entries.size)
@@ -451,7 +462,7 @@ class LocalDataTransferTest {
         var stop = false
         hook = { if (it == "history_committed") stop = true }
         val outcome = phone.import(bytes, cancelled = { stop })
-        assertEquals(SectionCounts(settings = 7, saved = 3, recents = 2, searches = 2, plays = 4, downloads = 2), (outcome as ImportOutcome.Finished).report.added)
+        assertEquals(SectionCounts(settings = 8, saved = 3, recents = 2, searches = 2, plays = 4, downloads = 2), (outcome as ImportOutcome.Finished).report.added)
     }
 
     // ---- storage failures

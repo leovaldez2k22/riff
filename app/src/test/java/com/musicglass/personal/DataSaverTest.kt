@@ -29,4 +29,29 @@ class DataSaverTest {
         assertEquals(AudioQuality.AUTO,streamingAudioQuality(DataSaverSettings(context).enabled,false))
         assertEquals(AudioQuality.HIGH,streamingAudioQuality(false,true))
     }
+
+    /** Q18-099: High, Medium or Low for streamed songs; Data saver wins while it is on and downloads stay HIGH. */
+    @Test fun songQualityIsKeptAndMapsToTheLibrarysQuality() {
+        assertEquals(SongQuality.Medium,DataSaverSettings(context).songQuality)
+        assertEquals(AudioQuality.HIGH,streamingAudioQuality(false,false,SongQuality.High))
+        assertEquals(AudioQuality.AUTO,streamingAudioQuality(false,false,SongQuality.Medium))
+        assertEquals(AudioQuality.LOW,streamingAudioQuality(false,false,SongQuality.Low))
+        SongQuality.entries.forEach {
+            assertEquals("Data saver wins over $it",AudioQuality.LOW,streamingAudioQuality(true,false,it))
+            assertEquals("a download stays HIGH with $it",AudioQuality.HIGH,streamingAudioQuality(true,true,it))
+        }
+        DataSaverSettings(context).updateSongQuality(SongQuality.Low)
+        assertEquals(SongQuality.Low,DataSaverSettings(context).songQuality)
+        context.getSharedPreferences(DATA_SAVER_PREFS,Context.MODE_PRIVATE).edit().putString(SONG_QUALITY_KEY,"ultra").commit()
+        assertEquals("an unknown value reads as Medium",SongQuality.Medium,DataSaverSettings(context).songQuality)
+    }
+
+    @Test fun thePremiumHintGoesOnlyWithHighAndConfirmedPremium() {
+        SongQuality.entries.forEach {
+            val hints=streamHints(video=false,live=false,download=false,quality=streamingAudioQuality(false,false,it),premium=true)
+            assertEquals(it.name,it==SongQuality.High,hints.premium)
+        }
+        assertFalse(streamHints(video=false,live=false,download=false,quality=streamingAudioQuality(false,false,SongQuality.High),premium=false).premium)
+        assertFalse("Data saver wins",streamHints(video=false,live=false,download=false,quality=streamingAudioQuality(true,false,SongQuality.High),premium=true).premium)
+    }
 }

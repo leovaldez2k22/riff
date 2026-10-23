@@ -701,6 +701,12 @@
     <string name="song_catalog_unavailable_on_this_device">Song catalog unavailable on this device</string>
     <string name="song_downloads">Song downloads</string>
     <string name="song_options">Song options</string>
+    <string name="song_quality">Song quality</string>
+    <string name="song_quality_data_saver_on">Data saver is on, so songs stream at Low until it is turned off.</string>
+    <string name="song_quality_high">High</string>
+    <string name="song_quality_low">Low</string>
+    <string name="song_quality_medium">Medium</string>
+    <string name="song_quality_note">For streamed songs, from the next song. High uses the most data; Low the least. Downloads keep the best quality.</string>
     <string name="song_saved_in_x_playlists">Song saved in %1$s playlists</string>
     <string name="songs">Songs</string>
     <string name="songs_albums_artists_and_playlists">Songs, albums, artists and playlists</string>

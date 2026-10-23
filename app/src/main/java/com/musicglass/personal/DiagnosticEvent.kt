@@ -49,7 +49,7 @@ internal class DiagnosticEvent private constructor(val text: String) {
             "task_removed", "wants")
         private val words = setOf(
             "action", "cache", "causes", "class", "failed_stage", "failure", "from", "host", "kind", "owner", "part", "phase",
-            "player_error", "process", "profile", "reason", "result", "scheme", "session_state", "source", "stage", "to",
+            "player_error", "process", "profile", "quality", "reason", "result", "scheme", "session_state", "source", "stage", "to",
             "transport", "type")
 
         /** Every key a field may have. A new one is added here, with its shape, or the field is not kept. */

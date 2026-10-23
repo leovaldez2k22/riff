@@ -119,6 +119,7 @@ private fun acceptInt(allowed: (Int) -> Boolean) = { v: Any? ->
     (v as? Number)?.takeIf { it !is Float && it !is Double || it.toDouble() == it.toInt().toDouble() }?.toInt()?.takeIf(allowed)
 }
 private fun acceptFloat(range: ClosedFloatingPointRange<Float>) = { v: Any? -> (v as? Number)?.toFloat()?.takeIf { it in range } }
+private fun acceptWord(allowed: Set<String>) = { v: Any? -> (v as? String)?.takeIf { it in allowed } }
 
 /**
  * Device settings that are exported and imported. Automatic downloads, downloading on mobile data
@@ -134,6 +135,7 @@ private val SETTINGS = listOf(
     SettingSpec(AUDIO_BOOST_PREFS, NORMALIZE_KEY, acceptBool),
     SettingSpec(CROSSFADE_PREFS, "enabled", acceptBool), SettingSpec(CROSSFADE_PREFS, "seconds", acceptInt { it in 1..12 }),
     SettingSpec(DATA_SAVER_PREFS, "enabled", acceptBool),
+    SettingSpec(DATA_SAVER_PREFS, SONG_QUALITY_KEY, acceptWord(SongQuality.entries.map { it.key }.toSet())),
     SettingSpec("music_collections", "history_enabled", acceptBool),
     SettingSpec("music_collections", RETENTION_KEY, acceptInt { it in setOf(30, 90, 365) }),
 ).associateBy { it.name }
@@ -688,6 +690,7 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
                     is Boolean -> editor.putBoolean(key, value)
                     is Int -> editor.putInt(key, value)
                     is Float -> editor.putFloat(key, value)
+                    is String -> editor.putString(key, value)
                     else -> continue
                 }
                 count++

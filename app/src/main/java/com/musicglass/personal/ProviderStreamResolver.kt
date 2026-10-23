@@ -56,6 +56,9 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
     private val cacheLock = Any()
     private val dataSaverPrefs=appContext.getSharedPreferences(DATA_SAVER_PREFS,Context.MODE_PRIVATE)
     private val qualityPrefs=appContext.getSharedPreferences(STREAM_QUALITY_PREFS,Context.MODE_PRIVATE)
+    /** Read at each lookup, so a change applies from the next song without interrupting this one. */
+    private fun chosenQuality(download:Boolean):AudioQuality = streamingAudioQuality(dataSaverPrefs.getBoolean("enabled",false),download,
+        songQualityFrom(dataSaverPrefs.getString(SONG_QUALITY_KEY,null)))
     /** Q18-090: Premium is known for an account only once YouTube served it a Premium-only format. */
     private fun premiumConfirmed():Boolean = session.signedIn && session.accountScopeKey()?.let {qualityPrefs.getBoolean("premium:$it",false)}==true
     private var streamRevision=0L
@@ -123,7 +126,7 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
         suspendCatching {
             settleVisitor(innerTube.sessionSnapshot().visitorData) {innerTube.fetchFreshVisitorData(innerTube.sessionSnapshot())}
             extractor.prewarm()
-            val premiumHigh=premiumConfirmed() && streamingAudioQuality(dataSaverPrefs.getBoolean("enabled",false),false)==AudioQuality.HIGH
+            val premiumHigh=premiumConfirmed() && chosenQuality(false)==AudioQuality.HIGH
             secondPlayerToPreload(session.signedIn,premiumHigh,configPlayers[false],configPlayers[true])?.let {player->
                 val second=dependencies.clocks.monotonicMillis()
                 requireSolver().preloadPlayerCode(player)
@@ -135,8 +138,7 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
     }
 
     suspend fun resolve(videoId:String,live:Boolean=false,excludedProfiles:Set<String> = emptySet(),video:Boolean=false,download:Boolean=false):Result<ProviderStream> =
-        resolve(StreamRequest(videoId,live,excludedProfiles,video,download,
-            streamingAudioQuality(dataSaverPrefs.getBoolean("enabled",false),download)))
+        resolve(StreamRequest(videoId,live,excludedProfiles,video,download,chosenQuality(download)))
 
     /** Signed URLs stay in a bounded RAM cache and never enter the durable music database. */
     override suspend fun resolve(request:StreamRequest):Result<ProviderStream> {
@@ -201,7 +203,7 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
                 "transport=${if (stream.sabrBootstrap != null) "SABR" else if (
                     stream.mimeType?.contains("mpegurl", ignoreCase = true) == true) "HLS" else "DIRECT"} " +
                 "po_token=${stream.sabrBootstrap?.poToken != null} itag=${stream.itag ?: 0} kbps=${(stream.bitrate?:0)/1000} " +
-                "premium_hint=${hints.premium} loudness=${validLoudnessDb(stream.loudnessDb) != null}")
+                "quality=${quality.name} premium_hint=${hints.premium} loudness=${validLoudnessDb(stream.loudnessDb) != null}")
             if (premiumOnlyFormat(stream.itag)) session.accountScopeKey()?.let {qualityPrefs.edit().putBoolean("premium:$it",true).apply()}
             if (!download && (stream.requireBoundedRange || stream.useRangeChunks)) {
                 return@withContext Result.failure(

@@ -71,6 +71,24 @@ class SettingsCompartmentsTest {
         assertFalse(has("settings_data_saver"))
     }
 
+    /** Q18-099: Song quality sits under Data saver, starts at Medium, keeps a choice, and says when Data saver wins. */
+    @Test fun songQualityIsChosenUnderDataSaverAndSaysWhenDataSaverWins() {
+        context.getSharedPreferences(DATA_SAVER_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        show()
+        group("downloads").performClick(); compose.waitForIdle()
+        fun scrollTo(tag: String) = compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasTestTag(tag))
+        scrollTo("settings_song_quality_note")
+        compose.onNodeWithTag("settings_song_quality_medium").assertIsSelected()
+        compose.onNodeWithTag("settings_song_quality_note").assertTextEquals(string(R.string.song_quality_note))
+        compose.onNodeWithTag("settings_song_quality_low").performClick(); compose.waitForIdle()
+        compose.onNodeWithTag("settings_song_quality_low").assertIsSelected()
+        compose.onNodeWithTag("settings_song_quality_medium").assertIsNotSelected()
+        assertEquals(SongQuality.Low, DataSaverSettings(context).songQuality)
+        scrollTo("settings_data_saver"); compose.onNodeWithTag("settings_data_saver").performClick(); compose.waitForIdle()
+        scrollTo("settings_song_quality_note")
+        compose.onNodeWithTag("settings_song_quality_note").assertTextEquals(string(R.string.song_quality_data_saver_on))
+    }
+
     @Test fun theLookCompartmentHoldsTodaysSliders() {
         show()
         group("look").performClick(); compose.waitForIdle()
