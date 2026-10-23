@@ -346,3 +346,8 @@ Q18-081). Section 7: PASS 31 (adds SGN05, F3b), FAIL 21, BLOCKED 3 (F9 after rc7
 Q18-071 on an emulator), TODO 6, DECLINED 2.
 Owner, 23 Oct: UPD01 recorded DECLINED under D1 (no publication). The 72 rows: PASS 53, FAIL 7, BLOCKED 4, DEFERRED 6,
 DECLINED 2.
+
+Q19G fix round, 23 October (every open Q18 bug fixed or judged, each with a test; PR lane and emulator lane
+PASS_LOCAL): the 72 rows PASS 53, FAIL 0, BLOCKED 11 (adds PLY09, AUD01, CAT02, LYR02, UX06, A11Y02 and PERF01, each
+waiting for its phone check on rc7), DEFERRED 6, DECLINED 2. Section 7, 63 rows: PASS 32 (adds Q18-071 on the
+emulator), FAIL 0, BLOCKED 29 (the fixed bugs, on rc7), DECLINED 2. G01 waits for rc7 and the G3 phone checks.

@@ -2989,3 +2989,38 @@ New contract rule 16: commit each package locally on its branch before starting 
 - Q19B: every step done. Left BLOCKED for later phases: CAT03 and CAT04 (Q18-081), A11Y01 and UX04's announcements
   (TalkBack declined; emulator), UPD01 (publication), F9 on Riff Preview (rc7), Q18-054 (next candidate), Q18-071
   (emulator).
+
+### Q19G fix round (23 October 2026)
+- Owner: "record upd01 as declined and start the fix round. make sure to fully complete the fix round". UPD01
+  DECLINED (3609543). No phone work: the phone was not attached; nothing installed on it, no account touched.
+- Every open Q18 bug was taken, each with its test, one commit per fix or pair: Q18-084 (33fa4f5), Q18-085 to
+  Q18-088 (5ede9fa), Q18-093 and Q18-094 (e6fad3f), Q18-076 and Q18-083 (8c2f8f6), soak.py medians (a68cadf),
+  Q18-069 (672c889), Q18-072 and Q18-095 (bb311b3), Q18-078, Q18-080 and Q18-081 (44bd38a), Q18-082 (054fd27),
+  Q18-077 and Q18-089 to Q18-092 (90822b3), Q18-079 and Q18-074 (46b8484), Q18-071 and Q18-070 (6b491de), Q18-068
+  (1e21108), Q18-067 (25f40ab), Q18-073 (3f63870); Q18-005 and Q18-057 closed and Q18-059/015 reviewed (d563764).
+- Not done as planned, and why (each recorded in its bug): Q18-089's background re-resolve from WEB_REMIX (the
+  download asks WEB_REMIX first instead); Q18-092's float output (Media3 1.11.1 then skips Riff's audio processors).
+- Found by reading innertubex 0.7.2's source: Q18-067 (signed in, the prewarm prepares only the signed-in player
+  while a lookup starts from the signed-out one; Riff now prepares both when they differ); Q18-059 and Q18-015 (each
+  song passes the whole preprocessed player into QuickJS again, about 1.5 s; a library change, the owner's call).
+- Emulator, API 33 (riff_q18_api33, x86_64, headless; emulator-5554, never the phone): DownloadLifecycleDeviceTest
+  6 of 6 and SeekTimingDeviceTest 2 of 2 with the network off; PlayerFixesDeviceTest 4 of 4 at 1080 x 2400 / 420 dpi
+  (Q18-068 reproduced first: 6,523 pixels with solid controls, then 0); MemoryCheck on a Riff Benchmark built for
+  x86_64 for that run only (the ABI filter put back, not committed): three blocks +5.7/+2.1/+13.0 MB with the native
+  heap levelled, then +12 kB with the median reading. The emulator's display and font scale were put back.
+- PR lane: the first run failed on PrivacyDataScreenTest (the backup section reads the accessibility settings since
+  Q18-078 and the test did not provide them); fixed in bd8d39f. Second run on bd8d39f: PASS_LOCAL, every gate (script-tests, static, build,
+  artifactIdentity, jvm, lint, release-content, apk, solver-seam, registrars).
+- Emulator lane (API 33, emulator-5554, --allow-install): run 1 67 of 69, SignInScreensDeviceTest behind Q18-085
+  (keys are addresses now) and Q18-088 (five full addresses push the Google button below 720 x 1280); test fixed in
+  889288b. Run 2 on the same, hours-old emulator: four crossfade and normalization blends gave up safely because the
+  two decoders never aligned (the tests' own note: an emulator's two audio clocks often disagree; a different four
+  each time, all passed in run 1 on the same app code). Run 3 after a cold boot: OK (69 tests), PASS_LOCAL
+  (artifacts/quality/lanes/emulator-20261023T121737Z). The emulator was stopped afterwards.
+- Bugs: none open. Fixed and waiting for the phone on rc7 (G3, B13, the device and benchmark lanes, A4): Q18-067,
+  068, 070, 073, 074, 079 and the earlier Q19G fixes; Q18-071 PASS on the emulator. Q18-059 and Q18-015 wait for the
+  owner's decision on the library's per-song cipher cost.
+- Case map: the 72 matrix and journey rows PASS 53, FAIL 0, BLOCKED 11, DEFERRED 6, DECLINED 2 (PLY09, AUD01, CAT02,
+  LYR02, UX06, A11Y02 and PERF01 moved from FAIL to BLOCKED on rc7). Section 7, 63 rows: PASS 32, FAIL 0, BLOCKED 29,
+  DECLINED 2.
+- Next, with the owner: rc7 (the owner signs it), the G3 phone checks, then Q19R.
