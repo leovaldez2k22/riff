@@ -2971,3 +2971,21 @@ New contract rule 16: commit each package locally on its branch before starting 
   ACC05, F1, F2, F6, SGN03, SGN07, Q18-040); B8 and B9 entered on the Q14 rows; Q18-094 and Q18-095 added; totals
   under "Q19B close". Left BLOCKED by design or for later: CAT03, CAT04, A11Y01, UPD01, UX04, SGN05, F9, F3b,
   Q18-054, Q18-071.
+
+### SGN05, F3b and CAT04 on the phone; Q18-094 narrowed (23 October 2026, afternoon)
+- Owner: "do the three phone checks". USB adb, Riff Preview rc6, dummy account, no screenshots, no account change.
+- SGN05 PASS: Settings, Manage account, Change account, Use another Google account (Google's page in the frame),
+  Back: "Stop signing in?"; Keep signing in: the page again; Back, Stop: Welcome back; Back: the account screen, still
+  connected; Back: Settings. All accounts is not reachable with three saved accounts (Welcome lists all three).
+- F3b PASS: in The Hits: '90s, a swipe right on the player's cover at about 3 s (No Scrubs to Killing Me Softly) and
+  past 10 s (Killing Me Softly to Everybody) went to the song before; Previous past 10 s restarted the song (0 ms).
+- CAT04 stays BLOCKED, now on Q18-081: the dummy account owns no playlist; Liked Music has no sort; a public playlist
+  offers only Riff's own sorts (Newest and Oldest greyed "Dates not supplied", no YouTube sort).
+- Q18-094 narrowed: the HTML codes in the earlier entry ("&#127826;", "&amp;", "&#10;") came from the uiautomator
+  dump's XML escaping, which my reading script did not decode (Riff's own "Look & feel" read "Look &amp; feel").
+  Only the doubled "Playlist · Playlist" stands. Q18-095's counts come from dumpsys and the website, not the dump.
+- Cleanup: the search entry these checks added removed; music paused (a mis-tap on "Backstreet Boys" opened a song,
+  paused at once); phone on its home screen.
+- Q19B: every step done. Left BLOCKED for later phases: CAT03 and CAT04 (Q18-081), A11Y01 and UX04's announcements
+  (TalkBack declined; emulator), UPD01 (publication), F9 on Riff Preview (rc7), Q18-054 (next candidate), Q18-071
+  (emulator).
