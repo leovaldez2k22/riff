@@ -242,6 +242,16 @@ class LyricsTest {
         // Two words sung alike: neither stands out against the other.
         assertEquals(emptyList<LyricWord>(),heldLyricWords("Hold on",listOf(LyricPart(0,1000,0,4),LyricPart(1000,1500,5,7))))
     }
+    @Test fun aHeldWordIsItsLettersWithoutTheSpaceAfterIt() {
+        // Q18-084, Heavy (The Marías): "lost " carries its space; at a wrap after "lost" the space sits at the next
+        // row's start and the grown copy was drawn there. The held word must be the four letters only.
+        val text = "I don't wanna get lost inside"
+        val parts = listOf(LyricPart(0,200,0,2),LyricPart(200,400,2,8),LyricPart(400,600,8,14),LyricPart(600,800,14,18),
+            LyricPart(800,2600,18,23),LyricPart(2600,2900,23,29))
+        val held = heldLyricWords(text,parts)
+        assertEquals(listOf(LyricWord(18,22,800,2600)),held)
+        assertEquals("lost",text.substring(held.single().from,held.single().to))
+    }
     @Test fun aHeldWordGrowsWhileSungAndSettlesAfter() {
         val word = LyricWord(0,4,1000,2200)
         assertEquals(0f,heldEmphasis(999,word),0f)

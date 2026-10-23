@@ -287,7 +287,7 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-081 no way to create a playlist | none | Q19B owner session | FAIL | Q19G (new feature) |
 | Q18-082 lyrics searched in parallel | LyricsRepository tests with timed fakes (planned) | B13 on the phone after the fix | TODO | Q19G, after Q19B |
 | Q18-083 Save on this phone is not a download | none | Q19B test download on Riff Preview | FAIL | Q19G |
-| Q18-084 a held word at a row's end drawn over the row's start | lyric layout test (planned) | owner's recording, 23 Oct | FAIL | Q19G |
+| Q18-084 a held word at a row's end drawn over the row's start | LyricsTest.aHeldWordIsItsLettersWithoutTheSpaceAfterIt (JVM) | owner's recording, 23 Oct | BLOCKED | G3 on rc7 (Heavy, "lost") |
 | Q18-085 one account listed twice after sign-out | SavedAccounts test (planned) | owner's screenshot, 23 Oct | FAIL | Q19G |
 | Q18-086 no warning before Sign out | none | owner's request, 23 Oct | TODO | Q19G |
 | Q18-087 switching accounts always goes through Google's page | none | owner's request, 23 Oct | TODO | Q19G (design first) |

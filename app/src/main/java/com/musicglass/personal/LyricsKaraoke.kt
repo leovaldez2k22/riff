@@ -234,7 +234,7 @@ private fun KaraokeText(text: String, parts: List<LyricPart>, active: Boolean, p
                     if (!active) return
                     for (highlight in highlights) {
                         val part = highlight.part
-                        if (popping.any { part.from >= it.word.from && part.to <= it.word.to }) continue
+                        if (popping.any { part.from < it.word.to && part.to > it.word.from }) continue
                         val fraction = ((now - part.startMs).toFloat() / (part.endMs - part.startMs)).coerceIn(0f, 1f)
                         if (fraction <= 0) continue
                         val bounds = highlight.bounds

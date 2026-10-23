@@ -348,6 +348,14 @@ internal fun heldLyricWords(text: String, parts: List<LyricPart>): List<LyricWor
         val others = perLetter.filterIndexed { other, _ -> other != index }.sorted()
         word.durationMs >= LONG_HELD_WORD_MS || (others.isNotEmpty() && word.durationMs >= HELD_WORD_MS &&
             perLetter[index] >= others[others.size / 2] * HELD_WORD_RATIO)
+    }.mapNotNull { word ->
+        // Q18-084: parts often carry the space after a word; at a soft wrap that space measures at the start of
+        // the next row, so a held word ending a row was drawn there, over that row's first word. Letters only.
+        var from = word.from
+        var to = word.to
+        while (from < to && text[from].isWhitespace()) from++
+        while (to > from && text[to - 1].isWhitespace()) to--
+        if (from == to) null else word.copy(from = from, to = to)
     }
 }
 
