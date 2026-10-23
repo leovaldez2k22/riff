@@ -272,10 +272,10 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-054 a restore offered after an update | LocalBackupTest.anUpdateIsNeverOfferedARestore | Found in C6 on the signed rc4 over rc20 (artifacts/quality/q19/c8/c6) | BLOCKED | fixed in code (9117a18) after rc4 was signed; C6 on the next candidate |
 | Q18-067 first song slow after more than 10 minutes away | none (timing on the phone) | Q19A with the owner, A4 second try (21 Oct): about 6.7 s by the owner's count | FAIL | Q19G; A4 again on the next candidate |
 | Q18-068 a slow slide-up shows two titles | PlayerFixesDeviceTest.aSlowSlideUpShowsOneTitle (device) | B1 on the phone (21 Oct): 3,922 pixels differ at p=0.002 | FAIL | Q19G; same test, also with frosted glass off |
-| Q18-069 backup test wants an unnumbered file | OwnerFeaturesDeviceTest (device) | B1 on the phone (21 Oct): the backup wrote a numbered file | FAIL | Q19G (test fix) |
+| Q18-069 backup test wants an unnumbered file | OwnerFeaturesDeviceTest (device, base-name check) | B1 on the phone (21 Oct): the backup wrote a numbered file | BLOCKED | Q19G emulator lane |
 | Q18-070 seeks in downloaded songs over 500 ms | SeekTimingDeviceTest (device) | B1 on the phone (21 Oct): 511 to 601 ms, median about 550 | FAIL | Q19G |
 | Q18-071 a network-off download test hung | DownloadLifecycleDeviceTest (device) | B1 offline rerun (21 Oct): hung with airplane mode and a VPN on; no VPN tests on the phone (owner, 22 Oct) | BLOCKED | Q19G on the emulator (a test VPN or a deadline in the test) |
-| Q18-072 translation fails on the release build | LyricsTranslationTest (JVM) does not reach it | Q19B B3c on Riff Preview rc6; Riff Debug translates | FAIL | Q19G |
+| Q18-072 translation fails on the release build | LyricsTranslationTest (8, JVM), check_registrars gate on the release build | Q19B B3c on Riff Preview rc6; Riff Debug translates | BLOCKED | G3 on rc7 (translate on Riff Preview) |
 | Q18-073 memory growth over the journeys | MemoryCheck (Macrobenchmark) | Q19B6: PSS +28,253 kB against 22,195 kB allowed | FAIL | Q19G |
 | Q18-074 two benchmark waits fail | ActionBenchmark, StartupBenchmark | Q19B6: the queue button and the app open not seen; by hand the app opens every time | FAIL | Q19G (test fix) |
 | Q18-075 Delicate still line synced | LyricsWordTimingTest (JVM) | Q19B B3a on Riff Preview rc6; the owner, 23 Oct: now word synced | PASS | none (closed by the owner) |
@@ -298,7 +298,7 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-092 16-bit boost limiter changes loud music | processor tests: float input, unity gain bit-exact, no limiting below full scale (planned) | audio quality investigation, 23 Oct | FAIL | Q19G |
 | Q18-093 song count and total length on a playlist | ProviderCatalogTest.aCollectionSaysHowManySongsAndHowLongInOneLine (JVM) | owner's request, 23 Oct | BLOCKED | G3 on rc7 (a playlist and an album) |
 | Q18-094 an official playlist's row says "Playlist · Playlist" | ProviderCatalogTest.aSearchRowNamesItsKindOnce (JVM) | Q19B CAT02 check on Riff Preview rc6, 23 Oct (the HTML codes first listed were the dump's escaping, not Riff) | BLOCKED | G3 on rc7 (search an official playlist) |
-| Q18-095 a 940-track playlist queues 815 songs with no notice | collection loader test against this playlist's pages (planned) | Q19B CAT02 check on Riff Preview rc6, 23 Oct | FAIL | Q19G |
+| Q18-095 a 940-track playlist queues 815 songs with no notice | ProviderCatalogTest.collectionSummary (JVM); loader checked against the live pages (815 of 940 listed) | Q19B CAT02 check on Riff Preview rc6, 23 Oct | BLOCKED | G3 on rc7 (open the playlist) |
 
 ## 6. Totals
 

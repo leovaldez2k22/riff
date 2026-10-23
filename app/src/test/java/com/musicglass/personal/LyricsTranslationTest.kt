@@ -107,4 +107,14 @@ class LyricsTranslationTest {
         assertEquals("A changed source language that fails shows no old English under new lines", emptyList<String>(), run.english)
         run.run(false, lines, null); assertEquals("", run.status); assertEquals(emptyList<String>(), run.english)
     }
+
+    /** Q18-072: rc6 showed R8's raw text ("Attempt to read from field 'fk6 tc2.b' on a null object reference ..."). */
+    @Test fun aFailureShowsRiffsWordsNeverTheRawException() = runBlocking {
+        val run = LyricTranslationRun { _, _, _ -> throw NullPointerException("Attempt to read from field 'fk6 tc2.b' on a null object reference") }
+        run.run(true, lines, null)
+        assertEquals("Translation unavailable. Try again.", run.status)
+        assertEquals("Translating needs a connection the first time, to download the language model.",
+            translationFailureText(TranslationProblem("Translating needs a connection the first time, to download the language model.")))
+        assertEquals("Translation unavailable. Try again.", translationFailureText(IllegalStateException("Translator failed")))
+    }
 }

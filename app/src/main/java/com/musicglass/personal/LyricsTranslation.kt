@@ -2,6 +2,7 @@ package com.musicglass.personal
 import android.content.Context
 import com.google.android.gms.tasks.Task
 import com.google.mlkit.common.model.DownloadConditions
+import com.google.mlkit.common.model.RemoteModelManager
 import com.google.mlkit.nl.languageid.LanguageIdentification
 import com.google.mlkit.nl.translate.*
 import androidx.compose.runtime.Stable
@@ -23,19 +24,30 @@ private suspend fun <T> Task<T>.awaitTranslation():T=suspendCancellableCoroutine
     addOnFailureListener {if(c.isActive) c.resumeWithException(it)}
     addOnCanceledListener {c.cancel()}
 }
+/** A reason Riff gives in its own words; any other failure reads "Translation unavailable. Try again." (Q18-072). */
+internal class TranslationProblem(message:String):Exception(message)
+
 /** Original lyric lines and word timing are retained. English is a separate line-aligned layer. */
 internal suspend fun englishLyrics(context:Context,lines:List<LyricLine>,source:String?,status:(String)->Unit):List<String> {
-    require(lines.isNotEmpty()) {string(R.string.no_lyrics_to_translate)}
+    if(lines.isEmpty()) throw TranslationProblem(string(R.string.no_lyrics_to_translate))
     status(string(R.string.identifying_language))
     val identifier=LanguageIdentification.getClient()
     val language=try {source ?: TranslateLanguage.fromLanguageTag(identifier.identifyLanguage(lines.joinToString("\n") {it.text}.take(5000)).awaitTranslation())}
         finally {identifier.close()}
-    require(language!=null && language!="und") {string(R.string.choose_the_original_language_to_translate_th)}
+    if(language==null || language=="und") throw TranslationProblem(string(R.string.choose_the_original_language_to_translate_th))
     if(language==TranslateLanguage.ENGLISH) return lines.map {it.text}
     return translateLyricLines(File(context.cacheDir,"lyric-translations"),language,lines,status) {
         val translator=Translation.getClient(TranslatorOptions.Builder().setSourceLanguage(language).setTargetLanguage(TranslateLanguage.ENGLISH).build())
         object:LineTranslator {
-            override suspend fun prepare() {translator.downloadModelIfNeeded(DownloadConditions.Builder().build()).awaitTranslation()}
+            override suspend fun prepare() {
+                // Q18-078: ML Kit waits quietly for a connection to fetch a missing model; say so at once instead.
+                val model=TranslateRemoteModel.Builder(language).build()
+                val present=try {RemoteModelManager.getInstance().isModelDownloaded(model).awaitTranslation()}
+                    catch(e:CancellationException) {throw e} catch(_:Exception) {false}
+                if(!present && !AppContainer.get(context).runtime.networkConditions().validated)
+                    throw TranslationProblem(string(R.string.translation_needs_a_connection))
+                translator.downloadModelIfNeeded(DownloadConditions.Builder().build()).awaitTranslation()
+            }
             override suspend fun translate(text:String):String=translator.translate(text).awaitTranslation()
             override fun close()=translator.close()
         }
@@ -81,6 +93,10 @@ internal class LyricTranslationRun(private val translate:suspend (List<LyricLine
         english=emptyList();status=""
         if(on && lines?.isNotEmpty()==true) try {
             english=translate(lines,source) {status=it};status=""
-        } catch(e:CancellationException) {status="";throw e} catch(e:Exception) {english=emptyList();status=e.message?:string(R.string.translation_unavailable_try_again)}
+        } catch(e:CancellationException) {status="";throw e} catch(e:Exception) {english=emptyList();status=translationFailureText(e)}
     }
 }
+
+/** Q18-072: Riff's own reasons are shown; an exception's raw text (an R8-renamed field, say) never is. */
+internal fun translationFailureText(error:Exception):String =
+    (error as? TranslationProblem)?.message ?: string(R.string.translation_unavailable_try_again)

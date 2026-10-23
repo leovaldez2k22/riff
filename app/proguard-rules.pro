@@ -6,3 +6,9 @@
 -keepclassmembers class com.metrolist.innertubex.extraction.InnerTubeExtractor {
     com.metrolist.innertubex.extraction.ExtractionCipherService cipherService;
 }
+
+# Q18-072: ML Kit (and Firebase components) create each ComponentRegistrar named in the manifest by reflection
+# through its no-argument constructor. R8 kept the classes by name but removed the constructors, so no registrar
+# was made, LanguageIdentifierImpl.Factory stayed null and translation failed in release builds only.
+# scripts/quality/check_registrars.py checks this in every shrunk build.
+-keep class * implements com.google.firebase.components.ComponentRegistrar { public <init>(); }

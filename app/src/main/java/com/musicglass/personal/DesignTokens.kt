@@ -176,6 +176,9 @@ internal object RiffOverPicture {
     val iconEdge = 1.5.dp
     /** A wider, softer copy that carries the edge out over a white picture. */
     val iconHalo = 6.dp
+    /** A collection's lines under its title: the subtitle and the song count and length (Q18-093). */
+    val headerLine = 16.sp
+    val headerLineGap = 6.dp
     const val iconEdgeAlpha = .9f
     const val iconHaloAlpha = .55f
     /** Under words: one close, deep shadow that edges each letter. */

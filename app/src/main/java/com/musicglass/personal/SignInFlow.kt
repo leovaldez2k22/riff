@@ -137,7 +137,7 @@ internal data class GoogleSessionEntry(val email: String?, val index: String, va
  * valid at 9, id at 10, …, signed out at 14], …]]. Each signed-in account's position is its authuser index. Anything
  * unexpected gives an empty list, and Riff carries on with Google's own page.
  */
-internal fun parseGoogleSessionAccounts(body: String): List<GoogleSessionEntry> = runCatching {
+internal fun parseGoogleSessionAccounts(body: String): List<GoogleSessionEntry> = try {
     val root = org.json.JSONArray(body.trim().removePrefix(")]}'").trim())
     val rows = root.optJSONArray(1) ?: return emptyList()
     var index = 0
@@ -152,4 +152,4 @@ internal fun parseGoogleSessionAccounts(body: String): List<GoogleSessionEntry> 
         // Signed-out accounts are listed after the signed-in ones and have no position.
         if (signedIn) GoogleSessionEntry(email, (index++).toString(), id, true) else GoogleSessionEntry(email, "", id, false)
     }
-}.getOrDefault(emptyList())
+} catch (_: org.json.JSONException) { emptyList() }

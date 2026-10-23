@@ -23,6 +23,9 @@ class ProviderCatalogTest {
         val hundred=(1..100).map {song(it,205_200L)} // 100 songs of 3:25.2: 5 h 42 min
         assertEquals("100 songs · 5 h 42 min",collectionSummary(null,hundred,complete=true))
         assertEquals("940 songs · 5 h 42 min so far",collectionSummary(940,hundred,complete=false))
+        // Q18-095: the header counted 940; once every page is in, the songs that can be played and the rest named.
+        assertEquals("100 songs · 5 h 42 min · 840 unavailable",collectionSummary(940,hundred,complete=true))
+        assertEquals("100 songs · 5 h 42 min",collectionSummary(100,hundred,complete=true))
         assertEquals("1 song · 4 min",collectionSummary(null,listOf(song(1,225_000L)),complete=true))
         assertEquals("a song with no length is left out of the sum","2 songs · 4 min",collectionSummary(null,listOf(song(1,225_000L),song(2,null)),complete=true))
         assertEquals("no lengths at all: the count alone","2 songs",collectionSummary(null,listOf(song(1,null),song(2,null)),complete=true))

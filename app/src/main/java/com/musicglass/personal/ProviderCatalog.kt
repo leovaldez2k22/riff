@@ -218,12 +218,14 @@ internal fun catalogDurationMs(item:JsonObject):Long? {
 }
 
 /**
- * Q18-093, the owner's layout A: "100 songs · 5 h 42 min" under a collection's title. The count is the header's where
- * it states one, else the songs loaded; the length adds the loaded songs that have one, "so far" while pages load.
+ * Q18-093, the owner's layout A: "100 songs · 5 h 42 min" under a collection's title; the length adds the loaded songs
+ * that have one. While pages load the count is the header's, if it states one, and the line ends "so far". Once all
+ * are in it is the songs Riff can play, and when the header counted more, how many YouTube Music does not list
+ * (Q18-095: a header of 940 tracks lists 815; the rest are unavailable).
  */
 internal fun collectionSummary(headerCount:Int?,songs:List<ProviderHomeCard>,complete:Boolean):String? {
     if(songs.isEmpty()) return null
-    val count=quantity(R.plurals.n_songs,headerCount?:songs.size)
+    val count=quantity(R.plurals.n_songs,if(complete) songs.size else headerCount?:songs.size)
     val totalMs=songs.sumOf {it.durationMs?:0L}
     val minutes=((totalMs+30_000)/60_000).toInt()
     val length=when {
@@ -232,7 +234,12 @@ internal fun collectionSummary(headerCount:Int?,songs:List<ProviderHomeCard>,com
         else -> string(R.string.collection_length_hours,minutes/60,minutes%60)
     }
     val line=if(length==null) count else string(R.string.collection_summary,count,length)
-    return if(complete) line else string(R.string.collection_summary_so_far,line)
+    val missing=(headerCount?:0)-songs.size
+    return when {
+        !complete -> string(R.string.collection_summary_so_far,line)
+        missing>0 -> string(R.string.collection_summary,line,string(R.string.collection_n_unavailable,missing))
+        else -> line
+    }
 }
 internal fun parseQueueTracks(root: JsonElement): List<ProviderTrack> = parseCatalogCards(
     catalogRenderer(root,"playlistPanelRenderer") ?: catalogRenderer(root,"playlistPanelContinuation") ?: root)

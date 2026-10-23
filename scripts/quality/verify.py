@@ -12,7 +12,7 @@
 Lanes
   pr         Script tests, static checks, JVM and Compose tests, release lint, an unsigned shrunk release with
              its build identity, the release content check (merged manifest, components, permissions, leftovers),
-             the 40 MiB ceiling and Baseline Profile, and the solver seam in the R8 mapping. Installs nothing.
+             the 40 MiB ceiling and Baseline Profile, and the solver seam and ML Kit registrars in the R8 output. Installs nothing.
   emulator   The fixture suite (FIXTURE_CLASSES) on an emulator with its network turned off: a debug app and its
              test APK built together, their identities compared before anything is installed, then a strict read
              of the instrumentation output. Never a physical device.
@@ -98,7 +98,7 @@ def fixture_classes(lane, api):
     return FIXTURE_CLASSES + [name for name, since in EMULATOR_CLASSES.items() if lane == "emulator" and (api or 0) >= since]
 
 LANES = {
-    "pr": ["script-tests", "static", "build", "artifactIdentity", "jvm", "lint", "release-content", "apk", "solver-seam"],
+    "pr": ["script-tests", "static", "build", "artifactIdentity", "jvm", "lint", "release-content", "apk", "solver-seam", "registrars"],
     "emulator": ["device", "pairing", "install", "instrumentation"],
     "device": ["device", "pairing", "install", "instrumentation"],
     "benchmark": ["device", "benchmark"],
@@ -388,6 +388,9 @@ class Lane:
         self.gate("apk", lambda: self.run([self.python, "scripts/quality/check_performance.py", "apk", "--apk", self.release_apk()], "apk-check.log"))
         self.gate("solver-seam", lambda: self.run([self.python, "scripts/quality/check_solver_seam.py", "--mapping",
                                                    self.root / "app/build/outputs/mapping/release/mapping.txt"], "solver-seam.log"))
+        self.gate("registrars", lambda: self.run([self.python, "scripts/quality/check_registrars.py",
+                                                  "--mapping", self.root / "app/build/outputs/mapping/release/mapping.txt",
+                                                  "--usage", self.root / "app/build/outputs/mapping/release/usage.txt"], "registrars.log"))
 
     def release_apk(self):
         apks = sorted((self.root / "app/build/outputs/apk/release").glob("*.apk"))

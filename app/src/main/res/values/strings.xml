@@ -677,6 +677,7 @@
     <string name="sign_out">Sign out</string>
     <string name="collection_summary">%1$s · %2$s</string>
     <string name="collection_summary_so_far">%1$s so far</string>
+    <string name="collection_n_unavailable">%1$d unavailable</string>
     <string name="collection_length_minutes">%1$d min</string>
     <string name="collection_length_hours">%1$d h %2$d min</string>
     <string name="sign_out_all_title">Sign out of all accounts?</string>
@@ -758,6 +759,7 @@
     <string name="touch_and_hold_your_home_screen_choose">Touch and hold your home screen, choose Widgets, then Riff.</string>
     <string name="translating_x_of_x_lines">Translating %1$s of %2$s lines…</string>
     <string name="translation_unavailable_try_again">Translation unavailable. Try again.</string>
+    <string name="translation_needs_a_connection">Translating needs a connection the first time, to download the language model.</string>
     <string name="true_crime">True crime</string>
     <string name="try_again">Try again</string>
     <string name="turns_down_louder_songs_from_youtube_music">Turns down louder songs from YouTube Music when it supplies loudness data</string>
