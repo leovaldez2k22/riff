@@ -3035,5 +3035,10 @@ New contract rule 16: commit each package locally on its branch before starting 
   run's evidence is kept beside it in artifacts/quality/q19/rc7.
 - Side-by-side builds (-PriffSideBySide=true) in artifacts/quality/q19/rc7/candidates.txt: benchmark 23c58498...a523,
   debug-androidTest 25ba0503...84b4, debug-sidebyside b14a6f37...d5bc, macrobenchmark 8d1a6e2f...4ed2.
-- Waiting for the owner to sign: build-release-candidate.ps1 -Preview -Offline in ..\Riff-rc7 with -Toolchain at
-  this checkout's .toolchain; nothing else builds in that folder meanwhile.
+- The owner signed it: build-release-candidate.ps1 -Preview -Offline in ..\Riff-rc7 with -Toolchain at this
+  checkout's .toolchain (a first try from this checkout stopped on its uncommitted files, as it should). Signed:
+  riff-0.10.0-rc7.apk 1fb9fdc0...b1a6 (27,911,055 bytes, Riff, com.musicglass.personal), riff-0.10.0-rc7-preview.apk
+  a74dfa03...f347 (27,911,467 bytes, Riff Preview); both code 28, built from 32318db, certificate ac703423...f6e1 (as
+  rc6), arm64-v8a only; release content 20 of 20 each (artifacts/quality/q19/rc7/release-content-*.log).
+- Next, with the owner: install rc7 (Riff Preview over rc6, same certificate, higher code), the G3 phone checks,
+  then Q19R.
