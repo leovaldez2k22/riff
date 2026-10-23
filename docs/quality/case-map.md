@@ -37,11 +37,11 @@ section 18); C9 reruns them on the final candidate.
 
 | Case | Tests | Device and manual | Status | Open |
 |---|---|---|---|---|
-| ACC01 result after A->B | AccountSessionTest, DownloadOwnerSwitchTest (JVM); AccountSwitchDeviceTest.queueRequestBuiltForThePreviousAccountIsSkipped (emulator, B1) | A6: the owner's last search and results stayed on Search under the dummy account and were saved to its recent searches | BLOCKED | Q18-012 fixed in Q18F (ShellNavigationTest, JVM); the real A->B check is A2 (phone, two accounts) |
+| ACC01 result after A->B | AccountSessionTest, DownloadOwnerSwitchTest (JVM); AccountSwitchDeviceTest.queueRequestBuiltForThePreviousAccountIsSkipped (emulator, B1) | A6: the owner's last search and results stayed on Search under the dummy account and were saved to its recent searches; Q19A A2 (21 Oct, rc6 Riff Preview): changed to the owner's account and back; the dummy account's search hidden on the owner's account and back on the dummy (owner) | PASS |  |
 | ACC02 A->B->A | AccountSwitchDeviceTest.eachAccountGetsItsOwnQueueBackPaused (emulator, B1; synthetic identities) | Real A->B->A goes with UX07 | DEFERRED | A2 with UX07 (Q18-009 fixed in Q18F) |
 | ACC03 cookie rotation | AccountSessionTest (same owner, no quiesce, transfers continue) | none needed | PASS | |
 | ACC04 selector order | AccountScopeProviderTest (JVM, Robolectric) | Two real accounts at swapped chooser positions not tried: Change account is broken | DEFERRED | A2, two real accounts at swapped chooser positions (Q18-009 fixed in Q18F) |
-| ACC05 cancelled or failed chooser | AccountScreenSessionTest (failed sign-out keeps the account) | A6: after a Change account that did not finish, Riff kept the old account while the sign-in browser's cookies had moved to the new one | BLOCKED | Q18-009, Q18-010 fixed in Q18F (WebBoundariesTest, AccountScopeProviderTest, JVM); an abandoned change on the phone is A2 |
+| ACC05 cancelled or failed chooser | AccountScreenSessionTest (failed sign-out keeps the account) | A6: after a Change account that did not finish, Riff kept the old account while the sign-in browser's cookies had moved to the new one; Q19A A2 (21 Oct, rc6): an abandoned account change kept the old account; fine by the owner | PASS |  |
 | ACC06 missing stable ID | AccountSessionTest, AccountScreenSessionTest, HistoryScreensTest.unverifiedAccount... (JVM) | none needed | PASS | |
 | ACC07 local vs mixed on switch | ScopedPlaybackSnapshotsTest; AccountSwitchDeviceTest.onDeviceQueueKeepsItsPlaceAcrossAnAccountSwitch (emulator, B1) | none needed | PASS | |
 
@@ -102,7 +102,7 @@ section 18); C9 reruns them on the final candidate.
 | Case | Tests | Device and manual | Status | Open |
 |---|---|---|---|---|
 | CAT01 unknown or malformed renderer | ProviderFixtureTest unknown-renderers.json, emptyAndBareAnswersParseToNothing, ProviderContractTest | Live answers in B10 | PASS | |
-| CAT02 continuation loop and cap | ProviderContractTest (repeated token, cycles, page limit), CollectionTruncationUiTest | Playlists over 100 and 2,000 songs in B10 | BLOCKED | playlists over 100 and 2,000 songs need the dummy account: B7 |
+| CAT02 continuation loop and cap | ProviderContractTest (repeated token, cycles, page limit), CollectionTruncationUiTest | Playlists over 100 and 2,000 songs in B10; Q19B 23 Oct, Riff Preview rc6, dummy account: The Hits: '90s queued all 120 songs (YouTube: 120); THE LONGEST MIXTAPE (YouTube: 940 tracks, about 910 playable) queued 815 with no notice (Q18-095); no public playlist over 2,000 found, so the cap is checked by the JVM tests only | FAIL | Q18-095; the 2,000 cap on a live list when one is found |
 | CAT03 HTTP 200 rejected edit | ProviderMutationTest, ProviderContractTest errors inside 200 | Q19B owner session (22 Oct): the dummy account has no playlist and Riff cannot create one (Q18-081) | BLOCKED | Q18-081, then a live playlist edit on the dummy account |
 | CAT04 provider native sort | ProviderCatalogTest.playlistSortsUseOnlyProviderCommands (JVM); PlaylistSortDeviceTest.nativeSortPreferencesReloadEveryTrackAndRestoreOriginalSelection is a live test in no lane | PlaylistSortDeviceTest or the same steps on the test account in B10, preference restored | BLOCKED | PlaylistSortDeviceTest or the same steps on the dummy account: B7, preference restored |
 | LYR01 word, line, plain, none | ProviderFixtureTest.timedAndPlainLyricsAreToldApart, LyricsTest, LyricsPreloadTest, LyricsKaraokeTest | Q19B B3a (22 Oct, Riff Preview rc6): "Delicate" still read Line synced, Better Lyrics · Kugou; the owner, 23 Oct: Delicate now has word-synced lyrics (Q18-075 closed) | PASS | none |
@@ -141,11 +141,11 @@ Tests per journey are listed in `core-journeys.md`. The phone walk-through is A4
 
 | Journey | Phone evidence | Status | Open |
 |---|---|---|---|
-| UX01 first launch, sign-in | A4: Home read in order. A6: Change account cannot finish; the owner asked for a new sign-in page | BLOCKED | Q18-009 fixed and Q18-013 built in Q18F; the screens without an account PASS on API 33 and 36 (Q19C3) and on the phone (Q19B5, signed rc2 Preview); Q18-046 fixed in Q19G; signing in for real: A2 |
+| UX01 first launch, sign-in | A4: Home read in order. A6: Change account cannot finish; the owner asked for a new sign-in page; Q19A A2 (21 Oct, rc6 Riff Preview): sign-in and account change PASS by the owner (Q18-009, 010, 012, 013, 028) | PASS |  |
 | UX02 search, play, queue | A4 | PASS | Q18-018 (Low) |
 | UX03 filter, sort, play | A4 | PASS | |
 | UX04 download, restart offline, play | A4 follow-up and B5; Q19B B3b (22 Oct, Riff Debug): a download killed and reopened finishes (Q18-021); phase announcements need TalkBack, excluded on the phone (Q18-031); Q19B 23 Oct, Riff Preview rc6: downloaded, force-stopped, airplane mode, played from Downloads and seeked offline, then removed: PASS (artifacts/quality/q19/ux04) | BLOCKED | Q18-031 on an emulator with TalkBack (the only part left) |
-| UX05 mini, full, queue, Home | A4 PASS; A1: doubled title and cover at the mini-player end of the morph | BLOCKED | Q18-001, Q18-002, Q18-008 fixed in Q18F (PlayerFixesTest, JVM); the morph by eye: A1 |
+| UX05 mini, full, queue, Home | A4 PASS; A1: doubled title and cover at the mini-player end of the morph; Q19A A1 (21 Oct, rc6): player opened and closed repeatedly, no doubled title, no patch (Q18-001, 055, 002, 008) PASS by the owner | PASS |  |
 | UX06 lyrics, timing, translation | A4: +0.2 s dialog. Q19B (22 Oct, Riff Preview rc6): translation fails (Q18-072); Delicate line synced (Q18-075, closed by the owner 23 Oct: now word synced) | FAIL | Q18-072 |
 | UX07 account switch | not run | DEFERRED | A2, by the owner (Q18-009 fixed in Q18F) |
 | UX08 cache, history, download deletion | A4: wording and Cancel; real deletion is A7 | PASS | |
@@ -185,7 +185,7 @@ Tests per journey are listed in `core-journeys.md`. The phone walk-through is A4
 | Q11 | PASS locally; pinned formatter BLOCKED offline | formatter stays BLOCKED (no network for a pinned tool) |
 | Q12, Q13 | PASS locally; walk-throughs done in A4 | the FAIL rows above; keyboard BLOCKED |
 | Q12A | PASS locally; live feed BLOCKED | publication decision |
-| Q14 | PASS locally for tooling; budgets measured only by fallback | B7b after Q18-023; B9 battery; B8 live soak |
+| Q14 | PASS locally for tooling; budgets measured only by fallback | B8 three 2-hour runs done 23 Oct (no battery budget, recorded as measured); B9 4-hour soak accepted by the owner 23 Oct; B7b after Q18-023 |
 | Q15, Q15A | PASS locally; C7 and B11 done | none beyond the bugs |
 | Q16 | PASS locally; C2, C6 done | Linux checksums BLOCKED (owner: no push); hosted CI not run |
 | Q16A, Q16B, Q17A | PASS locally; checked on the phone in A1 and B1 | Q18-001, Q18-003, Q18-004 |
@@ -203,7 +203,7 @@ Each is read as follows; none is counted as PASS.
 | Q12 tokens centralized | PARTIAL | open limitation: 659 raw measures held by the static-check ratchet; for C8's known limitations |
 | Q13 keyboard open | NOT DONE | PASS on the phone for the sleep timer (A4 UX10); Search not checked; part of A11Y01 (FAIL for its other reasons) |
 | Q13 progress never announced continuously | NOT VERIFIED | PASS in A4 follow-up ("not continuously"); "announced once" FAIL, Q18-031 |
-| Q14 retained memory growth | NOT DECIDED | B8 offline soak: no growth over 2 h (PASS); MemoryCheck's 3-run loop is BLOCKED with Macrobenchmark (Q18-023) |
+| Q14 retained memory growth | NOT DECIDED | B8 offline soak: no growth over 2 h (PASS); B9 4 h live (23 Oct): medians of hour 1 and the last hour both about 334 MB, the single-reading rule FAIL noted, accepted by the owner; MemoryCheck's 3-run loop is BLOCKED with Macrobenchmark (Q18-023) |
 | Q14 optimization rules | Partly | two rules not audited; for C8's known limitations |
 | Q15 no unresolved high-severity issue | None known | at Q15; now Q18-009, Q18-010, Q18-021 and Q18-013 are High and open, so G07 waits for the fix package |
 | Q15 dependency verification | PARTIAL | strict locally (C6); hosted strict run BLOCKED (no push) |
@@ -217,9 +217,9 @@ Each is read as follows; none is counted as PASS.
 
 | Case | Tests | Device and manual | Status | Open |
 |---|---|---|---|---|
-| F1 lyric lines not clipped; the Aurora look (Q18-037, Q18-036) | LyricsShareTest (the clip, the tint behind the line, four looks), artifacts/quality/q19/f1/aurora-card.png | B4 on the phone (signed rc2 Preview, signed out): hold picks a line with the tint, a second line added, the four looks readable (artifacts/quality/q19/b4/06-looks-strip.png). The owner names the look: A3 | BLOCKED | A3 (the owner names the look) |
-| F2 real counts on screen 6; Checking plays in full (Q18-038, Q18-039) | SignInCountsTest, LikedSongsCountTest, SignInDesignTest (JVM) | Real numbers need a signed-in account: A2, A3 | BLOCKED | A2, A3 |
-| F3 lyric card share and save on a device | LyricShareDeviceTest: API 33 3 of 3; API 36 3 of 3; API 31 2 of 3 (Q18-045, a test fault); not in the lane's list (Q18-044) | B4 on the phone: Save wrote Pictures/Riff, pulled then deleted; the share sheet opened and was cancelled, but its preview was an older card (Q18-048, fixed in code in ec0f53c). LyricShareDeviceTest 3 of 3 on the phone (B1 lane) and on API 33 | BLOCKED | Q18-048: the device check of the fix with rc3 (B4 rerun) |
+| F1 lyric lines not clipped; the Aurora look (Q18-037, Q18-036) | LyricsShareTest (the clip, the tint behind the line, four looks), artifacts/quality/q19/f1/aurora-card.png | B4 on the phone (signed rc2 Preview, signed out): hold picks a line with the tint, a second line added, the four looks readable (artifacts/quality/q19/b4/06-looks-strip.png). The owner names the look: A3; Q19A A3 (21 Oct, rc6): all four looks right; the owner names the fourth look Aurora, as built | PASS |  |
+| F2 real counts on screen 6; Checking plays in full (Q18-038, Q18-039) | SignInCountsTest, LikedSongsCountTest, SignInDesignTest (JVM) | Real numbers need a signed-in account: A2, A3; Q19A A2 (21 Oct, rc6): the owner signed in for real; sign-in animation fine; Q18-038 and Q18-039 accepted by the owner (21 Oct). The counts were not compared number by number with YouTube | PASS |  |
+| F3 lyric card share and save on a device | LyricShareDeviceTest: API 33 3 of 3; API 36 3 of 3; API 31 2 of 3 (Q18-045, a test fault); not in the lane's list (Q18-044) | B4 on the phone: Save wrote Pictures/Riff, pulled then deleted; the share sheet opened and was cancelled, but its preview was an older card (Q18-048, fixed in code in ec0f53c). LyricShareDeviceTest 3 of 3 on the phone (B1 lane) and on API 33; Q18-048 PASS (Q19A A3 by the owner; Q19B 23 Oct, a new address for each card) | PASS |  |
 | F3 settings compartments | SettingsCompartmentsTest (JVM) | B1 device lane PASS on the phone; B4: all six sections open with their content (artifacts/quality/q19/b4/settings-strip.png) | PASS |  |
 | F4 lint and the new surfaces | lint 0 errors (Q19C1); lint-triage.md Q19F4; security-review.md section 9 | none needed | PASS | |
 | F5 plan 2 supplement (S00, S02, S03) | PlayerConfigBoundaryTest (PC01 to PC03, JVM); S00 in the ledger | S03 fetched and recorded with the owner's approval (8de0f4e); Q18-041 left as it is by the owner's decision | PASS |  |
@@ -233,18 +233,18 @@ artifacts/quality/q19/c3 (no personal data).
 |---|---|---|---|---|
 | SGN01 welcome: first run, and the three latest of five saved accounts with See all | aFirstRunSaysBringYourMusic, welcomeShowsTheThreeLatest... (API 33 6 of 6; API 36 3 of 3) | Pictures 1-welcome-first-run, 1-welcome-saved | PASS | |
 | SGN02 all accounts: search and "Remove from this phone" | welcomeShowsTheThreeLatestAndAllAccountsSearchesAndRemoves: the search keeps one row, removing the latest drops it from the screen and the stored list, and only it | Q18-046 fixed: names whole, the menu readable (artifacts/quality/q19/g1/api33-pics/strip-1b.png); the test now checks no name is ellipsized | PASS |  |
-| SGN03 Google's page in Riff's frame | googlesPageOpens...: the frame asks only for Google's sign-in hosts; the bar reads accounts.google.com | B5 on the phone: Google's page loads in the frame, the bar reads accounts.google.com, Step 1 of 2 and the password line in the footer. The country host comes only after the email step, and outside links were not tried without an account: A2 | BLOCKED | A2 |
+| SGN03 Google's page in Riff's frame | googlesPageOpens...: the frame asks only for Google's sign-in hosts; the bar reads accounts.google.com | B5 on the phone: Google's page loads in the frame, the bar reads accounts.google.com, Step 1 of 2 and the password line in the footer. The country host comes only after the email step, and outside links were not tried without an account: A2; Q19A A2 (21 Oct, rc6): the owner signed in through Google's page in Riff's frame, fine | PASS |  |
 | SGN04 "didn't load" with the network off | googlesPageOpens...: the card appears with Try again and Start over; Start over and Back return to Welcome with the browser gone | B5 on the phone in airplane mode: the card with Try again and Start over | PASS |  |
-| SGN05 Back through every step | backWalksEveryStepToTheStart: All accounts, its back arrow, "didn't load" | B5 on the phone over a page that loaded: the stop sheet's Keep signing in returns to the page and Stop to Welcome. Back over a loaded page: A2 | BLOCKED | A2 |
+| SGN05 Back through every step | backWalksEveryStepToTheStart: All accounts, its back arrow, "didn't load" | B5 on the phone over a page that loaded: the stop sheet's Keep signing in returns to the page and Stop to Welcome. Back over a loaded page: A2 | BLOCKED | a walk back through every step on the phone (A2 did not do it) |
 | SGN06 Remove animations: every transition a cut | withReducedMotionEveryTransitionIsACut, and withFullMotionTheSameTransitionOverlaps as its control | none needed | PASS | |
-| SGN07 Checking and Connected with a real account | SignInDesignTest, SignInCountsTest (JVM) | A2, A3 | BLOCKED | A2, A3 |
+| SGN07 Checking and Connected with a real account | SignInDesignTest, SignInCountsTest (JVM) | A2, A3; Q19A A2 (21 Oct, rc6): Checking and Connected seen with a real account, fine by the owner | PASS |  |
 
 
 ### The owner's requests of 20 October (F6 to F10, and the swipe)
 
 | Case | Tests | Device and manual | Status | Open |
 |---|---|---|---|---|
-| F6 the player's clock in hours | NowPlaying clock tests (JVM); OwnerFeaturesDeviceTest: 1:02:05 and -57:55 on a 2-hour episode, m:ss under an hour (API 31, 33, 36) | A long episode on the phone: player, mini player, notification (B11); the look (A3) | BLOCKED | B11, A3 |
+| F6 the player's clock in hours | NowPlaying clock tests (JVM); OwnerFeaturesDeviceTest: 1:02:05 and -57:55 on a 2-hour episode, m:ss under an hour (API 31, 33, 36) | A long episode on the phone: player, mini player, notification (B11); the look (A3); Q19A A3 (21 Oct, rc6): an episode over an hour seeked past 1:00:00, hours in the player, mini player and notification (owner) | PASS |  |
 | F7 pins on speed dial | SpeedDialPinsTest, LocalDataTransferTest round trip (JVM); OwnerFeaturesDeviceTest: kept by a new store, drawn first with one badge each, the 28th refused (API 31, 33, 36) | Q19B B11 (22 Oct, Riff Preview rc6): a pin drawn first with its badge on Home in airplane mode, then removed (artifacts/quality/q19/day22/b11/f7.txt); the look in A3 | PASS | |
 | F8 frosted glass by default at 20 % | AccessibilitySettings default and kept choice: OwnerFeaturesDeviceTest (API 31, 33, 36); bar pictures on API 36 (artifacts/quality/q19/glass) | Q19B B11 (22 Oct): a cleared Riff Debug reads frosted glass on at 20 % (artifacts/quality/q19/day22/b11/f8.txt); B6: Home scroll 1.67 % janky frames at 20 %, 1.33 % off; the look in A3 | PASS | |
 | F9 backup on this phone | LocalBackupTest (9, JVM); OwnerFeaturesDeviceTest: MediaStore write, rewrite, read, Off removes (API 31, 33, 36) | Q19B B11 (22 Oct, Riff Debug 1880301, no account): Back up now, uninstall and reinstall, the restore offer, the folder picker, the setting back (shown only after a restart), Off removed this install's files (artifacts/quality/q19/day22/b11/f9.txt); Q18-078 | BLOCKED | Q18-078; the account's waiting file after its sign-in (A2) |
@@ -255,7 +255,7 @@ artifacts/quality/q19/c3 (no personal data).
 
 | Case | Tests | Device and manual | Status | Open |
 |---|---|---|---|---|
-| Q18-040 | see q18-bugs.md | One redacted account-menu capture: B5 (asked) | BLOCKED | B5 |
+| Q18-040 | see q18-bugs.md | accepted by the owner (21 Oct); the B5 capture is a screen capture, which the phone rule forbids, so covered by A2 as the Q19B plan set out; the missing email carries on in Q18-085 and Q18-088 | PASS | none (Q18-085, Q18-088) |
 | Q18-041 player config never fetched | PlayerConfigBoundaryTest | Owner's choice of (a), (b) or (c); timing in B3 | DECLINED | owner's decision 19 Oct 2026: left as it is |
 | Q18-042 static check | test_static_checks | none | PASS | fixed in Q19G (6bcce26) |
 | Q18-043 release-content check and the share provider | check_release_content.py | none | PASS | fixed in Q19G (6bcce26) |
@@ -263,7 +263,7 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-045 LyricShareDeviceTest on API 31 | LyricShareDeviceTest | none | PASS | fixed in Q19G (6bcce26) |
 | Q18-046 Accounts screen looks | SignInScreensDeviceTest pictures | none | PASS | fixed in Q19G (6bcce26) |
 | Q18-047 release-content check skips the certificate of a v2-signed APK | check_release_content.py | none | PASS | fixed in Q19G (6bcce26) |
-| Q18-048 share sheet shows an older card | LyricShareDeviceTest (the next card's address differs, one file kept) | B4 rerun with rc4 | BLOCKED | the phone check with rc4 (B4, B13 row) |
+| Q18-048 share sheet shows an older card | LyricShareDeviceTest (the next card's address differs, one file kept) | Q19A A3 (21 Oct, rc6): the preview matched a second, different card (owner); Q19B 23 Oct, Riff Preview rc6: two different cards shared one after the other went out under two addresses (riff-lyrics-<time>.png, read from the share intent), nothing sent | PASS |  |
 | Q18-049 glass bars too clear over text | none yet | Home and Settings pictures (artifacts/quality/q19/b5) | DECLINED | not a bug (owner); remedy: frosted by default at 20 %, frost to the edges and bending at the rim; the look by eye in A3 |
 | Q18-050 benchmark lane stops on dependency verification | verify.py --lane benchmark | Q19B6 (22 Oct): the lane built, installed and ran on the phone | PASS | fixed in 10b96ac; its test failures are Q18-073 and Q18-074 |
 | Q18-051 start-up crash reading the provider's state | HomePrefetchTest.theProviderIsBuiltOnTheCallersThreadBeforeAnyScreenReadsIt (JVM) | Q19B B3a (22 Oct, Riff Preview rc6): ten cold starts, five offline, no crash (artifacts/quality/q19/day22/b3a/coldstarts.txt) | PASS | |
@@ -297,6 +297,8 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-091 format picker ignores DRC copies | fixture with 251 and 251-drc picks the non-DRC one (planned) | audio quality investigation, 23 Oct; no DRC format seen yet | TODO | Q19G (triage first) |
 | Q18-092 16-bit boost limiter changes loud music | processor tests: float input, unity gain bit-exact, no limiting below full scale (planned) | audio quality investigation, 23 Oct | FAIL | Q19G |
 | Q18-093 song count and total length on a playlist | collection summary test (planned) | owner's request, 23 Oct | TODO | Q19G |
+| Q18-094 HTML character codes shown in titles and descriptions | provider text decoding test (planned) | Q19B CAT02 check on Riff Preview rc6, 23 Oct | FAIL | Q19G |
+| Q18-095 a 940-track playlist queues 815 songs with no notice | collection loader test against this playlist's pages (planned) | Q19B CAT02 check on Riff Preview rc6, 23 Oct | FAIL | Q19G |
 
 ## 6. Totals
 
@@ -330,3 +332,12 @@ artifacts/quality/q19/day22/owner): the 72 rows PASS 48 (adds UX10), FAIL 7 (add
 Q18-080), BLOCKED 10, DEFERRED 6, DECLINED 1. Section 7, 44 rows: PASS 20 (adds F10), FAIL 10 (adds Q18-079 to
 Q18-081), BLOCKED 12, DECLINED 2. Also passed by the owner: F4 slider haptics, Q18-032 widget names, Q18-058 a
 second account signing in. CAT03 waits for Q18-081 (no way to make a playlist).
+
+Q19B close, 23 October (B8 three runs, B9 accepted, UX04, the CAT02 and Q18-048 checks on Riff Preview rc6, and the
+rows Q19A had already passed): the 72 rows PASS 53 (adds UX01, UX05, ACC01, ACC05, LYR01), FAIL 7 (PLY09 Q18-080,
+AUD01 Q18-077, CAT02 Q18-095, LYR02 and UX06 Q18-072, A11Y02 Q18-079, PERF01 Q18-074), BLOCKED 5 (CAT03 waits for
+Q18-081, CAT04 a native sort on the dummy account, A11Y01 TalkBack declined and no keyboard, UPD01 publication, UX04
+TalkBack announcements on an emulator), DEFERRED 6, DECLINED 1. Section 7, 63 rows: PASS 29 (adds F1, F2, F3, F6,
+SGN03, SGN07, Q18-040, Q18-048, Q18-075), FAIL 21, BLOCKED 5 (SGN05 a walk back on the phone, F9 on Riff Preview
+after rc7, F3b a swipe back on the phone, Q18-054 C6 on the next candidate, Q18-071 on an emulator), TODO 6,
+DECLINED 2. Every FAIL and TODO goes to Q19G.

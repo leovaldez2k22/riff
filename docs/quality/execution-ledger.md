@@ -2954,3 +2954,20 @@ New contract rule 16: commit each package locally on its branch before starting 
   no crash lines) with the memory rule's FAIL noted: one reading at hour 1 against the last gave +37.6 MB (31.3 MB
   allowed), while the medians of hour 1 and of the last hour were both about 334 MB. No rerun; soak.py moves to
   medians in Q19G.
+
+### Q19B close: CAT02, Q18-048 and the case map (23 October 2026, afternoon)
+- Owner: "accept b9, do both phone checks, then update the case map". USB adb (Wi-Fi adb on 5555 switched off with
+  `adb usb` first; the port then refused), Riff Preview rc6, dummy account, reading only, no screenshots.
+- CAT02: The Hits: '90s (YouTube Music, 120 songs) queued 120 of 120. THE LONGEST MIXTAPE - 1000 Songs For You
+  (Caribou; YouTube Music's header: 940 tracks; signed out the website lists 500 rows, 484 playable) queued 815,
+  steady over 30 s, with no notice: about 95 playable songs missing (Q18-095). No public playlist over 2,000 songs
+  was found, so the cap stays with the JVM tests. Seen on the way: titles and a description show HTML codes
+  ("&#127826;", "&amp;", "&#10;") and an official playlist's row says "Playlist · Playlist" (Q18-094).
+- Q18-048: two different lyric cards shared one after the other went out as
+  shared_lyrics/riff-lyrics-1792743329884.png and riff-lyrics-1792743387311.png (read from the share intent with
+  dumpsys activity); both sheets closed with Back, nothing sent, nothing saved. PASS.
+- Cleanup: the four search-history entries these checks made removed; music paused; phone left on its home screen.
+- Case map: CAT02 FAIL (Q18-095), Q18-048 and F3 PASS; rows Q19A had passed moved from BLOCKED (UX01, UX05, ACC01,
+  ACC05, F1, F2, F6, SGN03, SGN07, Q18-040); B8 and B9 entered on the Q14 rows; Q18-094 and Q18-095 added; totals
+  under "Q19B close". Left BLOCKED by design or for later: CAT03, CAT04, A11Y01, UPD01, UX04, SGN05, F9, F3b,
+  Q18-054, Q18-071.
