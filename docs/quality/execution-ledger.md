@@ -2911,3 +2911,19 @@ New contract rule 16: commit each package locally on its branch before starting 
 ### Q18-075 closed by the owner (23 October 2026)
 - Owner: "Q18-075: delicate now has word synced lyrics, dont worry about it". Q18-075 closed with nothing to fix;
   LYR01 PASS; UX06 stays FAIL for Q18-072 only. Which build and lyrics source showed it was not recorded.
+
+### B8 run 2: downloaded songs (23 October 2026, 09:02 to 11:02)
+- Riff Preview rc6 on the dummy account, its Downloads (82 songs, 347.3 MB) played with Repeat all, Bluetooth off,
+  media volume 3 of 15, unplugged, screen off; watched over Wi-Fi adb (port 5555, turned on over USB with the
+  owner's leave, as wireless pairing failed). No taps during the run, no screenshots. Evidence:
+  artifacts/quality/q19/b8/run2 (night.log, b8-summary.json, battery reports, netstats at start and end).
+- RECORDED: 120 min, screen asleep and playing at every 15-minute read, never plugged in. Battery 98 to 91 %
+  (about 3.5 % an hour; run 1, streaming at night from 100 %, about 3 %), 30.2 to 35.3 C (peak 35.7). Charge
+  counter 1,901,000 to 1,736,000 (about 83 an hour, run 1 about 87; not used as mAh).
+- Riff Preview received 4.8 MB and sent 0.3 MB in the run (netstats), far below one stream (2 h at 144 to 273 kbps
+  is 130 to 250 MB): the songs played from their downloads; the bytes are lyrics, artwork or metadata lookups.
+- Not like for like with run 1: daytime against night (the owner notes a warmer room), started at 98 % rather
+  than off the 100 % plateau, different songs. By the counter downloads drew about the same as streaming; by the
+  percentage a little more. Riff's own share is not isolated (vivo refuses the stats reset).
+- Run 3 another day (owner). Music paused at the end; adb over Wi-Fi on port 5555 stays on until `adb usb` or a
+  restart.
