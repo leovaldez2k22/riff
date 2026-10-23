@@ -101,6 +101,9 @@ import kotlinx.coroutines.launch
                         modifier=Modifier.padding(top=6.dp).then(if(data.artistId!=null) Modifier.clickable { uiHaptic(); model.openCollection(data.artistId,data.artistName)} else Modifier))
                     if(data.subtitle.isNotBlank() && data.subtitle.length<200) Text(data.subtitle,color=White.copy(alpha=.76f),
                         fontSize=16.sp,modifier=Modifier.padding(top=6.dp),maxLines=3)
+                    if(!artist) collectionSummary(data.headerSongCount,songs,complete)?.let {
+                        Text(it,color=White.copy(alpha=.76f),fontSize=16.sp,modifier=Modifier.padding(top=6.dp).testTag("collection_summary"))
+                    }
                 }
             }
         }

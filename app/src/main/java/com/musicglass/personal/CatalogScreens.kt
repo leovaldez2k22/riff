@@ -58,7 +58,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
             modifier=Modifier.size(48.dp).clip(if(card.kind==CatalogKind.Artist) CircleShape else RoundedCornerShape(12.dp)).background(Raised))
         Column(Modifier.weight(1f).padding(start=12.dp)) {
             Text(card.title,color=White,fontSize=14.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
-            Text("${card.kind.label}${card.subtitle.takeIf(String::isNotBlank)?.let { " \u00B7 $it" }.orEmpty()}",color=Muted,fontSize=RiffType.detail,maxLines=2,overflow=TextOverflow.Ellipsis)
+            Text(catalogRowLabel(card.kind,card.subtitle),color=Muted,fontSize=RiffType.detail,maxLines=2,overflow=TextOverflow.Ellipsis)
         }
         if(onEnqueue!=null && card.track()!=null) Box {
             IconButton({ uiHaptic(); menu=true},modifier=Modifier.testTag("catalog_menu_${card.key()}")) {Icon(Icons.Rounded.MoreHoriz,string(R.string.song_options),tint=Muted)}

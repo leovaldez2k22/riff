@@ -296,8 +296,8 @@ artifacts/quality/q19/c3 (no personal data).
 | Q18-090 Premium never passed to the extraction library | stream hints carry Premium only when confirmed (planned) | audio quality investigation, 23 Oct | FAIL | Q19G |
 | Q18-091 format picker ignores DRC copies | fixture with 251 and 251-drc picks the non-DRC one (planned) | audio quality investigation, 23 Oct; no DRC format seen yet | TODO | Q19G (triage first) |
 | Q18-092 16-bit boost limiter changes loud music | processor tests: float input, unity gain bit-exact, no limiting below full scale (planned) | audio quality investigation, 23 Oct | FAIL | Q19G |
-| Q18-093 song count and total length on a playlist | collection summary test (planned) | owner's request, 23 Oct | TODO | Q19G |
-| Q18-094 an official playlist's row says "Playlist · Playlist" | none | Q19B CAT02 check on Riff Preview rc6, 23 Oct (the HTML codes first listed were the dump's escaping, not Riff) | FAIL | Q19G |
+| Q18-093 song count and total length on a playlist | ProviderCatalogTest.aCollectionSaysHowManySongsAndHowLongInOneLine (JVM) | owner's request, 23 Oct | BLOCKED | G3 on rc7 (a playlist and an album) |
+| Q18-094 an official playlist's row says "Playlist · Playlist" | ProviderCatalogTest.aSearchRowNamesItsKindOnce (JVM) | Q19B CAT02 check on Riff Preview rc6, 23 Oct (the HTML codes first listed were the dump's escaping, not Riff) | BLOCKED | G3 on rc7 (search an official playlist) |
 | Q18-095 a 940-track playlist queues 815 songs with no notice | collection loader test against this playlist's pages (planned) | Q19B CAT02 check on Riff Preview rc6, 23 Oct | FAIL | Q19G |
 
 ## 6. Totals

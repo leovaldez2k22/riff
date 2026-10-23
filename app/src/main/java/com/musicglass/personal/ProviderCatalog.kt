@@ -8,10 +8,20 @@ internal data class CatalogPage(val cards: List<ProviderHomeCard>, val next: Str
     val shelves: List<ProviderHomeSection> = emptyList(), val description: String = "",
     val collectionNext:String?=null,val albumTracks: List<ProviderHomeCard> = emptyList(),val artistName:String="",val artistId:String?=null,val editable:Boolean=false,val sortEndpoints:Map<CollectionSort,CollectionSortEndpoint> = emptyMap(),
     /** Set when [albumTracks] is not the whole collection. Null on a single page, which makes no claim either way. */
-    val truncation:CollectionTruncation?=null) {
+    val truncation:CollectionTruncation?=null,
+    /** The song count the collection's header states (Q18-093), if it states an exact one. */
+    val headerSongCount:Int?=null) {
     val selectedSort:CollectionSort? get()=sortEndpoints.entries.firstOrNull {it.value.selected}?.key
 }
 internal fun ProviderHomeCard.key() = videoId ?: browseId ?: "$title:$subtitle"
+
+/** A search row's second line: the kind, then YouTube's subtitle, unless the subtitle already starts with the kind (Q18-094). */
+internal fun catalogRowLabel(kind:CatalogKind,subtitle:String):String {
+    val label=kind.label
+    if(subtitle.isBlank()) return label
+    val first=subtitle.split('\u2022','\u00B7').first().trim()
+    return if(first.equals(label,ignoreCase=true)) subtitle.trim() else "$label \u00B7 $subtitle"
+}
 internal fun ProviderHomeCard.track(): ProviderTrack? = videoId?.takeIf { kind in setOf(CatalogKind.Song,CatalogKind.Episode,CatalogKind.Live) }?.let {
     ProviderTrack(it,title,playerArtistLabel(subtitle),artworkUrl,artistId,albumId,album,kind == CatalogKind.Live,kind == CatalogKind.Song)
 }
@@ -143,7 +153,7 @@ internal fun parseCatalogCards(root: JsonElement): List<ProviderHomeCard> {
                             catalogValue(item,"musicVideoType") in setOf("MUSIC_VIDEO_TYPE_OMV","MUSIC_VIDEO_TYPE_UGC"),
                             catalogValue(item,"musicVideoType")=="MUSIC_VIDEO_TYPE_OMV",
                             catalogValue(item["playlistItemData"],"playlistSetVideoId")?:catalogValue(item,"setVideoId"),playlistEntryAddedAt(item),
-                            notInterestedToken(item["menu"]))
+                            notInterestedToken(item["menu"]),catalogDurationMs(item))
                         result[card.key()] = card
                     }
                 }
@@ -193,7 +203,36 @@ internal fun catalogPage(root: JsonElement): CatalogPage {
         collectionShelf(root)?.let(::catalogContinuation),orderedCollectionTracks(root),
         catalogText(header?.get("straplineText")).ifBlank {catalogText(header?.get("strapline"))}.ifBlank {artistRun?.get("text")?.textOrNull.orEmpty()},
         catalogValue(header?.get("straplineText"),"browseId")?:catalogValue(artistRun,"browseId"),
-        catalogRenderer(root,"musicEditablePlaylistDetailHeaderRenderer")!=null || catalogValue(root,"isEditable")=="true" || catalogRenderer(root,"playlistEditEndpoint")!=null,collectionSortEndpoints(root))
+        catalogRenderer(root,"musicEditablePlaylistDetailHeaderRenderer")!=null || catalogValue(root,"isEditable")=="true" || catalogRenderer(root,"playlistEditEndpoint")!=null,collectionSortEndpoints(root),
+        headerSongCount=collectionHeaderSongCount(root))
+}
+
+private val rowLength=Regex("""(?:(\d{1,2}):)?(\d{1,2}):(\d{2})""")
+/** Q18-093: a row's length, from its fixed column ("3:45", "1:02:03") or a queue row's lengthText. */
+internal fun catalogDurationMs(item:JsonObject):Long? {
+    val fixed=(item["fixedColumns"] as? JsonArray)?.mapNotNull {
+        catalogText(((it as? JsonObject)?.get("musicResponsiveListItemFixedColumnRenderer") as? JsonObject)?.get("text")) }.orEmpty()
+    return (fixed+catalogText(item["lengthText"])).firstNotNullOfOrNull { text ->
+        rowLength.matchEntire(text.trim())?.destructured?.let { (h,m,s) -> ((h.toLongOrNull()?:0)*3600+m.toLong()*60+s.toLong())*1000 }
+    }
+}
+
+/**
+ * Q18-093, the owner's layout A: "100 songs · 5 h 42 min" under a collection's title. The count is the header's where
+ * it states one, else the songs loaded; the length adds the loaded songs that have one, "so far" while pages load.
+ */
+internal fun collectionSummary(headerCount:Int?,songs:List<ProviderHomeCard>,complete:Boolean):String? {
+    if(songs.isEmpty()) return null
+    val count=quantity(R.plurals.n_songs,headerCount?:songs.size)
+    val totalMs=songs.sumOf {it.durationMs?:0L}
+    val minutes=((totalMs+30_000)/60_000).toInt()
+    val length=when {
+        totalMs<=0 -> null
+        minutes<60 -> string(R.string.collection_length_minutes,maxOf(minutes,1))
+        else -> string(R.string.collection_length_hours,minutes/60,minutes%60)
+    }
+    val line=if(length==null) count else string(R.string.collection_summary,count,length)
+    return if(complete) line else string(R.string.collection_summary_so_far,line)
 }
 internal fun parseQueueTracks(root: JsonElement): List<ProviderTrack> = parseCatalogCards(
     catalogRenderer(root,"playlistPanelRenderer") ?: catalogRenderer(root,"playlistPanelContinuation") ?: root)

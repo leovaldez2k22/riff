@@ -5,6 +5,31 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ProviderCatalogTest {
+    @Test fun aSearchRowNamesItsKindOnce() {
+        // Q18-094: YouTube's subtitle for an official playlist already starts with "Playlist".
+        assertEquals("Playlist \u2022 YouTube Music \u2022 120 songs",catalogRowLabel(CatalogKind.Playlist,"Playlist \u2022 YouTube Music \u2022 120 songs"))
+        assertEquals("Playlist \u00B7 Riff Owner \u2022 40 songs",catalogRowLabel(CatalogKind.Playlist,"Riff Owner \u2022 40 songs"))
+        assertEquals("Album \u00B7 Taylor Swift \u2022 2024",catalogRowLabel(CatalogKind.Album,"Taylor Swift \u2022 2024"))
+        assertEquals("a word that only begins like the kind is not the kind","Playlist \u00B7 Playlists for Summer",catalogRowLabel(CatalogKind.Playlist,"Playlists for Summer"))
+        assertEquals("Song",catalogRowLabel(CatalogKind.Song,""))
+    }
+    @Test fun aCollectionSaysHowManySongsAndHowLongInOneLine() {
+        // Q18-093, layout A: a playlist row's fixed column carries its length; the header's count wins over the loaded rows.
+        val row=parse("""{"musicResponsiveListItemRenderer":{"flexColumns":[{"musicResponsiveListItemFlexColumnRenderer":{"text":{"runs":[{"text":"Song","navigationEndpoint":{"watchEndpoint":{"videoId":"video000001"}}}]}}}],
+            "fixedColumns":[{"musicResponsiveListItemFixedColumnRenderer":{"text":{"runs":[{"text":"3:45"}]}}}]}}""").single()
+        assertEquals(225_000L,row.durationMs)
+        assertEquals(3_723_000L,parse("""{"playlistPanelVideoRenderer":{"videoId":"video000002","title":{"simpleText":"Long"},"lengthText":{"simpleText":"1:02:03"}}}""").single().durationMs)
+        fun song(i:Int,ms:Long?)=ProviderHomeCard("S$i","A",null,videoId="video${i.toString().padStart(6,'0')}",durationMs=ms)
+        val hundred=(1..100).map {song(it,205_200L)} // 100 songs of 3:25.2: 5 h 42 min
+        assertEquals("100 songs · 5 h 42 min",collectionSummary(null,hundred,complete=true))
+        assertEquals("940 songs · 5 h 42 min so far",collectionSummary(940,hundred,complete=false))
+        assertEquals("1 song · 4 min",collectionSummary(null,listOf(song(1,225_000L)),complete=true))
+        assertEquals("a song with no length is left out of the sum","2 songs · 4 min",collectionSummary(null,listOf(song(1,225_000L),song(2,null)),complete=true))
+        assertEquals("no lengths at all: the count alone","2 songs",collectionSummary(null,listOf(song(1,null),song(2,null)),complete=true))
+        assertNull(collectionSummary(12,emptyList(),complete=false))
+        val header=Json.parseToJsonElement("""{"header":{"musicResponsiveHeaderRenderer":{"title":{"simpleText":"Mix"},"secondSubtitle":{"runs":[{"text":"940 tracks"},{"text":" • "},{"text":"60+ hours"}]}}}}""")
+        assertEquals(940,catalogPage(header).headerSongCount)
+    }
     @Test fun podcastViewsCannotReplaceTheChannelByline() {
         val card=parse("""{"musicMultiRowListItemRenderer":{"title":{"simpleText":"An episode"},"subtitle":{"simpleText":"230K views • 2 days ago"},"longBylineText":{"runs":[{"text":"The Channel","navigationEndpoint":{"browseEndpoint":{"browseId":"UC_channel"}}}]},"navigationEndpoint":{"watchEndpoint":{"videoId":"video000001","watchEndpointMusicSupportedConfigs":{"watchEndpointMusicConfig":{"musicVideoType":"MUSIC_VIDEO_TYPE_PODCAST_EPISODE"}}}}}}""").single()
         assertEquals(CatalogKind.Episode,card.kind)

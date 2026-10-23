@@ -21,7 +21,9 @@ internal data class ProviderSearchPage(val tracks: List<ProviderTrack>, val next
 internal data class ProviderHomeCard(val title: String, val subtitle: String,
     val artworkUrl: String?, val videoId: String? = null, val browseId: String? = null, val kind: CatalogKind = CatalogKind.Song,
     val artistId: String? = null, val albumId: String? = null, val album: String = "",val musicVideo:Boolean=false,val officialMusicVideo:Boolean=false,val setVideoId:String?=null,val addedAt:Long?=null,
-    val notInterestedToken:String?=null)
+    val notInterestedToken:String?=null,
+    /** The row's stated length (Q18-093); null when YouTube shows none. */
+    val durationMs:Long?=null)
 internal data class ProviderHomeSection(val title: String, val cards: List<ProviderHomeCard>)
 /** [email] comes from the account menu when YouTube includes it; it is shown on the phone and never logged. */
 /** [handle] (@name) stands in for the address where YouTube's account menu gives none (Q18-040). */
