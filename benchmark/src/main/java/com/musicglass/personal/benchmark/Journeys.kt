@@ -16,6 +16,9 @@ internal fun iterations(protocol: Int): Int =
 
 private const val WAIT_MS = 15_000L
 
+/** Q18-097: a cold start on a busy phone took longer than [WAIT_MS] to draw Home. */
+private const val COLD_WAIT_MS = 30_000L
+
 /** Songs in the invented playlist the account owns, over its three pages. */
 internal const val PLAYLIST_SONGS = 4
 
@@ -56,6 +59,17 @@ internal fun MacrobenchmarkScope.tap(tag: String) {
     device.waitForIdle()
 }
 
+/**
+ * Q18-097: a tap on [tag], and then [result]. A tap that lands while the node is still settling (the mini player
+ * sliding in) is lost on a busy phone, so when [result] has not appeared after a short wait, [tag] is tapped once more.
+ */
+internal fun MacrobenchmarkScope.tapFor(tag: String, result: String) {
+    tap(tag)
+    if (device.wait(Until.hasObject(By.res(result)), 5_000)) return
+    if (device.hasObject(By.res(tag))) tap(tag)
+    shown(result)
+}
+
 internal fun MacrobenchmarkScope.gone(tag: String) =
     check(device.wait(Until.gone(By.res(tag)), WAIT_MS)) { failed("\"$tag\" stayed on screen") }
 
@@ -67,7 +81,7 @@ internal fun MacrobenchmarkScope.failed(message: String): String = "$message (in
 
 /** Home with the invented shelves on it: the first usable shell. */
 internal fun MacrobenchmarkScope.home() {
-    shown("navigation")
+    checkNotNull(device.wait(Until.findObject(By.res("navigation")), COLD_WAIT_MS)) { failed("\"navigation\" did not appear") }
     checkNotNull(device.wait(Until.findObject(By.text("Speed dial")), WAIT_MS)) { "Home did not show the fixture feed" }
 }
 
@@ -159,7 +173,7 @@ internal fun MacrobenchmarkScope.playing() =
 internal fun MacrobenchmarkScope.paused() =
     check(device.wait(Until.hasObject(By.desc("Play")), WAIT_MS)) { "Playback did not pause" }
 
-internal fun MacrobenchmarkScope.openPlayer() { tap("mini_player"); shown("playback_toggle") }
+internal fun MacrobenchmarkScope.openPlayer() = tapFor("mini_player", "playback_toggle")
 internal fun MacrobenchmarkScope.closePlayer() { tap("player_close"); shown("navigation") }
 internal fun MacrobenchmarkScope.openQueue() { reveal("player_queue_bottom"); tap("player_queue_bottom"); shown("queue_list") }
 
