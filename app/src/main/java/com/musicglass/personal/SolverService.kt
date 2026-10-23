@@ -111,5 +111,8 @@ internal fun cipherStepEvent(message: String): String? {
         (fields["requests"] ?: fields["formats"])?.toIntOrNull()?.let { append(" count=").append(it) }
         fields["preprocessed"]?.takeIf { it == "true" || it == "false" }?.let { append(" preprocessed=").append(it) }
         fields["cachedSolver"]?.takeIf { it == "true" || it == "false" }?.let { append(" cached=").append(it) }
+        // Q18-067: where the player came from (preloaded, downloaded, in-flight, solver-cache); only those words.
+        fields["source"]?.takeIf { stage == "player_ready" || stage == "player_preload" }
+            ?.takeIf { it in setOf("preloaded", "downloaded", "in-flight", "solver-cache") }?.let { append(" source=").append(it.replace('-', '_')) }
     }
 }

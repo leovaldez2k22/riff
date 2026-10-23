@@ -43,8 +43,24 @@ class StreamStageEventTest {
         val start = checkNotNull(cipherStepEvent("processFormats start formats=18 cipherFormats=0 nFormats=18 cachedSolver=false player=9f1c2a7b"))
         assertEquals("cipher_step stage=process_start count=18 cached=false", start)
         assertEquals(start, DiagnosticEvent.parse(start).text)
+        // Q18-067: whether the player was ready from the start-up preload or prepared for this song.
+        val ready = checkNotNull(cipherStepEvent("player JS ready source=downloaded size=2614032 elapsed=2210ms player=9f1c2a7b"))
+        assertEquals("cipher_step stage=player_ready ms=2210 source=downloaded", ready)
+        assertEquals(ready, DiagnosticEvent.parse(ready).text)
+        assertEquals("cipher_step stage=player_ready ms=3 source=in_flight", cipherStepEvent("player JS ready source=in-flight size=1 elapsed=3ms player=9f1c2a7b"))
+        assertEquals("cipher_step stage=player_ready ms=3", cipherStepEvent("player JS ready source=https://x size=1 elapsed=3ms player=9f1c2a7b"))
         assertNull(cipherStepEvent("EJS solve failed player=9f1c2a7b type=IllegalStateException"))
         assertNull(cipherStepEvent("rejecting format with unresolved n itag=251 player=9f1c2a7b"))
+    }
+
+    /** Q18-067: the signed-out player is prepared too, only when the first lookup would need it and it is another one. */
+    @Test fun theSignedOutPlayerIsPreparedOnlyWhenTheFirstLookupNeedsADifferentOne() {
+        assertEquals("/s/player/aaa/base.js", secondPlayerToPreload(true, false, "/s/player/aaa/base.js", "/s/player/bbb/base.js"))
+        assertNull("the same player", secondPlayerToPreload(true, false, "/s/player/aaa/base.js", "/s/player/aaa/base.js"))
+        assertNull("signed out: the library prepared it", secondPlayerToPreload(false, false, "/s/player/aaa/base.js", null))
+        assertNull("Premium audio starts signed in", secondPlayerToPreload(true, true, "/s/player/aaa/base.js", "/s/player/bbb/base.js"))
+        assertNull("no signed-in config: the library prepared the signed-out one", secondPlayerToPreload(true, false, "/s/player/aaa/base.js", null))
+        assertNull(secondPlayerToPreload(true, false, null, "/s/player/bbb/base.js"))
     }
 
     /** Q18-059: the prewarm and the first song must mint for the same visitor, so a session without one gets it first. */

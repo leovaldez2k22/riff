@@ -73,13 +73,15 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
     /** Fail closed: challenges are never solved in the process that plays audio. */
     private fun requireSolver():RemoteCipherClient =
         if(cipherIsolated) remoteCipher else throw SolverUnavailableException("Solver bridge is not installed")
+    /** Q18-067: the player each watch config named last, signed out (false) and signed in (true). */
+    private val configPlayers=java.util.concurrent.ConcurrentHashMap<Boolean,String>()
     private val extractor = InnerTubeExtractor(
         configParser = object : YtConfigParser by configParser {
             override suspend fun fetchConfig(videoId: String, useLoginCookies: Boolean) =
                 try { configParser.fetchConfig(videoId, useLoginCookies) }
                 catch (_: IllegalStateException) {
                     configParser.fetchEmbeddedConfig(videoId, useLoginCookies = false)
-                }
+                }.also { config -> config.playerUrl.takeIf { it.isNotBlank() }?.let { configPlayers[useLoginCookies] = it } }
         },
         cipherService = unusedInProcessCipher,
         innerTube = innerTube,
@@ -121,6 +123,12 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
         suspendCatching {
             settleVisitor(innerTube.sessionSnapshot().visitorData) {innerTube.fetchFreshVisitorData(innerTube.sessionSnapshot())}
             extractor.prewarm()
+            val premiumHigh=premiumConfirmed() && streamingAudioQuality(dataSaverPrefs.getBoolean("enabled",false),false)==AudioQuality.HIGH
+            secondPlayerToPreload(session.signedIn,premiumHigh,configPlayers[false],configPlayers[true])?.let {player->
+                val second=dependencies.clocks.monotonicMillis()
+                requireSolver().preloadPlayerCode(player)
+                playbackEvents.append("stream_prewarm_player ms=${dependencies.clocks.monotonicMillis()-second}")
+            }
         }.fold(
             onSuccess={playbackEvents.append("stream_prewarm reason=$reason ms=${dependencies.clocks.monotonicMillis()-started}")},
             onFailure={playbackEvents.append("stream_prewarm_failed reason=$reason type=${it::class.simpleName}")})
@@ -289,3 +297,12 @@ internal fun streamHints(video: Boolean, live: Boolean, download: Boolean, quali
 /** Q18-089: the client a download asks first, or null to let the library choose. */
 internal fun downloadClientOverride(download: Boolean, video: Boolean, live: Boolean, excluded: Set<String>): String? =
     "WEB_REMIX".takeIf { download && !video && !live && it !in excluded }
+
+/**
+ * Q18-067: signed in, the library prepares only the signed-in watch page's player at start, but a song's lookup begins
+ * with the signed-out one unless it asks for Premium audio. When YouTube names two different players, the first song
+ * prepared the other one itself (about 2.2 s on the phone after a memory kill). That player, or null when the first
+ * lookup will use the one already prepared.
+ */
+internal fun secondPlayerToPreload(signedIn: Boolean, premiumHigh: Boolean, signedOutPlayer: String?, signedInPlayer: String?): String? =
+    signedOutPlayer?.takeIf { signedIn && !premiumHigh && !signedInPlayer.isNullOrBlank() && it.isNotBlank() && it != signedInPlayer }
