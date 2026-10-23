@@ -2927,3 +2927,24 @@ New contract rule 16: commit each package locally on its branch before starting 
   percentage a little more. Riff's own share is not isolated (vivo refuses the stats reset).
 - Run 3 another day (owner). Music paused at the end; adb over Wi-Fi on port 5555 stays on until `adb usb` or a
   restart.
+
+### B8 run 3: idle baseline (23 October 2026, 11:19 to 13:19)
+- Owner: run 3 as the idle baseline, straight after run 2. Riff Preview force-stopped (no process at any read, no
+  media session playing), Bluetooth off, unplugged, screen off; watched over Wi-Fi adb on port 5555. Evidence:
+  artifacts/quality/q19/b8/run3.
+- RECORDED: 120 min, screen asleep at every read, never plugged in, Riff Preview sent and received nothing.
+  Battery 87 to 82 % (about 2.5 % an hour), 32.6 to 34.5 C. Charge counter 1,668,000 to 1,581,000 (about 44 an
+  hour); one quarter hour (60 to 75 min) drew twice the others, other apps' background work.
+- The phone had dropped 91 to 87 % between the runs with the screen on.
+
+### B8 summary (three 2-hour runs, 23 October 2026)
+| Run | When | Battery | % an hour | Counter an hour | Phone temp |
+| --- | --- | --- | --- | --- | --- |
+| 1 streaming | night | 100 to 94 % | about 3 | about 87 | 37.2 to 34.4 C |
+| 2 downloads | day | 98 to 91 % | about 3.5 | about 83 | 30.2 to 35.3 C |
+| 3 idle, Riff stopped | day | 87 to 82 % | about 2.5 | about 44 | 32.6 to 34.5 C |
+- Playing music on top of the idle phone costs about 1 % an hour by the percentage, or about 40 counter units an
+  hour (roughly half of the playing total) by the counter; streaming and downloads cost about the same.
+- Verdict: three runs done; performance.md sets no battery budget, and the measurement is coarse (1 % steps; a
+  charge counter that is not mAh on vivo; no stats reset, so Riff's share comes only from the subtraction above).
+  Recorded as measured, neither PASS nor FAIL.
