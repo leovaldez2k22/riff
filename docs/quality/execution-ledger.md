@@ -3042,3 +3042,34 @@ New contract rule 16: commit each package locally on its branch before starting 
   rc6), arm64-v8a only; release content 20 of 20 each (artifacts/quality/q19/rc7/release-content-*.log).
 - Next, with the owner: install rc7 (Riff Preview over rc6, same certificate, higher code), the G3 phone checks,
   then Q19R.
+
+### G3 on rc7 (23 and 24 October 2026)
+- Owner: "yes install both and start G3", then "yes to all eight" (the phone actions in the approvals list). Riff
+  Preview rc7 installed over rc6 (the signed file, byte-identical) and Riff Debug rc7 side by side; the original
+  Riff never touched. Phone state before: artifacts/quality/q19/rc7/g3/phone-before.txt. Evidence for every check
+  below is in artifacts/quality/q19/rc7/g3 (git-ignored).
+- Device lane (tier R, I2217): 61 of 63; the two DownloadLifecycleDeviceTest cases need the network off and
+  passed with it off (8 of 8, offline-tests.txt). Q18-068 and Q18-070 PASS on the phone.
+- Benchmark lane: cold start p95 1,742 ms, 2,000-entry queue 392 ms, local first audio 269 ms, online first audio
+  277 ms PASS; the six action timings MISSING (a lost tap in the harness, Q18-097); frames fail at 120 Hz as
+  Q18-023/030. MemoryCheck -144 kB over ten journeys in the lane; alone with three blocks it failed on the harness
+  waits (Q18-097), so Q18-073 is PASS on one block only. Q18-074's cold-start half PASS.
+- With the owner: Q18-067 A4 (the first song started in about 2 s), AUD01 by ear (volume stayed even), Q18-084 by
+  eye PASS. Q18-087 FAIL (no direct switch), Q18-085 FAIL (full addresses not shown), Q18-088 FAIL (two accounts
+  signed in, three listed). Owner requests logged: remove lyrics translation (Q18-101), a Song quality setting with
+  Q18-099, a warning before every Privacy and data action (Q18-102).
+- PASS also: Q18-054, 071, 080, 081, 082, 083, 086, 093, 094 (the label), 095, 096, CAT03, CAT04, PLY09. Q18-091
+  BLOCKED (rc7 writes no log line for it; a diagnostic goes in the fix round).
+- Unattended after midnight (the owner asleep, by their instruction): Q18-076 FAIL in airplane mode (the lookup hung,
+  Q18-103); Q18-104 logged (no playlist rename or delete); Q18-079 PASS at 200 % text upright and in landscape;
+  Q18-089 PARTIAL (five downloads, all itag 251; the preferred client's failure name is R8-renamed); Q18-078 PARTIAL
+  (Back up now replaces its file in place; the reinstall half was stopped by the session's permission check);
+  Q18-077 not run (the same check).
+- At about 00:45 a Google "Critical security alert" for the dummy account appeared on the phone (a sign-in at about
+  00:13 from an unknown device). Not answered; all dummy-account activity stopped there, so Q18-092 is BLOCKED and
+  the rest of Q18-089's album downloads were cancelled. The owner should check the dummy account.
+- Phone left: the test downloads removed (82 songs as found), font and rotation restored, airplane mode off, screen
+  locked, plugged in. Two things not restored: media volume reads muted (0; it was 5) and adb cannot unmute it with
+  the screen off; Riff Debug has Reduce motion on (the Q18-078 restore marker) and a riff-backup-signed-out.jsonl it
+  wrote at 00:57 in Documents/Riff Backup (debug).
+- New bugs: Q18-097 to Q18-104.
