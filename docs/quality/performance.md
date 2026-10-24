@@ -5,7 +5,7 @@ What is measured, with what, on which build, and what has and has not been measu
 **Status on 24 October 2026 (0.10.0, measured on rc10).** Tier R is measured on the owner's phone (vivo I2217,
 Android 16, 7.2 GiB) with the benchmark lane on rc10's code (8adb2d1); rc11 and 0.10.0 change only colours (the
 artwork tone and the collection title block), which no budget measures. Evidence:
-`..\Riff-rc10\artifacts\quality\lanes\benchmark-20261024T102331Z` (local, not committed).
+`Riff\artifacts\quality\lanes\benchmark-20261024T102331Z` (local, not committed).
 
 | Budget (Tier R) | Measured | Budget | Verdict |
 | --- | --- | --- | --- |

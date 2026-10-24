@@ -74,7 +74,7 @@ bundles it, then rerun the release lanes. Listed as Q18-024.
 ## Q19R R5: the final lint (24 October 2026)
 
 Source: the PR lane's debug lint on the final commit (bc69f02, the code of 0.10.0, a9b1299;
-`artifacts/quality/lanes/pr-20261024T151040Z` in ..\Riff-final): **93 warnings, 3 hints, 0 errors**. Since Q19F4 the
+`Riff\artifacts\quality\lanes\pr-20261024T151040Z`): **93 warnings, 3 hints, 0 errors**. Since Q19F4 the
 build moved to AGP 9.4.1 (Q18-024), whose lint adds a rule and drops others, and the Q18 and Q19 fixes added code.
 Only the differences from the 85 above are listed; every other rule keeps its disposition. Nothing is suppressed.
 

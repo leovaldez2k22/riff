@@ -18,16 +18,15 @@ Sizes measured 24 Oct (du): `Riff\artifacts` 28 GB, `Riff\.toolchain` 56 GB (inc
 
 Remove worktrees with `git worktree remove <path>`, then `git worktree prune`; branches with `git branch -d <name>`.
 
-## 2. Safe only after one step
+## 2. Safe now that their evidence is copied (done 24 Oct, the owner's "do all these")
 
-| Path | The step first | Why |
+| Path | What was done | Checked |
 |---|---|---|
-| `..\Riff-rc7`, `..\Riff-rc8`, `..\Riff-rc9`, `..\Riff-rc11` | Copy `artifacts\release` (signed APKs, mapping, SHA256SUMS) into `Riff\artifacts\release` if you want to keep those candidates | The signed rc7, rc8, rc9 and rc11 APKs exist only inside these worktrees. No edits in any of them |
-| `..\Riff-rc10` | As above, **and** move `artifacts\quality\lanes\benchmark-20261024T102331Z` into `Riff\artifacts` | That benchmark run is the evidence for the phone performance numbers in performance.md and for Q18-030, Q18-073, Q18-074 and Q18-097 in q18-bugs.md |
-| `..\Riff-final` | Move `artifacts\quality\lanes\pr-20261024T151040Z`, the three `emulator-20261024T*` runs and the `bc69f02…-clean-2c37caa7158b` manifest folder into `Riff\artifacts` | The final report (gates G02, G04, G05, G08), lint-triage.md and proposed-bugs.md cite them |
-| `..\Riff-0.10.0` | None needed for the release: its signed files and source archive are in `Riff\artifacts\release\0.10.0` | Keep only if you want the exact checkout of 0.10.0 at hand; the source archive rebuilds it too |
+| `..\Riff-rc7`, `..\Riff-rc8`, `..\Riff-rc9`, `..\Riff-rc10`, `..\Riff-rc11` | Their signed release files copied to `Riff\artifacts\release\0.10.0-rc7` to `0.10.0-rc11`; their `artifacts\quality` (lane runs and manifests, including rc10's benchmark run behind performance.md and Q18-030, 073, 074, 097) copied to `Riff\artifacts\quality` | `sha256sum -c` passes in each release folder; every evidence file compared byte for byte, none differs; no edits in any worktree |
+| `..\Riff-final` | Its lane runs and the `bc69f02…-clean-2c37caa7158b` manifest folder copied to `Riff\artifacts\quality`; final-report.md, lint-triage.md and proposed-bugs.md now cite the copies | 202 files, none differs; no edits |
+| `..\Riff-0.10.0` | Nothing needed: its signed files and source archive were already in `Riff\artifacts\release\0.10.0` | No edits. Keep only if you want the exact checkout of 0.10.0 at hand; the source archive rebuilds it too |
 
-After moving evidence, the paths in those documents need updating (I can do the copies and the edits together).
+Not kept from any worktree: build outputs under `app\build` (unsigned intermediate APKs and test results), which nothing cites any more.
 
 ## 3. Test evidence in `Riff\artifacts\` (git-ignored)
 
@@ -36,7 +35,7 @@ The ledger (`execution-ledger.md`) cites most of these folders as its evidence: 
 
 Deletable, subject to that choice:
 - Per-night and per-bug folders in `artifacts\quality\q19`: `a1`, `b0`, `b1`, `b1-run2`, `b2`, `b4`, `b5`, `b6`, `b8`, `c1` to `c8`, `day22`, `f1`, `fix22`, `frost`, `g1`, `g2`, `glass`, `night21` to `night23`, `owner-bugs-23oct`, `pins`, `pr-1585045`, `rc6`, `rc7`, `rc8`, `rc9`, `rc10`, `ux04`, `fix-round-20261024`, plus `c1.log`, `g1-build.log`, `g1-build2.log`.
-- `artifacts\quality\lanes` (57 earlier lane runs; the final runs are in `..\Riff-final` and `..\Riff-rc10`, see section 2).
+- Earlier runs in `artifacts\quality\lanes`. **Keep** the final ones the docs cite: `pr-20261024T151040Z`, `emulator-20261024T153150Z`, `-155407Z`, `-161001Z` (R5) and `benchmark-20261024T102331Z`, `device-20261024T085600Z` (rc10, D1 to D4), with their manifest folders `bc69f02…-clean-2c37caa7158b` and `8adb2d1…-clean-15edbd20a549`.
 - About 90 hash-named folders in `artifacts\quality` (`<commit>-dirty-<id>` and `-clean-`, `canary`, `local-unknown`).
 - `artifacts\quality\q02-work`, `q03-work`, `q04-work`, `q18-owner-20261019`, `q18a`, `q18b`, `q18c`.
 - Older work folders: `android12-compat`, `animation-120hz`, `animation-rc13`, `app-revamp`, `branding`, `bugfix-rc9`, `bugfix-rc16`, `crossfade-verification`, `design-revamp`, `features-rc14`, `features-rc15`, `features-rc17`, `lite`, `lyrics-upgrade`, `native-island-20261002`, `offline-rc11`, `overnight-2026-10-03`, `playback-fix-2026-10-05`, `settings-rc12`, `sign-in-crossfade`, `stress`, `ux-rc10`, `q18-phone-1021b`, `phase7-*.png`.

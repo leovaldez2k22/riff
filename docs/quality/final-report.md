@@ -18,7 +18,7 @@ Riff 0.10.0, version code 33. Written 24 October 2026 in Q19R (R5 and R6); repla
 | riff-0.10.0-preview.apk | SHA-256 8d958d43df746c6a02069933357aaa89701c3349e38aaf7bbc588c828623945b |
 | Source archive | riff-0.10.0-source.zip, SHA-256 051535e83d1c9be0bf8332f809b66cfcad6fa33ba3db1e075fee10330304130d (Git-tracked files at a9b1299) |
 | Certificate | SHA-256 ac70342323a39eb9cbd1fe80a9a5b060e22c01ba9a9102a9f698367bca0bf6e1, the same as every release since 0.9.0-rc4 |
-| Where | `..\Riff-0.10.0\artifacts\release` and `Riff\artifacts\release\0.10.0` (with SHA256SUMS.txt, mapping and dependencies); a copy of the APK in the owner's Downloads |
+| Where | `Riff\artifacts\release\0.10.0` (with SHA256SUMS.txt, mapping and dependencies); a copy of the APK in the owner's Downloads |
 
 Against the Q17 package (0.10.0-rc1, code 22): the APK fell from 28,263,130 to 9,499,189 bytes, mostly from removing lyrics translation and ML Kit (Q18-101); 993 JVM tests then, 1,225 now; the emulator lane grew from 49 to 69 device tests.
 
@@ -43,9 +43,9 @@ Status words as in the case map. Evidence paths under `artifacts/` are local and
 | Gate | Criterion | Status | Evidence |
 |---|---|---|---|
 | G01 | Every package complete; cases mapped; no unknown status | PASS | Case map section 8: the 72 matrix and journey rows PASS 67, BLOCKED 2 (A11Y01: TalkBack declined, no keyboard; ACC04: two accounts at swapped chooser positions never arranged), DECLINED 3; the 77 later rows PASS 65, FAIL 3, BLOCKED 4, DECLINED 5; no TODO or DEFERRED. Every package has a ledger status; Q05R DECLINED |
-| G02 | Deterministic suite passes, no unexpected failures or skips | PASS | R5 PR lane on bc69f02 (`..\Riff-final\artifacts\quality\lanes\pr-20261024T151040Z`): 1,225 JVM tests, 0 failures, 0 errors, 0 skipped; script tests 164 OK; static checks 0 findings. Known intermittent: HistoryScreensTest.earlierSearchesAreImportedOrDeletedOnlyWhenTheUserSaysSo failed once in each of two signing runs and passed alone and on rerun (not logged, owner's decision) |
+| G02 | Deterministic suite passes, no unexpected failures or skips | PASS | R5 PR lane on bc69f02 (`Riff\artifacts\quality\lanes\pr-20261024T151040Z`): 1,225 JVM tests, 0 failures, 0 errors, 0 skipped; script tests 164 OK; static checks 0 findings. Known intermittent: HistoryScreensTest.earlierSearchesAreImportedOrDeletedOnlyWhenTheUserSaysSo failed once in each of two signing runs and passed alone and on rerun (not logged, owner's decision) |
 | G03 | Scope, deletion, migration, durability, interruption, full disk | PASS | ACC and DAT rows (JVM, emulator, phone); full disk by injection (DAT06); migration killed at every checkpoint (DAT03); upgrade over rc20 with data on the emulator (C6). Clearing real data on the phone not run: the owner wiped rc20's data in R3 |
-| G04 | Controlled playback, recovery, audio and download checks | PASS | R5 emulator lanes on bc69f02, network off: API 33 69 of 69, API 31 69 of 69 (`..\Riff-final\artifacts\quality\lanes\emulator-20261024T153150Z`, `-155407Z`), no crossfade flake; D1 and D2 on the phone on rc10, 63 of 63; PLY, XFD, AUD and DLD rows; every playback and download bug confirmed on the phone or closed by the owner |
+| G04 | Controlled playback, recovery, audio and download checks | PASS | R5 emulator lanes on bc69f02, network off: API 33 69 of 69, API 31 69 of 69 (`Riff\artifacts\quality\lanes\emulator-20261024T153150Z`, `-155407Z`), no crossfade flake; D1 and D2 on the phone on rc10, 63 of 63; PLY, XFD, AUD and DLD rows; every playback and download bug confirmed on the phone or closed by the owner |
 | G05 | API 31, 33 and 36 functional; tier R and L budgets | FAIL | Functional: R5 emulator lanes API 31 69 of 69, API 33 69 of 69, API 36 69 of 70 (`emulator-20261024T161001Z`; the one failure is a test tapping a row scrolled off the 720 x 1280 screen, same in three reruns; proposed as P1 and dropped by the owner, 24 Oct). Tier R on the I2217 (rc10, performance.md): cold start p95 1,788 ms, 2,000-entry queue 369 ms, local first audio 294 ms, online first audio 263 ms, memory over journeys, all PASS; frames at 60 Hz 8.0 / 7.0 / 17.1 % against 2 % FAIL (Q18-030, left by the owner); six action timings MISSING (Q18-097). Tier L BLOCKED: no such phone |
 | G06 | TalkBack, keyboard, large text, reduced motion | DECLINED / BLOCKED | Large text and landscape PASS (A11Y02, Q18-079 on rc7); reduced motion PASS (A11Y03, SGN06); TalkBack DECLINED by the owner (19 Oct, Q18-031 closed 24 Oct); keyboard BLOCKED (none). JVM semantics sweeps pass |
 | G07 | No unresolved high-severity security issue, no secret or test entry leak | PASS | security-review.md: no high-severity issue open, two medium (the jsDelivr solver script, D4; CI dependency verification unproven on a hosted run); release-content check 20 of 20 on both signed APKs and on R5's rebuild; no fixture, stress or benchmark entry in the release (I09) |
@@ -131,9 +131,9 @@ The score describes this plan's standard on the evidence above, not a guarantee 
 | What | Where |
 |---|---|
 | Source, history, every document | `Riff` (branch `codex/riff-quality-m0`), local only. The remotes still name the suspended accounts; the working GitHub account is leovaldez2k22. Nothing is pushed |
-| The final candidate | `Riff\artifacts\release\0.10.0` and `..\Riff-0.10.0\artifacts\release` (APKs, SHA256SUMS.txt, mapping, dependency list, source archive); a copy of the APK in the owner's Downloads |
-| R5's rebuild and lanes | `..\Riff-final` (bc69f02): `artifacts\quality\lanes\pr-20261024T151040Z` and the emulator lanes |
-| Earlier candidates | `Riff\artifacts\release` (rc20 and earlier, rc1 to rc6) and the worktrees `..\Riff-rc4` to `..\Riff-rc11` |
+| The final candidate | `Riff\artifacts\release\0.10.0` (APKs, SHA256SUMS.txt, mapping, dependency list, source archive); a copy of the APK in the owner's Downloads |
+| R5's rebuild and lanes | `Riff\artifacts\quality\lanes\pr-20261024T151040Z`, the three `emulator-20261024T*` runs and `Riff\artifacts\quality\bc69f02…-clean-2c37caa7158b` (built in the worktree `..\Riff-final`, copied here) |
+| Earlier candidates | `Riff\artifacts\release`: rc20 and earlier, rc1 to rc6, and rc7 to rc11 in `0.10.0-rc7` to `0.10.0-rc11` (copied from their worktrees, checksums verified) |
 | Evidence of Q18 and Q19 | `Riff\artifacts\quality` (local, git-ignored), cited in the ledger |
 | Your uncommitted work, left alone | `scripts/download_favourites.py` (your change), `docs/RIFF_EXCELLENCE_PLAN_2_SUPPLEMENT.md`, `.commandcode/` |
 

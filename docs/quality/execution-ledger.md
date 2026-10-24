@@ -3265,3 +3265,11 @@ New contract rule 16: commit each package locally on its branch before starting 
 - Owner, 24 Oct 2026: "drop it and q18-108. call riff excellence plan fully complete". P1 dropped (proposed-bugs.md), Q18-108 dropped (q18-bugs.md; case map DECLINED). The owner declares the Riff excellence plan fully complete; final-report.md says so, with the gates kept as they ran.
 
 ## The Riff excellence plan: complete (24 October 2026)
+
+### Evidence moved out of the worktrees (24 October 2026, after the plan closed)
+
+- Owner: "do all these" (the deletable list's "safe after one step"). Copied, not moved; the worktrees are untouched until the owner removes them:
+  - each worktree's `artifacts\quality` (its hash-named manifest folder and its `lanes` runs) into `Riff\artifacts\quality`, keeping the same names: Riff-rc7 594 files, Riff-rc8 315, Riff-rc9 312, Riff-rc10 465, Riff-rc11 324, Riff-final 202; every file compared byte for byte, none differs. No name collided.
+  - each worktree's `artifacts\release` into `Riff\artifacts\release\0.10.0-rc7` to `0.10.0-rc11` (signed APKs, mapping, dependencies, SHA256SUMS); `sha256sum -c` passes in each (2 of 2).
+- So every path this ledger gives as `artifacts\...` "in ..\Riff-rcN" or "in ..\Riff-final", or as `..\Riff-rcN\artifacts\quality\...`, now also resolves under `Riff\artifacts\quality\...`; signed files given as in `..\Riff-rcN\artifacts\release` are in `Riff\artifacts\release\0.10.0-rcN`. The entries above are left as written.
+- final-report.md, performance.md, q18-bugs.md, lint-triage.md and proposed-bugs.md now cite the copies. Not kept: build outputs under each worktree's `app\build` (Q18-105's failing test result had already been overwritten there).
