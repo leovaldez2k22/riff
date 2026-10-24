@@ -3224,3 +3224,10 @@ New contract rule 16: commit each package locally on its branch before starting 
   (artifacts/quality/lanes/pr-20261024T071806Z in ..\Riff-rc10). No phone work.
 - Next: the owner signs rc10; I install it only when asked; the owner checks Q18-110; then the device lane, benchmark
   lane and MemoryCheck; then Q19R.
+
+## rc10 signed (24 October 2026)
+
+- First signing run failed at `:app:testDebugUnitTest` (1,226 tests, 2 failed, 14m55s): `PlaylistManageUiTest.aReadOnlyPlaylistOffersNeither` (60 s, Compose "multithreaded access to SnapshotStateObserver") and `HistoryScreensTest.earlierSearchesAreImportedOrDeletedOnlyWhenTheUserSaysSo` ("0 searches added" instead of "2 searches added"). Neither file changed in rc10; both classes passed when rerun alone in ..\Riff-rc10 (2m 6s). Treated as load-dependent flakes; not logged as bugs (deadline scope). The owner's second run passed.
+- Signed from commit 8adb2d1. `riff-0.10.0-rc10.apk` SHA-256 1598d33f…d6f2; `riff-0.10.0-rc10-preview.apk` 4b223eb7…d574; both match SHA256SUMS.txt.
+- Both: version code 31, arm64-v8a, labels "Riff" / "Riff Preview", certificate ac703423…f6e1, release content 20/20, dex contains `account_pick_mismatch` (the Q18-110 fix).
+- Next: install Riff Preview rc10 over rc9 (owner's approval), owner checks Q18-110, then device lane, benchmark lane, MemoryCheck.
