@@ -34,8 +34,8 @@ class SolverService : Service() {
     }
 
     // Own preferences file: SharedPreferences are not safe to share between processes.
+    private val steps by lazy { PlaybackEventLog(this, PlaybackEventLog.SOLVER_FILE) }
     private val cipher by lazy {
-        val steps = PlaybackEventLog(this, PlaybackEventLog.SOLVER_FILE)
         YouTubeCipherService(http, RemotePlayerConfigStore(http, AppPlayerConfigRepository(this, "player_config_solver")),
             logger = { event -> cipherStepEvent(event.message)?.let(steps::append) })
     }
@@ -46,6 +46,8 @@ class SolverService : Service() {
         runBlocking { cipher.setPreprocessedPlayerCache({ preparedPlayers.read(it) }, { key, value -> preparedPlayers.write(key, value) }) }
     }
 
+    private val gate = SolverGate()
+
     private val binder = object : Binder() {
         override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
             if (code < SolverProtocol.INITIALIZE || code > SolverProtocol.PROCESS_N) return super.onTransact(code, data, reply, flags)
@@ -54,7 +56,8 @@ class SolverService : Service() {
             // Compute fully before writing, so a failure never leaves a half-written reply.
             val result: Result<String?> = runCatching {
                 cacheInstalled
-                runBlocking {
+                // Q18-098: a song's lookup goes ahead of preloads that have not entered the library yet.
+                val work = { runBlocking {
                     when (code) {
                         SolverProtocol.INITIALIZE -> { cipher.initialize(); null }
                         SolverProtocol.PRELOAD -> { cipher.preloadPlayerCode(checkNotNull(data.readString())); null }
@@ -66,6 +69,11 @@ class SolverService : Service() {
                         }
                         else -> cipher.processNParameter(checkNotNull(data.readString()), checkNotNull(data.readString()))
                     }
+                } }
+                when (code) {
+                    SolverProtocol.PRELOAD, SolverProtocol.PREWARM -> gate.background({ steps.append("solver_preload_yielded ms=$it") }, work)
+                    SolverProtocol.PROCESS_FORMATS, SolverProtocol.PROCESS_N -> gate.lookup(work)
+                    else -> work()
                 }
             }
             reply ?: return true
