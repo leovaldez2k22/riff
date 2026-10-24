@@ -1,6 +1,13 @@
 package com.musicglass.personal
 
 import androidx.core.net.toUri
+import io.ktor.client.HttpClient
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
+import io.ktor.http.ContentType
+import io.ktor.http.content.TextContent
 import android.content.Intent
 
 /**
@@ -128,6 +135,16 @@ internal fun signInStorePage(url: String): Boolean {
 /** Google's list of the accounts in this web session: the list Chrome reads for its account chooser. */
 internal const val GOOGLE_SESSION_ACCOUNTS_URL = "https://accounts.google.com/ListAccounts?gpsia=1&source=ChromiumBrowser&json=standard"
 internal const val GOOGLE_ACCOUNTS_ORIGIN = "https://accounts.google.com"
+
+/**
+ * Q18-100: Google answers this list only to a POST, as Chrome asks it (a one-space form body); a GET is refused with
+ * HTTP 400, which is what rc8 got on the phone. The cookies go to Google's account host only.
+ */
+internal suspend fun requestGoogleSessionAccounts(http: HttpClient, cookies: String): HttpResponse =
+    http.post(GOOGLE_SESSION_ACCOUNTS_URL) {
+        header("Cookie", cookies)
+        setBody(TextContent(" ", ContentType.Application.FormUrlEncoded))
+    }
 
 /** One account of Google's list. [stableId] is only turned into a scope digest and dropped; it is never kept or logged. */
 internal data class GoogleSessionEntry(val email: String?, val index: String, val stableId: String?, val signedIn: Boolean)

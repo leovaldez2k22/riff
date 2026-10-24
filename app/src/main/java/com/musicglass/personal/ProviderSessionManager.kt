@@ -18,8 +18,6 @@ import io.ktor.client.request.setBody
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.contentType
-import io.ktor.client.request.get
-import io.ktor.client.request.header
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.*
@@ -286,7 +284,7 @@ internal class ProviderSessionManager(context: Context, internal val dependencie
             ?: return emptyList<SessionAccount>().also { playbackEvents.append("session_accounts cookie=false") }
         return withContext(dependencies.dispatchers.io) {
             try {
-                val response = http.get(GOOGLE_SESSION_ACCOUNTS_URL) { header("Cookie", cookies) }
+                val response = requestGoogleSessionAccounts(http, cookies)
                 if (response.status.value >= 400) emptyList<SessionAccount>().also {
                     playbackEvents.append("session_accounts cookie=true status=${response.status.value} reason=http_error")
                 } else {
