@@ -3142,3 +3142,16 @@ New contract rule 16: commit each package locally on its branch before starting 
   hint: quality=HIGH premium_hint=true) and Q18-090 PASS (6 of 6 High streams itag 774, 256 kbps Opus). Medium chose
   the same itag 774 on Wi-Fi and Low chose itag 140 (128 kbps AAC): logged as Q18-108 for the owner to decide. Song
   quality put back to High; playback paused. Riff Preview left on the owner's account.
+
+### The unconfirmed-fix backlog sorted (24 October 2026)
+- Owner: "yes, start the fix round and the sorting". 76 bugs read "fixed in code" without a phone result in their
+  own row. Each was checked against this ledger; every row now ends with its verdict from the sort.
+- Confirmed on the phone already, the row never updated (52): Q18-001, 002, 004, 008 to 012, 014, 018 to 023, 025,
+  028, 032, 033, 035 to 037, 044, 045, 048, 050 to 055, 058, 061 to 064, 067 to 071, 079 to 084, 086, 093 to 096
+  (A1 on rc4, Q19A and Q19B on rc6, the 21 Oct Riff Debug checks, the B1 and G3 device lanes, G3 on rc7).
+- Done, no phone check needed (10): Q18-016, 017 (VPN, the owner's decision), 024, 026, 027, 042, 043, 046, 047, 060.
+- Closed (7): Q18-003 (with Q18-075), 034 and 072 (translation removed, Q18-101), 085, 087 and 088 (carried by
+  Q18-100), 065 (Riff's part done).
+- Still to check on rc9 (7): Q18-030, 073, 074, 097 in the benchmark lane; Q18-031 (TalkBack) and 038 by hand with
+  the owner; Q18-091 after a diagnostic line is added in this fix round.
+- Q18-067's row had three unescaped pipes that split its status cell; repaired.
