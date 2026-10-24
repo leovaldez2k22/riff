@@ -36,10 +36,10 @@ internal class DiagnosticEvent private constructor(val text: String) {
         private val failureClass = Regex("[A-Z][A-Za-z0-9]{0,40}(Exception|Error)")
 
         private val numbers = setOf(
-            "active_ms", "added", "ahead", "ahead_ms", "aliases", "at", "attempt", "attempts", "code", "conflicts",
+            "active_ms", "added", "ahead", "ahead_ms", "aliases", "asked", "at", "attempt", "attempts", "code", "conflicts",
             "count", "damaged", "delay_ms", "delta", "elapsed", "elapsedMs", "expired", "failed", "files", "filtered_shelves", "found", "gain_db",
             "hold_ms", "http", "importance", "imported", "index", "itag", "kbps", "left", "lookup", "loudness_db", "mainState", "malformed", "media",
-            "mixed_rows", "mixed_shelves", "mixed_song_rows", "ms", "not_stored", "over_limit", "parsed", "playback_state",
+            "mixed_rows", "mixed_shelves", "mixed_song_rows", "ms", "not_stored", "over_limit", "page", "parsed", "playback_state",
             "present", "pss_kb", "records", "rejected", "remaining", "removals", "removed", "requeued", "restored", "rss_kb",
             "rows", "sections", "speed", "standby_bucket", "state", "status", "suppression", "swept", "tailState",
             "unmerged_rows", "unrecognised", "waiting")

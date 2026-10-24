@@ -96,6 +96,12 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
     var selectedAccountIndex by rememberSaveable { mutableStateOf<String?>(null) }
     // Q18-087: switching to a saved account without Google's page; the scope the switch must land on.
     var directScope by rememberSaveable { mutableStateOf<String?>(null) }
+    // Q18-110: the scope of the account picked from the list, kept through the fallback to Google's page.
+    var pickedScope by rememberSaveable { mutableStateOf<String?>(null) }
+    // Q18-110: what the direct attempt saw, for the log: the position asked for and the page's own.
+    var lastPageIndex by remember { mutableStateOf<String?>(null) }
+    // Q18-110: Google's own account page was drawn in this attempt, so what is reached is the owner's own choice.
+    var sawGooglePage by remember { mutableStateOf(false) }
     var confirmSignOut by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf(if (provider.sessionState == SessionState.Expired)
         string(R.string.your_session_has_expired_reconnect_your_yout) else null) }
@@ -158,11 +164,14 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
      * that account's YouTube Music behind the checking screen. A direct switch commits only if it lands on that
      * account; anything else falls back to Google's page.
      */
-    fun restart(changeAccount: Boolean, email: String? = null, direct: SavedAccount? = null) {
+    fun restart(changeAccount: Boolean, email: String? = null, direct: SavedAccount? = null, keepPick: Boolean = false) {
         closeBrowser()
         generation = attempt.restart()
         changingAccount = changeAccount
         pickedEmail = email
+        sawGooglePage = false
+        if (!keepPick) pickedScope = direct?.scope
+        lastPageIndex = null
         val straight = directSwitchAccount(direct, provider.signedIn)
         directScope = straight?.scope
         selectedAccountIndex = straight?.index
@@ -177,8 +186,19 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
     /** Q18-087: the direct switch did not land on the picked account; Google's page, with that account's address. */
     fun directFailed() {
         if (directScope == null) return
-        PlaybackEventLog(context).append("account_switch_direct_fallback")
-        restart(changingAccount, pickedEmail)
+        // Q18-110: the position asked for and the page's own, numbers only, and which of the three ways it missed.
+        val asked = selectedAccountIndex?.takeIf { it.all { c -> c in '0'..'9' } }
+        val page = lastPageIndex?.takeIf { it.isNotEmpty() && it.all { c -> c in '0'..'9' } }
+        val reason = if (page == null) "no_page" else if (page != asked) "index_mismatch" else "other_account"
+        PlaybackEventLog(context).append("account_switch_direct_fallback reason=$reason" +
+            (asked?.let { " asked=$it" } ?: "") + (page?.let { " page=$it" } ?: ""))
+        restart(changingAccount, pickedEmail, direct = null, keepPick = true)
+    }
+
+    /** Q18-110: the check reached an account other than the one picked: nothing is committed, Google's chooser opens. */
+    fun reachedAnotherAccount() {
+        PlaybackEventLog(context).append("account_pick_mismatch")
+        restart(changeAccount = true)
     }
 
     /** Q18-038: counts Liked music and the playlists while the animation plays; an account change drops them. */
@@ -223,6 +243,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                     }
                     if (!attempt.accepts(token) || navigation != verifyNavigation) return@withTimeoutOrNull null
                     val pageIndex = data?.optString("a")
+                    if (directScope != null) lastPageIndex = pageIndex
                     if (signInAccountMatches(selectedAccountIndex, pageIndex)) {
                         candidate = provider.signInCandidate(data?.optString("v"), data?.optString("d"), pageIndex)
                     }
@@ -240,6 +261,10 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
             // Q18-087: a direct switch that reached another account, or none, commits nothing and goes to Google's page.
             if (directScope != null && (verified == null || !directSwitchLanded(directScope, provider.signInScope(verified)))) {
                 timeline.cancel(); directFailed(); return@launch
+            }
+            // Q18-110: whatever the route, an account picked from the list is committed only if it is the one reached.
+            if (verified != null && !sawGooglePage && !pickedAccountReached(pickedScope, pickedEmail, provider.signInScope(verified), verified.profile?.email)) {
+                timeline.cancel(); pickedScope = null; reachedAnotherAccount(); return@launch
             }
             val switched = verified?.let {
                 sessions.transition("sign_in", provider.signInScope(it)) { provider.commitSignIn(it) }
@@ -386,7 +411,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
                             onMusic = url.orEmpty().toUri().host == "music.youtube.com"
                         }
                         override fun onPageCommitVisible(view: WebView, url: String?) {
-                            if (attempt.accepts(token)) pageShown = true
+                            if (attempt.accepts(token)) { pageShown = true; if (googleAccountsPage(url.orEmpty())) sawGooglePage = true }
                         }
                         override fun onPageFinished(view: WebView, url: String?) {
                             if (!attempt.accepts(token) || url != view.url) return

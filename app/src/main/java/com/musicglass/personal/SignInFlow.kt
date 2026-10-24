@@ -74,6 +74,19 @@ internal fun directSwitchAccount(account: SavedAccount?, signedIn: Boolean): Sav
 internal fun directSwitchLanded(expectedScope: String?, reached: AccountScope): Boolean =
     expectedScope != null && (reached as? AccountScope.Provider)?.opaqueId == expectedScope
 
+/**
+ * Q18-110: an account picked from Riff's list is committed only when the check reached that account. Google continues
+ * a sign-in whose account is already in the web session as the session's default, so a pick that fell back from the
+ * direct switch used to end silently on the account in use. Judged by the picked account's scope digest; by its
+ * address when no scope was saved and the page gave one (YouTube does not send the owner's, which never blocks);
+ * nothing picked, nothing to match. Not applied once Google's own account page was drawn: that is the owner choosing.
+ */
+internal fun pickedAccountReached(pickedScope: String?, pickedEmail: String?, reached: AccountScope, reachedEmail: String?): Boolean = when {
+    pickedScope != null -> (reached as? AccountScope.Provider)?.opaqueId == pickedScope
+    pickedEmail != null && reachedEmail != null -> reachedEmail.equals(pickedEmail, ignoreCase = true)
+    else -> true
+}
+
 /** Q18-013: the agreed screens (docs/quality/sign-in-design.md); the stop sheet sits over [Google]. */
 internal enum class SignInPhase { Manage, Welcome, AllAccounts, Google, NoLoad, Checking, Connected }
 

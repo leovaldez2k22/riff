@@ -119,6 +119,23 @@ class SignInDesignTest {
         assertFalse(directSwitchLanded(null, AccountScope.Provider("s2_dee")))
     }
 
+    /** Q18-110: a pick that fell back from the direct switch ended silently on the account in use (the owner could not change account). */
+    @Test fun anAccountPickedFromTheListIsCommittedOnlyWhenItIsTheOneReached() {
+        val owner = AccountScope.Provider("s2_owner"); val dummy = AccountScope.Provider("s2_dee")
+        assertTrue("the picked account was reached", pickedAccountReached("s2_dee", "d@example.com", dummy, null))
+        assertFalse("the account in use was reached instead: nothing is committed", pickedAccountReached("s2_dee", "d@example.com", owner, null))
+        assertFalse("an unverified landing is no match", pickedAccountReached("s2_dee", null, AccountScope.Unverified, null))
+        assertFalse("without a scope the page's address decides", pickedAccountReached(null, "d@example.com", owner, "o@example.com"))
+        assertTrue(pickedAccountReached(null, "d@example.com", dummy, "D@Example.com"))
+        assertTrue("an address the page does not send never blocks", pickedAccountReached(null, "o@example.com", owner, null))
+        assertTrue("nothing picked, nothing to match", pickedAccountReached(null, null, owner, null))
+    }
+
+    @Test fun theDirectFallbackAndTheMismatchAreLoggedAsWordsAndNumbers() {
+        for (event in listOf("account_switch_direct_fallback reason=index_mismatch asked=1 page=0", "account_switch_direct_fallback reason=no_page asked=1", "account_pick_mismatch"))
+            assertEquals("kept whole by the diagnostic log", event, DiagnosticEvent.parse(event).text)
+    }
+
     @Test fun lastUseIsInWords() {
         assertEquals("Today", lastUsedLabel(10 * day, 10 * day - 1_000))
         assertEquals("Yesterday", lastUsedLabel(10 * day, 9 * day))
