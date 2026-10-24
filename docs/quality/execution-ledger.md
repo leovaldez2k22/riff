@@ -3187,3 +3187,26 @@ New contract rule 16: commit each package locally on its branch before starting 
   first install time unchanged (20 Oct), so its data is kept. Opened once: started in 334 ms, no crash. Riff (rc20)
   and Riff Debug (rc8) untouched. Phone state before: artifacts/quality/q19/rc9/phone/phone-before.txt.
 - Next, with the owner: the rc9 phone checks.
+
+### rc9 on the phone, first checks (24 October 2026, late morning)
+- Owner present; chose the fix checks without an account change, the account switching and the by-hand checks. Riff
+  Preview rc9 was on the owner's account throughout. No screenshots; evidence in artifacts/quality/q19/rc9/phone.
+- PASS: Q18-100's first half (session_accounts status=200 rows=2 parsed=2 found=2, five times; rc8 got 400), Q18-106
+  (one loudness_track line per song, none first as known=false; Normalize put back off), Q18-085 (two rows for two
+  accounts) and Q18-088 (whole addresses).
+- Q18-091: the diagnostic works; none of 8 lookups offered a compressed copy, so the filter was not exercised.
+- Q18-098: not improved: tap to sound 8.1, 6.1 and 8.5 s (rc8 6.1, rc7 6.6); two more runs wrote no main-process lines
+  (Q18-107 again, not only after an install). The solver gate never had to hold anything; the song waits behind the
+  next queue item's lookup, which ExoPlayer starts with it: Q18-109 logged.
+- Q18-087 FAIL, and the owner: "after last round of fixing, i cannot change account anymore": picking the other saved
+  account ends on the account in use (account_switch_direct_fallback, then committed owner_changed=false), Google's page
+  never drawn; twice. Cause: Q18-100's fix switched on the direct switch for the first time; its fallback committed
+  whatever Google continued as. Q18-110, very high priority at the owner's word, fixed in code (578adc2): a picked
+  account is committed only when reached, else Google's chooser opens; the direct attempt now logs why it misses.
+- A Messages notification came to the front once during the Normalize run; my only blind tap that run was the
+  Normalize switch at its start (it landed in Riff, confirmed by enabled=true in the log).
+- Not run: the suites (device, benchmark, MemoryCheck), Q18-031 (TalkBack), Q18-038, the account switch the other way
+  (the owner is not on the dummy; the Google-page route was opened and left with Stop, nothing changed).
+- Phone left: Riff Preview rc9 on the owner's account, Normalize off, playback paused; Riff (rc20) and Riff Debug
+  untouched. New bugs: Q18-109, Q18-110. Next: rc10 with Q18-110 first (and Q18-109), then these checks again.
+- PR lane not rerun since 578adc2 (sign-in tests only).
