@@ -3110,5 +3110,7 @@ New contract rule 16: commit each package locally on its branch before starting 
   46cb9e63...6024 (9,483,245 bytes, Riff Preview); both code 29, built from b5b243a, certificate ac703423...f6e1 (as
   rc7), arm64-v8a only; release content 20 of 20 each (artifacts/quality/q19/rc8/release-content-*.log). About 18 MB
   smaller than rc7: ML Kit's libtranslate_jni.so (16.4 MB) and liblanguage_id_l2c_jni.so (1.0 MB) left with Q18-101.
-- Next, with the owner: install Riff Preview rc8 over rc7 (same certificate, higher code), then the phone checks of
-  the G3 fix round.
+- Installed at the owner's word ("install, phone is attached"): Riff Preview rc8 over rc7 on the phone, adb install -r
+  only (no uninstall), 07:54 on 24 Oct; the package now reads 0.10.0-rc8-preview, code 29, and keeps its data. Riff
+  (com.musicglass.personal) and every other Riff package were left as they were.
+- Next, with the owner: the phone checks of the G3 fix round.
