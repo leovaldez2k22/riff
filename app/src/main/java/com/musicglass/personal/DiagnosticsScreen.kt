@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import kotlinx.coroutines.Dispatchers
+import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -67,21 +68,22 @@ internal fun diagnosticsReport(exits: List<ExitRecord>, crashes: List<CrashRecor
 
 private class DiagnosticsData(val exits: List<ExitRecord>, val crashes: List<CrashRecord>)
 
-private suspend fun loadDiagnostics(context: Context) = withContext(Dispatchers.IO) {
+private suspend fun loadDiagnostics(context: Context, io: CoroutineContext) = withContext(io) {
     ExitStore.of(context).let { DiagnosticsData(it.exits(), it.crashes()) }
 }
 
-private suspend fun buildReport(context: Context) = withContext(Dispatchers.IO) {
+private suspend fun buildReport(context: Context, io: CoroutineContext) = withContext(io) {
     val store = ExitStore.of(context)
     diagnosticsReport(store.exits(), store.crashes(), PlaybackEventLog(context).recent(), BuildConfig.VERSION_NAME,
         android.os.Build.VERSION.SDK_INT, "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
 }
 
-@Composable internal fun DiagnosticsScreen(model: ShellModel, bottom: Dp, onNotice: (String) -> Unit) {
+/** [io] is where the records are read and written; tests read them in place (Q18-105). */
+@Composable internal fun DiagnosticsScreen(model: ShellModel, bottom: Dp, io: CoroutineContext = Dispatchers.IO, onNotice: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var data by remember { mutableStateOf<DiagnosticsData?>(null) }
-    LaunchedEffect(context) { data = loadDiagnostics(context) }
+    LaunchedEffect(context) { data = loadDiagnostics(context, io) }
     ScreenList(model, bottom) {
         // The list's shape never changes once the records are read (the errors item is always there, empty when
         // there are none), so no row moves under a finger.
@@ -115,14 +117,14 @@ private suspend fun buildReport(context: Context) = withContext(Dispatchers.IO) 
             SettingsSection(string(R.string.report)) {
                 SettingsLinkRow(string(R.string.share_diagnostics_report), icon = Icons.Rounded.Share, tag = "diagnostics_share") {
                     scope.launch {
-                        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, buildReport(context))
+                        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, buildReport(context, io))
                         runCatching { context.startActivity(Intent.createChooser(send, string(R.string.share_diagnostics_report))) }
                     }
                 }
                 SettingsDivider()
                 SettingsLinkRow(string(R.string.copy_playback_diagnostics), icon = Icons.Rounded.ContentCopy, tag = "diagnostics_copy") {
                     scope.launch {
-                        val report = buildReport(context)
+                        val report = buildReport(context, io)
                         context.getSystemService(android.content.ClipboardManager::class.java)
                             .setPrimaryClip(android.content.ClipData.newPlainText(string(R.string.riff_playback_diagnostics), report))
                         onNotice(string(R.string.playback_diagnostics_copied))
@@ -131,7 +133,7 @@ private suspend fun buildReport(context: Context) = withContext(Dispatchers.IO) 
                 SettingsDivider()
                 SettingsLinkRow(string(R.string.clear_exit_records), icon = Icons.Rounded.DeleteOutline, tag = "diagnostics_clear") {
                     scope.launch {
-                        withContext(Dispatchers.IO) { ExitStore.of(context).clear() }
+                        withContext(io) { ExitStore.of(context).clear() }
                         data = DiagnosticsData(emptyList(), emptyList())
                         onNotice(string(R.string.exit_records_cleared))
                     }

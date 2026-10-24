@@ -18,6 +18,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows
 import org.robolectric.annotation.Config
+import kotlinx.coroutines.Dispatchers
 
 /** Q15A: Settings, About, Diagnostics as the user meets it, from synthetic records. */
 @RunWith(RobolectricTestRunner::class)
@@ -40,12 +41,13 @@ class DiagnosticsScreenTest {
         PlaybackEventLog(context).append("stream_resolve_start lookup=1 https://example.com/x?sig=secret")
     }
 
+    // Q18-105: the records are read in place, so no wait depends on a background thread being scheduled in time.
     private fun shown(text: String) = compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
     private fun count(tag: String) = compose.onAllNodesWithTag(tag).fetchSemanticsNodes().size
     private fun tap(tag: String) { compose.waitUntil(WAIT_MS) { count(tag) > 0 }; compose.onNodeWithTag(tag).performSemanticsAction(SemanticsActions.OnClick) }
 
     @Test fun exitsReadInPlainWordsAndOnlyFailuresAreMarkedAsSuch() {
-        compose.setContent { DiagnosticsScreen(ShellModel(), 0.dp) { notices += it } }
+        compose.setContent { DiagnosticsScreen(ShellModel(), 0.dp, Dispatchers.Unconfined) { notices += it } }
         // The exits and the errors are two list items and may arrive a frame apart.
         compose.waitUntil(WAIT_MS) { shown(string(R.string.exit_crash)) && count("diagnostics_error") > 0 }
         for (text in listOf(R.string.exit_crash, R.string.exit_user_requested, R.string.exit_low_memory, R.string.exit_other, R.string.stream_helper))
@@ -57,7 +59,7 @@ class DiagnosticsScreenTest {
     }
 
     @Test fun shareSendsTheCleanedReportThroughTheSystemSheetOnly() {
-        compose.setContent { DiagnosticsScreen(ShellModel(), 0.dp) { notices += it } }
+        compose.setContent { DiagnosticsScreen(ShellModel(), 0.dp, Dispatchers.Unconfined) { notices += it } }
         compose.waitUntil(WAIT_MS) { count("diagnostics_error") > 0 }
         assertEquals("the report row is drawn once after the errors appear", 1, count("diagnostics_share"))
         tap("diagnostics_share")
@@ -76,7 +78,7 @@ class DiagnosticsScreenTest {
     }
 
     @Test fun clearRemovesTheRecordsAndSaysSo() {
-        compose.setContent { DiagnosticsScreen(ShellModel(), 0.dp) { notices += it } }
+        compose.setContent { DiagnosticsScreen(ShellModel(), 0.dp, Dispatchers.Unconfined) { notices += it } }
         compose.waitUntil(WAIT_MS) { count("diagnostics_exit_failure") > 0 }
         tap("diagnostics_clear")
         compose.waitUntil(WAIT_MS) { string(R.string.exit_records_cleared) in notices }
