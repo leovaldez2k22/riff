@@ -35,6 +35,14 @@ internal fun loudnessTrackEvent(enabled: Boolean, loudnessDb: Double?, gain: Flo
         " gain_db=${normalizationDecibels(gain)}"
 }
 
+/**
+ * Q18-106: loudness_track is written once a track's stream or download has been opened (when its loudness, or the lack
+ * of it, is settled) and only when that differs from the line last written. Before, the line went out as the item
+ * became current, known=false, and again a moment later with the value.
+ */
+internal fun loudnessTrackDue(entry: String, loudnessDb: Double?, opened: Boolean, logged: Pair<String, Double?>?): Boolean =
+    entry.isNotEmpty() && (loudnessDb != null || opened) && (entry to loudnessDb) != logged
+
 /** A gain as text for the event log, one decimal: "-6.0", or "0.0" for unchanged. */
 internal fun normalizationDecibels(gain: Float): String =
     String.format(java.util.Locale.ROOT, "%.1f", if (gain >= 1f) 0.0 else 20 * kotlin.math.log10(gain.toDouble()))

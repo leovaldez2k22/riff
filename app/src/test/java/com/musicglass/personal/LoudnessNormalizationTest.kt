@@ -253,4 +253,14 @@ class LoudnessNormalizationTest {
         for(event in listOf(loudnessTrackEvent(true,6.0,.5f),loudnessTrackEvent(false,null,1f)))
             assertEquals("every field is kept by the diagnostic log",event,DiagnosticEvent.parse(event).text)
     }
+    /** Q18-106: one line per track, written when its loudness is settled, not first as unknown and then again. */
+    @Test fun eachTrackWritesItsLoudnessLineOnceItIsSettled() {
+        assertFalse("not while the stream is still being found",loudnessTrackDue("a",null,false,null))
+        assertTrue("once the loudness is known",loudnessTrackDue("a",-7.0,false,null))
+        assertFalse("and not again for the same track",loudnessTrackDue("a",-7.0,true,"a" to -7.0))
+        assertTrue("a stream opened without a loudness says so",loudnessTrackDue("b",null,true,"a" to -7.0))
+        assertFalse("once",loudnessTrackDue("b",null,true,"b" to null))
+        assertTrue("the same song played again after another is a new line",loudnessTrackDue("a",-7.0,false,"b" to null))
+        assertFalse("no entry, no line",loudnessTrackDue("",-7.0,true,null))
+    }
 }

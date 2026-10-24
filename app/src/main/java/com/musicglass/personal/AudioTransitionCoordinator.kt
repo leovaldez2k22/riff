@@ -36,6 +36,10 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         // Most recently used last; the playing entry is read at every change, so it is never the one dropped.
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Double>?) = size > 2048
     })
+    /** Q18-106: entries whose stream or download was opened without a usable loudness, so their line can be written. */
+    private val openedWithoutLoudness = java.util.Collections.synchronizedMap(object : LinkedHashMap<String, Unit>(64, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Unit>?) = size > 2048
+    })
 
     private fun currentBoostGain() = boostGain(boostPrefs.getBoolean("enabled", false), boostPrefs.getInt("percent", 200))
     private fun updateBoost() {
@@ -48,7 +52,9 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
     /** May be called from a loader thread, usually before the entry's first audio is decoded. */
     fun learnLoudness(item: MediaItem, loudnessDb: Double?) {
         val entry = item.entryId(); val value = validLoudnessDb(loudnessDb)
-        if (entry.isEmpty() || value == null || entryLoudness.put(entry, value) == value) return
+        if (entry.isEmpty()) return
+        if (value == null) { if (openedWithoutLoudness.put(entry, Unit) == null) scope.launch { update() }; return }
+        if (entryLoudness.put(entry, value) == value) return
         scope.launch { update() }
     }
     /**
@@ -61,7 +67,7 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
             if (gain != loggedNormalization) { loggedNormalization = gain; events.append("normalize gain_db=${normalizationDecibels(gain)}") }
             val entry = it.currentMediaItem?.entryId().orEmpty()
             val track = entry to entryLoudness[entry]
-            if (entry.isNotEmpty() && track != loggedTrack) {
+            if (loudnessTrackDue(entry, track.second, openedWithoutLoudness.containsKey(entry), loggedTrack)) {
                 loggedTrack = track
                 events.append(loudnessTrackEvent(boostPrefs.getBoolean(NORMALIZE_KEY, false), track.second, gain))
             }
