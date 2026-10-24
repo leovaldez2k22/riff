@@ -130,13 +130,12 @@ def scroll_towards(target_idx):
         max_idx = max(tracks.keys())
         
         if target_idx in tracks:
-            # Check vertical positioning
             tb = tracks[target_idx]["bounds"]
-            if tb[1] < 250:
+            if tb[1] < 120 and attempt < 3:
                 adb_run(["shell", "input", "swipe", "540", "400", "540", "800", "250"])
                 time.sleep(0.4)
                 continue
-            elif tb[3] > 1950:
+            elif tb[3] > 2015 and attempt < 3:
                 adb_run(["shell", "input", "swipe", "540", "1800", "540", "1400", "250"])
                 time.sleep(0.4)
                 continue
