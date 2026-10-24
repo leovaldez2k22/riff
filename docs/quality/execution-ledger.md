@@ -3103,5 +3103,12 @@ New contract rule 16: commit each package locally on its branch before starting 
 - PR lane in the worktree: PASS_LOCAL, every gate (artifacts/quality/lanes/pr-20261024T005340Z in ..\Riff-rc8). An
   earlier run was stopped part way; its build then failed because its outputs were cleaned under it for the rerun.
   Its evidence is kept beside the passing run (pr-20261023T220911Z).
-- Next, with the owner: sign it (build-release-candidate.ps1 -Preview -Offline in ..\Riff-rc8 with -Toolchain at this
-  checkout's .toolchain), install Riff Preview rc8 over rc7, then the phone checks of the G3 fix round.
+- The owner signed it: build-release-candidate.ps1 -Preview -Offline in ..\Riff-rc8 with -Toolchain at this checkout's
+  .toolchain, through powershell -ExecutionPolicy Bypass -File (scripts are disabled on this machine). The first try
+  stopped on one test timing out under the build's load (Q18-105; 3 of 3 alone afterwards); the second passed.
+  Signed: riff-0.10.0-rc8.apk 0f33fc7b...fa9a (9,482,821 bytes, Riff, com.musicglass.personal), riff-0.10.0-rc8-preview.apk
+  46cb9e63...6024 (9,483,245 bytes, Riff Preview); both code 29, built from b5b243a, certificate ac703423...f6e1 (as
+  rc7), arm64-v8a only; release content 20 of 20 each (artifacts/quality/q19/rc8/release-content-*.log). About 18 MB
+  smaller than rc7: ML Kit's libtranslate_jni.so (16.4 MB) and liblanguage_id_l2c_jni.so (1.0 MB) left with Q18-101.
+- Next, with the owner: install Riff Preview rc8 over rc7 (same certificate, higher code), then the phone checks of
+  the G3 fix round.
