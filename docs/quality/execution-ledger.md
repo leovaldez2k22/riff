@@ -3096,3 +3096,12 @@ New contract rule 16: commit each package locally on its branch before starting 
 - Bugs: Q18-100 open (waits for the phone). Fixed and waiting for their phone checks on the next candidate: Q18-076
   (through Q18-103), 089, 097, 098, 099, 101 to 104. Not done: rc8 (signing is the owner's), pushing, anything on the
   owner's account or the phone.
+
+### rc8 prepared (24 October 2026)
+- Owner: "prepare rc8 so i can sign it". Version 0.10.0-rc8, code 29 (b5b243a), on top of the G3 fix round; clean
+  worktree ..\Riff-rc8. No phone work: nothing installed, no account touched.
+- PR lane in the worktree: PASS_LOCAL, every gate (artifacts/quality/lanes/pr-20261024T005340Z in ..\Riff-rc8). An
+  earlier run was stopped part way; its build then failed because its outputs were cleaned under it for the rerun.
+  Its evidence is kept beside the passing run (pr-20261023T220911Z).
+- Next, with the owner: sign it (build-release-candidate.ps1 -Preview -Offline in ..\Riff-rc8 with -Toolchain at this
+  checkout's .toolchain), install Riff Preview rc8 over rc7, then the phone checks of the G3 fix round.
