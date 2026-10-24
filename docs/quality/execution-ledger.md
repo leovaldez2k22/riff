@@ -3182,4 +3182,8 @@ New contract rule 16: commit each package locally on its branch before starting 
   25dfa2cf...d67e (9,483,245 bytes, Riff Preview); both code 30, built from 9b3931d, certificate ac703423...f6e1 (as
   rc8), arm64-v8a only; SHA256SUMS.txt matches; release content 20 of 20 each (artifacts/quality/q19/rc9). The byte
   sizes equal rc8's; the dex differs (2,772 bytes larger, holds audio_drc and solver_preload_yielded) and so do the hashes.
-- Next, with the owner: install rc9 (asked first), then the rc9 phone checks.
+- Installed at the owner's word ("install, phone is attached"; adb listed the phone only after its server was
+  restarted): Riff Preview rc9 over rc8, adb install -r only, 11:26 on 24 Oct; it reads 0.10.0-rc9-preview, code 30,
+  first install time unchanged (20 Oct), so its data is kept. Opened once: started in 334 ms, no crash. Riff (rc20)
+  and Riff Debug (rc8) untouched. Phone state before: artifacts/quality/q19/rc9/phone/phone-before.txt.
+- Next, with the owner: the rc9 phone checks.
