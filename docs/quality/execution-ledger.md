@@ -3137,3 +3137,8 @@ New contract rule 16: commit each package locally on its branch before starting 
   Q18-102 PASS (every Privacy and data action asked; Cancel each time, nothing changed); Q18-098 PARTIAL (A4 6.1 s,
   rc7 6.6 s: the solver fetches the two players one after the other and the lookup waits for the prewarm). Wi-Fi and
   mobile data back on; Riff Preview paused.
+- Then #8 at the owner's word ("yes do #8 now"): Riff Preview switched to the owner's account (the owner picked it on
+  Google's page; Welcome back listed two rows, session_accounts status=400 again). Q18-099 PASS (High sends the Premium
+  hint: quality=HIGH premium_hint=true) and Q18-090 PASS (6 of 6 High streams itag 774, 256 kbps Opus). Medium chose
+  the same itag 774 on Wi-Fi and Low chose itag 140 (128 kbps AAC): logged as Q18-108 for the owner to decide. Song
+  quality put back to High; playback paused. Riff Preview left on the owner's account.
