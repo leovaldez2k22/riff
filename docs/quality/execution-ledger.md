@@ -3210,3 +3210,17 @@ New contract rule 16: commit each package locally on its branch before starting 
 - Phone left: Riff Preview rc9 on the owner's account, Normalize off, playback paused; Riff (rc20) and Riff Debug
   untouched. New bugs: Q18-109, Q18-110. Next: rc10 with Q18-110 first (and Q18-109), then these checks again.
 - PR lane not rerun since 578adc2 (sign-in tests only).
+
+### Deadline decisions and rc10 prepared (24 October 2026)
+- Owner, with a deadline: Q18-098 and Q18-109 dropped (the cold-start delay), Q18-031 closed (no TalkBack), Q18-038 PASS
+  by their own check, Q18-091, 089 and 092 closed as accepted limitations (their answer: "Close them now"). New bugs
+  found from here on go to docs/quality/proposed-bugs.md for approval, not q18-bugs.md. The owner checks Q18-110 on
+  the phone themselves before the device suites.
+- Lanes on dd6f0d8 (the Q18-110 fix): PR lane PASS_LOCAL, JVM 1,226 tests 0 failures (pr-20261024T064814Z); emulator
+  lane PASS_LOCAL, OK (69 tests) (emulator-20261024T070755Z). Two earlier emulator runs failed at pairing, my mistake
+  both times: MSYS_NO_PATHCONV=1 was exported in the command, so GRADLE_USER_HOME was not converted and Gradle made a
+  new home under C:\c (now about 759 MB) that failed dependency verification. Never export it with a Gradle run.
+- rc10: version 0.10.0-rc10, code 31 (8adb2d1), clean worktree ..\Riff-rc10; PR lane there PASS_LOCAL, every gate
+  (artifacts/quality/lanes/pr-20261024T071806Z in ..\Riff-rc10). No phone work.
+- Next: the owner signs rc10; I install it only when asked; the owner checks Q18-110; then the device lane, benchmark
+  lane and MemoryCheck; then Q19R.
