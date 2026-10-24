@@ -3114,3 +3114,20 @@ New contract rule 16: commit each package locally on its branch before starting 
   only (no uninstall), 07:54 on 24 Oct; the package now reads 0.10.0-rc8-preview, code 29, and keeps its data. Riff
   (com.musicglass.personal) and every other Riff package were left as they were.
 - Next, with the owner: the phone checks of the G3 fix round.
+
+### rc8 on the phone, first checks (24 October 2026, morning)
+- Owner present: "i logged in to the dummy account, its working", then chose the dummy-account checks and the three
+  that need them, and approved installing Riff Debug rc8, Q18-077 and Q18-078 (uninstall and reinstall of Riff Debug
+  only). Riff Preview was on the dummy account (owner's answer). No screenshots; evidence in
+  artifacts/quality/q19/rc8/phone (git-ignored), phone-before.txt and phone-after.txt.
+- PASS: Q18-104 (rename, delete with Cancel first, Liked Music offers neither), Q18-066 (downloads finish), Q18-077
+  (each song says its loudness was known; gain 0 by design), Q18-078 (restore after a reinstall, no numbered copies).
+- Q18-100 cause found: Google's account list answers HTTP 400 (session_accounts cookie=true status=400). Q18-098's
+  early second-player fetch seen (phase=early); its A4 timing not yet taken. Q18-089 PARTIAL again (itag 251, WEB_REMIX
+  never failed). Q18-092 not checkable on this phone (LoudnessEnhancer always available).
+- New: Q18-106 (loudness_track written twice per song), Q18-107 (a fresh install's first process writes no
+  RiffPlayback lines to logcat on this phone).
+- Installed: Riff Debug rc8 over rc7 (install -r), then uninstalled and installed again for Q18-078. Riff, Riff Preview
+  and the other packages untouched. Test downloads removed (82 songs, 347.3 MB, as found); the Riff test playlist
+  deleted by the check itself; Normalize and Reduce motion in Riff Debug put back off and backed up. Auto-rotate read
+  on afterwards (off at 08:02); not changed by the checks, left as the owner set it.
