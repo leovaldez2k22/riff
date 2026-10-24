@@ -7,17 +7,20 @@ Sizes are given only where measured; the machine was too slow to total the rest 
 
 | Path | What it is |
 |---|---|
-| `C:\c` (about 759 MB) | A Gradle home created by two emulator-lane runs where `MSYS_NO_PATHCONV=1` broke GRADLE_USER_HOME. Nothing uses it. |
-| `C:\q18c6` | Scratch folder of the Q18 C6 packaging run. |
+| `C:\c` (about 759 MB) | A Gradle home created by two emulator-lane runs where `MSYS_NO_PATHCONV=1` broke GRADLE_USER_HOME. Nothing uses it. Checked 24 Oct: it contains only `...\Riff\.toolchain\gradle-user-home`. |
+| `C:\q18c6` | Scratch folder of the Q18 C6 packaging run (a copy of the repo). |
 
 ## 2. Release-candidate worktrees (delete after the final candidate is signed and checked)
 
 Each is a full checkout with its own build output. The signed APKs of an rc live inside its worktree, so keep a copy of any APK you still want before removing it.
 
+Checked 24 Oct: `artifacts\release` stops at `riff-0.10.0-rc6`. The release and preview APKs of rc7, rc8 and rc9 exist only in `..\Riff-rc7`, `..\Riff-rc8` and `..\Riff-rc9` (`app\build\outputs\apk\release` and `\preview`); `artifacts\quality\q19\rc7\apks` has only the debug, benchmark and test builds. Copy them into `artifacts\release` first if you want to keep them. None of the worktrees has uncommitted edits.
+
 | Worktree | Commit | Note |
 |---|---|---|
-| `..\Riff-rc4` to `..\Riff-rc9` | detached | Superseded by rc10. |
-| `..\Riff-rc10` | 8adb2d1 | Delete after the 0.10.0 final candidate is built and installed; keep until then (it holds the signed rc10). |
+| `..\Riff-rc4` to `..\Riff-rc6` | detached | Superseded by rc10; their APKs are already in `artifacts\release`. |
+| `..\Riff-rc7` to `..\Riff-rc9` | detached | Superseded by rc10, but copy their release and preview APKs out first (see above). |
+| `..\Riff-rc10` | 8adb2d1 | Keep until the 0.10.0 final candidate is built and installed. rc10 is not signed yet: the worktree holds the mapping and logs and an unsigned lane `app.apk`, and is where the signed rc10 will be built. |
 | `Riff\.claude\worktrees\youthful-wright-c57334` | 7f7ab8e | Old session worktree (branch `claude/youthful-wright-c57334`). |
 
 Remove with `git worktree remove <path>`, then `git worktree prune`.
@@ -26,12 +29,17 @@ Remove with `git worktree remove <path>`, then `git worktree prune`.
 
 `codex/downloads-crossfade-improvements`, `codex/fix-audio-continuity`, `codex/rc20-lyrics-playback`, `feat/rc18-prep`, `fix/overnight-rc18`, `claude/youthful-wright-c57334`. Keep `main` and `codex/riff-quality-m0` (the Q18/Q19 work) until it is merged.
 
+Checked 24 Oct: the first five are merged into `main`, and all six are merged into `codex/riff-quality-m0`, so deleting them loses no commits. Not covered here: the `previous-account` remote and its branches (`previous-account/main`, `/codex/downloads-crossfade-improvements`, `/feat/rc18-prep`, `/fix/overnight-rc18`). Whether to remove that remote is your call.
+
 ## 4. Test evidence in `Riff\artifacts\` (git-ignored)
 
-Keep until `docs/quality/final-report.md` is accepted, because it cites some of them:
-`artifacts\quality\lanes` (57 lane runs; keep only the final PR, emulator, device, benchmark and memory runs), `artifacts\quality\q19\rc9`, `rc10` and the final candidate's folder.
+Keep until `docs/quality/final-report.md` is accepted:
+`artifacts\quality\lanes` (57 lane runs; keep only the final PR, emulator, device, benchmark and memory runs), `artifacts\quality\q19\rc9`, `rc10`, `fix-round-20261024` and the final candidate's folder.
 
-Deletable after the report:
+**Read this before deleting anything below.** On 24 Oct, `final-report.md` was still the Q17 draft and cited no artifact paths, so waiting for it does not protect anything. The evidence links are in `execution-ledger.md`, which is on the never-delete list, and it cites most of the folders below: 32 hash-named folders, `q02-work`, `q03-work`, `q18a`, `q18b`, and almost every `q19\*` folder (`day22` 14 times, `rc8` 11, `rc7` 10, `g1` 7, among others). Deleting them leaves those ledger links dead. Choose one: (a) accept dead links in the ledger, (b) keep every folder the ledger cites, or (c) zip the cited folders into one archive before deleting them. To list what the ledger cites:
+`grep -oE 'artifacts[\\/][A-Za-z0-9_./\\-]+' docs/quality/execution-ledger.md | sort -u`
+
+Deletable after the report (subject to the choice above):
 - Per-night and per-bug folders in `artifacts\quality\q19`: `a1`, `b0`, `b1`, `b1-run2`, `b2`, `b4`, `b5`, `b6`, `b8`, `c1` to `c8`, `day22`, `f1`, `fix22`, `frost`, `g1`, `g2`, `glass`, `night21` to `night23`, `owner-bugs-23oct`, `pins`, `pr-1585045`, `rc6`, `rc7`, `rc8`, `ux04`, plus `c1.log`, `g1-build.log`, `g1-build2.log`.
 - About 90 hash-named folders in `artifacts\quality` (`<commit>-dirty-<id>` and `-clean-`, `canary`, `local-unknown`): build and lane outputs of intermediate commits.
 - `artifacts\quality\q02-work`, `q03-work`, `q04-work`, `q18-owner-20261019`, `q18a`, `q18b`, `q18c`.
@@ -44,7 +52,7 @@ Do NOT delete: `artifacts\release` (signed APKs and checksums of rc20 and every 
 
 Large but needed while you build: `jdk-21...`, `sdk`, `gradle-8.13`, `gradle-user-home`, `signing`. Delete only if you will never build again.
 
-Safe to delete once Q19R is done:
+Safe to delete once Q19R is done (checked 24 Oct: scripts use only `jdk-21`, `sdk`, `gradle-8.13`, `gradle-user-home` and `signing`; nothing below is referenced):
 - Emulator images: `avd`, `q02-avd`, `q18-avd`, `q19-avd` (the Q18/Q19 emulator lanes recreate `q18-avd`; `perfetto-v50.1`, the Android SDK images they use stay in `sdk`).
 - Screenshots and XML dumps: `*.png`, `*.xml`, `*.mp4`, `video-*-frames`, `surface-fallback-frames`.
 - One-off scripts and data: `*.py` (audit, fix, ui, phone-check), `rc20-device-test.ps1`, `rc20-*.json/.xml/.png`, `megalobiz-*`, `netease-*.json`, `ProviderProbe.java`, `bounded-scroll-*.txt`, `release-scroll-*.txt`, `window.xml`, `__pycache__`, `folder-cleanup-2026-10-02.*`.
