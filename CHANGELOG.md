@@ -1,5 +1,7 @@
 # Changelog
 
+Newest first. Release candidates before 0.9.0-rc16 were recorded only in the README; their text is kept here unchanged. Detailed implementation and verification records are in `docs/`.
+
 ## 0.10.0 (code 33), final candidate, prepared, not published
 
 Release notes: `docs/release-notes-0.10.0.md`. Built from the final commit of the excellence plan and checked locally; nothing has been published. Everything since 0.10.0-rc1, from the Q18 and Q19 rounds (bug numbers from `docs/quality/q18-bugs.md`):
@@ -108,21 +110,6 @@ Release notes: `docs/release-notes-0.10.0-rc1.md`. Built and checked locally; no
 - Changed: asking Riff to play an audio file that cannot be read now reports the failure after the request is queued, instead of checking the file on the main thread first.
 - Removed code that no screen could reach: an older queue panel, unused saved-track toggles and unused motion constants.
 - No change to the app: an account-free check, made to run once a day, asks YouTube Music for one search, one album and the start of one song, to notice when the provider changes. It runs outside the app, from the project's own tooling. See [docs/quality/provider-compatibility.md](docs/quality/provider-compatibility.md).
-
-### Historical October 6 update
-
-Merged into `main` and verified 6 October 2026. The local tested APK retains version `0.9.0-rc20` / code 21; the published 4 October rc20 APK does not include this section. See [the update notes](docs/update-2026-10-06.md) and [device verification](docs/downloads-crossfade-verification-2026-10-06.md). All 273 JVM/Compose tests and 17 distinct phone tests passed; lint completed with zero errors.
-
-- Ordinary online audio now uses direct transport to address the short playback interruption. Cache identities distinguish transport, format and bitrate so different byte layouts or qualities do not share entries. See [the playback verification](docs/playback-fix-2026-10-05.md).
-- Downloads replaces its settings shortcut with Delete all downloads, with confirmation and cancellation of pending transfers. Playlist and album pages offer Download all songs after the complete collection loads; repeated songs and existing downloads are retained once.
-- Search has a clear-text cross icon. Download storage budgets extend through 24, 32, 64, 128 and 256 GB to Unlimited; device free-space reserves still apply. Clearing playback cache requires confirmation.
-- Crossfade accepts audio metadata with a null video URI, prepares the outgoing copy early, preloads the next song, and blends with equal-power gains. Pauses, seeks, live/video items and sleep timers remain excluded or cancel the blend.
-- Lyrics timing starts and resets at +0.2s. Timing, player, song, long-press, sort and language menus have frosted backgrounds with sharp text. Appearance has an independent Frosted glass intensity slider. The translation metrics text is removed from the lyrics page.
-- Tapping the queue's current-song thumbnail returns to the player through its existing artwork transition.
-- Artwork, title and artist fade only during an actual automatic audio crossfade. The full player, mini player and queue header follow the audio engine's live progress for the entire blend; manual song changes and crossfade-off playback replace content immediately, respecting reduced motion.
-- Both crossfade volumes use a smooth monotonic clock. Decoder startup and buffering no longer compress the fade, timestamp jumps cannot jump either gain, and an early outgoing end cannot snap the incoming volume to full. The outgoing copy attaches the same loudness processing as the main player when its audio session becomes ready.
-
-Newest first. Release candidates before 0.9.0-rc16 were recorded only in the README; their text is kept here unchanged. Detailed implementation and verification records are in `docs/`.
 - A playlist or album with more than 2,000 songs now opens showing the first 2,000, with a line saying so. Before, it failed to open. **Play**, **Shuffle**, **Download all songs** and sorting are disabled on a list that is not the whole collection; tapping a song still plays from what is shown.
 - A list that YouTube Music stops sending part-way is labelled as possibly incomplete. Before, it was shown as if it were whole.
 - Changed: adding a song to a playlist, or removing one, is reported as done only when YouTube Music says so. If no answer arrives, Riff reads the playlist to find out; if that also fails it says **YouTube Music did not confirm this change. Riff will check before trying again**, and checks before sending anything again, so a song is not added twice.
@@ -142,6 +129,20 @@ Newest first. Release candidates before 0.9.0-rc16 were recorded only in the REA
 - Changed: confirmation buttons name what they do (**Clear cache**, **Delete all downloads**). If clearing or deleting fails, the dialog stays open and says so with **Try again**.
 - Changed: filled buttons have black text on pink. The previous dark purple was hard to read.
 - Explore has **Retry** when it cannot load.
+
+### Historical October 6 update
+
+Merged into `main` and verified 6 October 2026. The local tested APK retains version `0.9.0-rc20` / code 21; the published 4 October rc20 APK does not include this section. See [the update notes](docs/update-2026-10-06.md) and [device verification](docs/downloads-crossfade-verification-2026-10-06.md). All 273 JVM/Compose tests and 17 distinct phone tests passed; lint completed with zero errors.
+
+- Ordinary online audio now uses direct transport to address the short playback interruption. Cache identities distinguish transport, format and bitrate so different byte layouts or qualities do not share entries. See [the playback verification](docs/playback-fix-2026-10-05.md).
+- Downloads replaces its settings shortcut with Delete all downloads, with confirmation and cancellation of pending transfers. Playlist and album pages offer Download all songs after the complete collection loads; repeated songs and existing downloads are retained once.
+- Search has a clear-text cross icon. Download storage budgets extend through 24, 32, 64, 128 and 256 GB to Unlimited; device free-space reserves still apply. Clearing playback cache requires confirmation.
+- Crossfade accepts audio metadata with a null video URI, prepares the outgoing copy early, preloads the next song, and blends with equal-power gains. Pauses, seeks, live/video items and sleep timers remain excluded or cancel the blend.
+- Lyrics timing starts and resets at +0.2s. Timing, player, song, long-press, sort and language menus have frosted backgrounds with sharp text. Appearance has an independent Frosted glass intensity slider. The translation metrics text is removed from the lyrics page.
+- Tapping the queue's current-song thumbnail returns to the player through its existing artwork transition.
+- Artwork, title and artist fade only during an actual automatic audio crossfade. The full player, mini player and queue header follow the audio engine's live progress for the entire blend; manual song changes and crossfade-off playback replace content immediately, respecting reduced motion.
+- Both crossfade volumes use a smooth monotonic clock. Decoder startup and buffering no longer compress the fade, timestamp jumps cannot jump either gain, and an early outgoing end cannot snap the incoming volume to full. The outgoing copy attaches the same loudness processing as the main player when its audio session becomes ready.
+
 
 ## 0.9.0-rc20
 
