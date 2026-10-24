@@ -3131,3 +3131,9 @@ New contract rule 16: commit each package locally on its branch before starting 
   and the other packages untouched. Test downloads removed (82 songs, 347.3 MB, as found); the Riff test playlist
   deleted by the check itself; Normalize and Reduce motion in Riff Debug put back off and backed up. Auto-rotate read
   on afterwards (off at 08:02); not changed by the checks, left as the owner set it.
+- Then, at the owner's word ("yes do 1-4 now"): Q18-103 and Q18-076 PASS (Wi-Fi and mobile data off, not airplane mode,
+  because Bluetooth headphones were connected; the lookup failed at its deadline, Riff waited with Pause showing, and
+  the song played 9.4 s after the network was turned on); Q18-101 PASS (no translation on a Spanish song's lyrics);
+  Q18-102 PASS (every Privacy and data action asked; Cancel each time, nothing changed); Q18-098 PARTIAL (A4 6.1 s,
+  rc7 6.6 s: the solver fetches the two players one after the other and the lookup waits for the prewarm). Wi-Fi and
+  mobile data back on; Riff Preview paused.
