@@ -70,3 +70,20 @@ uses generated serializers, and there is no kotlin-reflect dependency. Evidence 
 Preview (shrunk release) used all day on the owner's phone in Q18A and Q18B, and JourneyCheck on benchmarkRelease
 (Q15). Disposition: **Accepted with a known fix**: pin R8 9.1.29 in the buildscript classpath or move to an AGP that
 bundles it, then rerun the release lanes. Listed as Q18-024.
+
+## Q19R R5: the final lint (24 October 2026)
+
+Source: the PR lane's debug lint on the final commit (bc69f02, the code of 0.10.0, a9b1299;
+`artifacts/quality/lanes/pr-20261024T151040Z` in ..\Riff-final): **93 warnings, 3 hints, 0 errors**. Since Q19F4 the
+build moved to AGP 9.4.1 (Q18-024), whose lint adds a rule and drops others, and the Q18 and Q19 fixes added code.
+Only the differences from the 85 above are listed; every other rule keeps its disposition. Nothing is suppressed.
+
+| Rule | n | Where | Disposition | Reason |
+| --- | --- | --- | --- | --- |
+| SetJavaScriptEnabled | 3 | AccountScreen.kt (the sign-in browser), AndroidTokenRuntime.kt (the playback attestation page), InlineYouTubeVideo.kt (live radio's video) | Accepted | Each page needs JavaScript to work at all. The sign-in browser loads only Google's sign-in hosts (security review section 2, WebBoundariesTest); the attestation page runs YouTube's own script with no cookies; the video view plays only live radio. New with AGP 9.4.1's lint, not new code |
+| UseKtx | +8 (52) | SharedPreferences.edit, String.toUri, createBitmap and SQLiteDatabase.transaction in code added by the Q18 and Q19 fixes | Accepted | Style only, as above; changing them now would touch every store without a behaviour change |
+| PluralsCandidate | +1 (8) | strings.xml collection_n_unavailable ("%1$d unavailable") | Accepted | Reads correctly for any number in English, as the seven above; Riff ships no translations |
+| UseTomlInstead | 7 (was 9) | build files | Accepted | As above; two fewer after the AGP move |
+| Gone since Q19F4 | | NewerVersionAvailable, AndroidGradlePluginVersion (offline lint, AGP upgraded), HardcodedText, Recycle, RtlSymmetry (fixed or no longer reported) | none | |
+
+The 3 hints are AutoboxingStateCreation, as above (Change, low; left for later).

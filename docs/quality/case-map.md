@@ -356,3 +356,70 @@ emulator), FAIL 0, BLOCKED 29 (the fixed bugs, on rc7), DECLINED 2. G01 waits fo
 G3 fix round, 24 October (Q18-089, 097 to 099 and 101 to 104 fixed, Q18-100 diagnostic only; PR lane and emulator lane
 PASS_LOCAL): no row changes status from this round. Every fix waits for its phone check on the next candidate, and the
 rows keep the status G3 left them in (LYR02 DECLINED with Q18-101, UX06 PASS).
+
+## 8. Final pass (Q19R R5, 24 October 2026)
+
+On the final code (0.10.0, a9b1299; bc69f02 changes only documents). Each row below replaces the status above it; rows not listed keep theirs. Q18-030 and Q18-097 to Q18-110 are added (Q18-107 was the phone's, not Riff's, and has no case). PASS (JVM only) for PLY05 counts as PASS.
+
+| Case | Final | Evidence |
+|---|---|---|
+| ACC02 | PASS | Q19A A2 (rc6, 21 Oct): the owner changed to their account and back, each account kept its own queue and search; rc10 (24 Oct): "account switching works" (Q18-110) |
+| UX07 | PASS | as ACC02 |
+| ACC04 | BLOCKED | AccountScopeProviderTest (JVM); two real accounts at swapped chooser positions never arranged on the phone; switching both ways passed on rc10 (Q18-110). Rerun: sign two accounts in to Google in the other order, switch, check each keeps its own data |
+| DAT01 | PASS | JVM and emulator tests as listed; the phone half (clearing real history in A7) not run: the owner chose a fresh start in R3 (24 Oct), so no real data was left to clear. Privacy actions asked first on rc8 (Q18-102) |
+| DAT02 | PASS | as DAT01 |
+| REL02 | PASS | emulator: rc20 with its data, then the signed rc4 over it (C6, 20 Oct), data kept; phone (R3, 24 Oct): the signed 0.10.0 installed over rc20 with adb install -r (signature continuity), after the owner chose to clear rc20's data, so migration of real data was not exercised |
+| PLY09 | PASS | G3 on rc7 (23-24 Oct): unlike and a playlist edit on the dummy account (Q18-080, Q18-081) |
+| AUD01 | PASS | rc8 on the phone (24 Oct): gain logged per track (Q18-077); rc9: loudness written once (Q18-106) |
+| CAT02 | PASS | G3 on rc7: THE LONGEST MIXTAPE with its notice (Q18-095); the 2,000 cap on JVM tests only, no public playlist over 2,000 found |
+| CAT03 | PASS | G3 on rc7: playlist create and edit on the dummy account; rc8: Rename and Delete (Q18-104) |
+| CAT04 | PASS | G3 on rc7: native sort on a playlist the dummy account owns |
+| A11Y01 | BLOCKED | TalkBack DECLINED by the owner (19 Oct; Q18-031 closed 24 Oct); keyboard BLOCKED: no keyboard. JVM semantics sweeps pass |
+| A11Y02 | PASS | G3 on rc7: 200 % text, upright and landscape (Q18-079) |
+| PERF01 | PASS | rc10 benchmark lane (24 Oct): cold start p95 1,788 ms with the profile, 1,870 ms without |
+| UX04 | PASS | 23 Oct on rc6 (download, restart offline, play); the announcement part needs TalkBack, closed by the owner (Q18-031) |
+| F9 | BLOCKED | B11 and rc8 (Q18-078) on the phone; the account file waiting until its sign-in is JVM only (LocalBackupTest). Rerun: back up with an account signed in, reinstall, sign that account in |
+| Q18-054 | PASS | G3 on rc7 |
+| Q18-067 | PASS | G3 on rc7, A4 with the owner: about 2 s |
+| Q18-068 | PASS | G3 on rc7, device lane |
+| Q18-069 | PASS | G3 on rc7, device lane |
+| Q18-070 | PASS | G3 on rc7, device lane |
+| Q18-073 | PASS | rc10 MemoryCheck, three blocks (D4) |
+| Q18-074 | FAIL | rc10 benchmark lane: the cold-start half PASS; the six action timings MISSING (Q18-097), left by the owner |
+| Q18-076 | PASS | rc8 on the phone |
+| Q18-077 | PASS | rc8 on the phone |
+| Q18-078 | PASS | rc8 on the phone |
+| Q18-079 | PASS | G3 on rc7 |
+| Q18-080 | PASS | G3 on rc7 |
+| Q18-081 | PASS | G3 on rc7 |
+| Q18-082 | PASS | G3 on rc7 |
+| Q18-083 | PASS | G3 on rc7 |
+| Q18-084 | PASS | G3 on rc7, by eye |
+| Q18-085 | PASS | rc9 on the phone |
+| Q18-086 | PASS | G3 on rc7 |
+| Q18-087 | PASS | superseded by Q18-110, PASS on rc10 (owner) |
+| Q18-088 | PASS | rc9 on the phone |
+| Q18-089 | PASS | rc8 on the phone, partly; closed by the owner (24 Oct) as it stands; StreamQualityTest |
+| Q18-090 | PASS | rc8 on the phone: 6 of 6 streams itag 774 |
+| Q18-091 | BLOCKED | no compressed (DRC) copy seen on the phone, so the filter never ran there; closed by the owner (24 Oct); OriginalAudioPolicyTest |
+| Q18-092 | BLOCKED | this phone always has LoudnessEnhancer, so the fallback never runs; closed by the owner (24 Oct); VolumeBoostTest |
+| Q18-093 | PASS | G3 on rc7 |
+| Q18-094 | PASS | G3 on rc7 |
+| Q18-095 | PASS | G3 on rc7 |
+| Q18-096 | PASS | G3 on rc7 |
+| Q18-030 (new) | FAIL | rc10 benchmark lane: frames at 60 Hz Home 8.0 %, collection 7.0 %, player and queue 17.1 % (budget 2 %); left as is by the owner (24 Oct) |
+| Q18-097 (new) | FAIL | rc10 benchmark lane: action timings MISSING; left by the owner (24 Oct) |
+| Q18-098 (new) | DECLINED | dropped by the owner (24 Oct): a tap within 3 s of a cold start takes 6.1 to 8.5 s |
+| Q18-099 (new) | PASS | rc8 on the phone |
+| Q18-100 (new) | PASS | rc9 on the phone; the switch itself with Q18-110 |
+| Q18-101 (new) | PASS | rc8 on the phone: translation gone |
+| Q18-102 (new) | PASS | rc8 on the phone |
+| Q18-103 (new) | PASS | rc8 on the phone |
+| Q18-104 (new) | PASS | rc8 on the phone |
+| Q18-105 (new) | PASS | DiagnosticsScreenTest (JVM), a test-only fix |
+| Q18-106 (new) | PASS | rc9 on the phone |
+| Q18-108 (new) | BLOCKED | the owner's decision is open: whether Medium and Low should pick lower formats |
+| Q18-109 (new) | DECLINED | dropped by the owner (24 Oct), with Q18-098 |
+| Q18-110 (new) | PASS | rc10 on the phone, the owner's own check |
+
+Totals, counted by script from the tables: the 72 matrix and journey rows: PASS 67, BLOCKED 2, DECLINED 3. Section 7 with the new rows, 77 rows: PASS 65, FAIL 3, BLOCKED 4, DECLINED 5. No row is TODO or DEFERRED. Every BLOCKED row names its reason and rerun; every FAIL is a limitation the owner chose to leave (deadline decisions, 24 Oct).
