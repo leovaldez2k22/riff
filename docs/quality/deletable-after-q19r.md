@@ -1,14 +1,14 @@
 # What can be deleted after Q19R
 
 Nothing here has been deleted. Each item waits for the owner's word, and only after Q19R (final report written, handoff note done, final candidate signed and its evidence kept).
-Sizes are given only where measured; the machine was too slow to total the rest in the time allowed.
+Sizes measured 24 Oct (du): `Riffrtifacts` 28 GB, `Riff\.toolchain` 56 GB (including the JDK, SDK and Gradle you keep), `Riffppuild` 1.4 GB, worktrees about 9.6 GB together, `C:\c` 760 MB, `C:\q18c6` 664 MB. Sizes of single folders inside artifacts and .toolchain were not measured.
 
 ## 1. Stray folders made by my own mistakes (safe now)
 
 | Path | What it is |
 |---|---|
 | `C:\c` (about 759 MB) | A Gradle home created by two emulator-lane runs where `MSYS_NO_PATHCONV=1` broke GRADLE_USER_HOME. Nothing uses it. Checked 24 Oct: it contains only `...\Riff\.toolchain\gradle-user-home`. |
-| `C:\q18c6` | Scratch folder of the Q18 C6 packaging run (a copy of the repo). |
+| `C:\q18c6` (about 664 MB) | Scratch folder of the Q18 C6 packaging run (a copy of the repo). |
 
 ## 2. Release-candidate worktrees (delete after the final candidate is signed and checked)
 
@@ -18,9 +18,9 @@ Checked 24 Oct: `artifacts\release` stops at `riff-0.10.0-rc6`. The release and 
 
 | Worktree | Commit | Note |
 |---|---|---|
-| `..\Riff-rc4` to `..\Riff-rc6` | detached | Superseded by rc10; their APKs are already in `artifacts\release`. |
-| `..\Riff-rc7` to `..\Riff-rc9` | detached | Superseded by rc10, but copy their release and preview APKs out first (see above). |
-| `..\Riff-rc10` | 8adb2d1 | Keep until the 0.10.0 final candidate is built and installed. rc10 is not signed yet: the worktree holds the mapping and logs and an unsigned lane `app.apk`, and is where the signed rc10 will be built. |
+| `..\Riff-rc4` to `..\Riff-rc6` (1.5 GB, 37 MB, 2.1 GB) | detached | Superseded by rc10; their APKs are already in `artifacts\release`. |
+| `..\Riff-rc7` to `..\Riff-rc9` (2.5 GB, 1.0 GB, 818 MB) | detached | Superseded by rc10, but copy their release and preview APKs out first (see above). |
+| `..\Riff-rc10` (820 MB) | 8adb2d1 | Keep until the 0.10.0 final candidate is built and installed. Signed 24 Oct: its signed APKs, mapping and checksums are in `..\Riff-rc10rtifactselease`; copy them into `Riffrtifactselease` before removing it. |
 | `Riff\.claude\worktrees\youthful-wright-c57334` | 7f7ab8e | Old session worktree (branch `claude/youthful-wright-c57334`). |
 
 Remove with `git worktree remove <path>`, then `git worktree prune`.
