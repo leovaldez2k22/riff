@@ -3155,3 +3155,20 @@ New contract rule 16: commit each package locally on its branch before starting 
 - Still to check on rc9 (7): Q18-030, 073, 074, 097 in the benchmark lane; Q18-031 (TalkBack) and 038 by hand with
   the owner; Q18-091 after a diagnostic line is added in this fix round.
 - Q18-067's row had three unescaped pipes that split its status cell; repaired.
+
+### rc8 fix round (24 October 2026)
+- Owner: "yes, start the fix round and the sorting". No phone work; builds went to the API 33 emulator only.
+- Fixed, each with its test: Q18-106 loudness_track once per track (a04cdf7); Q18-091 audio_drc counts (33c9ce0);
+  Q18-105 DiagnosticsScreenTest reads in place (Dispatchers seam); Q18-098 SolverGate, a lookup goes ahead of preloads
+  waiting for the library's one lock (26208ab); Q18-100 ListAccounts asked with a POST (206cb57). Q18-107 closed: on
+  the emulator a fresh install's and an update's first process log normally, so the phone holds the lines back.
+- Q18-100's cause checked from the computer with no cookies: GET 400, POST 200 ["gaia.l.a.r",[]].
+- Q18-085, 087, 088 back on the rc9 list; they depend on Q18-100's list.
+- PR lane PASS_LOCAL, every gate, JVM 1,224 tests 0 failures (artifacts/quality/lanes/pr-20261024T044650Z).
+  Emulator lane: run 1 FAIL at pairing, my mistake: MSYS_NO_PATHCONV stopped Git Bash converting GRADLE_USER_HOME,
+  so Gradle used a new home under C:\c (299 MB) and failed dependency verification on fresh downloads. Removing
+  it was refused by the session's safety check; left for the owner with C:\c's earlier stubs.
+  Run 2: PASS_LOCAL, OK (69 tests) (artifacts/quality/lanes/emulator-20261024T050552Z). The emulator's network had been left off by an earlier lane; turned on.
+- Next, with the owner: rc9 (the owner signs it), then on the phone: the fix checks (A4 for Q18-098, Manage account
+  for Q18-100 with 085/087/088, Normalize for 106, audio_drc for 091), the suites (device lane, benchmark lane,
+  MemoryCheck three blocks: 030, 073, 074, 097) and by hand 031 (TalkBack) and 038.
