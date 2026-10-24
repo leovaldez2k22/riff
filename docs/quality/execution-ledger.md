@@ -3177,4 +3177,9 @@ New contract rule 16: commit each package locally on its branch before starting 
 - Owner: "prepare rc9 so i can sign it". Version 0.10.0-rc9, code 30 (9b3931d), on top of the rc8 fix round; clean
   worktree ..\Riff-rc9. No phone work: nothing installed, no account touched.
 - PR lane in the worktree: PASS_LOCAL, every gate (artifacts/quality/lanes/pr-20261024T052055Z in ..\Riff-rc9).
-- Next: the owner signs it (build-release-candidate.ps1 -Preview -Offline in ..\Riff-rc9), then the rc9 phone checks.
+- The owner signed it: build-release-candidate.ps1 -Preview -Offline in ..\Riff-rc9 (first try, no flake). Signed:
+  riff-0.10.0-rc9.apk e8cd30e3...a1d9 (9,482,821 bytes, Riff, com.musicglass.personal), riff-0.10.0-rc9-preview.apk
+  25dfa2cf...d67e (9,483,245 bytes, Riff Preview); both code 30, built from 9b3931d, certificate ac703423...f6e1 (as
+  rc8), arm64-v8a only; SHA256SUMS.txt matches; release content 20 of 20 each (artifacts/quality/q19/rc9). The byte
+  sizes equal rc8's; the dex differs (2,772 bytes larger, holds audio_drc and solver_preload_yielded) and so do the hashes.
+- Next, with the owner: install rc9 (asked first), then the rc9 phone checks.
