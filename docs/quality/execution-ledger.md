@@ -3243,3 +3243,8 @@ New contract rule 16: commit each package locally on its branch before starting 
 - rc11 Riff Preview installed over rc10 on the phone (`adb install -r`, code 31 → 32); main Riff untouched (0.9.0-rc20). Waiting for the owner's check of the gradients.
 - Owner checked rc11's gradients on the phone: "gradients look right".
 - D5 clean-up (owner's go): deleted from /data/local/tmp only what the benchmark library left (62 temporaryScript_*.sh_stderr from 20–24 Oct, shellWrapper.sh, trace_processor_shell 13.8 MB); left the owner's shizuku files and dalvik-cache. Nothing else on shared storage was created by the tests (no file newer than the start of D1 outside app folders). Test apps (Riff Debug + test, Riff Benchmark, macrobenchmark) still installed, waiting for the owner's word.
+
+## Q19R (24 October 2026)
+
+- Owner: "keep riff debug for now, start q19r". Riff Debug and its test app stay on the phone; the benchmark apps also stay until the owner decides.
+- R1 done (d0cd9f9): release notes for 0.10.0 (version code 33) with rc1's marked historical; a changelog section for everything since rc1 (Q18 and Q19, by bug number); README, features, privacy, sign-in design (saved accounts and the Q18-110 rule), performance (rc10's phone numbers, B6, B8, B9), provider compatibility (live results on the phone), architecture, testing (the phone and the API 33 emulator), export, privacy controls (Q18-102) and the dependency inventory (210, same as rc11's audit) checked against the code; NOTICE's ML Kit section removed (Q18-101). Every relative link in them resolves.
