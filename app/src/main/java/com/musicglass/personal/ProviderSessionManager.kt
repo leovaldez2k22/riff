@@ -118,7 +118,7 @@ internal class ProviderSessionManager(context: Context, internal val dependencie
     override val session: StateFlow<SessionToken> get() = sessionFlow
     private fun publishSession() { sessionFlow.value = SessionToken(accountScope(), authRevision.toLong(), sessionNonce) }
     internal val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-    private val providerEngine = dependencies.providerTransport()
+    private val providerEngine = dependencies.providerTransport().also { (it as? OriginalAudioTransport)?.onEvent = playbackEvents::append }
     internal val http: HttpClient = HttpClient(providerEngine) {
         install(ContentNegotiation) { json(json) }
         install(HttpTimeout) {

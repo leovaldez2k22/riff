@@ -49,5 +49,12 @@ class OriginalAudioPolicyTest {
         assertEquals(only,originalAudioPlayerResponse(only))
         val plain=response(normal+""","""+"""{"itag":140,"mimeType":"audio/mp4","url":"x","xtags":"lang=en"}""")
         assertEquals("no compressed copy: unchanged",plain,originalAudioPlayerResponse(plain))
+        // The phone check needs to see whether YouTube offers compressed copies at all: counts, written only when there are some.
+        val seen=mutableListOf<String>()
+        originalAudioPlayerResponse(response("""{"itag":251,"mimeType":"audio/webm","url":"drc","isDrc":true},$normal""")) {p,r->seen+=compressedAudioEvent(p,r)}
+        originalAudioPlayerResponse(only) {p,r->seen+=compressedAudioEvent(p,r)}
+        originalAudioPlayerResponse(plain) {p,r->seen+=compressedAudioEvent(p,r)}
+        assertEquals(listOf("audio_drc present=1 removed=1","audio_drc present=1 removed=0"),seen)
+        for(event in seen) assertEquals("kept whole by the diagnostic log",event,DiagnosticEvent.parse(event).text)
     }
 }

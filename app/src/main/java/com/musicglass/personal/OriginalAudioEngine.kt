@@ -13,6 +13,8 @@ internal object OriginalAudioEngine:HttpClientEngineFactory<OkHttpConfig> {
 }
 @OptIn(io.ktor.utils.io.InternalAPI::class)
 internal class OriginalAudioTransport(private val delegate:HttpClientEngine):HttpClientEngineBase("riff-original-audio") {
+    /** Q18-091: where the counts of compressed copies go; the playback log once the session wires it. */
+    @Volatile var onEvent:((String)->Unit)?=null
     override val config get()=delegate.config
     override val dispatcher get()=delegate.dispatcher
     override val supportedCapabilities get()=delegate.supportedCapabilities
@@ -25,7 +27,7 @@ internal class OriginalAudioTransport(private val delegate:HttpClientEngine):Htt
         val channel=response.body as? ByteReadChannel ?: return response
         val bytes=channel.readRemaining().readByteArray()
         val raw=bytes.toString(Charsets.UTF_8)
-        val filtered=originalAudioPlayerResponse(raw).toByteArray(Charsets.UTF_8)
+        val filtered=originalAudioPlayerResponse(raw) {present,removed->onEvent?.invoke(compressedAudioEvent(present,removed))}.toByteArray(Charsets.UTF_8)
         val headers=Headers.build {
             response.headers.forEach {name,values->if(!name.equals(HttpHeaders.ContentLength,true)) appendAll(name,values)}
             append(HttpHeaders.ContentLength,filtered.size.toString())

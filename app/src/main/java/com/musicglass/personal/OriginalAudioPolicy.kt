@@ -4,7 +4,11 @@ import kotlinx.serialization.json.*
 import java.net.URLDecoder
 
 /** Preserve source-language audio before codec/bitrate ranking; a locale default can be a dub. */
-internal fun originalAudioPlayerResponse(raw:String):String = sourceLanguageAudio(withoutCompressedAudio(raw))
+internal fun originalAudioPlayerResponse(raw:String,onCompressed:(present:Int,removed:Int)->Unit={_,_->}):String =
+    sourceLanguageAudio(withoutCompressedAudio(raw,onCompressed))
+
+/** Q18-091: how many compressed audio copies a player answer offered and how many were dropped. Counts only. */
+internal fun compressedAudioEvent(present:Int,removed:Int)="audio_drc present=$present removed=$removed"
 
 private fun audioFormat(f:JsonObject)=f["mimeType"]?.textOrNull?.startsWith("audio/")==true || f["audioQuality"]!=null || f["audioTrack"]!=null
 private fun formatTags(f:JsonObject):String {
@@ -18,14 +22,17 @@ private fun formatTags(f:JsonObject):String {
  * Q18-091: YouTube can offer a dynamic-range-compressed copy of a format beside the normal one (isDrc, or drc=1 in its
  * tags); the compressed copy squashes a song's loud and quiet parts. It is dropped whenever a normal copy is offered.
  */
-internal fun withoutCompressedAudio(raw:String):String {
+internal fun withoutCompressedAudio(raw:String,onCompressed:(present:Int,removed:Int)->Unit={_,_->}):String {
     if(!raw.contains("isDrc") && !raw.contains("drc")) return raw
     val root=Json.parseToJsonElement(raw) as? JsonObject ?: return raw
     val data=root["streamingData"] as? JsonObject ?: return raw
     val arrays=listOf("adaptiveFormats","formats")
     fun compressed(f:JsonObject)=(f["isDrc"] as? JsonPrimitive)?.booleanOrNull==true || Regex("(?:^|[:;&])drc=1(?:$|[:;&])").containsMatchIn(formatTags(f))
     val audios=arrays.flatMap {(data[it] as? JsonArray).orEmpty()}.filterIsInstance<JsonObject>().filter(::audioFormat)
-    if(audios.none(::compressed) || audios.all(::compressed)) return raw
+    val present=audios.count(::compressed)
+    if(present==0) return raw
+    if(present==audios.size) {onCompressed(present,0);return raw}
+    onCompressed(present,present)
     val edited=data.toMutableMap()
     for(key in arrays) (data[key] as? JsonArray)?.let {array->
         edited[key]=JsonArray(array.filter {node->(node as? JsonObject)?.let {!audioFormat(it) || !compressed(it)}?:true})
