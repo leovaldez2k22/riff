@@ -3231,3 +3231,4 @@ New contract rule 16: commit each package locally on its branch before starting 
 - Signed from commit 8adb2d1. `riff-0.10.0-rc10.apk` SHA-256 1598d33f…d6f2; `riff-0.10.0-rc10-preview.apk` 4b223eb7…d574; both match SHA256SUMS.txt.
 - Both: version code 31, arm64-v8a, labels "Riff" / "Riff Preview", certificate ac703423…f6e1, release content 20/20, dex contains `account_pick_mismatch` (the Q18-110 fix).
 - Next: install Riff Preview rc10 over rc9 (owner's approval), owner checks Q18-110, then device lane, benchmark lane, MemoryCheck.
+- rc10 Riff Preview installed over rc9 on the phone (`adb install -r`, code 30 → 31); main Riff untouched (0.9.0-rc20). Owner checked Q18-110: "account switching works" — PASS, closed. Device checks held at the owner's request.
