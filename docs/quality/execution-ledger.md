@@ -3172,3 +3172,9 @@ New contract rule 16: commit each package locally on its branch before starting 
 - Next, with the owner: rc9 (the owner signs it), then on the phone: the fix checks (A4 for Q18-098, Manage account
   for Q18-100 with 085/087/088, Normalize for 106, audio_drc for 091), the suites (device lane, benchmark lane,
   MemoryCheck three blocks: 030, 073, 074, 097) and by hand 031 (TalkBack) and 038.
+
+### rc9 prepared (24 October 2026)
+- Owner: "prepare rc9 so i can sign it". Version 0.10.0-rc9, code 30 (9b3931d), on top of the rc8 fix round; clean
+  worktree ..\Riff-rc9. No phone work: nothing installed, no account touched.
+- PR lane in the worktree: PASS_LOCAL, every gate (artifacts/quality/lanes/pr-20261024T052055Z in ..\Riff-rc9).
+- Next: the owner signs it (build-release-candidate.ps1 -Preview -Offline in ..\Riff-rc9), then the rc9 phone checks.
