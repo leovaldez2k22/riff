@@ -418,8 +418,8 @@ On the final code (0.10.0, a9b1299; bc69f02 changes only documents). Each row be
 | Q18-104 (new) | PASS | rc8 on the phone |
 | Q18-105 (new) | PASS | DiagnosticsScreenTest (JVM), a test-only fix |
 | Q18-106 (new) | PASS | rc9 on the phone |
-| Q18-108 (new) | BLOCKED | the owner's decision is open: whether Medium and Low should pick lower formats |
+| Q18-108 (new) | DECLINED | dropped by the owner (24 Oct 2026): Song quality stays as the library chooses |
 | Q18-109 (new) | DECLINED | dropped by the owner (24 Oct), with Q18-098 |
 | Q18-110 (new) | PASS | rc10 on the phone, the owner's own check |
 
-Totals, counted by script from the tables: the 72 matrix and journey rows: PASS 67, BLOCKED 2, DECLINED 3. Section 7 with the new rows, 77 rows: PASS 65, FAIL 3, BLOCKED 4, DECLINED 5. No row is TODO or DEFERRED. Every BLOCKED row names its reason and rerun; every FAIL is a limitation the owner chose to leave (deadline decisions, 24 Oct).
+Totals, counted by script from the tables: the 72 matrix and journey rows: PASS 67, BLOCKED 2, DECLINED 3. Section 7 with the new rows, 77 rows: PASS 65, FAIL 3, BLOCKED 3, DECLINED 6 (Q18-108 dropped by the owner, 24 Oct). No row is TODO or DEFERRED. Every BLOCKED row names its reason and rerun; every FAIL is a limitation the owner chose to leave (deadline decisions, 24 Oct).

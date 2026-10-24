@@ -3262,3 +3262,6 @@ New contract rule 16: commit each package locally on its branch before starting 
 - R5 case map final pass (section 8): the 72 matrix and journey rows PASS 67, BLOCKED 2 (A11Y01, ACC04), DECLINED 3; section 7 with Q18-030 and Q18-097 to Q18-110 added, 77 rows: PASS 65, FAIL 3 (Q18-030, Q18-074, Q18-097), BLOCKED 4 (F9, Q18-091, Q18-092, Q18-108), DECLINED 5; no TODO or DEFERRED. Counted by script.
 - R5 final-report.md rewritten for plan section 19: identity, gates G01 to G12 (PASS except G05 FAIL on the 60 Hz frame budget and G06 DECLINED/BLOCKED), counts, data semantics, limitations, next steps, device state, install, scorecard 78 of 100. R5 done.
 - R6: handoff section (final-report.md section 11): what is where, the signing key and its backups, C:\c and C:\q18c6, the deletable list (Riff-rc11, Riff-0.10.0 and Riff-final added), no push or publication. R6 done. Q19R closed.
+- Owner, 24 Oct 2026: "drop it and q18-108. call riff excellence plan fully complete". P1 dropped (proposed-bugs.md), Q18-108 dropped (q18-bugs.md; case map DECLINED). The owner declares the Riff excellence plan fully complete; final-report.md says so, with the gates kept as they ran.
+
+## The Riff excellence plan: complete (24 October 2026)

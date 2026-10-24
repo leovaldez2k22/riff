@@ -10,3 +10,4 @@ Each entry: what was seen, where, the evidence file, and a suggested severity.
 - **Evidence:** `..\Riff-finalrtifacts\quality\lanes\emulator-20261024T161001Z` (instrumentation.txt, signin-rerun-1.txt to 3, q19c3-1b-remove-menu.png showing the list from Fixture Two).
 - **Suggested fix:** in the test, scroll the list to its first row (`performScrollToIndex(0)`) before opening the menu. Test only; no change to the app.
 - **Suggested severity:** Low (test).
+- **Owner, 24 Oct 2026: dropped.** Not added to the bug log, not fixed; the test stays as it is and fails on short screens.

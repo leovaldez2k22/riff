@@ -4,7 +4,7 @@ Riff 0.10.0, version code 33. Written 24 October 2026 in Q19R (R5 and R6); repla
 
 ## Verdict
 
-**Finished for personal use, as the owner decided. Not full compliance with the plan.** The final candidate is built, signed, installed as the owner's main Riff and checked on the phone and on the emulators. Ten of the twelve gates pass; G05 fails on the 60 Hz frame budget, which the owner chose to leave (Q18-030), and G06 is declined and blocked (no TalkBack walk-through by the owner's decision, no keyboard). Nothing has been pushed or published (D1).
+**Complete. The owner declared the Riff excellence plan fully complete on 24 October 2026**, after reading the gates below and dropping the last open items (Q18-108 and P1). The gates are recorded as they ran, so this is the owner's acceptance of the result, not a claim that every gate passed. The final candidate is built, signed, installed as the owner's main Riff and checked on the phone and on the emulators. Ten of the twelve gates pass; G05 fails on the 60 Hz frame budget, which the owner chose to leave (Q18-030), and G06 is declined and blocked (no TalkBack walk-through by the owner's decision, no keyboard). Nothing has been pushed or published (D1).
 
 ## 1. Identity
 
@@ -46,7 +46,7 @@ Status words as in the case map. Evidence paths under `artifacts/` are local and
 | G02 | Deterministic suite passes, no unexpected failures or skips | PASS | R5 PR lane on bc69f02 (`..\Riff-final\artifacts\quality\lanes\pr-20261024T151040Z`): 1,225 JVM tests, 0 failures, 0 errors, 0 skipped; script tests 164 OK; static checks 0 findings. Known intermittent: HistoryScreensTest.earlierSearchesAreImportedOrDeletedOnlyWhenTheUserSaysSo failed once in each of two signing runs and passed alone and on rerun (not logged, owner's decision) |
 | G03 | Scope, deletion, migration, durability, interruption, full disk | PASS | ACC and DAT rows (JVM, emulator, phone); full disk by injection (DAT06); migration killed at every checkpoint (DAT03); upgrade over rc20 with data on the emulator (C6). Clearing real data on the phone not run: the owner wiped rc20's data in R3 |
 | G04 | Controlled playback, recovery, audio and download checks | PASS | R5 emulator lanes on bc69f02, network off: API 33 69 of 69, API 31 69 of 69 (`..\Riff-finalrtifacts\quality\lanes\emulator-20261024T153150Z`, `-155407Z`), no crossfade flake; D1 and D2 on the phone on rc10, 63 of 63; PLY, XFD, AUD and DLD rows; every playback and download bug confirmed on the phone or closed by the owner |
-| G05 | API 31, 33 and 36 functional; tier R and L budgets | FAIL | Functional: R5 emulator lanes API 31 69 of 69, API 33 69 of 69, API 36 69 of 70 (`emulator-20261024T161001Z`; the one failure is a test tapping a row scrolled off the 720 x 1280 screen, same in three reruns, proposed as P1 in proposed-bugs.md, waiting for the owner). Tier R on the I2217 (rc10, performance.md): cold start p95 1,788 ms, 2,000-entry queue 369 ms, local first audio 294 ms, online first audio 263 ms, memory over journeys, all PASS; frames at 60 Hz 8.0 / 7.0 / 17.1 % against 2 % FAIL (Q18-030, left by the owner); six action timings MISSING (Q18-097). Tier L BLOCKED: no such phone |
+| G05 | API 31, 33 and 36 functional; tier R and L budgets | FAIL | Functional: R5 emulator lanes API 31 69 of 69, API 33 69 of 69, API 36 69 of 70 (`emulator-20261024T161001Z`; the one failure is a test tapping a row scrolled off the 720 x 1280 screen, same in three reruns; proposed as P1 and dropped by the owner, 24 Oct). Tier R on the I2217 (rc10, performance.md): cold start p95 1,788 ms, 2,000-entry queue 369 ms, local first audio 294 ms, online first audio 263 ms, memory over journeys, all PASS; frames at 60 Hz 8.0 / 7.0 / 17.1 % against 2 % FAIL (Q18-030, left by the owner); six action timings MISSING (Q18-097). Tier L BLOCKED: no such phone |
 | G06 | TalkBack, keyboard, large text, reduced motion | DECLINED / BLOCKED | Large text and landscape PASS (A11Y02, Q18-079 on rc7); reduced motion PASS (A11Y03, SGN06); TalkBack DECLINED by the owner (19 Oct, Q18-031 closed 24 Oct); keyboard BLOCKED (none). JVM semantics sweeps pass |
 | G07 | No unresolved high-severity security issue, no secret or test entry leak | PASS | security-review.md: no high-severity issue open, two medium (the jsDelivr solver script, D4; CI dependency verification unproven on a hosted run); release-content check 20 of 20 on both signed APKs and on R5's rebuild; no fixture, stress or benchmark entry in the release (I09) |
 | G08 | Lint zero errors, every warning triaged, no blanket suppression | PASS | R5 lint: 0 errors, 93 warnings, 3 hints, each rule with a disposition (lint-triage.md, R5 section); no baseline or severity override |
@@ -58,7 +58,7 @@ Status words as in the case map. Evidence paths under `artifacts/` are local and
 ## 4. Counts and measurements
 
 - **JVM:** 1,225 tests in 148 suites, 0 failures, 0 skipped (R5).
-- **Device tests:** R5 emulator lanes on the final code: API 31 69 of 69, API 33 69 of 69, API 36 69 of 70 (P1, a test fault); the phone's device lane on rc10, 63 of 63 (61 with the network on, the two network-off cases with it off).
+- **Device tests:** R5 emulator lanes on the final code: API 31 69 of 69, API 33 69 of 69, API 36 69 of 70 (P1, a test fault, dropped by the owner); the phone's device lane on rc10, 63 of 63 (61 with the network on, the two network-off cases with it off).
 - **Lint:** 0 errors, 93 warnings, 3 hints, all triaged. Static checks: 173 files, 0 findings, 621 raw measures held by the ratchet.
 - **Devices:** vivo I2217, Android 16 (tier R); emulators API 31 (riff_q02_fixture), API 33 (riff_q18_api33), API 36 (riff_q18_api36), network off.
 - **Performance:** the table in section 3, G05, and [performance.md](performance.md). Battery: three 2-hour runs, about 3 % an hour streaming or from downloads and 2.5 % idle; no budget, recorded as measured.
@@ -74,7 +74,7 @@ Status words as in the case map. Evidence paths under `artifacts/` are local and
 
 - A song tapped within about 3 s of a cold start takes 6 to 8 s to sound (Q18-098, Q18-109, dropped); a streamed song takes about 3 s from tap to sound, most of it the library's cipher (Q18-015, Q18-059).
 - Scrolling misses the 2 % frame budget at 60 Hz (Q18-030); the benchmark's action timings are not measured (Q18-097).
-- Song quality: Medium chooses the same format as High on Wi-Fi; whether to cap Medium and Low is the owner's open decision (Q18-108).
+- Song quality: Medium chooses the same format as High on Wi-Fi; left as the library chooses (Q18-108, dropped by the owner).
 - Not exercisable on this phone: the DRC filter (no compressed copy seen, Q18-091) and the boost fallback (the phone always has LoudnessEnhancer, Q18-092); both rest on JVM tests.
 - No TalkBack or keyboard walk-through; the screen-reader features are tested in code only.
 - On a pale cover, pink and grey words on the artwork colour fall below 4.5:1 (rc20's colours, the owner's choice).
@@ -87,7 +87,9 @@ Recovery: if playback stops working after a YouTube change, Settings â†’ About â
 
 ## 7. What is left, and the next steps
 
-1. Q18-108: the owner decides whether Medium and Low should choose lower formats; then StreamQualityTest per choice.
+Nothing is left open. If any of these matters later, start here:
+
+1. Q18-108, dropped: Medium and Low could choose lower formats (Medium about 160 kbps, Low about 70 kbps); then StreamQualityTest per choice.
 2. Q18-030 and Q18-097, if smoother scrolling matters later: the glass's offscreen layer and glyph uploads are the measured causes (performance.md).
 3. Q18-098 and Q18-109, if the first tap after a cold start matters later: the second player must wait for the first.
 4. Publishing, if ever: reopens D1 (and D2's licence question no longer applies, since ML Kit is gone); needs a release feed for the update notice and a hosted CI run.
@@ -110,7 +112,7 @@ Scores do not offset a failed gate; G05 and G06 stand as written above.
 | Area | Points | Score | Why not full |
 |---|---|---|---|
 | Correctness, account, data | 20 | 18 | ACC04 not arranged on the phone; clearing real data never exercised there (the owner wiped rc20) |
-| Playback, recovery, downloads | 20 | 16 | First song after a cold start 6 to 8 s and about 3 s per streamed song (dropped or in the library); Q18-108 open |
+| Playback, recovery, downloads | 20 | 16 | First song after a cold start 6 to 8 s and about 3 s per streamed song (dropped or in the library); Song quality's Medium matches High on Wi-Fi (Q18-108, dropped) |
 | UX and visual | 15 | 13 | Contrast on pale covers traded for rc20's colours; frame misses show while scrolling |
 | Accessibility and localization | 10 | 6 | No TalkBack or keyboard walk-through; English only (pseudo-locales tested) |
 | Performance | 10 | 5 | Four tier R budgets pass; frames fail, action timings missing, no tier L |
@@ -140,6 +142,6 @@ The score describes this plan's standard on the evidence above, not a guarantee 
 - **The signing key.** `.toolchain\signing\musicglass-release.p12` with its DPAPI password file, and the two encrypted backups (Google Drive and Gmail, 3 October 2026) whose passphrase lives in your password manager and on paper. Every future update must be signed with it; if it is lost, no installed Riff can be updated. Run the restore drill in [release-signing.md](../release-signing.md) about once a year.
 - **`C:\c` and `C:\q18c6`.** Stray folders from my runs (a misplaced Gradle home, 760 MB; a Q18 C6 repo copy, 664 MB). Nothing uses them; delete them when you like.
 - **Clean-up after this report:** [deletable-after-q19r.md](deletable-after-q19r.md) lists the worktrees, evidence folders, emulator images and branches that can go, each waiting for your word.
-- **Decisions left:** Q18-108 (Song quality's formats) and anything in section 7.
+- **Decisions left:** none. Section 7 lists what could be picked up later.
 
 **Not done, by decision:** no push, no publication, no release feed, no store listing (D1). Sharing the APK privately is your call.
