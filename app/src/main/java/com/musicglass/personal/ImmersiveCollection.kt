@@ -111,7 +111,7 @@ import kotlinx.coroutines.launch
                         SongActionItem(string(R.string.delete_playlist)) {playlistMenu=false;deleting=true}
                     }
                 }
-                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().wordsOverPicture(tone).padding(24.dp),
+                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(24.dp),
                     horizontalAlignment=if(artist) Alignment.Start else Alignment.CenterHorizontally) {
                     Text(shownTitle,color=White,fontSize=if(artist) 34.sp else 28.sp,
                         fontWeight=FontWeight.SemiBold,maxLines=3,overflow=TextOverflow.Ellipsis)

@@ -164,8 +164,6 @@ internal object RiffContrast {
     const val scrimForMutedText = .74f
     /** Under a [White] icon: 3:1 needs 0.435. Icons and words over artwork now carry [RiffOverPicture]'s shadows instead. */
     const val scrimForControl = .46f
-    /** How much of an artwork's tone goes under words set over the artwork itself. */
-    const val toneUnderWords = .9f
 }
 
 /**
@@ -185,14 +183,6 @@ internal object RiffOverPicture {
     const val iconHaloAlpha = .55f
     /** Under words: one close, deep shadow that edges each letter. */
     val textShadow = Shadow(Color.Black.copy(alpha = .9f), Offset.Zero, blurRadius = 8f)
-}
-
-/** Behind words set over a picture: [tone] at [RiffContrast.toneUnderWords], eased in over the first 24 dp so that it has no edge. */
-internal fun Modifier.wordsOverPicture(tone: Color): Modifier = drawBehind {
-    val ramp = 24.dp.toPx().coerceAtMost(size.height)
-    val solid = tone.copy(alpha = RiffContrast.toneUnderWords)
-    drawRect(Brush.verticalGradient(listOf(Color.Transparent, solid), startY = 0f, endY = ramp), size = Size(size.width, ramp))
-    drawRect(solid, topLeft = Offset(0f, ramp), size = Size(size.width, size.height - ramp))
 }
 
 /**

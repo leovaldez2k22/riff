@@ -44,11 +44,10 @@ the target.
 
 | Place | What is behind the words | Figure |
 | --- | --- | --- |
-| A screen coloured from its artwork (queue, collection, Downloads) | 48% of the artwork colour, darkened further until Pink reaches 4.5:1 | Pink, Muted, White and White at 60% all at least 4.5:1; the drag handle (White 45%) at least 3:1 |
+| A screen coloured from its artwork (player, queue, collection, Downloads) | 48% of the artwork colour (rc20's, the owner's choice, 24 Oct 2026; see below) | White at least 4.5:1 on dark and loud covers; Pink, Muted and the drag handle only on dark covers |
 | White words over a picture | Black at 58% | 4.5:1 needs 55.1% |
 | Muted words over a picture (Home over a photograph) | Black at 74% | 4.5:1 needs 73.2% |
 | A white icon over a picture, where a backing is drawn | Black at 46% | 3:1 needs 43.5% |
-| Title block over a cover (collection, Downloads) | The cover's tone at 90% | title at least 3:1 (it is 28 sp), artist and description at least 4.5:1 |
 | Speed-dial tile title | A 42 dp gradient, 62% black by the title's top edge | at least 4.5:1 over a white cover |
 | Ambient backdrop | Every palette, at 441 points of an upright and a sideways phone | Muted and White at least 4.5:1, Pink at least 3:1 |
 | High-contrast controls (solid fallback) | Ink, Raised and the chip colour with nothing showing through | White, Muted and Pink at least 4.5:1 |
@@ -63,6 +62,15 @@ and a soft one at 55% blurred by 6 dp; under words one black shadow at 90%, 8 px
 3:1 and 4.5:1 figures above are worked out against a backing of known depth, and a shadow has no single
 depth to work out, so these four controls have no arithmetic figure. They are checked by eye over a pure
 white cover on the device (Q18F's B13 and A9), with PlayerFixesDeviceTest's white fixture cover as the picture.
+
+**rc20's artwork colours (the owner's choice, 24 Oct 2026, rc11).** The owner asked for the gradients of
+rc20 back: Q13's title block (the cover's tone at 90% under a collection's and Downloads' title, artist and
+description) is gone, so those words sit on the cover's own fade into its tone, as in rc20; and the tone is
+48% of the artwork colour again, no longer darkened for bright covers. This is a trade-off: on a pale or
+bright cover the tone is lighter, so Pink (errors, the playing mark) and Muted words fall below 4.5:1 there,
+and the title block's words have no worked-out figure at all over a bright cover's lower edge. ContrastTest
+now holds the 48% and what it still guarantees (White on dark and loud covers; every text colour and the
+drag handle on a dark cover).
 
 Not covered by arithmetic: the glass bars and chips over moving content. What is behind them is whatever
 the screen is showing, bent by a shader. The **High-contrast controls** setting replaces them with solid

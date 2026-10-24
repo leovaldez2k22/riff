@@ -31,27 +31,30 @@ class ContrastTest {
         return Color(0f, 0f, 0f, from.alpha + (to.alpha - from.alpha) * share)
     }
 
-    @Test fun aToneTakenFromArtworkIsDarkEnoughToReadOn() {
+    @Test fun aToneTakenFromArtworkIsRc20s() {
+        // The owner chose rc20's colours over Q13's darker tone (24 Oct 2026): 48% of the artwork's colour, always.
+        // A colour is kept in 8 bits a channel, so the share is only that exact.
         pictures.forEach { picture ->
             val tone = picture.readableArtworkTone()
-            atLeast(RiffContrast.text, Pink, tone, "an error or the playing mark")
-            atLeast(RiffContrast.text, Muted, tone, "an artist's name")
-            atLeast(RiffContrast.text, White, tone, "a title")
-            // The faintest words the queue, a collection and Downloads set on a tone, and their faintest icon.
-            atLeast(RiffContrast.text, White.copy(alpha = .6f), tone, "a row's second line")
-            atLeast(RiffContrast.control, White.copy(alpha = .45f), tone, "the drag handle")
+            assertEquals(picture.red * .48f, tone.red, .005f)
+            assertEquals(picture.green * .48f, tone.green, .005f)
+            assertEquals(picture.blue * .48f, tone.blue, .005f)
         }
+        assertEquals(Color.Black, Color.Black.readableArtworkTone())
     }
 
-    @Test fun aToneIsOnlyDarkenedWhereItHasToBe() {
-        fun share(of: Color) = of.readableArtworkTone().let { maxOf(it.red, it.green, it.blue) / maxOf(of.red, of.green, of.blue) }
-        // A colour is kept in 8 bits a channel, so the share is only that exact.
-        assertEquals("a dark cover keeps its 48%", .48f, share(Color(0xFF283444)), .01f)
-        assertEquals("so does a loud but dark one", .48f, share(Color(0xFF0000FF)), .01f)
-        assertTrue("pure red is just too light at 48% for pink words", share(Color(0xFFFF0000)) in .40f..<.48f)
-        assertTrue("a white cover gives a darker tone than 48%", share(white) < .30f)
-        assertTrue("and one that is still a tone, not black", share(white) > .15f)
-        assertEquals(Color.Black, Color.Black.readableArtworkTone())
+    @Test fun whiteWordsStillReadOnTheToneOfADarkOrLoudCover() {
+        // What 48% still holds: titles on a dark or loud cover, and every text colour and the drag handle on a dark one.
+        listOf(Color.Black, Color(0xFF283444), Color(0xFF0000FF), Color(0xFFFF0000), Color(0xFFFF00FF)).forEach { cover ->
+            val tone = cover.readableArtworkTone()
+            atLeast(RiffContrast.text, White, tone, "a title")
+        }
+        listOf(Color.Black, Color(0xFF283444)).forEach { cover ->
+            val tone = cover.readableArtworkTone()
+            atLeast(RiffContrast.text, Pink, tone, "an error or the playing mark")
+            atLeast(RiffContrast.text, Muted, tone, "an artist's name")
+            atLeast(RiffContrast.control, White.copy(alpha = .45f), tone, "the drag handle")
+        }
     }
 
     @Test fun theScrimsAreDeepEnoughOverAWhitePicture() {
@@ -62,16 +65,6 @@ class ContrastTest {
         assertTrue(reads(White, black(RiffContrast.scrimForText - .05f).compositeOver(white)) < RiffContrast.text)
         assertTrue(reads(Muted, black(RiffContrast.scrimForMutedText - .05f).compositeOver(white)) < RiffContrast.text)
         assertTrue(reads(White, black(RiffContrast.scrimForControl - .05f).compositeOver(white)) < RiffContrast.control)
-    }
-
-    @Test fun wordsSetOverACoverReadOnItsTone() {
-        // A collection's and Downloads' title block: the cover, then its tone at 90%, then the words.
-        pictures.forEach { cover ->
-            val behind = cover.readableArtworkTone().copy(alpha = RiffContrast.toneUnderWords).compositeOver(white)
-            atLeast(RiffContrast.control, White, behind, "the title (28 sp)")
-            atLeast(RiffContrast.text, White.copy(alpha = .8f), behind, "the artist")
-            atLeast(RiffContrast.text, White.copy(alpha = .76f), behind, "the description")
-        }
     }
 
     @Test fun aSpeedDialTitleReadsOverAWhiteCover() {
