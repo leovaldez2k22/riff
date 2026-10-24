@@ -10,19 +10,19 @@ Riff is an independent personal project and is not affiliated with Google or You
 
 ## Availability
 
-The source reports **0.10.0-rc1 (version code 22)**. It is a **prepared, unpublished** release candidate: a signed APK and its source archive can be built and checked locally (see [release notes](docs/release-notes-0.10.0-rc1.md)), but nothing has been published from this repository, and publishing needs the owner's explicit decision. The last APK distributed was 0.9.0-rc20 (4 October 2026), built under the project's earlier account; the candidate is signed with the same certificate and updates it in place.
+The source reports **0.10.0 (version code 33)**, the final candidate of the excellence plan. It is **prepared and unpublished**: a signed APK and its source archive can be built and checked locally (see [release notes](docs/release-notes-0.10.0.md)), but nothing has been published from this repository, and publishing needs the owner's explicit decision. The last APK distributed was 0.9.0-rc20 (4 October 2026), built under the project's earlier account; the candidate is signed with the same certificate and updates it in place.
 
 This repository continues the project under **leovaldez2k21** with its Git history. Older documents may name the earlier account.
 
 ## Features
 
-- Browse recommendations, search, albums, playlists, artists, podcasts and live radio.
-- Background playback, automatic crossfades, normalize volume, queue editing and sleep timers.
-- Word-synced or line-synced lyrics with overlapping lines, background vocals and held-word emphasis, timing adjustment and on-device English translation.
+- Browse recommendations, search, albums, playlists, artists, podcasts and live radio; create, rename and delete YouTube Music playlists; pin anything to Home's speed dial.
+- Background playback, automatic crossfades, normalize volume, song quality, queue editing and sleep timers.
+- Word-synced or line-synced lyrics with overlapping lines, background vocals and held-word emphasis, timing adjustment, and lyric cards to share.
 - Song and collection downloads, optional Smart Downloads, storage budgets.
-- Separate data for each account, for signed-out listening and for audio on the phone; Privacy and data controls; export and import to another phone.
+- A frosted sign-in with the accounts used on the phone and switching between them; separate data for each account, for signed-out listening and for audio on the phone; Privacy and data controls; export and import to another phone; a backup on the phone.
 - On-device audio, local saves, listening history and home-screen widgets.
-- Glass and frosted intensity, reduced motion, high contrast, haptics, screen-reader queue actions and Data saver.
+- Glass and frosted intensity (frosted by default), reduced motion, high contrast, graded haptics, screen-reader queue actions and Data saver.
 - Diagnostics of how the app last closed, shared only by you.
 
 See the [feature guide](docs/features.md) and the [changelog](CHANGELOG.md).

@@ -1,5 +1,7 @@
 # Riff 0.10.0-rc1 (version code 22)
 
+> **Historical record.** These notes describe 0.10.0-rc1 and are kept as written. They are replaced by the [0.10.0 release notes](release-notes-0.10.0.md). Current documents: [documentation index](README.md).
+
 **Status: prepared, not published.** A signed candidate APK and its source archive can be built and checked locally. Nothing has been uploaded or announced, and publishing needs the owner's explicit decision. Until then there is no download link.
 
 Android 12 or later, 64-bit ARM phones. Signed with the same certificate as every Riff release since 0.9.0-rc4 (SHA-256 `ac70342323a39eb9cbd1fe80a9a5b060e22c01ba9a9102a9f698367bca0bf6e1`), so it installs over 0.9.0-rc20 and keeps its data. Never uninstall to get past an install error: uninstalling deletes downloads, saves and settings.

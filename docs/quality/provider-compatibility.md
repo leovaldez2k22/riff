@@ -9,6 +9,13 @@ Riff reads YouTube Music through one pinned library and its own parsers. This fi
 - Changing the version means rerunning everything under "Tests" and the live checks under "Live result".
 - Besides YouTube itself, the library can fetch a pre-processed YouTube player from `cdn.jsdelivr.net/gh/MetrolistGroup/faraday` when a challenge is not solved otherwise, and runs it in the `:solver` process. Riff names a ZemerTeam configuration table that the library's allow-list refuses, so that table is never fetched. See `security-review.md` (Q17).
 
+**Status on 24 October 2026 (0.10.0):** live checks were made on the owner's phone with the dummy test account and,
+for the account switch, the owner's own account (results under "Live result"). New since Q17: making a private
+playlist, renaming and deleting a playlist the account can edit (Q18-081, Q18-104), Not interested and dislikes
+(F10), Liked Music read again after a like or unlike (Q18-080), Google's account list asked with a POST
+(`accounts.google.com/ListAccounts`, Q18-100), downloads asking `WEB_REMIX` first and passing Premium once confirmed
+(Q18-089, Q18-090), and the Song quality setting (Q18-099). Lyrics translation and ML Kit are gone (Q18-101).
+
 **Status on 15 October 2026 (Q17):** no live check under "Live result" has been run, and the canary has two manual results (12 October), both healthy. Since Q10A the provider files changed only for strings (Q13), trace marks (Q14) and diagnostic wording (Q15), not in what is requested or how answers are parsed; the fixture suite still passes.
 
 ## Interfaces
@@ -147,7 +154,24 @@ To change a fixture, change the generator and run it; the digest test fails on a
 
 ## Live result
 
-**None in this package.** Q10 was built and tested with the network off and no account. Nothing above was checked against YouTube Music, and the fixture tests are not a substitute.
+**Since Q19 (20 to 24 October 2026), on the owner's phone (vivo I2217), Riff Preview, dummy test account unless
+noted** (details and evidence paths in execution-ledger.md):
+
+| Check | Build | Result |
+|---|---|---|
+| A 100-song chart playlist loads to its end; the canary's stream phase | rc6 (B7) | PASS; Healthy, 2 requests, 8.3 s |
+| Like; unlike and Liked Music read again (Q18-080) | rc6, rc7 (B7, G3) | PASS (the unlike first failed on rc6, fixed) |
+| Not interested and its Undo (F10) | rc6 (B7) | PASS |
+| New playlist makes a private YouTube Music playlist (Q18-081) | rc7 (G3) | PASS |
+| Rename and delete an editable playlist; Liked Music offers neither (Q18-104) | rc9 | PASS |
+| Google's account list (Q18-100), owner's account | rc9 | PASS: status 200, two rows parsed (a GET got 400 on rc8) |
+| Switching between two saved accounts (Q18-087, Q18-110), owner's and dummy | rc10 | PASS by the owner's check, both ways |
+| A real download, then played offline | rc6 Riff Debug (B7) | PASS |
+
+Not checked live: search's six kinds and Load more one by one, a playlist over 2,000 songs, changing a sort, saving
+an album, an expired session's answers, radio and podcasts beyond playing them.
+
+**Q10 record (kept as written):** none in this package. Q10 was built and tested with the network off and no account. Nothing above was checked against YouTube Music, and the fixture tests are not a substitute.
 
 Earlier dated observations that this package relies on: the account-menu shapes for a valid and an expired session, captured on a device on 3 October 2026 (`SessionHealth.kt`).
 

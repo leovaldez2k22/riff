@@ -1,7 +1,9 @@
-# Dependency, asset and code inventory for 0.10.0-rc1
+# Dependency, asset and code inventory for 0.10.0
 
 Regenerated 15 October 2026 (Q17) for Riff 0.10.0-rc1 (version code 22). The result was regenerated again on
 24 October 2026 after lyrics translation was removed (Q18-101), which took ML Kit and everything it brought out.
+Checked for 0.10.0 (version code 33) on 24 October 2026: the release script's audit of rc11 resolved the same 210
+release dependencies as `dependency-license-audit.csv`; colours were the only change after it.
 
 **This is an inventory of declared metadata. It is not legal advice, a legal review or a certification of compliance.** It lists what the build resolves and what each artifact's Maven metadata says its license is. Nobody has read every included notice file or compared every license's conditions with GPL-3.0 distribution.
 

@@ -1,8 +1,8 @@
 # Sign-in design (Q18-013)
 
 Agreed with the owner on 19 October 2026 from animated mockups shown in the session (the record concept, "C", with
-Riff's frosted glass). Built on 19 October 2026 after the owner's go-ahead (AccountScreen.kt, SignInDesign.kt); not yet
-checked on a phone. This replaces the look and flow of
+Riff's frosted glass). Built on 19 October 2026 after the owner's go-ahead (AccountScreen.kt, SignInDesign.kt); checked on the
+phone with the owner (A2 on rc6, the account switch on rc10). This replaces the look and flow of
 AccountScreen.kt; the working scope in q18-bugs.md (Q18-013: automatic finish, Google's own hosts, no banners over a
 working page, a separate cookie profile, accessibility, tests) still applies underneath it.
 
@@ -33,10 +33,18 @@ Change account uses the same flow from Settings > profile.
 
 ## Saved accounts
 
-Riff keeps a short list of the accounts used on this phone: name, shortened email, avatar colour, when last used,
-which is current. It never keeps another account's sign-in cookies: picking an account always goes through Google's
-page again (with that account pre-chosen). A lost phone therefore holds one live session, not several. Removing an
-account from the list never touches the Google account.
+Riff keeps a short list of the accounts used on this phone (at most 20): name, full email (Q18-085), avatar colour,
+when last used, which is current, and since Q18-087 the account's position in Google's own list of the accounts in the
+web session (accounts.google.com/ListAccounts, asked with a POST, Q18-100) and a digest of its account scope. It never
+keeps another account's sign-in cookies, so a lost phone holds one live session, not several. Removing an account from
+the list never touches the Google account; Sign out asks first and clears the list (Q18-086).
+
+Picking a saved account (updated 24 October 2026, Q18-087 and Q18-110): when Google still holds that account in the
+session, Riff loads its YouTube Music at that position behind screen 5 and commits it only if the account reached is
+the one picked (by scope digest, or by address when no scope is known). Anything else (a different account, a sign-in
+page, a failure, or 15 s without reaching the check) commits nothing, logs `account_pick_mismatch` or
+`account_switch_direct_fallback` (words and numbers only) and opens Google's own account page, where the choice is
+the user's. Checked on the phone on rc10 by the owner, both ways.
 
 ## Transitions
 

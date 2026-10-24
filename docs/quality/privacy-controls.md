@@ -27,7 +27,7 @@ Never removed by any of these: appearance, audio and history-saving settings; th
 
 - Every clear and delete asks first. The prompt says whose data it is, how much, that it cannot be undone, and that the YouTube Music account is not changed.
 - Cancel changes nothing and reports nothing.
-- A retention period that would remove plays at once asks first with the number of plays. One that removes nothing is applied directly.
+- A retention period that would remove plays at once asks first with the number of plays. Since Q18-102 (24 October 2026, the owner's request) every other action asks too: the history switch both ways, a retention that removes nothing, Until cleared, the backup's On switch, Back up now and Restore, and the export, which opens with the unencrypted-file warning.
 - The result is one of: done, with a count; partly done, naming what is still on the phone; or failed, with nothing changed. Partly done and failed offer **Retry**, which runs the same action again. Nothing is reported as removed unless it was.
 - An unverified account has no storage of its own, so its rows are disabled and say why. The device rows still work.
 

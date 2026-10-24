@@ -1,6 +1,6 @@
 # Testing (Q17)
 
-How Riff is tested, what each layer needs and how to rerun it. Current as of 0.10.0-rc1, 15 October 2026. The lanes themselves are described in [CI lanes](ci-lanes.md); fixtures in [deterministic harness](deterministic-harness.md); what each run proved is in the [execution ledger](execution-ledger.md).
+How Riff is tested, what each layer needs and how to rerun it. Written for 0.10.0-rc1 (15 October 2026); hardware brought up to date for 0.10.0, 24 October 2026. The lanes themselves are described in [CI lanes](ci-lanes.md); fixtures in [deterministic harness](deterministic-harness.md); what each run proved is in the [execution ledger](execution-ledger.md).
 
 ## Layers
 
@@ -63,8 +63,8 @@ Evidence runs go through `scripts/quality/collect_results.py --variant debug|rel
 | Device | Used for | Status |
 |---|---|---|
 | Disposable emulator `riff_q02_fixture`, API 31, x86_64, port 5580, network off | Emulator lane, development of device tests, the packaging upgrade | In use. Created for this work; holds no account |
-| Emulators API 33 and 36 | Emulator lane in CI (`emulator.yml`) | Images not installed locally; hosted CI not yet run |
-| Tier R phone (iQOO I2217-class, ARM64) | Device lane, benchmarks, journeys | Not yet available. The owner will lend a phone; installing on it needs their confirmation of the phone and the build |
+| Emulator `riff_q18_api33`, API 33 (emulator-5554) | Emulator lane for Q18 and Q19, 69 tests | In use; the stable local lane. API 36 (`riff_q18_api36`) crashed repeatedly (exit 139) and is not used. Hosted CI not run |
+| Tier R phone: the owner's vivo I2217 (Android 16, ARM64) | Device lane (63 tests), benchmarks, MemoryCheck, soaks, battery, checks with the owner | Lent from 18 October 2026; every install was asked; Riff Debug and Riff Preview beside the main app, which is never touched by tests |
 | Tier L phone (4 GB of RAM or less) | Benchmarks | Not available |
 
 Never install on a personal phone without that confirmation, never uninstall the user's app to get past a signing or version error, and never use a personal account in a test.

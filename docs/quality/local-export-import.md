@@ -20,7 +20,7 @@ Both use the system document picker. Riff requests no storage permission and can
 
 The user chooses which owners to include and sees a count for each. The device, signed-out listening and the account signed in are preselected. Other accounts that used the phone are offered but not preselected.
 
-Settings that travel: haptic feedback, solid controls, reduce motion, frosted glass and the two intensity values, audio boost and its level, normalize volume, crossfade and its length, data saver, save listening history, and the history period. Only settings the user changed are written; a default is not.
+Settings that travel: haptic feedback, solid controls, reduce motion, frosted glass and the two intensity values, audio boost and its level, normalize volume, crossfade and its length, data saver, song quality (Q18-099), save listening history, and the history period. Speed-dial pins travel too (F7). Only settings the user changed are written; a default is not.
 
 Never in the file:
 

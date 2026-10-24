@@ -17,10 +17,6 @@ YouTube Music and YouTube are trademarks of Google LLC. This is an independent c
 not affiliated with or endorsed by Google or YouTube.
 
 
-## On-device lyrics translation
-
-Google ML Kit Translation 17.0.3 and Language Identification 17.0.6, together with their transitive runtime components, are distributed subject to their respective declared licenses and [ML Kit Terms of Service](https://developers.google.com/ml-kit/terms). Input lyric text and translation output are processed on-device. Google services supply downloaded language models and receive SDK performance and usage metrics. The complete resolved inventory is in `docs/dependency-license-audit.csv`; ML Kit models and native SDK components are provided by Google, rather than the app's own source package.
-
 ## Other components
 
 Every other runtime dependency, its version and its declared license is listed in

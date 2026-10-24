@@ -4,9 +4,9 @@ Riff is one Gradle module, `:app`, in one package (ADR-Q01). Structure is kept b
 checks below, not by module walls. Entry-point class names (`MainActivity`, `MusicPlaybackService`,
 `OfflineDownloadService`, `OfflineDownloadJob`, `SolverService`, the widgets) do not change.
 
-## The final shape (0.10.0-rc1)
+## The final shape (0.10.0)
 
-Updated 15 October 2026 (Q17). Two processes, one app module, one test module. Arrows point from the
+Updated 15 October 2026 (Q17); additions of Q18 and Q19 marked, 24 October 2026 (0.10.0). Two processes, one app module, one test module. Arrows point from the
 owner to what it holds; the column on the right is how long each lives. Decisions and deviations from the
 plan's ADRs: [adr.md](adr.md).
 
@@ -26,6 +26,8 @@ plan's ADRs: [adr.md](adr.md).
 |   |   +-- SessionCoordinator: owner + generation, serialized transitions
 |   |   +-- LibraryStateDb (library-state.db): history, snapshots, scope registry, migrations
 |   |   +-- LegacyStateMigration, ScopeAliasJournal, LocalDataController, LocalDataTransfer
+|   |   +-- LocalBackup: Documents/Riff Backup, one file per owner (F9)
+|   |   +-- SpeedDialPins (F7), saved accounts for the sign-in (Q18-013, SignInDesign.kt)
 |   |   +-- PlaybackEventLog (200-line ring), UpdateNotice (no feed in this build)
 |   |   +-- state scope on the IO dispatcher (migration, pruning, merges)
 |   |
@@ -44,6 +46,7 @@ plan's ADRs: [adr.md](adr.md).
 |
 +-- :solver process
 |   +-- SolverService: WebView/QuickJS challenge solver behind Binder     solver process
+|       +-- SolverGate: a song's lookup ahead of preloads (Q18-098)
 |
 +-- widgets (AppWidgetProvider)                                           broadcast
 

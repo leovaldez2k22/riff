@@ -2,6 +2,29 @@
 
 What is measured, with what, on which build, and what has and has not been measured so far.
 
+**Status on 24 October 2026 (0.10.0, measured on rc10).** Tier R is measured on the owner's phone (vivo I2217,
+Android 16, 7.2 GiB) with the benchmark lane on rc10's code (8adb2d1); rc11 and 0.10.0 change only colours (the
+artwork tone and the collection title block), which no budget measures. Evidence:
+`..\Riff-rc10rtifacts\quality\lanesenchmark-20261024T102331Z` (local, not committed).
+
+| Budget (Tier R) | Measured | Budget | Verdict |
+| --- | --- | --- | --- |
+| Cold start to a usable shell, p95 | 1,788 ms (1,870 ms without the profile; first frame 459 ms) | 2,000 ms (owner, 21 Oct) | PASS |
+| 2,000-entry queue, p95 | 369 ms (main thread 205 ms) | 2,000 ms | PASS |
+| Local bundle first audio, p95 | 294 ms | 500 ms | PASS |
+| Controlled online first audio, p95 | 263 ms | 3,000 ms | PASS |
+| Six action timings (player, queue, toggle, skip) | not measured: the harness lost a tap (Q18-097) | 150 ms | MISSING |
+| Missed-deadline frames at 60 Hz: Home, a collection, player and queue | 8.0 %, 7.0 %, 17.1 % | 2 % | FAIL (Q18-030, left as is by the owner) |
+| Memory over 10 journeys | +5.4 MB of 22.1 MB allowed; three blocks of 10: 210.0, 210.0, 218.2, 221.8 MB | 10 % or 20 MiB | PASS (Q18-073) |
+
+Earlier phone runs: frosted glass at 20 % cost Home scroll 1.67 % janky frames against 1.33 % with it off (rc6,
+by hand, B6); battery three 2-hour runs on 23 October, about 3 % an hour streaming or from downloads and 2.5 %
+idle (recorded as measured, no budget: vivo's counter is not mAh and its stats cannot be reset); soaks: 2 hours
+offline (19 Oct) PASS with no memory growth, 4 hours live (23 Oct, B9) PASS on stability, accepted by the owner
+with the single-reading memory rule's FAIL noted (medians of the first and last hour both about 334 MB). Not
+measured: Tier L (no such phone), frames at 120 Hz as a verdict, and the API matrix beyond the I2217 and the
+emulators. The sections below are the Q14 to Q17 record and are kept as written.
+
 **Status on 15 October 2026 (Q17, 0.10.0-rc1): unchanged since Q14.** Still no budget measured on a phone;
 no phone has been available. The release APK grew from 26.89 MiB (Q14) to 26.95 MiB (28,263,130 bytes, Q16B)
 and stays under the 40 MiB ceiling. Q16A and Q16B added per-letter lyric drawing; its frame cost is one of the
@@ -241,7 +264,8 @@ budget.
 
 ## BLOCKED, and how to unblock each
 
-Nothing below has a result. None may be reported as passed.
+Written in Q14. Since then Tier R timings, frames, memory, battery and both soaks have been run on the owner's
+phone (status at the top); what is still blocked is Tier L, the API matrix and a sustained-120 fps claim.
 
 | Gate | Needs | Then run |
 | --- | --- | --- |
