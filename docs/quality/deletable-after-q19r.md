@@ -1,6 +1,8 @@
 # What can be deleted after Q19R
 
-Nothing here has been deleted. Each item waits for the owner's word. **Reviewed again on 24 October 2026, after Q19R closed**: every claim below was checked on disk that day, and the earlier version's mistakes are corrected (see the end).
+**Done 25 October 2026** (owner: "start deleting the files in the deletable-after-q19r.md file", then "make a combined zip of all 228 evidence items … and then delete phase 3 list"). Deleted: every item in sections 1 and 2 (the worktrees pruned, the six branches deleted with `git branch -d`), all 228 items of section 3, and all of section 4 (including the four emulator images). Before section 3 went, all 228 items (17,447 files, 26.70 GB) were packed into **`Riff\artifacts\evidence-archive-2026-10-25.zip`** (10.67 GB, paths kept as `artifacts/quality/...`; `testzip` clean, every item checked present), so every `artifacts\...` link in the ledger and the bug files resolves inside that archive. Freed: 15.38 GB (sections 1, 2 and 4's loose files), 32.68 GB (emulator images), 26.75 GB (section 3); C: went from 19.56 GB to 81.17 GB free. Sections 5 and 7 untouched. The text below is the review as it stood before the deletion.
+
+Before 25 October nothing here had been deleted; each item waited for the owner's word. **Reviewed again on 24 October 2026, after Q19R closed**: every claim below was checked on disk that day, and the earlier version's mistakes are corrected (see the end).
 
 Sizes measured 24 Oct (du): `Riff\artifacts` 28 GB, `Riff\.toolchain` 56 GB (including the JDK, SDK and Gradle you keep), `Riff\app\build` 1.4 GB, `C:\c` 761 MB, `C:\q18c6` 664 MB; worktrees `Riff-rc4` 1.5 GB, `Riff-rc5` 37 MB, `Riff-rc6` 2.1 GB, `Riff-rc7` 2.5 GB, `Riff-rc8` 1.0 GB, `Riff-rc9` 818 MB, `Riff-rc10` 820 MB (the newer ones were not measured). The C: drive had 21 GB free.
 

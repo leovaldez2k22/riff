@@ -3273,3 +3273,11 @@ New contract rule 16: commit each package locally on its branch before starting 
   - each worktree's `artifacts\release` into `Riff\artifacts\release\0.10.0-rc7` to `0.10.0-rc11` (signed APKs, mapping, dependencies, SHA256SUMS); `sha256sum -c` passes in each (2 of 2).
 - So every path this ledger gives as `artifacts\...` "in ..\Riff-rcN" or "in ..\Riff-final", or as `..\Riff-rcN\artifacts\quality\...`, now also resolves under `Riff\artifacts\quality\...`; signed files given as in `..\Riff-rcN\artifacts\release` are in `Riff\artifacts\release\0.10.0-rcN`. The entries above are left as written.
 - final-report.md, performance.md, q18-bugs.md, lint-triage.md and proposed-bugs.md now cite the copies. Not kept: build outputs under each worktree's `app\build` (Q18-105's failing test result had already been overwritten there).
+
+### Deletable list carried out (25 October 2026)
+
+- Owner: "start deleting the files in the deletable-after-q19r.md file and show live counter", choosing "Zip cited, delete all" and "Delete them" for the emulator images; then "make a combined zip of all 228 evidence items, delete the zip which has 101 items and then delete phase 3 list".
+- Deleted: `C:\c`, `C:\q18c6`, worktrees `Riff-rc4` to `Riff-rc11`, `Riff-0.10.0`, `Riff-final`, `youthful-wright-c57334` (then `git worktree prune`), the six merged branches (`git branch -d`), the scratch logs, `innertubex-riff`, 90 loose `.toolchain` items, the emulator images `avd`, `q02-avd`, `q18-avd`, `q19-avd`, and the 228 evidence items of the list's section 3. No failures.
+- Kept: `.toolchain` jdk, sdk, gradle-8.13, gradle-user-home, signing; `artifacts` release, phone-backup, github-*, device-checks, phone-cleanup; the six final lane runs and the two manifest folders.
+- All 228 evidence items (17,447 files) are in `artifacts\evidence-archive-2026-10-25.zip` (10.67 GB; testzip clean; each item checked present). Paths cited in this ledger as `artifacts\quality\...` (and those mapped there by the entry above) resolve inside it.
+- Freed 15.38 + 32.68 + 26.75 GB; C: free went from 19.56 GB to 81.17 GB.
