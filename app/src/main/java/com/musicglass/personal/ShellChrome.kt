@@ -67,6 +67,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.runtime.getValue
@@ -86,10 +90,9 @@ internal fun ChromeBar(model: ShellModel, compact: Boolean, playback: PlaybackGa
         .padding(bottom = (bottomInset + 10f).dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (model.miniVisible) {
-            Surface(shape = RoundedCornerShape(32.dp),
-                color = if (accessibility.solidControls) Color(0xFF11131A) else Color.Transparent,
-                border = BorderStroke(1.dp, Color.White.copy(alpha = miniBorderAlpha(accessibility.solidControls))),
+            Surface(shape = RoundedCornerShape(32.dp), color = Color.Transparent,
                 modifier = Modifier.fillMaxWidth().height(62.dp).testTag("mini_player")
+                    .riffGlass(GlassRole.Bar)
                     .onGloballyPositioned { if(miniProgress<.001f) onMiniBounds(it.boundsInRoot()) }
                     .graphicsLayer { alpha = miniPlayerAlpha(miniProgress) }
                     .pointerInput(model) {
@@ -164,16 +167,12 @@ internal fun LiquidTabBar(model: ShellModel, compact: Boolean, height: androidx.
             return navigationLens(cx*density,width.value*density,height.value*density,pressState.value,
                 (targetCenter-center.value)*density,accessibility.glassIntensity,motion.reduced || accessibility.solidControls)
         }
-        val refraction=rememberNavigationRefraction()
-        Row(Modifier.fillMaxSize().graphicsLayer {
-            val lens=geometry()
-            renderEffect=if(lens.gain>0f && refraction!=null) refraction(lens,size.width,size.height) else null
-        }, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Surface(shape = RoundedCornerShape(height / 2),
-                color = if (accessibility.solidControls) Color(0xFF11131A) else Color.Transparent,
-                border = BorderStroke(.65.dp, Color.White.copy(alpha =
-                    if (accessibility.solidControls) .72f else .4f)),
-                modifier = Modifier.width(mainWidth).height(height).testTag("navigation")) {
+        // Feature 1: the tabs as drawn, for the drag lens to magnify.
+        val tabs=rememberGraphicsLayer()
+        val tabsBackdrop=remember(tabs) {RiffBackdrop(tabs)}
+        Row(Modifier.fillMaxSize().riffBackdropSource(tabsBackdrop), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Surface(shape = RoundedCornerShape(height / 2), color = Color.Transparent,
+                modifier = Modifier.width(mainWidth).height(height).testTag("navigation").riffGlass(GlassRole.Bar)) {
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                     names.take(4).forEach { name ->
                         NavItem(name, names[active] == name, !largeText,
@@ -187,11 +186,8 @@ internal fun LiquidTabBar(model: ShellModel, compact: Boolean, height: androidx.
                 }
             }
             run {
-                Surface(shape = CircleShape,
-                    color = if (accessibility.solidControls) Color(0xFF11131A) else Color.Transparent,
-                    border = BorderStroke(.65.dp, Color.White.copy(alpha =
-                        if (accessibility.solidControls) .72f else .4f)),
-                    modifier = Modifier.size(height).testTag("nav_search")) {
+                Surface(shape = CircleShape, color = Color.Transparent,
+                    modifier = Modifier.size(height).testTag("nav_search").riffGlass(GlassRole.Button)) {
                     NavItem("Search", active == 4, false, Modifier.fillMaxSize().graphicsLayer {
                         if(android.os.Build.VERSION.SDK_INT<33) {val lens=geometry();val logical=mainWidth.value+8f+height.value/2f;val physical=(if(rightToLeft) navTotalWidth.value-logical else logical)*density
                             val contact=(1f-kotlin.math.abs(physical-lens.centerX)/lens.radiusX.coerceAtLeast(1f)).coerceIn(0f,1f);scaleX=1f+lens.gain*contact;scaleY=1f+lens.gain*contact}
@@ -202,8 +198,22 @@ internal fun LiquidTabBar(model: ShellModel, compact: Boolean, height: androidx.
             }
         }
         LiquidSelector(::geometry,density,accessibility.solidControls,fingerX!=null)
+        // Feature 1, the drag lens: a glass pill over the tabs while a finger is down, magnifying what it passes over.
+        if(!accessibility.solidControls && !motion.reduced && pressState.value>.01f) DragLens(::geometry,tabsBackdrop) {pressState.value}
 
     }
+}
+
+@Composable private fun DragLens(geometry:()->NavLens,backdrop:RiffBackdrop,contact:()->Float) {
+    Box(Modifier.layout {measurable,_->
+        val lens=geometry()
+        val width=(lens.radiusX*2).toInt().coerceAtLeast(1);val height=(lens.radiusY*2).toInt().coerceAtLeast(1)
+        val placeable=measurable.measure(Constraints.fixed(width,height))
+        layout(width,height) {placeable.place(0,0)}
+    }.graphicsLayer {
+        val lens=geometry()
+        translationX=lens.centerX-lens.radiusX;translationY=lens.centerY-lens.radiusY-6f*density*contact()
+    }.riffGlass(GlassRole.Lens,zoom={1f+.2f*contact()},backdrop=backdrop))
 }
 
 @Composable private fun LiquidSelector(geometry:()->NavLens,density:Float,solid:Boolean,pressed:Boolean) {
@@ -256,13 +266,13 @@ private fun NavItem(name: String, selected: Boolean, showLabel: Boolean,
  * clear glass stays one effect over the whole scene.
  */
 @Composable internal fun GlassScene(bounds:Map<String,Rect>,styles:Map<String,GlassChipStyle>,area:IntSize,density:Float,compact:Boolean,
-    showMini:Boolean,chrome:Boolean,inset:Int,tab:String,route:String,settings:AccessibilitySettings,content:@Composable ()->Unit) {
+    showMini:Boolean,chrome:Boolean,inset:Int,tab:String,route:String,settings:AccessibilitySettings,backdrop:RiffBackdrop,content:@Composable ()->Unit) {
     val solid=settings.solidControls;val intensity=settings.glassIntensity
     val frostIntensity=settings.frostedIntensity
     val frosting=chrome && !solid && settings.frostedGlass && frostIntensity>0f
     // The cache itself is not snapshot state; mutating it inside a layer or a draw never schedules composition.
     val cache=remember {GlassEffectCache()}
-    val scene=rememberGraphicsLayer()
+    val scene=backdrop.layer
     val halves=listOf(rememberGraphicsLayer(),rememberGraphicsLayer())
     val frost=rememberGraphicsLayer()
     fun glass():GlassEffectCache {
@@ -273,8 +283,8 @@ private fun NavItem(name: String, selected: Boolean, showLabel: Boolean,
         if(cache.key!=key) {
             cache.key=key
             cache.effect=if(chrome && !solid) chromeGlassEffect(area.width,area.height,density,showMini,compact,
-                false,inset,categories,intensity,radii)?.asComposeRenderEffect() else null
-            val shapes=chromeGlassShapes(area.width,area.height,density,showMini,compact,false,inset,categories)
+                false,inset,categories,intensity,radii,bottomChrome=false)?.asComposeRenderEffect() else null
+            val shapes=chromeGlassShapes(area.width,area.height,density,showMini,compact,false,inset,categories,bottomChrome=false)
             cache.bands=if(frosting && area.width>0 && area.height>0)
                 frostBands(shapes,area.width,area.height,frostMargin(density,intensity,frostIntensity)) else emptyList()
             cache.area=cache.bands.takeIf {it.isNotEmpty()}?.let {b->
@@ -307,8 +317,10 @@ private fun NavItem(name: String, selected: Boolean, showLabel: Boolean,
         }
         translate(area.left,area.top) {drawLayer(frost)}
     }) {
-        Box(Modifier.fillMaxSize().graphicsLayer {renderEffect=glass().effect}.drawWithContent {
-            if(frosting) {
+        Box(Modifier.fillMaxSize().graphicsLayer {renderEffect=glass().effect}
+            .onGloballyPositioned {backdrop.origin=it.positionInRoot()}.drawWithContent {
+            // Feature 1: recorded once a frame while the frost or any glass control reads it.
+            if(frosting || backdrop.readers>0) {
                 scene.compositingStrategy=CompositingStrategy.Offscreen // drawn once a frame, read by every strip
                 scene.record {this@drawWithContent.drawContent()}
                 drawLayer(scene)

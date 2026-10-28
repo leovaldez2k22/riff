@@ -3,7 +3,9 @@ package com.musicglass.personal
 import androidx.compose.ui.geometry.Rect
 
 internal fun chromeGlassShapes(width:Int,height:Int,density:Float,showMini:Boolean,compact:Boolean,
-    collapsed:Boolean,bottomInset:Int,categories:List<Rect>):List<Rect> {
+    collapsed:Boolean,bottomInset:Int,categories:List<Rect>,bottomChrome:Boolean=true):List<Rect> {
+    // Feature 1: with the bottom chrome drawn by riffGlass, its three shapes are placed off screen and read nothing.
+    if(!bottomChrome) return List(3) {Rect(-1000f,-1000f,-999f,-999f)}+categories.take(8)
     val inset=16f*density
     val navHeight=(if(collapsed) 46f else if(compact) 64f else 58f)*density
     val top=height-bottomInset-10f*density-navHeight

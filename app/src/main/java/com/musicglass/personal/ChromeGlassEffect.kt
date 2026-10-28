@@ -7,9 +7,9 @@ import androidx.compose.ui.geometry.Rect
 /** The clear glass over the whole screen (Android 13+); Android 12 has none. Frosted glass adds [frostCutEffect] over blurred strips. */
 internal fun chromeGlassEffect(width:Int,height:Int,density:Float,showMini:Boolean,compact:Boolean,
     collapsed:Boolean,bottomInset:Int,categories:List<Rect> = emptyList(),
-    intensity:Float=1f,categoryRadii:List<Float> = emptyList()):RenderEffect? {
+    intensity:Float=1f,categoryRadii:List<Float> = emptyList(),bottomChrome:Boolean=true):RenderEffect? {
     if(width<=0 || height<=0 || Build.VERSION.SDK_INT<33) return null
-    val shapes=chromeGlassShapes(width,height,density,showMini,compact,collapsed,bottomInset,categories)
+    val shapes=chromeGlassShapes(width,height,density,showMini,compact,collapsed,bottomInset,categories,bottomChrome)
     return AgslChromeGlassEffect.create(shapes,width,height,density,intensity,categoryRadii)
 }
 
