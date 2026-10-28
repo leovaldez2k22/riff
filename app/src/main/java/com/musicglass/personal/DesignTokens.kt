@@ -144,6 +144,22 @@ internal object RiffEqualizer {
 }
 
 /** Feature 12: Encore's page, charts and stories. */
+/** Feature 30: the shell on a wide window. */
+internal object RiffShell {
+    /** The rail's width, and the room it leaves at the start of the screens with [railEdge] on each side. */
+    val rail = 80.dp
+    val railItem = 60.dp
+    val railEdge = 12.dp
+    /** Below this height a wide window (a phone on its side) keeps the bottom bar. */
+    val railLeastHeight = 480.dp
+    /** The player pane is 40 % of the window, and never narrower than this. */
+    val paneLeast = 360.dp
+    /** Room under the screens for the mini player alone, and for nothing. */
+    val miniOnly = 84.dp
+    val bare = 20.dp
+    val none = 0.dp
+}
+
 internal object RiffEncore {
     /** The period control's tabs. */
     val tab = 40.dp

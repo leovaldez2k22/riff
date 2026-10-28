@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
@@ -233,14 +236,23 @@ internal fun RiffApp() {
     val density = LocalDensity.current.density
     val compact = LocalWindowInfo.current.containerSize.width / density < 390f ||
         LocalDensity.current.fontScale >= 1.3f
+    // Feature 30: a rail on wide windows, and on the widest the player as a pane beside the screens.
+    val window = LocalWindowInfo.current.containerSize
+    val widthClass = shellWidth(window.width / density, window.height / density)
+    val railed = widthClass != ShellWidth.Compact
+    val paned = widthClass == ShellWidth.Expanded && model.miniVisible
+    val paneWidth = if (paned) maxOf((window.width / density * .4f).dp, RiffShell.paneLeast) else RiffShell.none
+    val shellInsets = ShellInsets(if (railed) RiffShell.rail + RiffShell.railEdge * 2 else RiffShell.none, paneWidth)
+    // The pane is the player: opening it full screen there would cover what the pane sits beside.
+    LaunchedEffect(paned, model.sheet) { if (paned && model.sheet == "mini") model.sheet = "" }
     val keyboardOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val sceneHasChrome = !keyboardOpen && model.current != Route.Account
     // Thresholds invalidate the shell only at a visibility change, not on every morph frame.
-    val showChrome by remember(sceneHasChrome, playerMorph) {
-        derivedStateOf { sceneHasChrome && (playerMorph.position.value < .999f || player.draggingMini) }
+    val showChrome by remember(sceneHasChrome, playerMorph, paned) {
+        derivedStateOf { sceneHasChrome && (paned || playerMorph.position.value < .999f || player.draggingMini) }
     }
-    val showPlayer by remember(model, playerMorph) {
-        derivedStateOf { model.sheet.isNotEmpty() || playerMorph.position.value > MORPH_SHOWN }
+    val showPlayer by remember(model, playerMorph, paned) {
+        derivedStateOf { paned || model.sheet.isNotEmpty() || playerMorph.position.value > MORPH_SHOWN }
     }
     val showMini = model.miniVisible
     val bottomInset = WindowInsets.navigationBars.getBottom(LocalDensity.current)
@@ -286,7 +298,7 @@ internal fun RiffApp() {
                         else if (old == null || kotlin.math.abs(old.left - bounds.left) > .5f ||
                             kotlin.math.abs(old.top - bounds.top) > .5f || old.size != bounds.size)
                             categoryBounds[label] = bounds
-                    })
+                    }, insets = shellInsets, bottomTabs = !railed, showMini = model.miniVisible && !paned)
                 }
                 // Feature 11: inside the glass scene, so the floating bar refracts the darkened page, not a darker band.
                 EdgeFades(highContrast = accessibility.solidControls)
@@ -297,8 +309,8 @@ internal fun RiffApp() {
                     slideInVertically(GlassMotion.timed(GlassMotion.selectionMs, motion)) { it / 6 },
                 exit = fadeOut(GlassMotion.exit(GlassMotion.selectionMs, motion)) +
                     slideOutVertically(GlassMotion.exit(GlassMotion.selectionMs, motion)) { it / 6 },
-                modifier = Modifier.align(Alignment.BottomCenter)) {
-                ChromeBar(model, compact, playback, Modifier,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(start = shellInsets.start, end = shellInsets.end)) {
+                ChromeBar(model, compact, playback, Modifier, tabs = !railed, showMini = model.miniVisible && !paned,
                     bottomInset = bottomInset / density,
                     miniMorph = { playerMorph.position.value },
                     miniDragging = player.draggingMini,
@@ -308,18 +320,21 @@ internal fun RiffApp() {
                     onMiniRelease = { player.releaseMini(model.sheet.isNotEmpty(), motion, area.height) { model.sheet = "mini" } },
                     onNotice = { scope.launch { snackbar.showSnackbar(it) } })
             }
-            if(model.sheet=="lyrics" || isTransitionActive) Box(Modifier.fillMaxSize().background(Ink).blockTouchesBelow())
+            if (railed && showChrome) GlassRail(model, Modifier.align(Alignment.CenterStart)
+                .padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Start).asPaddingValues()).padding(start = RiffShell.railEdge))
+            val playerArea = if (paned) Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(paneWidth) else Modifier.fillMaxSize()
+            if(model.sheet=="lyrics" || isTransitionActive) Box(playerArea.background(Ink).blockTouchesBelow())
             AnimatedVisibility(visible=model.sheet!="lyrics",
                 enter=fadeIn(GlassMotion.timed(GlassMotion.playerMs,motion)) + slideInVertically(GlassMotion.timed(GlassMotion.playerMs,motion)) { -it/14 },
                 exit=fadeOut(GlassMotion.exit(GlassMotion.playerMs,motion)) + slideOutVertically(GlassMotion.exit(GlassMotion.playerMs,motion)) { -it/14 },
-                modifier=Modifier.fillMaxSize().playerBackPreview(backGesture)) {
+                modifier=playerArea.playerBackPreview(backGesture)) {
             CompositionLocalProvider(LocalLyricsVisibilityScope provides this) {
             if (showPlayer) {
-                PlayerMorphHost({ playerMorph.position.value }, model, compact, playback, collections,
+                PlayerMorphHost(if (paned) {{ 1f }} else {{ playerMorph.position.value }}, model, compact, playback, collections,
                     bottomInset / density, miniBounds, miniElementBounds, player.draggingFull, provider,
                     onNotice = { scope.launch { snackbar.showSnackbar(it) } },
-                    onMorphDrag = { delta, time -> player.dragFull(delta, time, area.height) },
-                    onMorphRelease = { velocity -> player.releaseFull(velocity, model.sheet.isNotEmpty(), motion, area.height) { model.sheet = "" } },
+                    onMorphDrag = { delta, time -> if (!paned) player.dragFull(delta, time, area.height) },
+                    onMorphRelease = { velocity -> if (!paned) player.releaseFull(velocity, model.sheet.isNotEmpty(), motion, area.height) { model.sheet = "" } },
                     onArtist = {
                         val state=playback.state
                         scope.launch {
@@ -363,7 +378,7 @@ internal fun RiffApp() {
             AnimatedVisibility(visible = model.sheet == "lyrics",
                 enter = fadeIn(GlassMotion.timed(GlassMotion.playerMs, motion)) + slideInVertically(GlassMotion.timed(GlassMotion.playerMs,motion)) {it/14},
                 exit = fadeOut(GlassMotion.exit(GlassMotion.playerMs, motion)) + slideOutVertically(GlassMotion.exit(GlassMotion.playerMs,motion)) {it/14},
-                modifier = Modifier.fillMaxSize()) {
+                modifier = playerArea) {
                 CompositionLocalProvider(LocalLyricsVisibilityScope provides this) {
                 // Touches that no lyrics control takes stop here: before, a tap between the controls at the bottom
                 // reached the home page underneath and could start one of its songs.

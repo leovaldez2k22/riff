@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -34,7 +35,9 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
     playback: PlaybackGateway, collections: LocalCollections, provider: YouTubeMusicProvider,
     ambient: androidx.compose.runtime.State<AmbientPalette>,
     onNotice: (String) -> Unit,
-    onCategoryBounds: (String, androidx.compose.ui.geometry.Rect?) -> Unit = { _, _ -> }) {
+    onCategoryBounds: (String, androidx.compose.ui.geometry.Rect?) -> Unit = { _, _ -> },
+    /** Feature 30: room for the rail and the player pane on a wide window; there the bottom holds the mini player at most. */
+    insets: ShellInsets = ShellInsets(RiffShell.none, RiffShell.none), bottomTabs: Boolean = true, showMini: Boolean = model.miniVisible) {
     DisposableEffect(playback,model) {
         (playback as? MusicPlaybackGateway)?.onLivePlay={track->
             model.sheet="mini"
@@ -47,7 +50,8 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
     }
     val holder = rememberSaveableStateHolder()
     val navigationInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val chromePaddingTarget = if (!showChrome) 20.dp else if (model.miniVisible) {
+    val chromePaddingTarget = if (!bottomTabs) { if (showChrome && showMini) RiffShell.miniOnly else RiffShell.bare }
+    else if (!showChrome) 20.dp else if (model.miniVisible) {
         if (compact) 160.dp else 154.dp
     } else if (compact) 90.dp else 84.dp
     val motion = LocalMotionPolicy.current
@@ -77,7 +81,7 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
                                 -it * direction / 12
                             })
                 }
-            }, label = "scene navigation", modifier = Modifier.fillMaxSize()) { screen ->
+            }, label = "scene navigation", modifier = Modifier.fillMaxSize().padding(start = insets.start, end = insets.end)) { screen ->
         val tab = screen.tab; val route = screen.wire
         // Declared before the state holder below, so it is disposed after the holder has saved: a screen
         // that was closed, not just covered, has what it remembered dropped once it has left.

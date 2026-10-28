@@ -29,6 +29,8 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="false">
+        <!-- Feature 14: Android Auto lists Riff as a media app. -->
+        <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />
         <!-- Compose reads LocalConfiguration/LocalDensity and updates in place; recreating the
              activity for these changes rebuilt the whole UI (~280 ms per rotation or theme change).
              Locale is not listed, so a language change still recreates.
@@ -72,13 +74,17 @@
         <!-- Exported without a permission on purpose (lint ExportedService, Q15 review): the system, Bluetooth,
              a car and an assistant bind to a media session service, and a permission would lock them out.
              What a caller may do is decided per controller in MusicPlaybackService.onConnect: the app itself
-             gets its own commands; anyone else gets transport and no queue editing. -->
+             gets its own commands; Android Auto and the system's controls may also browse (mayBrowse); anyone
+             else gets transport and no queue editing. -->
         <service
             android:name=".MusicPlaybackService"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
                 <action android:name="androidx.media3.session.MediaSessionService" />
+                <!-- Feature 14: Android Auto browses through the platform's media browser. -->
+                <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
         <!-- Feature 27: play and pause from Quick Settings. -->

@@ -82,14 +82,16 @@ internal fun ChromeBar(model: ShellModel, compact: Boolean, playback: PlaybackGa
     onMiniDrag: (Float, Long) -> Unit,
     onMiniRelease: () -> Unit, onMiniBounds: (Rect) -> Unit,
     onMiniElementBounds: (String, Rect) -> Unit,
-    onNotice: (String) -> Unit) {
+    onNotice: (String) -> Unit,
+    /** Feature 30: false on a wide window, where the rail has the tabs; [showMini] false where the pane has the player. */
+    tabs: Boolean = true, showMini: Boolean = model.miniVisible) {
     val accessibility = LocalAccessibilitySettings.current
     val miniProgress = miniMorph()
     val navHeight = if (compact) 64.dp else 58.dp
     Column(modifier.fillMaxWidth().padding(horizontal = 16.dp)
         .padding(bottom = (bottomInset + 10f).dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (model.miniVisible) {
+        if (showMini) {
             Surface(shape = RoundedCornerShape(32.dp), color = Color.Transparent,
                 modifier = Modifier.fillMaxWidth().height(62.dp).testTag("mini_player")
                     .riffGlass(GlassRole.Bar)
@@ -107,7 +109,7 @@ internal fun ChromeBar(model: ShellModel, compact: Boolean, playback: PlaybackGa
                     onElementBounds = {name,bounds->if(miniProgress<.001f) onMiniElementBounds(name,bounds)})
             }
         }
-        Box(Modifier.graphicsLayer {
+        if (tabs) Box(Modifier.graphicsLayer {
             alpha = 1f - motionRamp(miniProgress, 0f, .5f)
         }) { LiquidTabBar(model, compact, navHeight) }
     }
@@ -233,7 +235,7 @@ internal fun LiquidTabBar(model: ShellModel, compact: Boolean, height: androidx.
 }
 
 @Composable
-private fun NavItem(name: String, selected: Boolean, showLabel: Boolean,
+internal fun NavItem(name: String, selected: Boolean, showLabel: Boolean,
     modifier: Modifier, onClick: () -> Unit) {
     val icon = when (name) {
         "Home" -> Icons.Rounded.Home

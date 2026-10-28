@@ -178,6 +178,8 @@ import kotlinx.coroutines.withContext
             SettingsToggleRow(string(R.string.player_lyric_line),preferences.playerLyricLine,
                 hapticToggle(preferences::updatePlayerLyricLine),Icons.Rounded.Subtitles,"settings_player_lyric_line")
             SettingsDivider()
+            ArtworkMotionRow()
+            SettingsDivider()
             SettingsToggleRow(string(R.string.show_stats_for_nerds),preferences.playerStats,
                 hapticToggle(preferences::updatePlayerStats),Icons.Rounded.Analytics,"settings_player_stats",
                 subtitle=string(R.string.show_stats_for_nerds_detail))
@@ -352,5 +354,17 @@ internal fun songQualityLabel(choice:SongQuality) = string(when(choice) {
             if(manager.isRequestPinAppWidgetSupported) manager.requestPinAppWidget(android.content.ComponentName(context,preset.receiver),null,null)
             else onNotice(string(R.string.touch_and_hold_your_home_screen_choose))
         }
+    }
+}
+
+/** Feature 6: Off, Drift, Depth or Mesh for the cover in the player. */
+@Composable private fun ArtworkMotionRow() {
+    val context=androidx.compose.ui.platform.LocalContext.current
+    artworkMotionRevision.floatValue
+    val chosen=artworkMotion(context)
+    Column(Modifier.padding(vertical=RiffSpace.item),verticalArrangement=Arrangement.spacedBy(RiffSpace.item)) {
+        Text(string(R.string.artwork_motion),color=White,style=RiffText.settingsRow)
+        GlassSegmented(ArtworkMotion.entries.map {string(it.label)},chosen.ordinal,{setArtworkMotion(context,ArtworkMotion.entries[it])},"settings_artwork_motion")
+        Text(string(R.string.artwork_motion_detail),color=Muted,style=RiffText.subtitle)
     }
 }

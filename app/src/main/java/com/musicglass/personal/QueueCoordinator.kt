@@ -25,7 +25,7 @@ internal class InternalChange {
     inline fun <T> run(block: () -> T): T { val was = active; active = true; try { return block() } finally { active = was } }
 }
 
-private val PLAYABLE_ID = Regex("[A-Za-z0-9_-]{11}")
+internal val PLAYABLE_ID = Regex("[A-Za-z0-9_-]{11}")
 private val STREAM_HEADERS = setOf("user-agent", "accept", "accept-language", "referer", "origin")
 private fun providerMediaHost(uri: Uri) = uri.scheme == "https" && (uri.host == "googlevideo.com" || uri.host.orEmpty().endsWith(".googlevideo.com"))
 
@@ -211,6 +211,18 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         persistence().save(player); events.append("album_queue_selected count=${tracks.size}")
         return SessionResult(SessionResult.RESULT_SUCCESS)
     }
+
+    /** Feature 14: a queue chosen in the car replaces the current one; the session sets the returned items on the player. */
+    fun carQueue(player: Player, tracks: List<ProviderTrack>): List<MediaItem> {
+        player.stop(); resetForNewQueue()
+        player.shuffleModeEnabled = false; player.repeatMode = Player.REPEAT_MODE_OFF
+        queuedIds.addAll(tracks.map { it.videoId })
+        events.append("car_queue_selected count=${tracks.size}")
+        return tracks.map { catalogItem(it) }
+    }
+
+    /** Feature 14: a song the car adds to the queue. */
+    fun carItem(track: ProviderTrack): MediaItem { queuedIds.add(track.videoId); return catalogItem(track) }
 
     /** One on-device file replaces the queue. The caller has checked that the file may be read. */
     fun playLocal(player: Player, item: MediaItem, ticket: PlaybackCommandOrder.Ticket): SessionResult {

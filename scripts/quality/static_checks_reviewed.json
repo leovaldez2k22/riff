@@ -21,10 +21,10 @@
     {"file": "LyricsPanel.kt", "contains": "snapshotFlow { playback.positionMs }", "reason": "Read inside a snapshotFlow in an effect, not in composition; only the active line's index reaches the screen."},
     {"file": "PlayerPresentation.kt", "contains": "miniDrag.target = morph.position.value", "reason": "Read once in a drag callback when the drag starts, not in composition."},
     {"file": "PlayerPresentation.kt", "contains": "fullDrag.target = morph.position.value", "reason": "Read once in a drag callback when the drag starts, not in composition."},
-    {"file": "RiffApp.kt", "contains": "derivedStateOf { sceneHasChrome && (playerMorph.position.value < .999f", "reason": "Inside derivedStateOf: the shell recomposes only when the result flips, not on every frame of the drag."},
-    {"file": "RiffApp.kt", "contains": "derivedStateOf { model.sheet.isNotEmpty() || playerMorph.position.value > MORPH_SHOWN }", "reason": "Inside derivedStateOf: the shell recomposes only when the result flips, not on every frame of the drag."},
+    {"file": "RiffApp.kt", "contains": "derivedStateOf { sceneHasChrome && (paned || playerMorph.position.value < .999f", "reason": "Inside derivedStateOf: the shell recomposes only when the result flips, not on every frame of the drag."},
+    {"file": "RiffApp.kt", "contains": "derivedStateOf { paned || model.sheet.isNotEmpty() || playerMorph.position.value > MORPH_SHOWN }", "reason": "Inside derivedStateOf: the shell recomposes only when the result flips, not on every frame of the drag."},
     {"file": "RiffApp.kt", "contains": "miniMorph = { playerMorph.position.value },", "reason": "Passed as a lambda and read in the mini player's draw and layout phases, so the shell is not recomposed."},
-    {"file": "RiffApp.kt", "contains": "PlayerMorphHost({ playerMorph.position.value },", "reason": "Passed as a lambda and read where the player is drawn, so the shell and the screens under it are not recomposed."}
+    {"file": "RiffApp.kt", "contains": "PlayerMorphHost(if (paned) {{ 1f }} else {{ playerMorph.position.value }},", "reason": "Passed as a lambda and read where the player is drawn, so the shell and the screens under it are not recomposed."}
   ],
   "strings": [
     {"file": "LibraryHistoryScreens.kt", "contains": "Text(\"YouTube Music\")", "reason": "The provider's name, the same in every language."}

@@ -11,8 +11,8 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
@@ -25,8 +25,8 @@ import io.ktor.client.engine.okhttp.OkHttp
 
 /** Background playback for real provider streams and on-device audio. */
 @androidx.annotation.OptIn(markerClass = [UnstableApi::class, androidx.media3.common.util.ExperimentalApi::class])
-class MusicPlaybackService : MediaSessionService() {
-    private var session: MediaSession? = null
+class MusicPlaybackService : MediaLibraryService() {
+    private var session: MediaLibrarySession? = null
     /** The player Riff drives. The session is given [sessionPlayer], which shows a recovering song as waiting, not failed (Q18-020). */
     private var mainPlayer: ExoPlayer? = null
     private var sessionPlayer: WaitingSessionPlayer? = null
@@ -118,6 +118,8 @@ class MusicPlaybackService : MediaSessionService() {
     private val sources:PlaybackSources by lazy {PlaybackSources(this,serviceScope,provider,offline,events,audio,queue,sabrHttp,::publishState)}
     private var sleepDeadlineMs=0L
     private var publishedState=""
+    /** Feature 14: the library Android Auto browses. */
+    private val car by lazy {CarBrowse(serviceScope,CarLibrary(ServiceCarSource(this) {runtime.networkConditions().validated},runtime.clocks::monotonicMillis))}
     /** Queue revision, owner and what is being done for the selected entry, for every controller. Main thread. */
     private fun publishState() {
         val media=session?:return;val player=mainPlayer?:return
@@ -164,7 +166,10 @@ class MusicPlaybackService : MediaSessionService() {
                 mainPlayer?.let {p->(0 until p.mediaItemCount).any {p.getMediaItemAt(it).mediaId.removePrefix("yt:")==id}}?:false}},events=events)}
         }
         persistence.start()
-        serviceScope.launch {androidx.compose.runtime.snapshotFlow {provider.songLikes[buttonVideoId.value]}.collect {refreshMediaButtons()}}
+        // The provider is made here, not inside the snapshot below: making it writes state, which a read-only snapshot
+        // refuses. That happened when a car or a test started the service before the app had made the provider.
+        val likes=provider
+        serviceScope.launch {androidx.compose.runtime.snapshotFlow {likes.songLikes[buttonVideoId.value]}.collect {refreshMediaButtons()}}
         val mediaFactory = sources
         audio.start()
         val renderers = audio.renderers()
@@ -250,25 +255,45 @@ class MusicPlaybackService : MediaSessionService() {
             }, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         mainPlayer = player
         val shown = WaitingSessionPlayer(player) { recovery.masksError }.also { sessionPlayer = it }
-        session = MediaSession.Builder(this, shown).setSessionActivity(sessionActivity)
-            .setCallback(object : MediaSession.Callback {
+        session = MediaLibrarySession.Builder(this, shown, object : MediaLibrarySession.Callback {
             override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
                 // Another app: transport and reading, not rewriting the queue, and none of the app's own commands.
                 if (!isOwnController(controller.packageName, controller.uid, packageName, android.os.Process.myUid())) {
-                    val accepted=MediaSession.ConnectionResult.AcceptedResultBuilder(session).setAvailablePlayerCommands(foreignPlayerCommands())
+                    // Feature 14: Android Auto may browse, and play what it chose from the library (onSetMediaItems decides what).
+                    val browses=mayBrowse(session,controller)
+                    val accepted=MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                        .setAvailablePlayerCommands(if(browses) MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS else foreignPlayerCommands())
                     // Feature 23: the lock screen and the car may press Like and Shuffle.
-                    if(mayPressMediaButtons(session,controller,own=false)) accepted.setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
-                        .buildUpon().apply {mediaButtonCommands.forEach {add(SessionCommand(it,Bundle.EMPTY))}}.build())
+                    val commands=if(browses) MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS else MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
+                    accepted.setAvailableSessionCommands(commands.buildUpon().apply {
+                        if(mayPressMediaButtons(session,controller,own=false)) mediaButtonCommands.forEach {add(SessionCommand(it,Bundle.EMPTY))}}.build())
                     return accepted.build()
                 }
                 return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                    .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
+                    .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
                         .buildUpon().add(SessionCommand(PLAY_PROVIDER_STREAM, Bundle.EMPTY))
                         .add(SessionCommand(PLAY_LOCAL_AUDIO, Bundle.EMPTY)).add(SessionCommand(RETRY_PLAYBACK, Bundle.EMPTY))
                         .add(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY)).add(SessionCommand(RESTORE_SAVED_QUEUE,Bundle.EMPTY)).add(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY)).add(SessionCommand(LOAD_MORE_QUEUE,Bundle.EMPTY)).add(SessionCommand(GET_NERD_STATS,Bundle.EMPTY))
                         .apply {mediaButtonCommands.forEach {add(SessionCommand(it,Bundle.EMPTY))}}.build())
                     .build()
             }
+
+            override fun onGetLibraryRoot(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, params: LibraryParams?) = car.root()
+            override fun onGetChildren(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, parentId: String, page: Int, pageSize: Int,
+                params: LibraryParams?) = car.children(parentId,page,pageSize,params)
+            override fun onGetItem(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, mediaId: String) = car.item(mediaId)
+            override fun onSearch(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, query: String, params: LibraryParams?) =
+                car.search(session,browser,query,params)
+            override fun onGetSearchResult(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, query: String, page: Int, pageSize: Int,
+                params: LibraryParams?) = car.searchResult(query,page,pageSize,params)
+            // The app's own controller sets and adds items as before; for the car, only Riff's own ids, made into Riff's queue.
+            override fun onSetMediaItems(mediaSession: MediaSession, controller: MediaSession.ControllerInfo, mediaItems: MutableList<MediaItem>,
+                startIndex: Int, startPositionMs: Long): ListenableFuture<MediaSession.MediaItemsWithStartPosition> =
+                if(isOwnController(controller.packageName,controller.uid,packageName,android.os.Process.myUid())) super.onSetMediaItems(mediaSession,controller,mediaItems,startIndex,startPositionMs)
+                else car.play(mediaItems,startIndex) {tracks->queue.carQueue(player,tracks)}
+            override fun onAddMediaItems(mediaSession: MediaSession, controller: MediaSession.ControllerInfo, mediaItems: MutableList<MediaItem>): ListenableFuture<MutableList<MediaItem>> =
+                if(isOwnController(controller.packageName,controller.uid,packageName,android.os.Process.myUid())) super.onAddMediaItems(mediaSession,controller,mediaItems)
+                else Futures.transform(car.add(mediaItems) {queue.carItem(it)},{it.toMutableList()},com.google.common.util.concurrent.MoreExecutors.directExecutor())
 
             override fun onCustomCommand(session: MediaSession,
                 controller: MediaSession.ControllerInfo, customCommand: SessionCommand,
@@ -360,7 +385,7 @@ class MusicPlaybackService : MediaSessionService() {
                     queue.playProviderStream(player,args,request,ticket) {staleSession(args)}
                 }
             }
-        }).build()
+        }).setSessionActivity(sessionActivity).build()
         restoreSleepTimerAfterRestart()
         // The newest of this owner's queue and the on-device queue, read off the main thread once older
         // state has been moved. A queue from before owners existed is never loaded here.
@@ -493,7 +518,7 @@ class MusicPlaybackService : MediaSessionService() {
         pauseAllPlayersAndStopSelf()
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
     override fun onDestroy() {
         encore.ended(EncoreEnded.STOPPED)
