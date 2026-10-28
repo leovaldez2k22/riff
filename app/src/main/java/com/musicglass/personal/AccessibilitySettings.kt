@@ -22,6 +22,15 @@ internal class AccessibilitySettings(context: Context) {
         runCatching { prefs.getBoolean("reduce_motion", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE))
         private set
 
+    /** Feature 5: blur the lyric lines not being sung. */
+    var lyricsBlur by mutableStateOf(prefs.getBoolean("lyrics_blur", true))
+        private set
+    fun updateLyricsBlur(enabled: Boolean) { lyricsBlur = enabled; prefs.edit().putBoolean("lyrics_blur", enabled).apply() }
+
+    var motionPace by mutableStateOf(motionPaceFrom(prefs.getString("motion_pace", null)))
+        private set
+    fun updateMotionPace(pace: MotionPace) { motionPace = pace; prefs.edit().putString("motion_pace", pace.key).apply() }
+
     var frostedGlass by mutableStateOf(prefs.getBoolean("frosted_glass",FROSTED_GLASS_DEFAULT))
         private set
     var glassIntensity by mutableStateOf(prefs.getFloat("glass_intensity",1f).coerceIn(0f,1.5f))
@@ -37,6 +46,8 @@ internal class AccessibilitySettings(context: Context) {
         hapticFeedback = prefs.getBoolean("haptic_feedback", true)
         solidControls = runCatching { prefs.getBoolean("solid_controls", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE)
         reduceMotion = runCatching { prefs.getBoolean("reduce_motion", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE)
+        motionPace = motionPaceFrom(prefs.getString("motion_pace", null))
+        lyricsBlur = prefs.getBoolean("lyrics_blur", true)
         frostedGlass = prefs.getBoolean("frosted_glass", FROSTED_GLASS_DEFAULT)
         glassIntensity = prefs.getFloat("glass_intensity", 1f).coerceIn(0f, 1.5f)
         frostedIntensity = prefs.getFloat("frosted_intensity", FROSTED_INTENSITY_DEFAULT).coerceIn(0f, 1.5f)

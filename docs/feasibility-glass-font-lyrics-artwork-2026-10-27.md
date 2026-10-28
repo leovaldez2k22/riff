@@ -40,6 +40,21 @@ This document is the working plan for Riff's next features. Anyone implementing 
    - **Testing:** emulators (API 31, 33, 36) and JVM tests first; ask the owner to connect the phone when a stage needs real hardware (audio, glass performance, Android Auto, Cast).
    - **Still ask first:** anything that publishes, pushes, installs over the owner's own Riff, or writes to the owner's YouTube Music account.
 
+## Implementation log
+
+Work happens on the branch `feat/next-features`. Each entry says what was built and where it differs from the feature's section below.
+
+| Feature | Status | Differences from the plan, and why |
+|---|---|---|
+| 35 Calmer transitions | Built (28 Oct) | **The check:** the static check (`motion` rule in `scripts/quality/static_checks.py`) uses the project's reviewed list (`static_checks_reviewed.json`, with a reason per site) instead of inline `// motion:` markers, which is how every other rule there works. **Setting:** a "Calm transitions" switch (on = Calm, off = Quick) rather than a two-choice row. **Kept as they were:** sign-in's designed sequence, card peek, the lyric-share hold, the loading shimmer and the navigation lens. |
+| 7 Scrolling title | Built (28 Oct) | **Edge fade:** only the right edge fades; a left fade would cover the title's first letters while it rests at its start. **Lyrics view:** the marquee also stops whenever the panel isn't fully open (`interactive`), which covers the lyrics transition. |
+| 8 Artist "See all" | Built (28 Oct) | **Song shelves:** reached through YouTube's link to their playlist ("VL…") and open as the existing collection screen. **No separate "See all songs" row:** artist shelves are drawn as card rows, so the heading's "See all" serves both. |
+| 5 Lyric blur and fade | Built (28 Oct) | **Setting:** "Blur other lyric lines" is in Settings → Appearance, as Riff has no lyrics settings section. **Top padding:** the list's top padding grows to the fade's height, so the first line can scroll clear of it. |
+| 4 lrc.red | Built (28 Oct) | **Ranking:** third, behind Better Lyrics and its QQ route, ahead of NetEase. **AI-synced flag:** not read, because the per-track `song.json` that carries it is undocumented. Revisit if lrc.red publishes its format. |
+| 11 Edge fade | Built (28 Oct) | **Placement:** drawn inside the glass scene (`GlassScene` in `ShellChrome.kt`), so the floating bar refracts the darkened page. **Bottom height:** a fixed 120 dp above the navigation bar rather than the measured chrome height. |
+| 32 Instrumental dots | Built (28 Oct) | **Cache:** lyrics are now cached under version 4, so every song's lyrics are fetched once more to learn which line ends are real. **Blank LRC lines:** those shorter than 4 s are now left out instead of drawn as empty rows. |
+| 33 Status bar icons | Built (28 Oct) | **Only the full-screen player asks.** Screens inside the shell (album, artist and playlist headers, Home) sit under Feature 11's top fade, which makes white icons readable on any picture. The player is drawn over that fade, so it measures its cover. |
+
 ## Contents
 
 1. [Summary](#summary)

@@ -1,7 +1,6 @@
 package com.musicglass.personal
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -78,8 +77,8 @@ private class UnfoldShape(val progress: Float, val anchor: androidx.compose.ui.g
     LaunchedEffect(expanded, motion) {
         if (expanded) visible = true
         if (motion.reduced) progress.snapTo(if(expanded) 1f else 0f)
-        else if (expanded) progress.animateTo(1f, spring(dampingRatio=.82f, stiffness=500f/(motion.scale*motion.scale).coerceAtLeast(.01f)))
-        else progress.animateTo(0f, GlassMotion.timed(150, motion))
+        else if (expanded) progress.animateTo(1f, GlassMotion.settle(motion))
+        else progress.animateTo(0f, GlassMotion.exit(GlassMotion.selectionMs, motion))
         if (!expanded) visible = false
     }
     if (expanded || visible) {

@@ -39,6 +39,37 @@ internal object RiffSpace {
     val icon = 24.dp
 }
 
+/** Feature 7: a long song title scrolls in the full player only, pausing at its start between passes. */
+internal object RiffMarquee {
+    /** The space between the end of the title and its next start. */
+    val gap = 48.dp
+    /** Speed: slow enough to read while it moves. */
+    val velocity = 30.dp
+    /** The right edge fades over this width while the title runs past it. */
+    val fade = 20.dp
+    /** The start of the title is read first, then it rests at the start between passes. */
+    const val firstDelayMs = 2_000
+    const val restMs = 2_500
+}
+
+/** Feature 11: the dark fade at the top and bottom of the screen, under the status bar and behind the floating bar. */
+internal object RiffEdgeFade {
+    /** Below the status bar, the top fade carries on this far. */
+    val topExtra = 28.dp
+    /** Above the navigation bar, the bottom fade reaches this far (behind the floating home, mini player and search). */
+    val bottomHeight = 120.dp
+    /** How dark each fade is at the very edge: "slightly dark", text under it still faintly visible. */
+    const val topPeak = .72f
+    const val bottomPeak = .62f
+    /** With high contrast on, the status bar always gets a dark base. */
+    const val highContrastPeak = .9f
+}
+
+/** Feature 8: the "See all" grid: the narrowest a card may be before a column is dropped. */
+internal object RiffGrid {
+    val cell = 150.dp
+}
+
 internal object RiffRadius {
     val artwork = 12.dp
     val card = 14.dp
@@ -77,6 +108,26 @@ internal object RiffLyrics {
     const val letterSwell = 1.12f
     /** Q16B: how far a held word's letters shake while it is sung: a shimmer more than a wobble. */
     val heldShake = .25.dp
+    /** Feature 32: the three dots of an instrumental stretch: each dot, the space between, the row and the space under it. */
+    val gapDot = 13.dp
+    val gapDotSpace = 5.dp
+    val gapRow = 40.dp
+    val gapRowBelow = 16.dp
+    /** An unlit dot still shows how many are coming; the row grows in from this scale. */
+    const val gapDotRest = .25f
+    const val gapRestScale = .76f
+    /** While the stretch plays, the dots breathe this much, once every [gapBreathMs]. */
+    const val gapBreath = .06f
+    const val gapBreathMs = 1_600
+    /** In the last moment before singing returns, the dots shrink away so the next line lights into empty space. */
+    const val gapExitMs = 300L
+    /** Feature 5: lines not being sung are very slightly blurred, more the further they are from the sung one. */
+    val blurNear = 1.dp
+    val blurMid = 1.75.dp
+    val blurFar = 2.5.dp
+    /** Feature 5: the list fades out at its top and bottom: transparent at the edge, clear from these fractions in. */
+    const val fadeTop = .12f
+    const val fadeBottom = .82f
     /** The glow: a lighter pink than [Pink], so the white letters stay readable on it. */
     val glow = Color(0xFFFF9BD3)
     /** Q18-037: the tint behind a line chosen for a card, reaching past the line at its sides and ends, and its corner. */

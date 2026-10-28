@@ -150,6 +150,14 @@ import kotlinx.coroutines.withContext
                     modifier=Modifier.fillMaxWidth().testTag("settings_frosted_intensity"))
             }
             SettingsDivider()
+            SettingsToggleRow(string(R.string.calm_transitions),preferences.motionPace==MotionPace.Calm,
+                hapticToggle { calm -> preferences.updateMotionPace(if(calm) MotionPace.Calm else MotionPace.Quick) },
+                Icons.Rounded.SlowMotionVideo,"settings_calm_transitions",subtitle=string(R.string.calm_transitions_detail))
+            SettingsDivider()
+            SettingsToggleRow(string(R.string.blur_other_lyric_lines),preferences.lyricsBlur,
+                hapticToggle(preferences::updateLyricsBlur),Icons.Rounded.BlurOn,"settings_lyrics_blur",
+                subtitle=string(R.string.blur_other_lyric_lines_detail))
+            SettingsDivider()
             SettingsToggleRow(string(R.string.reduce_motion),preferences.reduceMotion,
                 hapticToggle(preferences::updateReduceMotion),Icons.Rounded.MotionPhotosOff,"settings_reduce_motion")
             SettingsDivider()
@@ -235,14 +243,14 @@ import kotlinx.coroutines.withContext
             Column(Modifier.weight(1f)) {
                 Text(title,color=White,fontSize=RiffType.message,fontWeight=FontWeight.SemiBold)
                 AnimatedVisibility(!open,enter=fadeIn(GlassMotion.timed(GlassMotion.selectionMs,motion)),
-                    exit=fadeOut(GlassMotion.timed(GlassMotion.selectionMs,motion))) {
+                    exit=fadeOut(GlassMotion.exit(GlassMotion.selectionMs,motion))) {
                     Text(summary,color=Muted,fontSize=RiffType.detail,maxLines=1,overflow=TextOverflow.Ellipsis,modifier=Modifier.padding(top=2.dp))
                 }
             }
             Icon(Icons.Rounded.ExpandMore,null,tint=if(open) Pink else Muted,modifier=Modifier.rotate(turn))
         }
         AnimatedVisibility(open,enter=expandVertically(GlassMotion.timed(GlassMotion.screenMs,motion))+fadeIn(GlassMotion.timed(GlassMotion.screenMs,motion)),
-            exit=shrinkVertically(GlassMotion.timed(GlassMotion.screenMs,motion))+fadeOut(GlassMotion.timed(GlassMotion.selectionMs,motion))) {
+            exit=shrinkVertically(GlassMotion.exit(GlassMotion.screenMs,motion))+fadeOut(GlassMotion.exit(GlassMotion.selectionMs,motion))) {
             Column(Modifier.padding(start=RiffSpace.block,end=RiffSpace.block,bottom=RiffSpace.item)) {SettingsDivider();content()}
         }
     }

@@ -112,7 +112,7 @@ class LyricsTest {
         try {
             val updates = repo.lyrics(track) { null }.toList()
             assertEquals(listOf(true),updates.map { it.wordTimed })
-            assertEquals("Better Lyrics, QQ and NetEase's search; never LRCLIB",3,calls)
+            assertEquals("Better Lyrics, QQ, NetEase's search and lrc.red's search; never LRCLIB",4,calls)
             val count = calls
             val cached = repo.lyrics(track) { error("Cached lookup should not contact YouTube") }.toList()
             assertTrue(cached.single().wordTimed)

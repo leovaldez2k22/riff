@@ -552,6 +552,13 @@
     <string name="reconnect_account">Reconnect account</string>
     <string name="redownload">Redownload</string>
     <string name="reduce_motion">Reduce motion</string>
+    <string name="calm_transitions">Calm transitions</string>
+    <string name="see_all">See all</string>
+    <string name="blur_other_lyric_lines">Blur other lyric lines</string>
+    <string name="blur_other_lyric_lines_detail">Keeps the line being sung in focus</string>
+    <string name="see_all_x">See all: %1$s</string>
+    <string name="nothing_more_here">Nothing more here</string>
+    <string name="calm_transitions_detail">Screens and sheets move at an easy pace. Off makes them quicker.</string>
     <string name="refresh">Refresh</string>
     <string name="relevance">Relevance</string>
     <string name="remove">Remove</string>

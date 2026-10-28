@@ -24,7 +24,11 @@ internal data class ProviderHomeCard(val title: String, val subtitle: String,
     val notInterestedToken:String?=null,
     /** The row's stated length (Q18-093); null when YouTube shows none. */
     val durationMs:Long?=null)
-internal data class ProviderHomeSection(val title: String, val cards: List<ProviderHomeCard>)
+/** Feature 8: where a shelf's "See all" leads: YouTube's browse id, and its params for grids of albums, singles or videos. */
+internal data class ProviderMoreEndpoint(val browseId: String, val params: String? = null)
+internal data class ProviderHomeSection(val title: String, val cards: List<ProviderHomeCard>,
+    /** Null when YouTube sent no "See all" for this shelf; then none is shown. */
+    val more: ProviderMoreEndpoint? = null)
 /** [email] comes from the account menu when YouTube includes it; it is shown on the phone and never logged. */
 /** [handle] (@name) stands in for the address where YouTube's account menu gives none (Q18-040). */
 internal data class ProviderProfile(val name: String, val artworkUrl: String?, val email: String? = null, val handle: String? = null)
@@ -104,6 +108,7 @@ internal class YouTubeMusicProvider(context: Context,
     suspend fun browseCatalog(id:String)=catalog.browseCatalog(id,null)
     override suspend fun browseCatalog(id:String,token:String?)=catalog.browseCatalog(id,token)
     override suspend fun completeCollection(id:String)=catalog.completeCollection(id)
+    suspend fun artistShelfPage(more:ProviderMoreEndpoint,token:String?)=catalog.artistShelfPage(more,token)
     override fun partialCollection(id:String)=catalog.partialCollection(id)
     suspend fun podcastSections(genre:String="For you")=catalog.podcastSections(genre)
     suspend fun liveStations(category:String="Featured")=catalog.liveStations(category)

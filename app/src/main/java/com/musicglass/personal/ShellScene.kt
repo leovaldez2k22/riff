@@ -72,8 +72,8 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
                         slideInHorizontally(GlassMotion.timed(GlassMotion.screenMs, motion)) {
                             it * direction / 12
                         }) togetherWith
-                        (fadeOut(GlassMotion.timed(GlassMotion.screenMs, motion)) +
-                            slideOutHorizontally(GlassMotion.timed(GlassMotion.screenMs, motion)) {
+                        (fadeOut(GlassMotion.exit(GlassMotion.screenMs, motion)) +
+                            slideOutHorizontally(GlassMotion.exit(GlassMotion.screenMs, motion)) {
                                 -it * direction / 12
                             })
                 }
@@ -101,6 +101,7 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
                 PrivacyDataScreen(model,totalBottomPadding,provider,collections,playback,onNotice,onSettingsImported=accessibility::reload)
             }
             else -> if (route == "collection") CatalogDetailScreen(model,totalBottomPadding,provider,playback,onNotice)
+            else if (screen.route is Route.ArtistShelf) ArtistShelfScreen(model,totalBottomPadding,screen.route,provider,playback,onNotice)
             else androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
                 when (tab) {
                     "Podcasts", "Radio" -> MediaExploreScreen(model, totalBottomPadding, tab, provider, playback, onNotice)

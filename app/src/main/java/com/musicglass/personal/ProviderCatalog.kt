@@ -169,6 +169,23 @@ internal fun parseCatalogCards(root: JsonElement): List<ProviderHomeCard> {
 internal fun podcastShelf(shelf: ProviderHomeSection): Boolean = shelf.title.contains("podcast",true)
     || shelf.title.contains("shows for you",true) || shelf.title.contains("episodes",true)
     || shelf.cards.isNotEmpty() && shelf.cards.all { it.kind in setOf(CatalogKind.Podcast,CatalogKind.Episode) }
+/**
+ * Feature 8: a shelf's "See all", where YouTube sends one: the song shelf's bottom link, the carousel header's
+ * "More" button, or the header title's own link. Null when there is none; Riff never guesses one.
+ */
+internal fun catalogShelfMore(shelf: JsonObject): ProviderMoreEndpoint? {
+    val header = catalogRenderer(shelf, "musicCarouselShelfBasicHeaderRenderer")
+    val candidates = listOf(
+        shelf["bottomEndpoint"],
+        catalogRenderer(header?.get("moreContentButton"), "buttonRenderer")?.get("navigationEndpoint"),
+        catalogRenderer(header?.get("title"), "navigationEndpoint"))
+    for (candidate in candidates) {
+        val endpoint = catalogRenderer(candidate, "browseEndpoint") ?: continue
+        val id = endpoint["browseId"]?.textOrNull?.takeIf(String::isNotBlank) ?: continue
+        return ProviderMoreEndpoint(id, endpoint["params"]?.textOrNull?.takeIf(String::isNotBlank))
+    }
+    return null
+}
 private fun catalogArtistRun(node:JsonElement?):JsonObject? = when(node) {
     is JsonObject -> if(node["text"] is JsonPrimitive && catalogValue(node["navigationEndpoint"],"browseId")?.startsWith("UC")==true) node else node.values.firstNotNullOfOrNull(::catalogArtistRun)
     is JsonArray -> node.firstNotNullOfOrNull(::catalogArtistRun)
@@ -187,7 +204,7 @@ internal fun catalogPage(root: JsonElement): CatalogPage {
                     val title = catalogText(catalogRenderer(shelf,"musicCarouselShelfBasicHeaderRenderer")?.get("title"))
                         .ifBlank { catalogText(shelf["title"]) }
                     val cards = parseCatalogCards(shelf["contents"] ?: JsonArray(emptyList()))
-                    if(cards.isNotEmpty()) shelves += ProviderHomeSection(title.ifBlank { "Songs" },cards)
+                    if(cards.isNotEmpty()) shelves += ProviderHomeSection(title.ifBlank { "Songs" },cards,catalogShelfMore(shelf))
                 }
                 node.values.forEach(::visit)
             }

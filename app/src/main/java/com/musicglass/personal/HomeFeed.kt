@@ -287,9 +287,11 @@ internal fun HomeRowShelf(title: String, cards: List<ProviderHomeCard>,
 
 @Composable
 internal fun HomeCardShelf(title: String, cards: List<ProviderHomeCard>, width: Dp, maxCards:Int=12,
+    /** Feature 8: set when YouTube sent a "See all" for this shelf. */
+    onMore: (() -> Unit)? = null,
     onOpen: (ProviderHomeCard) -> Unit) {
     Column(Modifier.fillMaxWidth().fullBleed(LocalShelfInset.current), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-        Box(Modifier.padding(horizontal=20.dp)) {HomeHeading(title)}
+        Box(Modifier.padding(horizontal=20.dp)) {HomeHeading(title, onMore.takeIf { cards.isNotEmpty() }, string(R.string.see_all))}
         if (cards.isEmpty()) Text(string(R.string.loading_from_youtube_music), color = Muted,
             fontSize = 13.sp)
         else LazyRow(Modifier.fillMaxWidth(),contentPadding=PaddingValues(horizontal=20.dp),

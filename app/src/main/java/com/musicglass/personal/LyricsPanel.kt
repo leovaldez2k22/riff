@@ -1,5 +1,8 @@
 package com.musicglass.personal
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -87,7 +90,8 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
             }
         }
     }
-    val songLyrics = document
+    // Feature 32: instrumental stretches marked for display; the stored lyrics stay as the source gave them.
+    val songLyrics = remember(document) { document?.let { it.copy(lines = withInstrumentalGaps(it.lines)) } }
     // Every line being sung now: two voices can overlap (Q16A). The list only changes when a line starts or ends.
     val activeLines by remember(songLyrics) { derivedStateOf {
         if (songLyrics?.timed == true) activeLyricLines(songLyrics.lines,position+shownOffsetMs) else emptyList()
@@ -144,13 +148,16 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                 songLyrics != null && songLyrics.lines.isNotEmpty() -> {
                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                         val space = maxHeight / 3
-                        LazyColumn(state = list,modifier = Modifier.fillMaxSize().testTag("lyrics_list"),
-                            contentPadding = PaddingValues(start = 28.dp,end = 28.dp,top = 24.dp,bottom = space),
+                        val blurOn = lyricsBlurOn(LocalAccessibilitySettings.current.lyricsBlur, motion.reduced, timed, follow, sharing)
+                        LazyColumn(state = list,modifier = Modifier.fillMaxSize().lyricsEdgeFade().testTag("lyrics_list"),
+                            contentPadding = PaddingValues(start = 28.dp,end = 28.dp,top = maxOf(24.dp,maxHeight * RiffLyrics.fadeTop),bottom = space),
                             verticalArrangement = Arrangement.spacedBy(22.dp)) {
                             itemsIndexed(songLyrics.lines,key = { index,line -> "${line.startMs}:$index" }) { index,line ->
                                 val active by remember(songLyrics,index) { derivedStateOf { index in activeLines } }
                                 val backingActive by remember(songLyrics,index) { derivedStateOf {
                                     line.backing?.let { (position+shownOffsetMs) in it.startMs until it.endMs } == true } }
+                                val blurTarget by remember(songLyrics,index,blurOn) { derivedStateOf { lyricLineBlur(index,scrollIndex,active,blurOn) } }
+                                val blur by animateDpAsState(blurTarget,GlassMotion.timed(GlassMotion.selectionMs,motion),label = "lyric blur")
                                 val chosen = shareRange?.contains(index) == true
                                 val shareable = lyricShareText(line) != null
                                 // F2: a tap seeks as before, or chooses lines while sharing; a hold starts choosing.
@@ -159,9 +166,12 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                                     playback.seekTo((line.startMs-offsetMs).coerceAtLeast(0))
                                     position = playback.currentPositionMs(); follow = true }
                                 val hold = { uiHaptic(HapticCue.Confirm); shareAnchor = index; shareRange = index..index; follow = false }
-                                CompositionLocalProvider(LocalViewConfiguration provides holdConfiguration) {
+                                if (line.gap) LyricGapRow(line, active && !sharing, { position+shownOffsetMs }, motion,
+                                    onSeek = if (sharing) null else seek, modifier = Modifier.testTag("lyric_gap_$index"))
+                                else CompositionLocalProvider(LocalViewConfiguration provides holdConfiguration) {
                                     KaraokeLine(line,active && !sharing,backingActive && !sharing,{ position+shownOffsetMs },motion,"lyric_backing_$index",
-                                        modifier = Modifier.testTag("lyric_line_$index")
+                                        modifier = Modifier.then(if (blur.value > 0f) Modifier.blur(blur,BlurredEdgeTreatment.Unbounded) else Modifier)
+                                            .testTag("lyric_line_$index")
                                             .lyricLineLook(dim = sharing && !chosen, chosen = chosen)
                                             .lyricLineTouch(
                                                 onTap = when { sharing -> choose; line.startMs >= 0 -> seek; else -> null },

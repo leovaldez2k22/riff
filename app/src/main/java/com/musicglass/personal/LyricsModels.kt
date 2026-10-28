@@ -17,7 +17,11 @@ internal data class LyricPart(val startMs: Long, val endMs: Long, val from: Int,
 internal data class LyricBacking(val startMs: Long, val endMs: Long, val text: String,
     val parts: List<LyricPart> = emptyList())
 internal data class LyricLine(val startMs: Long, val endMs: Long, val text: String,
-    val parts: List<LyricPart> = emptyList(), val backing: LyricBacking? = null) {
+    val parts: List<LyricPart> = emptyList(), val backing: LyricBacking? = null,
+    /** Feature 32: the source said when this line's singing ends (word-timed TTML, YRC); not filled in from the next line. */
+    val knownEnd: Boolean = false,
+    /** Feature 32: an instrumental stretch, drawn as three dots that fill as it passes. Never shared or cached. */
+    val gap: Boolean = false) {
     /** The line is current until both its main text and its background vocal have ended. */
     val untilMs: Long get() = maxOf(endMs, backing?.endMs ?: endMs)
 }
@@ -100,7 +104,7 @@ internal fun finishLyricLines(input: List<LyricLine>, durationMs: Long): List<Ly
         val next = sorted.getOrNull(index + 1)?.startMs ?: durationMs
         val end = if (line.endMs > line.startMs) line.endMs.coerceAtMost(durationMs + 2000)
             else next.coerceAtLeast(line.startMs + 1)
-        line.copy(endMs = end, parts = attachUntimed(line.text, line.parts.filter {
+        line.copy(endMs = end, knownEnd = line.endMs > line.startMs, parts = attachUntimed(line.text, line.parts.filter {
             it.from >= 0 && it.to > it.from && it.to <= line.text.length &&
                 it.startMs >= line.startMs && it.endMs > it.startMs && it.endMs <= end + 500
         }), backing = line.backing?.let { finishBacking(it, line.startMs, end, durationMs) })
@@ -399,3 +403,37 @@ internal fun parseYoutubeLyrics(root: JsonElement, durationMs: Long): LyricsDocu
     return plain.takeIf { it.isNotBlank() }?.let { LyricsDocument("YouTube Music", "https://music.youtube.com",
         it.lineSequence().take(2000).map { text -> LyricLine(-1, -1, text) }.toList()) }
 }
+
+/** Feature 32: a stretch without singing shorter than this isn't worth interrupting the lines for. */
+internal const val MIN_LYRIC_GAP_MS = 4_000L
+
+/**
+ * Feature 32: the lines with instrumental stretches marked, for display only: an intro before a first line that
+ * starts 4 s or later, and a break after any line whose end the source gave ([LyricLine.knownEnd]) when the next
+ * line starts 4 s or more after it. A line whose end was filled in from the next line says nothing about silence,
+ * so it never gets one; an empty LRC line (a bare timestamp, LRC's own break mark) followed by 4 s becomes one.
+ */
+internal fun withInstrumentalGaps(lines: List<LyricLine>): List<LyricLine> {
+    val timed = lines.filter { it.startMs >= 0 }
+    if (timed.isEmpty() || timed.size != lines.size) return lines
+    val out = ArrayList<LyricLine>(lines.size + 4)
+    if (lines.first().startMs >= MIN_LYRIC_GAP_MS) out += LyricLine(0, lines.first().startMs, "", gap = true)
+    lines.forEachIndexed { index, line ->
+        val next = lines.getOrNull(index + 1)
+        if (line.text.isBlank() && line.backing == null) {
+            // LRC's bare timestamp: a break when it lasts, otherwise nothing worth showing.
+            if (next != null && next.startMs - line.startMs >= MIN_LYRIC_GAP_MS) out += line.copy(endMs = next.startMs, gap = true)
+            return@forEachIndexed
+        }
+        out += line
+        if (next == null || !line.knownEnd) return@forEachIndexed
+        val end = line.untilMs
+        if (next.startMs - end >= MIN_LYRIC_GAP_MS && end > line.startMs) out += LyricLine(end, next.startMs, "", gap = true)
+    }
+    return out
+}
+
+/** Feature 32: how lit each of the three dots is, 0 to 1, at [progress] through the stretch: each owns a third. */
+internal fun lyricGapDotFill(progress: Float, dot: Int): Float = (progress * LYRIC_GAP_DOTS - dot).coerceIn(0f, 1f)
+
+internal const val LYRIC_GAP_DOTS = 3

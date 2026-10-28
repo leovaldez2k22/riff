@@ -94,7 +94,9 @@ class PlayerFixesTest {
         val player = java.io.File(source, "NowPlaying.kt").readText()
         assertFalse(player.contains("scrimForControl"))
         assertTrue(player.contains("OverPictureIcon(Icons.Rounded.Close"))
-        assertTrue(player.contains("TextStyle(shadow = RiffOverPicture.textShadow)"))
+        // Feature 33: the heading's shadow follows the cover: the same deep shadow over a dark one, a light one over a light cover.
+        assertTrue(player.contains("TextStyle(shadow = overPictureShadow(lightPicture))"))
+        assertEquals(RiffOverPicture.textShadow, overPictureShadow(light = false))
         val parts = java.io.File(source, "ScreenParts.kt").readText()
         assertFalse(parts.contains("scrimPatch"))
         assertTrue(parts.contains("if (overPicture) OverPictureIcon(Icons.AutoMirrored.Filled.ArrowBack"))

@@ -10,6 +10,7 @@ This guide describes Riff 0.10.0 (version code 33), the final candidate of the e
 - Song menus can add a song to several selected YouTube Music playlists. Successfully saved selections are removed from the picker; failed or read-only selections can be retried. Owned playlist rows can remove their exact entry after confirmation. **New playlist** makes a real private YouTube Music playlist; a playlist the account can edit has Playlist options with **Rename** and **Delete** (Delete asks first), and read-only playlists, Liked music and Episodes for later offer neither. A collection's header shows its song count and total length. Local collection search matches title and artist, including accents; sorting supports collection order, title A–Z/Z–A and artist A–Z. Date-added sorting uses supplied dates only: real download commit times are available, while provider collections may omit date metadata.
 - Explicit Save on this phone, local playlist tracks and listening history remain account-scoped phone saves. They appear separately from the provider library. Save on this phone is separate from the YouTube Music like and can be undone.
 - On-device audio access requests `READ_MEDIA_AUDIO` on Android 13+, or `READ_EXTERNAL_STORAGE` on Android 12, only on that screen. Files remain on the phone.
+- On an artist's page, a shelf that YouTube Music lists in full (albums, singles, videos, top songs) has **See all**. Songs open as a playlist; albums, singles and videos open as a grid that loads more as it scrolls.
 
 ## Accounts, privacy and data
 
@@ -45,6 +46,13 @@ This guide describes Riff 0.10.0 (version code 33), the final candidate of the e
 - Hold a lyric line for 650 ms to share: pick up to five lines above or below it, in a cover, dark, Riff pink or Aurora look, then **Save to Pictures/Riff** or **Share**; a tap on a timed line still seeks to it. Punctuation lights with its word.
 - Lyrics timing starts and resets at +0.2s. Timing and option menus use a blurred backdrop with sharp controls. Appearance has separate Glass intensity and Frosted glass intensity sliders; frosted glass is on by default at 20 %, covers the glass to its edge and bends at the rim. High-contrast controls use opaque backgrounds. Settings are grouped in compartments (Sound, Look & feel, Downloads & data, Library & privacy, Widgets, About) that open one at a time. Tapping the queue thumbnail returns to the player using its artwork transition.
 - Haptics use Android semantic touch feedback, respect the system touch setting, and can be disabled in Settings. The boost, crossfade and glass sliders tick as they move: the boost strongest at 100, 200 and 300 %, lighter at 150 and 250 %, lightest at the quarter steps; crossfade at each second; glass every 25 %. Routine scrolling, typing, background work and automatic song changes remain silent. Double tapping Home, Podcasts, Radio or Library resets its own root and scroll state; Search also focuses the field and keyboard.
+- Lines that aren't being sung are very slightly blurred, more the further they are from the sung one, and the lyrics fade out at the top and bottom of the page. The blur stops while you scroll the lyrics yourself, for unsynced lyrics and under Reduce motion; Settings → Appearance → Blur other lyric lines turns it off.
+- During an instrumental stretch of 4 seconds or more (an intro, a solo, a break between verses), three dots fill one after another until the singing returns, where the lyrics say when each line ends. Tapping them plays from the start of the stretch.
+- Lyrics can also come from lrc.red, which often has word timing.
+- In the full player, a song title too long for its line scrolls slowly after a pause. The mini player, lists and the queue keep "…".
+- Screens move at a calm pace (Settings → Appearance → Calm transitions; off makes them quicker). Things that follow your finger or the music keep their own timing.
+- The top and bottom of each screen fade to slightly dark, under the status bar and behind the floating bar.
+- Over a light cover in the full player, the status bar's clock and icons, the close button and "NOW PLAYING" turn dark so they stay readable.
 
 ## Automatic crossfade
 

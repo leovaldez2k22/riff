@@ -4,7 +4,7 @@ import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.snap
@@ -25,7 +25,7 @@ internal val LocalMotionPolicy = compositionLocalOf { MotionPolicy(false, 1f) }
 
 /** The platform animator setting can change while the app is open. */
 @Composable
-internal fun rememberMotionPolicy(preferenceReduced: Boolean): MotionPolicy {
+internal fun rememberMotionPolicy(preferenceReduced: Boolean, pace: MotionPace = MotionPace.Calm): MotionPolicy {
     val context = LocalContext.current
     fun readScale(): Float = runCatching {
         Settings.Global.getFloat(context.contentResolver,
@@ -40,7 +40,7 @@ internal fun rememberMotionPolicy(preferenceReduced: Boolean): MotionPolicy {
         context.contentResolver.registerContentObserver(uri, false, observer)
         onDispose { context.contentResolver.unregisterContentObserver(observer) }
     }
-    return MotionPolicy(preferenceReduced || scale == 0f, scale)
+    return MotionPolicy(preferenceReduced || scale == 0f, scale * pace.factor)
 }
 
 /** Smooth alpha ramps with zero slope at both ends, also safe during reversal. */
@@ -55,23 +55,41 @@ internal fun preferredUiRefreshRate(rates: List<Float>): Float {
     return valid.filter { it <= 120.5f }.maxOrNull() ?: valid.minOrNull() ?: 0f
 }
 
+/**
+ * Feature 35: the app moves at one calm pace, set here. Things that follow a finger or the music keep their own
+ * timing (marked `// motion: gesture` or `// motion: music-timed` where they are declared).
+ */
 internal object GlassMotion {
-    const val pressMs = 100
-    const val selectionMs = 180
-    const val screenMs = 280
-    const val playerMs = 380
-    const val artworkMs = 360
-    const val ambientMs = 900
+    const val pressMs = 130
+    const val selectionMs = 260
+    const val screenMs = 420
+    const val sheetMs = 450
+    const val playerMs = 520
+    const val artworkMs = 520
+    const val ambientMs = 1200
+
+    /** Material 3 "standard": starts promptly and spends longer settling, which is what reads as calm. */
+    val calmEasing = CubicBezierEasing(.2f, 0f, 0f, 1f)
 
     fun <T> timed(ms: Int, policy: MotionPolicy): FiniteAnimationSpec<T> =
         if (policy.reduced) snap() else tween((ms * policy.scale).toInt().coerceAtLeast(1),
-            easing = FastOutSlowInEasing)
+            easing = calmEasing)
+
+    /** What leaves goes a quarter quicker than what arrives, so the eye follows the arrival. */
+    fun <T> exit(ms: Int, policy: MotionPolicy): FiniteAnimationSpec<T> = timed(exitMs(ms), policy)
+
+    fun exitMs(ms: Int): Int = ms * 3 / 4
 
     fun <T> settle(policy: MotionPolicy): FiniteAnimationSpec<T> =
         if (policy.reduced) snap() else spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMedium)
+            dampingRatio = .9f,
+            stiffness = Spring.StiffnessMediumLow / (policy.scale * policy.scale).coerceAtLeast(.01f))
 }
+
+/** Settings → Appearance → Motion. Quick restores the pace Riff had before Feature 35. */
+internal enum class MotionPace(val key: String, val factor: Float) { Calm("calm", 1f), Quick("quick", .7f) }
+
+internal fun motionPaceFrom(key: String?): MotionPace = MotionPace.entries.firstOrNull { it.key == key } ?: MotionPace.Calm
 
 /** Pure release rule shared by mini and expanded player gestures. */
 internal fun playerReleaseOpens(progress: Float, upwardVelocityPxPerSecond: Float): Boolean =

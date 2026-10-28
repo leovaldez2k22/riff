@@ -3,6 +3,8 @@ package com.musicglass.personal
 import android.os.Bundle
 import android.graphics.Color as AndroidColor
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 
 class MainActivity : ComponentActivity() {
@@ -13,11 +15,10 @@ class MainActivity : ComponentActivity() {
         AppContainer.get(this).prefetchHome()
         configureArtworkLoader(this)
         requestSmoothRefreshRate()
-        window.setDecorFitsSystemWindows(false)
-        window.statusBarColor = AndroidColor.TRANSPARENT
-        window.navigationBarColor = AndroidColor.TRANSPARENT
-        @Suppress("DEPRECATION")
-        window.decorView.systemUiVisibility = 0
+        // Feature 33: edge to edge with white status icons by default; screens over a light picture turn them dark
+        // (StatusBarTone.kt). The deprecated systemUiVisibility forced white everywhere.
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT))
         val panel=display
         val uiRate=panel?.let {p->preferredUiRefreshRate(p.supportedModes.filter {it.physicalWidth==p.mode.physicalWidth && it.physicalHeight==p.mode.physicalHeight}.map {it.refreshRate})}?:60f
         setContent { androidx.compose.runtime.CompositionLocalProvider(LocalUiRefreshRate provides uiRate) {StartupLogo(savedInstanceState==null) { RiffApp() }} }

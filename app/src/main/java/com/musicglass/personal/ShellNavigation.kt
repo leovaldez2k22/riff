@@ -38,25 +38,52 @@ internal sealed interface Route {
         override fun hashCode() = 31 * id.hashCode() + title.hashCode()
         override fun toString() = "Collection($id)"
     }
+    /**
+     * Feature 8: everything behind an artist shelf's "See all" (albums, singles, videos): YouTube's own browse id and
+     * params for that grid. Made only through [artistShelf].
+     */
+    class ArtistShelf internal constructor(val browseId: String, val params: String?, val title: String) : Route {
+        override val wire get() = "artist_shelf"
+        override fun equals(other: Any?) = other is ArtistShelf && other.browseId == browseId && other.params == params && other.title == title
+        override fun hashCode() = (31 * browseId.hashCode() + (params?.hashCode() ?: 0)) * 31 + title.hashCode()
+        override fun toString() = "ArtistShelf($browseId)"
+    }
 
     companion object {
         const val MAX_TITLE = 180
         private val COLLECTION_ID = Regex("[A-Za-z0-9_-]{2,200}")
+        /** InnerTube params are URL-safe base64, sometimes percent-encoded. */
+        private val SHELF_PARAMS = Regex("[A-Za-z0-9_%=-]{1,600}")
         private const val FIELD = '\u001f'
+        private fun shownTitle(title: String?) = title.orEmpty().filter { c -> c >= ' ' && c != FIELD }.take(MAX_TITLE)
         /** Null when [id] is not a provider browse id. The title is display text only, cut to [MAX_TITLE]. */
         fun collection(id: String?, title: String?): Collection? =
-            id?.takeIf(COLLECTION_ID::matches)?.let { Collection(it, title.orEmpty().filter { c -> c >= ' ' && c != FIELD }.take(MAX_TITLE).ifBlank { string(R.string.collection) }) }
+            id?.takeIf(COLLECTION_ID::matches)?.let { Collection(it, shownTitle(title).ifBlank { string(R.string.collection) }) }
+        /** Null when [browseId] or [params] are not what YouTube sends; the title is display text only. */
+        fun artistShelf(browseId: String?, params: String?, title: String?): ArtistShelf? {
+            val id = browseId?.takeIf(COLLECTION_ID::matches) ?: return null
+            val shelfParams = params?.takeIf(String::isNotEmpty)
+            if (shelfParams != null && !SHELF_PARAMS.matches(shelfParams)) return null
+            return ArtistShelf(id, shelfParams, shownTitle(title).ifBlank { string(R.string.see_all) })
+        }
         /** A route that carries no argument, by its saved name. */
         fun plain(wire: String): Route? = when (wire) {
             Account.wire -> Account; DeviceAudio.wire -> DeviceAudio; Downloads.wire -> Downloads; ListeningHistory.wire -> ListeningHistory
             else -> SettingsSection.entries.firstOrNull { it.wire == wire }?.let(::Settings)
         }
-        fun encode(route: Route): String = if (route is Collection) listOf(route.wire, route.id, route.title).joinToString(FIELD.toString()) else route.wire
+        fun encode(route: Route): String = when (route) {
+            is Collection -> listOf(route.wire, route.id, route.title).joinToString(FIELD.toString())
+            is ArtistShelf -> listOf(route.wire, route.browseId, route.params.orEmpty(), route.title).joinToString(FIELD.toString())
+            else -> route.wire
+        }
         /** Null for anything that is not a route this build has, or whose arguments are not valid. */
         fun decode(text: String): Route? {
             val fields = text.split(FIELD)
-            return if (fields[0] == "collection") fields.takeIf { it.size == 3 }?.let { collection(it[1], it[2]) }
-                else fields.takeIf { it.size == 1 }?.let { plain(it[0]) }
+            return when (fields[0]) {
+                "collection" -> fields.takeIf { it.size == 3 }?.let { collection(it[1], it[2]) }
+                "artist_shelf" -> fields.takeIf { it.size == 4 }?.let { artistShelf(it[1], it[2], it[3]) }
+                else -> fields.takeIf { it.size == 1 }?.let { plain(it[0]) }
+            }
         }
     }
 }
@@ -168,7 +195,11 @@ internal data class ShellSavedState(
 internal data class ShellScreen(val tab: String, val depth: Int, val route: Route?) {
     val wire: String get() = route?.wire.orEmpty()
     val collection: Route.Collection? get() = route as? Route.Collection
-    val key: String get() = "$tab/$depth/" + if (route is Route.Collection) "collection:${route.id}" else wire
+    val key: String get() = "$tab/$depth/" + when (route) {
+        is Route.Collection -> "collection:${route.id}"
+        is Route.ArtistShelf -> "shelf:${route.browseId}:${route.params.orEmpty()}"
+        else -> wire
+    }
 }
 
 /** Where the user is in the shell, and the few things about a root that outlive leaving it. */
@@ -279,6 +310,13 @@ internal class ShellModel {
     fun openCollection(id: String, title: String): Boolean {
         val collection = Route.collection(id, title) ?: return false
         push(collection); return true
+    }
+    /** Feature 8: opens an artist shelf's full list. False, and nothing opens, when YouTube sent no usable link. */
+    fun openArtistShelf(more: ProviderMoreEndpoint, title: String): Boolean {
+        // A playlist of songs ("VL…") is an ordinary collection, with its paging, sort and song menus.
+        if (more.browseId.startsWith("VL") && more.params == null) return openCollection(more.browseId, title)
+        val shelf = Route.artistShelf(more.browseId, more.params, title) ?: return false
+        push(shelf); return true
     }
     fun back() {
         val stack = routes[root].orEmpty()

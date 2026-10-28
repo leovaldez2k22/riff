@@ -62,8 +62,10 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -86,6 +88,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.unit.round
 import androidx.compose.ui.input.pointer.pointerInput
@@ -98,6 +101,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -237,6 +241,12 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     val scrollState = rememberScrollState()
     // Q18-079: the open queue locks the player's scrolling, so it opens at the top, wherever Open queue was pressed.
     LaunchedEffect(queueOpen) { if (queueOpen) scrollState.scrollTo(0) }
+    // Feature 33: how light the cover is under the status bar sets the status icons' colour and the close and
+    // heading ink. The video, live radio and the open queue are on dark, so they ask for nothing.
+    val pictureLuminance = rememberTopLuminance(state.artworkUrl.takeUnless { state.video || state.live || queueOpen },
+        LocalWindowInfo.current.containerSize.width.toFloat(), heroHeight.value * density, (statusInset + RiffSpace.touch).value * density)
+    val lightPicture = rememberLightPicture(pictureLuminance) == true
+    ReportStatusBar("player", if (interactive) lightPicture else null, STATUS_PRIORITY_PLAYER)
     val swipeDrag by rememberUpdatedState(onSwipeDrag)
     val swipeRelease by rememberUpdatedState(onSwipeRelease)
     val swipeConnection = remember(scrollState) {
@@ -295,7 +305,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             })
         } else Modifier)) {
             SharedTransitionLayout {
-            AnimatedContent(queueOpen,transitionSpec={fadeIn(GlassMotion.timed(GlassMotion.playerMs,motion)) togetherWith fadeOut(GlassMotion.timed(GlassMotion.playerMs,motion))},label="queue artwork morph",modifier=Modifier.fillMaxSize()) {open->
+            AnimatedContent(queueOpen,transitionSpec={fadeIn(GlassMotion.timed(GlassMotion.playerMs,motion)) togetherWith fadeOut(GlassMotion.exit(GlassMotion.playerMs,motion))},label="queue artwork morph",modifier=Modifier.fillMaxSize()) {open->
             val queueVisibility=this
             if(open) {
                 InlineQueue(playback,provider,onQueueClose,onLike={
@@ -323,6 +333,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 }
             }
             // No fade over the artwork (Q18-002, the owner's choice): the close button and the heading carry their own shadows.
+            CompositionLocalProvider(LocalLightPicture provides lightPicture) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 .padding(top = statusInset + 2.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically) {
@@ -330,10 +341,11 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     OverPictureIcon(Icons.Rounded.Close, string(R.string.close_player))
                 }
                 Box(Modifier.weight(1f)) {
-                    Text(string(R.string.now_playing), color = White, fontSize = 12.sp,
+                    Text(string(R.string.now_playing), color = overPictureInk(lightPicture), fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, maxLines = 1,
-                        style = TextStyle(shadow = RiffOverPicture.textShadow))
+                        style = TextStyle(shadow = overPictureShadow(lightPicture)))
                 }
+            }
             }
         }
             }
@@ -347,12 +359,21 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         Row(Modifier.fillMaxWidth().graphicsLayer {alpha=if(queueOpen) 0f else 1f}.then(if(queueOpen) Modifier.clearAndSetSemantics {} else Modifier), verticalAlignment = Alignment.CenterVertically) {
             songTransition.SongContentFade(Modifier.weight(1f)) {song->
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(song.title, color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                    maxLines = if (fontScale >= 1.5f) 2 else 1,
-                    overflow = TextOverflow.Ellipsis,
+                val titleStyle = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                val scrollTitle = playerTitleScrolls(motion.reduced, fontScale, interactive, queueOpen, dragging)
+                var titleRowWidth by remember { mutableIntStateOf(0) }
+                val titleMeasurer = rememberTextMeasurer()
+                val titleOverflows = scrollTitle && titleRowWidth > 0 && remember(song.title, titleMeasurer) {
+                    titleMeasurer.measure(song.title, titleStyle, maxLines = 1, softWrap = false).size.width }.let { it > titleRowWidth }
+                Text(song.title, color = White, style = titleStyle,
+                    maxLines = if (scrollTitle) 1 else if (fontScale >= 1.5f) 2 else 1,
+                    overflow = if (scrollTitle) TextOverflow.Clip else TextOverflow.Ellipsis, softWrap = !scrollTitle,
                     modifier = Modifier.lyricsSharedBounds("song-title:${song.mediaId}").graphicsLayer { alpha = sharedContentAlpha() }
                         .onGloballyPositioned {
-                            if(song.mediaId==state.mediaId) onMorphElementBounds("title", it) })
+                            if(song.mediaId==state.mediaId) onMorphElementBounds("title", it) }
+                        .onSizeChanged { titleRowWidth = it.width }
+                        .playerTitleMarquee(scrollTitle, titleOverflows)
+                        .then(if (scrollTitle) Modifier.testTag("player_title_marquee") else Modifier))
                 Text(playerArtistLabel(song.artist), color = Muted, fontSize = 13.sp,
                     maxLines = if (fontScale >= 1.5f) 2 else 1,
                     overflow = TextOverflow.Ellipsis,

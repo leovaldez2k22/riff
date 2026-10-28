@@ -123,11 +123,12 @@ internal class LyricsRepository(private val directory: File,
             }
             cancelOutranked(); settled.update { it + 1 }
         }
-        suspend fun request(url: String, params: Map<String,String>): JsonElement? = try {
-            get(url,params).also { answered.incrementAndGet() }
+        suspend fun fetch(url: String, params: Map<String,String>, raw: Boolean): JsonElement? = try {
+            get(url,params,raw).also { answered.incrementAndGet() }
         } catch (e: CancellationException) { throw e }
         catch (_: LyricsCacheMiss) { answered.incrementAndGet(); null }
         catch (_: Exception) { errors.incrementAndGet(); null }
+        suspend fun request(url: String, params: Map<String,String>): JsonElement? = fetch(url,params,false)
         /** Starts [source] unless nothing it can find would be shown. A whole source (search plus candidates) is bounded. */
         fun CoroutineScope.start(source: Source) {
             if (!canStillOutrank(source)) return
@@ -162,7 +163,8 @@ internal class LyricsRepository(private val directory: File,
             val score = row?.get("score")?.jsonPrimitive?.doubleOrNull
             offer(row?.get("lyrics")?.jsonPrimitive?.contentOrNull?.takeIf { score == null || score >= .8 }
                 ?.let { parseQrc(it,track.durationMs,track.title,track.artist) })
-        }, Source("NetEase Cloud Music", 3) { offer(netEase(track,::request)) })
+        }, Source("NetEase Cloud Music", 3) { offer(netEase(track,::request)) },
+            Source(LRC_RED_SOURCE, 3) { offer(lrcRedLyrics(track,title,artist) { url,query,raw -> fetch(url,query,raw) }) })
         val lineSources = listOf(Source("Better Lyrics · Kugou", 2) {
             val row = request("https://api.betterlyrics.org/kugou/getLyrics",params) as? JsonObject
             val score = row?.get("score")?.jsonPrimitive?.doubleOrNull
@@ -258,7 +260,8 @@ internal class LyricsRepository(private val directory: File,
         return row["plainLyrics"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)?.let {
             LyricsDocument("LRCLIB",url,it.lineSequence().take(2000).map { text -> LyricLine(-1,-1,text) }.toList()) }
     }
-    private suspend fun get(endpoint: String, params: Map<String,String>): JsonElement? {
+    /** [raw]: the answer is not JSON (lrc.red's TTML) and comes back as one string. */
+    private suspend fun get(endpoint: String, params: Map<String,String>, raw: Boolean = false): JsonElement? {
         transport?.let { return it(endpoint,params) }
         val url = endpoint.toHttpUrl().newBuilder().apply {
             params.forEach { (name,value) -> addQueryParameter(name,value.take(220)) }
@@ -266,7 +269,7 @@ internal class LyricsRepository(private val directory: File,
         val queue = lyricsQueueKey(url.host, url.encodedPath)
         return gates.run(url.host, queue) {
             val asked = System.nanoTime()
-            val request = Request.Builder().url(url).header("Accept","application/json")
+            val request = Request.Builder().url(url).header("Accept",if (raw) "application/ttml+xml, application/xml, text/xml" else "application/json")
                 .header("User-Agent","Riff/${BuildConfig.VERSION_NAME} (Android app)")
                 .apply { if (url.host == "music.163.com") header("Referer","https://music.163.com/") }
                 .build()
@@ -308,7 +311,7 @@ internal class LyricsRepository(private val directory: File,
             }
             if (result.first == 401 && url.host == "api.betterlyrics.org") throw LyricsCacheMiss()
             if (result.first >= 500 || result.first == 429 || result.first == 401 || result.first == 403) throw IOException("Lyrics source temporarily unavailable")
-            result.second?.let { json.parseToJsonElement(it) }
+            result.second?.let { if (raw) kotlinx.serialization.json.JsonPrimitive(it) else json.parseToJsonElement(it) }
         }
     }
     private fun retryAfterMs(value: String?): Long {
@@ -319,8 +322,9 @@ internal class LyricsRepository(private val directory: File,
         return millis.coerceIn(1000,86400_000)
     }
     // v3 (Q16A): background vocals are now parsed apart, so lyrics cached before are fetched once more.
+    // v4 (Feature 32): lines now say whether their end came from the source, which the instrumental dots need.
     private fun cacheKey(track: LyricsTrack): String = MessageDigest.getInstance("SHA-256")
-        .digest("hierarchy-v3\u0000${track.mediaId}\u0000${track.title}\u0000${track.artist}\u0000${track.album}\u0000${track.durationMs}".toByteArray())
+        .digest("hierarchy-v4\u0000${track.mediaId}\u0000${track.title}\u0000${track.artist}\u0000${track.album}\u0000${track.durationMs}".toByteArray())
         .joinToString("") { "%02x".format(it.toInt() and 255) }
     private fun readCache(key: String): LyricsDocument? = runCatching {
         val file = File(directory,"$key.json")
@@ -363,6 +367,7 @@ internal fun encodeLyricsDocument(doc: LyricsDocument): JsonObject = buildJsonOb
     put("source",doc.source); put("url",doc.sourceUrl); put("instrumental",doc.instrumental)
     putJsonArray("lines") { doc.lines.forEach { line -> add(buildJsonObject {
         put("start",line.startMs); put("end",line.endMs); put("text",line.text)
+        if (line.knownEnd) put("knownEnd",true)
         put("parts",encodeLyricParts(line.parts))
         line.backing?.let { backing -> put("backing",buildJsonObject {
             put("start",backing.startMs); put("end",backing.endMs); put("text",backing.text)
@@ -377,7 +382,8 @@ internal fun decodeLyricsDocument(raw: JsonObject): LyricsDocument = LyricsDocum
             line.getValue("text").jsonPrimitive.content,decodeLyricParts(line["parts"]),
             (line["backing"] as? JsonObject)?.let { backing -> LyricBacking(backing.getValue("start").jsonPrimitive.long,
                 backing.getValue("end").jsonPrimitive.long,backing.getValue("text").jsonPrimitive.content,
-                decodeLyricParts(backing["parts"])) })
+                decodeLyricParts(backing["parts"])) },
+            knownEnd = line["knownEnd"]?.jsonPrimitive?.booleanOrNull ?: false)
     },raw["instrumental"]?.jsonPrimitive?.booleanOrNull ?: false)
 
 internal data class LyricsLoadState(val document: LyricsDocument? = null,val loading: Boolean = true,val failed: Boolean = false,val generation: Long = 0)

@@ -207,7 +207,8 @@ import kotlinx.coroutines.launch
                 }
             }
         } else data.shelves.forEachIndexed {i,shelf->item(key="artist-shelf:$i") {
-            Box(Modifier.padding(vertical=14.dp)) {HomeCardShelf(shelf.title,shelf.cards,154.dp) {card->
+            Box(Modifier.padding(vertical=14.dp)) {HomeCardShelf(shelf.title,shelf.cards,154.dp,
+                onMore=shelf.more?.let { more -> { uiHaptic(); model.openArtistShelf(more, artistShelfTitle(shelf.title, data.title)) } }) {card->
                 openCatalogCard(model,card) {t->scope.launch {playRealTrack(provider,playback,t,onNotice)}}}
             }
         }}

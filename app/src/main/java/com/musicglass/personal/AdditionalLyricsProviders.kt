@@ -61,10 +61,11 @@ internal fun plainLyrics(raw: String, source: String, url: String): LyricsDocume
 internal fun lyricsProviderPriority(source: String): Int = when(source) {
     "Better Lyrics" -> 0
     "Better Lyrics · QQ" -> 1
-    "NetEase Cloud Music" -> 2
-    "Better Lyrics · Kugou" -> 3
-    "LRCLIB" -> 4
-    "YouTube Music" -> 5
-    "Lyrics.ovh" -> 6
-    else -> 7
+    LRC_RED_SOURCE -> 2
+    "NetEase Cloud Music" -> 3
+    "Better Lyrics · Kugou" -> 4
+    "LRCLIB" -> 5
+    "YouTube Music" -> 6
+    "Lyrics.ovh" -> 7
+    else -> 8
 }

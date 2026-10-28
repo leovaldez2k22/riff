@@ -147,6 +147,24 @@ class StringsRule(unittest.TestCase):
         self.assertEqual(["reviewed"], rules(run('@Composable fun S() { Text(name) }', reviewed)))
 
 
+class MotionRule(unittest.TestCase):
+    def test_literal_timing_is_found(self):
+        self.assertEqual(["motion"], rules(run("fun a() = tween<Float>(300)\n")))
+        self.assertEqual(["motion"], rules(run("fun a() = spring<Float>(dampingRatio = .8f, stiffness = 500f)\n")))
+        self.assertEqual(["motion"], rules(run("fun a(m: MotionPolicy) = GlassMotion.timed<Float>(150, m)\n")))
+
+    def test_timing_from_the_tokens_passes(self):
+        self.assertEqual([], rules(run("fun a(m: MotionPolicy) = GlassMotion.timed<Float>(GlassMotion.screenMs, m)\n")))
+        self.assertEqual([], rules(run("fun a(ms: Int) = tween<Float>(ms, easing = LinearEasing)\n")))
+
+    def test_the_tokens_file_itself_is_not_checked(self):
+        self.assertEqual([], rules(run("fun a() = tween<Float>(300)\n", name="GlassMotion.kt")))
+
+    def test_a_reviewed_gesture_passes(self):
+        reviewed = {"motion": [{"file": "Sample.kt", "contains": "stiffness = 700f", "reason": "gesture"}]}
+        self.assertEqual([], rules(run("fun a() = spring<Float>(stiffness = 700f)\n", reviewed)))
+
+
 class Stripping(unittest.TestCase):
     def test_offsets_and_lines_are_kept(self):
         source = 'val a = "x{y" // note {\n/* { */ val b = \'{\'\n'

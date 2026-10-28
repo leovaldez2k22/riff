@@ -156,11 +156,14 @@ internal fun BackHeading(title: String, onBack: () -> Unit, overPicture: Boolean
 /** A white icon set straight over a picture: two dark copies under it, which a screen reader does not hear (Q18-002, Q18-008). */
 @Composable
 internal fun OverPictureIcon(icon: ImageVector, contentDescription: String?) {
+    // Feature 33: over a light picture the icon is dark with a light edge, the other way round over a dark one.
+    val light = LocalLightPicture.current
+    val edge = if (light) Color.White else Color.Black
     Box(contentAlignment = Alignment.Center) {
-        Icon(icon, contentDescription = null, tint = Color.Black.copy(alpha = RiffOverPicture.iconHaloAlpha),
+        Icon(icon, contentDescription = null, tint = edge.copy(alpha = RiffOverPicture.iconHaloAlpha),
             modifier = Modifier.blur(RiffOverPicture.iconHalo, BlurredEdgeTreatment.Unbounded))
-        Icon(icon, contentDescription = null, tint = Color.Black.copy(alpha = RiffOverPicture.iconEdgeAlpha),
+        Icon(icon, contentDescription = null, tint = edge.copy(alpha = RiffOverPicture.iconEdgeAlpha * if (light) .5f else 1f),
             modifier = Modifier.blur(RiffOverPicture.iconEdge, BlurredEdgeTreatment.Unbounded))
-        Icon(icon, contentDescription = contentDescription, tint = White)
+        Icon(icon, contentDescription = contentDescription, tint = overPictureInk(light))
     }
 }

@@ -61,9 +61,11 @@ internal fun Modifier.doubleTapSeek(enabled: Boolean, nudge: SeekNudge, playback
 
 @Composable internal fun SeekNudgeOverlay(nudge: SeekNudge, modifier: Modifier = Modifier) {
     var visible by remember { mutableStateOf(false) }
+    val motion = LocalMotionPolicy.current
     LaunchedEffect(nudge.stamp) { if (nudge.stamp > 0) { visible = true; delay(700); visible = false } }
     Box(modifier.fillMaxSize().padding(horizontal = 28.dp)) {
-        AnimatedVisibility(visible, enter = fadeIn() + scaleIn(initialScale = .85f), exit = fadeOut(),
+        AnimatedVisibility(visible, enter = fadeIn(GlassMotion.timed(GlassMotion.selectionMs, motion)) + scaleIn(GlassMotion.timed(GlassMotion.selectionMs, motion), initialScale = .85f),
+            exit = fadeOut(GlassMotion.exit(GlassMotion.selectionMs, motion)),
             modifier = Modifier.align(if (nudge.forward) Alignment.CenterEnd else Alignment.CenterStart)) {
             Column(Modifier.size(92.dp).clip(CircleShape).background(Color.Black.copy(alpha = .42f)).testTag("seek_nudge"),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {

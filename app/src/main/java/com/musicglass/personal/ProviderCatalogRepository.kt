@@ -163,6 +163,13 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
         require(id.matches(Regex("[A-Za-z0-9_-]{2,200}"))) { string(R.string.collection_is_unavailable) }
         if(token!=null) requestCatalog(id,token) else collectionCache.get(feedKey("collection:$id")) {requestCatalog(id)}
     }
+    /** Feature 8: one page of an artist shelf's "See all" grid; [token] is the next page's continuation. */
+    suspend fun artistShelfPage(more: ProviderMoreEndpoint, token: String?): Result<CatalogPage> = providerResult {
+        require(more.browseId.matches(Regex("[A-Za-z0-9_-]{2,200}"))) { string(R.string.collection_is_unavailable) }
+        // A continuation carries everything YouTube needs; the shelf's params only shape the first page.
+        if (token != null) requestCatalog(more.browseId, token)
+        else collectionCache.get(feedKey("shelf:${more.browseId}:${more.params.orEmpty()}")) { requestCatalog(more.browseId, params = more.params) }
+    }
     suspend fun completeCollection(id:String):Result<CatalogPage> = providerResult {
         collectionCache.get(feedKey("collection:$id")) {completeCollectionFresh(id).getOrThrow()}
     }

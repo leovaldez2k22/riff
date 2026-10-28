@@ -24,6 +24,10 @@ Rules
                  (12.dp, 14.sp) each screen file still writes are counted in static_checks_measures.json. A
                  file may not have more than its count, and a file not listed may have none. A file that has
                  fewer must have its count lowered, so the number only goes down.
+  motion         Feature 35: animation timing comes from GlassMotion.kt, so the whole app moves at one pace. A
+                 tween() or spring() with a literal duration or stiffness, or GlassMotion.timed() with a literal
+                 duration, outside GlassMotion.kt is a finding. Motion that follows a finger or the music, and
+                 designed sequences such as the sign-in and startup logo, are reviewed with the reason.
   strings        Q13: words the app shows or speaks come from res/values/strings.xml, through string() or
                  quantity() (Strings.kt), so that they can be translated. A quoted literal with a word in it,
                  handed straight to something that shows or speaks it (Text, a content or state description,
@@ -56,6 +60,8 @@ TOKEN_FILE = "DesignTokens.kt"
 SHOWN_LITERAL = re.compile(r'(?:\bText\(|\b(?:contentDescription|stateDescription|paneTitle)\s*=\s*|\.setContent(?:Title|Text)\(|\bonNotice\(|\bToast\.makeText\([^,]+,)\s*"((?:[^"\\$]|\\.|\$\{(?:[^{}"]|"(?:[^"\\]|\\.)*"|\{(?:[^{}"]|"(?:[^"\\]|\\.)*")*\})*\}|\$)*)"')
 TEMPLATE = re.compile(r"\$\{(?:[^{}\"]|\"(?:[^\"\\]|\\.)*\"|\{(?:[^{}\"]|\"(?:[^\"\\]|\\.)*\")*\})*\}|\$\w+|\\u[0-9A-Fa-f]{4}|\\.")
 WORD = re.compile(r"[^\W\d_]{2,}")
+MOTION_LITERAL = re.compile(r"\b(?:tween|spring)\s*(?:<[^<>()]*>)?\s*\([^()]*?(?<![\w.])\.?\d|\bGlassMotion\.(?:timed|exit)\s*(?:<[^<>()]*>)?\s*\(\s*\d")
+MOTION_FILE = "GlassMotion.kt"
 
 SUSPENDING_LIBRARY = {"await", "awaitAll", "withContext", "withTimeout", "withTimeoutOrNull", "delay", "join", "joinAll", "receive",
                       "receiveCatching", "send", "collect", "collectLatest", "first", "firstOrNull", "withLock", "yield", "coroutineScope",
@@ -214,6 +220,10 @@ def check(path, findings, suspending):
                 findings.site("measures", path, 1, path.name, "%d raw measures, %d allowed: take the new one from DesignTokens.kt" % (count, allowed))
             elif count < allowed:
                 findings.site("measures", path, 1, path.name, "%d raw measures, %d allowed: lower the count in %s" % (count, allowed, MEASURES.name))
+    if path.name != MOTION_FILE:
+        for match in MOTION_LITERAL.finditer(code):
+            n = line_of(code, match.start())
+            findings.site("motion", path, n, lines[n - 1], "animation timing written here: take it from GlassMotion.kt (Feature 35)")
     for match in SHOWN_LITERAL.finditer(raw):
         # The same characters in the stripped text means the call is code, not part of a comment or a string.
         if code[match.start():match.start(1) - 1] != raw[match.start():match.start(1) - 1]:

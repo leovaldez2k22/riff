@@ -20,5 +20,5 @@ internal val LocalLyricsVisibilityScope = compositionLocalOf<AnimatedVisibilityS
         sharedContentState=rememberSharedContentState(key),animatedVisibilityScope=visibility,
         boundsTransform={_,_->GlassMotion.timed(GlassMotion.playerMs,motion)},
         enter=fadeIn(GlassMotion.timed(GlassMotion.playerMs,motion)),
-        exit=fadeOut(GlassMotion.timed(GlassMotion.playerMs,motion))) }
+        exit=fadeOut(GlassMotion.exit(GlassMotion.playerMs,motion))) }
 }

@@ -28,5 +28,28 @@
   ],
   "strings": [
     {"file": "LibraryHistoryScreens.kt", "contains": "Text(\"YouTube Music\")", "reason": "The provider's name, the same in every language."}
+  ],
+  "motion": [
+    {"file": "AccountScreen.kt", "contains": "glow.animateTo(1f, tween(900))", "reason": "Sign-in's designed sequence (Q18-013, sign-in-design.md): its own long, deliberate timings, already calm; reduced motion snaps it."},
+    {"file": "AccountScreen.kt", "contains": "grow.animateTo(1.4f, tween(1000", "reason": "Sign-in's designed sequence (Q18-013, sign-in-design.md): its own long, deliberate timings, already calm; reduced motion snaps it."},
+    {"file": "AccountScreen.kt", "contains": "aura.animateTo(1f, tween(1600))", "reason": "Sign-in's designed sequence (Q18-013, sign-in-design.md): its own long, deliberate timings, already calm; reduced motion snaps it."},
+    {"file": "AccountScreen.kt", "contains": "brightness.animateTo(1.1f, tween(1600))", "reason": "Sign-in's designed sequence (Q18-013, sign-in-design.md): its own long, deliberate timings, already calm; reduced motion snaps it."},
+    {"file": "AccountScreen.kt", "contains": "glow.animateTo(.25f, tween(1200))", "reason": "Sign-in's designed sequence (Q18-013, sign-in-design.md): its own long, deliberate timings, already calm; reduced motion snaps it."},
+    {"file": "AccountScreen.kt", "contains": "grow.animateTo(1f, tween(1000", "reason": "Sign-in's designed sequence (Q18-013, sign-in-design.md): its own long, deliberate timings, already calm; reduced motion snaps it."},
+    {"file": "AccountScreen.kt", "contains": "tween(1400, delayMillis = 900), label = \"record grey\"", "reason": "Sign-in's designed sequence (Q18-013, sign-in-design.md): its own long, deliberate timings, already calm; reduced motion snaps it."},
+    {"file": "AccountScreen.kt", "contains": "tween(900), label = \"record ring\"", "reason": "Sign-in's designed sequence (Q18-013, sign-in-design.md): its own long, deliberate timings, already calm; reduced motion snaps it."},
+    {"file": "SignInDesign.kt", "contains": "tween(1800, easing = LinearEasing)", "reason": "Sign-in's spinning record: a constant rotation speed, not a transition."},
+    {"file": "SignInScreens.kt", "contains": "fadeIn(tween(900, delayMillis = 1600))", "reason": "Sign-in's designed sequence (Q18-013, sign-in-design.md): its own long, deliberate timings, already calm; reduced motion snaps it."},
+    {"file": "SignInScreens.kt", "contains": "exit = fadeOut(tween(500)) + slideOutVertically(tween(700))", "reason": "Sign-in's designed sequence (Q18-013, sign-in-design.md): its own long, deliberate timings, already calm; reduced motion snaps it."},
+    {"file": "SignInScreens.kt", "contains": "spring(dampingRatio = .72f, stiffness = 140f)", "reason": "Sign-in's designed sequence (Q18-013, sign-in-design.md): its own long, deliberate timings, already calm; reduced motion snaps it."},
+    {"file": "SignInScreens.kt", "contains": "tween(700), label = \"item\")", "reason": "Sign-in's designed sequence (Q18-013, sign-in-design.md): its own long, deliberate timings, already calm; reduced motion snaps it."},
+    {"file": "SignInScreens.kt", "contains": "tween(700), label = \"item rise\"", "reason": "Sign-in's designed sequence (Q18-013, sign-in-design.md): its own long, deliberate timings, already calm; reduced motion snaps it."},
+    {"file": "SignInScreens.kt", "contains": "tween(1400), label = \"count\"", "reason": "Sign-in's designed sequence (Q18-013, sign-in-design.md): its own long, deliberate timings, already calm; reduced motion snaps it."},
+    {"file": "CardPeek.kt", "contains": "dim.animateTo(1f, tween(120))", "reason": "Card peek follows a long-press. Follows a finger (gesture): it must answer at once, so it keeps its own timing."},
+    {"file": "CardPeek.kt", "contains": "spring(dampingRatio = .55f, stiffness = 700f)", "reason": "Card peek follows a long-press. Follows a finger (gesture): it must answer at once, so it keeps its own timing."},
+    {"file": "CardPeek.kt", "contains": "spring(dampingRatio = .7f, stiffness = 500f)", "reason": "Card peek's release. Follows a finger (gesture): it must answer at once, so it keeps its own timing."},
+    {"file": "LyricsShare.kt", "contains": "tween(holdMs - 90, delayMillis = 90", "reason": "The share hold fills over the 650 ms a finger must hold. Follows a finger (gesture): it must answer at once, so it keeps its own timing."},
+    {"file": "ShelfSkeleton.kt", "contains": "infiniteRepeatable(tween(900", "reason": "Loading shimmer: a continuous loop, not a transition."},
+    {"file": "ShellChrome.kt", "contains": "val center=animateFloatAsState(targetCenter", "reason": "The navigation lens follows the finger and springs on release. Follows a finger (gesture): it must answer at once, so it keeps its own timing."}
   ]
 }

@@ -96,13 +96,15 @@ internal fun RiffApp() {
     }
     val playback = remember(context) { MusicPlaybackGateway(context) }
     val accessibility = remember(context) { AccessibilitySettings(context) }
+    val statusBar = remember { StatusBarRequests() }
+    StatusBarAppearance(statusBar)
     val hapticView=androidx.compose.ui.platform.LocalView.current
     val hapticOwner=LocalLifecycleOwner.current
     DisposableEffect(hapticView,hapticOwner,accessibility) {
         UiHaptics.bind(hapticView,hapticOwner.lifecycle,accessibility); PerfTrace.bind(hapticView)
         onDispose {UiHaptics.unbind(hapticView); PerfTrace.unbind(hapticView)}
     }
-    val motion = rememberMotionPolicy(accessibility.reduceMotion)
+    val motion = rememberMotionPolicy(accessibility.reduceMotion, accessibility.motionPace)
     val ambient = rememberAmbientPalette(motion)
     DisposableEffect(playback) { onDispose { playback.close() } }
     
@@ -212,7 +214,7 @@ internal fun RiffApp() {
     CompositionLocalProvider(LocalGlassBounds provides categoryBounds,LocalGlassChips provides categoryChips,
         LocalFrostedBackdrop provides frostedBackdrop,LocalFrostedIntensity provides if(accessibility.solidControls) -1f else accessibility.frostedIntensity,
         LocalSongCrossfade provides SongCrossfadeState.active,
-        androidx.compose.foundation.LocalOverscrollFactory provides StretchOverscrollFactory,LocalAccessibilitySettings provides accessibility,
+        androidx.compose.foundation.LocalOverscrollFactory provides StretchOverscrollFactory,LocalAccessibilitySettings provides accessibility,LocalStatusBarRequests provides statusBar,
         LocalMotionPolicy provides motion,LocalCardPeek provides cardPeek) {
     RiffTheme {
         SharedTransitionLayout {
@@ -233,13 +235,15 @@ internal fun RiffApp() {
                             kotlin.math.abs(old.top - bounds.top) > .5f || old.size != bounds.size)
                             categoryBounds[label] = bounds
                     })
+                // Feature 11: inside the glass scene, so the floating bar refracts the darkened page, not a darker band.
+                EdgeFades(highContrast = accessibility.solidControls)
             }
             if(!accessibility.solidControls) VisibleGlassLabels(categoryBounds,categoryChips,model.tab,model.route,area)
             AnimatedVisibility(visible = showChrome,
                 enter = fadeIn(GlassMotion.timed(GlassMotion.selectionMs, motion)) +
                     slideInVertically(GlassMotion.timed(GlassMotion.selectionMs, motion)) { it / 6 },
-                exit = fadeOut(GlassMotion.timed(GlassMotion.selectionMs, motion)) +
-                    slideOutVertically(GlassMotion.timed(GlassMotion.selectionMs, motion)) { it / 6 },
+                exit = fadeOut(GlassMotion.exit(GlassMotion.selectionMs, motion)) +
+                    slideOutVertically(GlassMotion.exit(GlassMotion.selectionMs, motion)) { it / 6 },
                 modifier = Modifier.align(Alignment.BottomCenter)) {
                 ChromeBar(model, compact, playback, Modifier,
                     bottomInset = bottomInset / density,
@@ -254,7 +258,7 @@ internal fun RiffApp() {
             if(model.sheet=="lyrics" || isTransitionActive) Box(Modifier.fillMaxSize().background(Ink).blockTouchesBelow())
             AnimatedVisibility(visible=model.sheet!="lyrics",
                 enter=fadeIn(GlassMotion.timed(GlassMotion.playerMs,motion)) + slideInVertically(GlassMotion.timed(GlassMotion.playerMs,motion)) { -it/14 },
-                exit=fadeOut(GlassMotion.timed(GlassMotion.playerMs,motion)) + slideOutVertically(GlassMotion.timed(GlassMotion.playerMs,motion)) { -it/14 },
+                exit=fadeOut(GlassMotion.exit(GlassMotion.playerMs,motion)) + slideOutVertically(GlassMotion.exit(GlassMotion.playerMs,motion)) { -it/14 },
                 modifier=Modifier.fillMaxSize()) {
             CompositionLocalProvider(LocalLyricsVisibilityScope provides this) {
             if (showPlayer) {
@@ -305,7 +309,7 @@ internal fun RiffApp() {
             }
             AnimatedVisibility(visible = model.sheet == "lyrics",
                 enter = fadeIn(GlassMotion.timed(GlassMotion.playerMs, motion)) + slideInVertically(GlassMotion.timed(GlassMotion.playerMs,motion)) {it/14},
-                exit = fadeOut(GlassMotion.timed(GlassMotion.playerMs, motion)) + slideOutVertically(GlassMotion.timed(GlassMotion.playerMs,motion)) {it/14},
+                exit = fadeOut(GlassMotion.exit(GlassMotion.playerMs, motion)) + slideOutVertically(GlassMotion.exit(GlassMotion.playerMs,motion)) {it/14},
                 modifier = Modifier.fillMaxSize()) {
                 CompositionLocalProvider(LocalLyricsVisibilityScope provides this) {
                 // Touches that no lyrics control takes stop here: before, a tap between the controls at the bottom
