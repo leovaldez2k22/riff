@@ -47,7 +47,9 @@ internal fun queueWantsMore(lastVisible:Int,upNext:Int)=upNext>0 && lastVisible>
 internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==current) string(R.string.playing_now_x_of_x, index+1, size) else string(R.string.x_of_x, index+1, size)
 
 @Composable internal fun InlineQueue(playback:PlaybackGateway,provider:YouTubeMusicProvider,
-    onClose:()->Unit,onLike:()->Unit,onMore:()->Unit,artworkModifier:Modifier=Modifier,onMoreBounds:(IntRect)->Unit={}) {
+    onClose:()->Unit,onLike:()->Unit,onMore:()->Unit,artworkModifier:Modifier=Modifier,onMoreBounds:(IntRect)->Unit={},
+    /** Feature 2: the player's backdrop, which the queue's buttons and toggles bend. */
+    glass:RiffBackdrop?=null) {
     val state=playback.state
     val songTransition=rememberSongPresentationTransition(state)
     val motion=LocalMotionPolicy.current
@@ -99,14 +101,14 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
             }
             }
             val liked=provider.songLikes[state.mediaId.removePrefix("yt:")]==true
-            IconButton(onLike,modifier=Modifier.testTag("queue_like").semantics {stateDescription=if(liked) string(R.string.liked) else string(R.string.not_liked)}) {Icon(if(liked) Icons.Rounded.Star else Icons.Rounded.StarBorder,string(R.string.like_on_youtube_music),tint=White)}
-            IconButton(hapticClick(onMore),modifier=Modifier.testTag("queue_more").onGloballyPositioned {val r=it.boundsInWindow();onMoreBounds(IntRect(r.topLeft.round(),r.bottomRight.round()))}) {Icon(Icons.Rounded.MoreHoriz,string(R.string.song_options),tint=White)}
-            IconButton(hapticClick(onClose),modifier=Modifier.testTag("queue_back")) {Icon(Icons.Rounded.ExpandMore,string(R.string.close_queue),tint=White)}
+            IconButton(onLike,modifier=Modifier.riffGlass(GlassRole.Button,backdrop=glass).testTag("queue_like").semantics {stateDescription=if(liked) string(R.string.liked) else string(R.string.not_liked)}) {Icon(if(liked) Icons.Rounded.Star else Icons.Rounded.StarBorder,string(R.string.like_on_youtube_music),tint=White)}
+            IconButton(hapticClick(onMore),modifier=Modifier.riffGlass(GlassRole.Button,backdrop=glass).testTag("queue_more").onGloballyPositioned {val r=it.boundsInWindow();onMoreBounds(IntRect(r.topLeft.round(),r.bottomRight.round()))}) {Icon(Icons.Rounded.MoreHoriz,string(R.string.song_options),tint=White)}
+            IconButton(hapticClick(onClose),modifier=Modifier.riffGlass(GlassRole.Button,backdrop=glass).testTag("queue_back")) {Icon(Icons.Rounded.ExpandMore,string(R.string.close_queue),tint=White)}
         }
         Row(Modifier.fillMaxWidth().heightIn(min=46.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            FilterChip(state.shuffle,hapticClick(playback::toggleShuffle),label={Icon(Icons.Rounded.Shuffle,string(R.string.shuffle),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f),shape=RoundedCornerShape(50))
-            FilterChip(state.repeat!=0,hapticClick(playback::cycleRepeat),label={Icon(if(state.repeat==1) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,string(R.string.repeat),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f),shape=RoundedCornerShape(50))
-            FilterChip(state.queueMessage !in setOf("Album order","Collection order"),{},enabled=false,label={Icon(Icons.Rounded.AllInclusive,string(R.string.youtube_music_recommendations),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f),shape=RoundedCornerShape(50))
+            FilterChip(state.shuffle,hapticClick(playback::toggleShuffle),label={Icon(Icons.Rounded.Shuffle,string(R.string.shuffle),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f).riffGlass(GlassRole.Button,backdrop=glass),shape=RoundedCornerShape(50))
+            FilterChip(state.repeat!=0,hapticClick(playback::cycleRepeat),label={Icon(if(state.repeat==1) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,string(R.string.repeat),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f).riffGlass(GlassRole.Button,backdrop=glass),shape=RoundedCornerShape(50))
+            FilterChip(state.queueMessage !in setOf("Album order","Collection order"),{},enabled=false,label={Icon(Icons.Rounded.AllInclusive,string(R.string.youtube_music_recommendations),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f).riffGlass(GlassRole.Button,backdrop=glass),shape=RoundedCornerShape(50))
         }
         Row(Modifier.fillMaxWidth().padding(top=6.dp,bottom=4.dp),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {

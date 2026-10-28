@@ -170,7 +170,7 @@ import kotlinx.coroutines.delay
             }
         }
         if (!nothingLoaded) Row(Modifier.fillMaxWidth().height(SIGN_IN_FOOTER_HEIGHT).padding(horizontal = RiffSignIn.cardMargin, vertical = RiffSignIn.barSide)
-            .signInGlass(RoundedCornerShape(RiffSignIn.corner)).padding(horizontal = RiffSignIn.fieldPad), verticalAlignment = Alignment.CenterVertically) {
+            .signInGlass(RiffSignIn.corner).padding(horizontal = RiffSignIn.fieldPad), verticalAlignment = Alignment.CenterVertically) {
             if (canContinue) SignInPinkButton(string(R.string.continue_to_riff), "account_finish", Modifier.heightIn(max = RiffSignIn.footerButton), onClick = onContinue)
             else {
                 Text(string(R.string.signin_step_google), color = White, fontSize = RiffSignIn.note, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))

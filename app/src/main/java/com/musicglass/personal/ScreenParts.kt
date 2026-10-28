@@ -139,7 +139,9 @@ internal fun BackHeading(title: String, onBack: () -> Unit, overPicture: Boolean
     Row(Modifier.fillMaxWidth()) {
         // Over a picture the arrow and the word carry their own shadows, no patch under them (Q18-008).
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = hapticClick(onBack), modifier = Modifier.size(RiffSpace.touch).testTag("back")) {
+            // Feature 2: a glass circle over the screen's background; over a picture the arrow stays bare (its shadows read it).
+            IconButton(onClick = hapticClick(onBack), modifier = Modifier.size(RiffSpace.touch)
+                .then(if (overPicture) Modifier else Modifier.riffGlass(GlassRole.Button, backdrop = LocalPageBackdrop.current)).testTag("back")) {
                 // A screen whose heading is the word Back says "Back", not "Back to Back" (Q18-011).
                 val name = if (title == string(R.string.back)) title else string(R.string.back_to_x, title)
                 if (overPicture) OverPictureIcon(Icons.AutoMirrored.Filled.ArrowBack, name)

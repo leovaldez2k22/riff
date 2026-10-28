@@ -364,8 +364,11 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
         grow.animateTo(1f, tween(1000, easing = FastOutSlowInEasing))
     }
 
+    // Feature 2: the sign-in cards are glass over this backdrop.
+    val signInBackdrop = rememberRiffBackdrop()
+    CompositionLocalProvider(LocalSignInBackdrop provides signInBackdrop) {
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
-        SignInBackdrop(brightness.value)
+        SignInBackdrop(brightness.value, Modifier.riffBackdropSource(signInBackdrop))
         val width = maxWidth
         if (browserOpen) key(generation) {
             val token = generation
@@ -564,6 +567,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
         // 3: Stop signing in? A glass sheet over the dimmed page.
         if (phase == SignInPhase.Google) StopSheet(stopSheet, reduced, onKeep = { stopSheet = false },
             onStop = { closeBrowser(); go(SignInPhase.Welcome) })
+    }
     }
 
     // Q18-086: Google's web session holds every account signed in through Riff; signing out ends all of them.

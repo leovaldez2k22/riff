@@ -26,6 +26,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -274,8 +275,7 @@ internal fun RiffApp() {
             .frostedBackdropSource(frostedBackdrop)
             .onSizeChanged { area = it }
             .semantics { testTagsAsResourceId = true }) {
-            GlassScene(categoryBounds,categoryChips,area,density,compact,showMini,sceneHasChrome,bottomInset,
-                model.tab,model.route,accessibility,glassBackdrop) {
+            GlassScene(glassBackdrop) {
                 Box(Modifier.fillMaxSize().then(pagePreview)) {
                 ShellScene(model, compact, sceneHasChrome, playback, collections, provider,
                     ambient,
@@ -374,8 +374,13 @@ internal fun RiffApp() {
             }
             CardPeekLayer(cardPeek, model, provider, playback, onNotice = { scope.launch { snackbar.showSnackbar(it) } })
             RestoreOffer(onNotice = { scope.launch { snackbar.showSnackbar(it) } }, onRestored = { collections.refresh() })
+            // Feature 2: snack bars are Menu glass over the page; a dark tint keeps them readable over bright covers.
             SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter)
-                .padding(WindowInsets.safeDrawing.asPaddingValues()).padding(top = 12.dp))
+                .padding(WindowInsets.safeDrawing.asPaddingValues()).padding(top = 12.dp)) { data ->
+                androidx.compose.material3.Snackbar(data, Modifier.padding(horizontal = RiffSpace.block).riffGlass(GlassRole.Menu, RiffRadius.card),
+                    shape = RoundedCornerShape(RiffRadius.card), containerColor = Color(0xFF171C27).copy(alpha = .5f),
+                    contentColor = White, actionColor = Pink)
+            }
         }
         }
         }

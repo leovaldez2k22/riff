@@ -258,86 +258,21 @@ private fun NavItem(name: String, selected: Boolean, showLabel: Boolean,
     }
 }
 
-/**
- * Snapshot geometry reads stay inside layer updates and draws; scrolling does not recompose the shell.
- * Q18-030: frosted glass blurs only the strips around the glass, each on its own copy at half size of the scene
- * recorded once per frame. One frost layer over the strips scales them back up and cuts, bends and tints the glass:
- * with the cut on each strip's layer instead, the strip drawn first showed the other's frost (API 33 emulator). The
- * clear glass stays one effect over the whole scene.
- */
-@Composable internal fun GlassScene(bounds:Map<String,Rect>,styles:Map<String,GlassChipStyle>,area:IntSize,density:Float,compact:Boolean,
-    showMini:Boolean,chrome:Boolean,inset:Int,tab:String,route:String,settings:AccessibilitySettings,backdrop:RiffBackdrop,content:@Composable ()->Unit) {
-    val solid=settings.solidControls;val intensity=settings.glassIntensity
-    val frostIntensity=settings.frostedIntensity
-    val frosting=chrome && !solid && settings.frostedGlass && frostIntensity>0f
-    // The cache itself is not snapshot state; mutating it inside a layer or a draw never schedules composition.
-    val cache=remember {GlassEffectCache()}
-    val scene=backdrop.layer
-    val halves=listOf(rememberGraphicsLayer(),rememberGraphicsLayer())
-    val frost=rememberGraphicsLayer()
-    fun glass():GlassEffectCache {
-        val visible=visibleGlassChips(bounds,tab,route,area.width,area.height)
-        val categories=visible.map {it.second}
-        val radii=visible.map {styles[it.first]?.corner?:0f}
-        val key=listOf(area,density,compact,showMini,chrome,inset,solid,frosting,intensity,frostIntensity,categories,radii)
-        if(cache.key!=key) {
-            cache.key=key
-            cache.effect=if(chrome && !solid) chromeGlassEffect(area.width,area.height,density,showMini,compact,
-                false,inset,categories,intensity,radii,bottomChrome=false)?.asComposeRenderEffect() else null
-            val shapes=chromeGlassShapes(area.width,area.height,density,showMini,compact,false,inset,categories,bottomChrome=false)
-            cache.bands=if(frosting && area.width>0 && area.height>0)
-                frostBands(shapes,area.width,area.height,frostMargin(density,intensity,frostIntensity)) else emptyList()
-            cache.area=cache.bands.takeIf {it.isNotEmpty()}?.let {b->
-                Rect(b.minOf {it.left},b.minOf {it.top},b.maxOf {it.right},b.maxOf {it.bottom})}
-            cache.frost=cache.area?.let {frostCutEffect(shapes,it,density,intensity,frostIntensity,radii).asComposeRenderEffect()}
-            // The blur only changes with its size; chips moving under a scroll keep the same ones.
-            if(frosting && cache.blurKey!=density to frostIntensity) {
-                cache.blurKey=density to frostIntensity
-                cache.blurs=List(2) {frostBlurEffect(density,frostIntensity).asComposeRenderEffect()}
-            }
-        }
-        return cache
-    }
-    Box(Modifier.fillMaxSize().imePadding().testTag("scene").drawWithContent {
-        drawContent()
-        val glass=glass()
-        val area=glass.area?:return@drawWithContent
-        glass.bands.forEachIndexed {i,band->
-            val half=halves[i]
-            half.renderEffect=glass.blurs[i]
-            half.record(IntSize(ceil(band.width/FROST_SCALE).toInt(),ceil(band.height/FROST_SCALE).toInt())) {
-                scale(1f/FROST_SCALE,1f/FROST_SCALE,Offset.Zero) {translate(-band.left,-band.top) {drawLayer(scene)}}
-            }
-        }
-        frost.renderEffect=glass.frost
-        frost.record(IntSize(area.width.toInt(),area.height.toInt())) {
-            glass.bands.forEachIndexed {i,band->
-                translate(band.left-area.left,band.top-area.top) {scale(FROST_SCALE.toFloat(),FROST_SCALE.toFloat(),Offset.Zero) {drawLayer(halves[i])}}
-            }
-        }
-        translate(area.left,area.top) {drawLayer(frost)}
-    }) {
-        Box(Modifier.fillMaxSize().graphicsLayer {renderEffect=glass().effect}
-            .onGloballyPositioned {backdrop.origin=it.positionInRoot()}.drawWithContent {
-            // Feature 1: recorded once a frame while the frost or any glass control reads it.
-            if(frosting || backdrop.readers>0) {
-                scene.compositingStrategy=CompositingStrategy.Offscreen // drawn once a frame, read by every strip
-                scene.record {this@drawWithContent.drawContent()}
-                drawLayer(scene)
+/** The page under the shell's glass. Snapshot reads stay inside draws; scrolling does not recompose the shell. */
+@Composable internal fun GlassScene(backdrop:RiffBackdrop,content:@Composable ()->Unit) {
+    // Feature 2: the page, recorded once a frame while any glass reads it. The old full-screen shader and its frost
+    // strips are gone: every piece of glass now draws itself (RiffGlass.kt).
+    Box(Modifier.fillMaxSize().imePadding().testTag("scene")) {
+        Box(Modifier.fillMaxSize().onGloballyPositioned {backdrop.origin=it.positionInRoot()}.drawWithContent {
+            if(backdrop.readers>0) {
+                backdrop.layer.compositingStrategy=CompositingStrategy.Offscreen
+                backdrop.layer.record {this@drawWithContent.drawContent()}
+                drawLayer(backdrop.layer)
             } else drawContent()
         },content={content()})
     }
 }
 
-private class GlassEffectCache {
-    var key:List<Any?>?=null
-    var effect:androidx.compose.ui.graphics.RenderEffect?=null
-    var bands:List<Rect> = emptyList()
-    var area:Rect?=null
-    var frost:androidx.compose.ui.graphics.RenderEffect?=null
-    var blurKey:Any?=null
-    var blurs:List<androidx.compose.ui.graphics.RenderEffect> = emptyList()
-}
 
 @Composable internal fun VisibleGlassLabels(bounds:Map<String,Rect>,styles:Map<String,GlassChipStyle>,tab:String,route:String,area:IntSize) {
     GlassCategoryLabels(visibleGlassChips(bounds,tab,route,area.width,area.height),styles)

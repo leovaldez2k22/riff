@@ -24,6 +24,8 @@ internal data class GlassChipStyle(val label:String,val selected:Boolean,val nat
     val corner:Float=0f,
     /** A tile's content, drawn above the glass so frost and refraction never blur its cover or text. */
     val content:(@Composable () -> Unit)?=null)
+/** Where each glass chip is on screen, by key, for the faces drawn above the page. */
+internal val LocalGlassBounds=compositionLocalOf<SnapshotStateMap<String,Rect>?> {null}
 internal val LocalGlassChips=compositionLocalOf<SnapshotStateMap<String,GlassChipStyle>?> {null}
 
 internal fun categoryKeyVisible(key:String,tab:String):Boolean=when(tab) {
@@ -34,11 +36,11 @@ internal fun categoryKeyVisible(key:String,tab:String):Boolean=when(tab) {
     "Home"->listOf("search:","radio:","podcast:","library:").none(key::startsWith)
     else->false
 }
-/** Chips on screen for this tab, left to right; the shader has 8 slots, so off-screen chips must not take them. */
+/** Chips on screen for this tab, top to bottom and left to right; off-screen chips draw no glass. */
 internal fun visibleGlassChips(bounds:Map<String,Rect>,tab:String,route:String,width:Int,height:Int):List<Pair<String,Rect>> =
     if(route.isNotEmpty()) emptyList() else bounds.entries.filter {(key,r)->
         r.bottom>0 && r.top<height && r.right>0 && r.left<width && categoryKeyVisible(key,tab)
-    }.sortedWith(compareBy({it.value.top},{it.value.left})).map {it.key to it.value}.take(8)
+    }.sortedWith(compareBy({it.value.top},{it.value.left})).map {it.key to it.value}
 
 /** Bounds after ancestor layer transforms, so a chip inside a stretching list reports its stretched size. */
 internal fun LayoutCoordinates.transformedBoundsInRoot():Rect {
@@ -80,11 +82,13 @@ private fun Modifier.chipFace(selected:Boolean,solid:Boolean)=clip(chipShape).ba
                 // A tile's face, outline and content; the page keeps an invisible copy for touch and accessibility.
                 val shape=RoundedCornerShape(with(density) {style.corner.toDp()})
                 Box(Modifier.offset {IntOffset(r.left.toInt(),r.top.toInt())}.size(with(density){r.width.toDp()},with(density){r.height.toDp()})
+                    .riffGlass(GlassRole.Button,with(density) {style.corner.toDp()})
                     .clip(shape).background(White.copy(alpha=.04f)).border(.7.dp,White.copy(alpha=.35f),shape)) {style.content?.invoke()}
                 return@forEach
             }
+            // Feature 2: each chip is Button glass over the page, drawn here above it rather than by a full-screen shader.
             Box(Modifier.offset {IntOffset(r.left.toInt(),r.top.toInt())}.size(with(density){r.width.toDp()},with(density){r.height.toDp()})
-                .chipFace(style.selected,false),contentAlignment=Alignment.Center) {
+                .riffGlass(GlassRole.Button).chipFace(style.selected,false),contentAlignment=Alignment.Center) {
                 // Stretch the label with its chip while the page overscrolls.
                 val n=style.natural
                 Text(style.label,color=White,fontSize=13.sp,maxLines=1,softWrap=false,modifier=Modifier.graphicsLayer {

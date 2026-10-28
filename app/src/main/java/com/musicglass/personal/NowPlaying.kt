@@ -329,7 +329,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     if(!provider.capabilities.like.available) onNotice(provider.capabilities.like.reason?:CHECKING_ACCOUNT_NOTICE) else scope.launch {
                         provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);unlikedOffPhone(collections,providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))})
                     }
-                },onMore={moreExpanded=true},onMoreBounds={moreAnchor=it},artworkModifier=Modifier.sharedBounds(rememberSharedContentState("queue-art"),this))
+                },onMore={moreExpanded=true},onMoreBounds={moreAnchor=it},glass=playerGlass,artworkModifier=Modifier.sharedBounds(rememberSharedContentState("queue-art"),this))
             } else Box(Modifier.fillMaxSize()) {
             songTransition.SongContentFade(
                 modifier = Modifier.fillMaxSize().graphicsLayer { alpha = artworkAlpha() }) { song ->

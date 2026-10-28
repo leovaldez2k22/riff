@@ -132,6 +132,10 @@ internal fun glassQuality(sdk: Int, solid: Boolean, powerSave: Boolean, thermalH
     else -> GlassQuality.Full
 }
 
+/** A piece's corner in px: a capsule without one (chips, bars), a tile's own corner, never past a capsule. */
+internal fun glassRadius(width: Float, height: Float, corner: Float?): Float =
+    (corner?.takeIf { it > 0f } ?: (height / 2f)).coerceAtMost(minOf(width, height) / 2f)
+
 /** Per piece of glass: its place on the screen, and its shader when the lens runs. Not snapshot state. */
 internal class GlassPiece { var position = Offset.Zero; var lens: Any? = null }
 
@@ -153,7 +157,7 @@ internal class GlassPiece { var position = Offset.Zero; var lens: Any? = null }
         onDispose { reading?.let { it.readers-- } }
     }
     return onGloballyPositioned { piece.position = it.positionInRoot() }.drawWithContent {
-        val radius = (cornerRadius?.toPx() ?: (size.height / 2f)).coerceAtMost(size.minDimension / 2f)
+        val radius = glassRadius(size.width, size.height, cornerRadius?.toPx())
         val shape = RoundRect(0f, 0f, size.width, size.height, CornerRadius(radius))
         if (solid) {
             drawRoundRect(Color(0xFF11131A), cornerRadius = CornerRadius(radius))

@@ -112,15 +112,19 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
         }
     }
     val uri = LocalUriHandler.current
-    Box(Modifier.fillMaxSize().preferredFrameRate(LocalUiRefreshRate.current)
-        .background(Brush.verticalGradient(listOf(Color(0xFF231524),Color(0xFF0B0C12),Color.Black)))) {
-        AsyncImage(state.artworkUrl,contentDescription = null,
-            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = .075f })
+    // Feature 2: the page's background and faint cover are the backdrop its glass buttons bend.
+    val lyricsGlass = rememberRiffBackdrop()
+    Box(Modifier.fillMaxSize().preferredFrameRate(LocalUiRefreshRate.current)) {
+        Box(Modifier.matchParentSize().riffBackdropSource(lyricsGlass)
+            .background(Brush.verticalGradient(listOf(Color(0xFF231524),Color(0xFF0B0C12),Color.Black)))) {
+            AsyncImage(state.artworkUrl,contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = .075f })
+        }
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             if (sharing) Row(Modifier.fillMaxWidth().padding(start = RiffSpace.rowGap,end = 20.dp,top = RiffSpace.item,bottom = 10.dp).testTag("lyrics_share_header"),
                 verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = hapticClick { shareRange = null },modifier = Modifier.testTag("lyrics_share_cancel")) {
+                IconButton(onClick = hapticClick { shareRange = null },modifier = Modifier.riffGlass(GlassRole.Button,backdrop = lyricsGlass).testTag("lyrics_share_cancel")) {
                     Icon(Icons.Rounded.Close,string(R.string.stop_sharing_lyrics),tint = White)
                 }
                 Column(Modifier.weight(1f).padding(start = RiffSpace.item)) {
@@ -131,7 +135,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                 }
             } else Row(Modifier.fillMaxWidth().padding(start = RiffSpace.rowGap,end = 20.dp,top = RiffSpace.item,bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = hapticClick(onBack),modifier = Modifier.testTag("lyrics_back")) {
+                IconButton(onClick = hapticClick(onBack),modifier = Modifier.riffGlass(GlassRole.Button,backdrop = lyricsGlass).testTag("lyrics_back")) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack,string(R.string.back_to_player),tint = White)
                 }
                 Column(Modifier.weight(1f).padding(start = RiffSpace.item)) {
@@ -142,7 +146,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                     Text(playerArtistLabel(state.artist),color = Muted,fontSize = 13.sp,maxLines = 1,
                         overflow = TextOverflow.Ellipsis,modifier=Modifier.lyricsSharedBounds("song-artist:${state.mediaId}"))
                 }
-                IconButton(onClick = { uiHaptic();  timingDialog = true },enabled = timed,modifier = Modifier.testTag("lyrics_timing")) {
+                IconButton(onClick = { uiHaptic();  timingDialog = true },enabled = timed,modifier = Modifier.riffGlass(GlassRole.Button,backdrop = lyricsGlass).testTag("lyrics_timing")) {
                     Icon(Icons.Rounded.Tune,string(R.string.adjust_lyrics_timing),tint = if (timed) White else Muted)
                 }
             }
@@ -225,7 +229,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                     val modeName = string(when (accessibility.lyricsRoman) { LyricsRomanMode.Original -> R.string.lyrics_script_original
                         LyricsRomanMode.Romanized -> R.string.lyrics_script_romanized; LyricsRomanMode.Both -> R.string.lyrics_script_both })
                     Text(modeName,color = White,fontSize = RiffType.detail,
-                        modifier = Modifier.clip(RoundedCornerShape(RiffRadius.pill)).background(White.copy(alpha = .1f))
+                        modifier = Modifier.riffGlass(GlassRole.Button,backdrop = lyricsGlass).clip(RoundedCornerShape(RiffRadius.pill)).background(White.copy(alpha = .05f))
                             .clickable(onClickLabel = string(R.string.lyrics_script_x, modeName)) { uiHaptic(); accessibility.updateLyricsRoman(accessibility.lyricsRoman.next) }
                             .padding(horizontal = RiffSpace.rowGap, vertical = RiffSpace.tight).testTag("lyrics_script"))
                 }
@@ -244,7 +248,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
             } else Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = RiffSpace.item),
                 horizontalArrangement = Arrangement.Center,verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = hapticClick(playback::previous),enabled = state.mediaId.isNotEmpty()) { Icon(Icons.Rounded.FastRewind,string(R.string.previous_track),tint = Muted) }
-                IconButton(onClick = hapticClick(playback::toggle),modifier = Modifier.size(56.dp).testTag("lyrics_toggle")) {
+                IconButton(onClick = hapticClick(playback::toggle),modifier = Modifier.size(56.dp).riffGlass(GlassRole.Button,backdrop = lyricsGlass).testTag("lyrics_toggle")) {
                     Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         if (state.playing) string(R.string.pause) else string(R.string.play),tint = White,modifier = Modifier.size(34.dp))
                 }

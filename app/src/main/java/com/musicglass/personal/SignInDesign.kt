@@ -29,7 +29,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
@@ -224,11 +223,21 @@ internal const val SIGN_IN_STOP_SHEET_OUT_MS = 1100
     }
 }
 
-/** Riff's frosted glass, as on its panels: a dark tint, a sheen from the top left and a thin light edge. */
-internal fun Modifier.signInGlass(shape: Shape = RoundedCornerShape(RiffSignIn.glass)): Modifier = clip(shape)
-    .background(Color(0xFF171C27).copy(alpha = .63f))
-    .background(Brush.linearGradient(listOf(White.copy(alpha = .13f), Color.Transparent), Offset.Zero, Offset(700f, 700f)))
-    .border(RiffSignIn.glassEdge, White.copy(alpha = .15f), shape)
+/** Feature 2: the sign-in screens' backdrop, recorded by the account screen, which their panels bend. */
+internal val LocalSignInBackdrop = staticCompositionLocalOf<RiffBackdrop?> { null }
+
+/**
+ * Riff's glass on the sign-in panels: the Card lens over the sign-in backdrop (Feature 2), a dark tint that keeps the
+ * words readable, a sheen from the top left and a thin light edge. Without a backdrop, the tint alone, a little darker.
+ */
+@Composable internal fun Modifier.signInGlass(corner: Dp = RiffSignIn.glass): Modifier {
+    val shape = RoundedCornerShape(corner)
+    val backdrop = LocalSignInBackdrop.current
+    return (if (backdrop != null) riffGlass(GlassRole.Card, corner, backdrop = backdrop) else this).clip(shape)
+        .background(Color(0xFF171C27).copy(alpha = if (backdrop != null) .45f else .63f))
+        .background(Brush.linearGradient(listOf(White.copy(alpha = .13f), Color.Transparent), Offset.Zero, Offset(700f, 700f)))
+        .border(RiffSignIn.glassEdge, White.copy(alpha = .15f), shape)
+}
 
 /**
  * The record: black grooves, a pink label reading "Riff", a small hole. It spins while something is working and
@@ -300,7 +309,7 @@ internal fun Modifier.signInGlass(shape: Shape = RoundedCornerShape(RiffSignIn.g
 /** Glass: the second action. */
 @Composable internal fun SignInGlassButton(text: String, tag: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     TextButton(hapticClick(onClick), shape = RoundedCornerShape(RiffSignIn.corner),
-        modifier = modifier.fillMaxWidth().heightIn(min = RiffSignIn.button).signInGlass(RoundedCornerShape(RiffSignIn.corner)).testTag(tag)) {
+        modifier = modifier.fillMaxWidth().heightIn(min = RiffSignIn.button).signInGlass(RiffSignIn.corner).testTag(tag)) {
         Text(text, color = White, fontWeight = FontWeight.Medium, fontSize = RiffSignIn.buttonText)
     }
 }
@@ -355,7 +364,7 @@ internal fun Modifier.signInGlass(shape: Shape = RoundedCornerShape(RiffSignIn.g
 /** The top bar on Google's page and the accounts page: back, the small record's place, a title and a subtitle. */
 @Composable internal fun SignInTopBar(title: String, subtitle: String?, onBack: () -> Unit, backLabel: String,
     trailing: (@Composable () -> Unit)? = null, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().height(SIGN_IN_BAR_HEIGHT).padding(horizontal = RiffSignIn.barSide).signInGlass(RoundedCornerShape(RiffSignIn.barCorner)),
+    Row(modifier.fillMaxWidth().height(SIGN_IN_BAR_HEIGHT).padding(horizontal = RiffSignIn.barSide).signInGlass(RiffSignIn.barCorner),
         verticalAlignment = Alignment.CenterVertically) {
         IconButton(hapticClick(onBack), Modifier.testTag("signin_back")) {
             Icon(Icons.AutoMirrored.Rounded.ArrowBack, backLabel, tint = White)

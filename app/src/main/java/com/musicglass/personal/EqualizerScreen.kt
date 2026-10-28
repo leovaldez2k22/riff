@@ -6,7 +6,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -35,10 +34,13 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -110,26 +112,42 @@ import kotlin.math.roundToInt
     Column(Modifier.fillMaxWidth().padding(vertical = RiffSpace.tight)) {
         if (title != null) Text(title.uppercase(), color = Muted, fontSize = RiffType.detail, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(start = RiffSpace.item, bottom = RiffSpace.item))
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(RiffRadius.hero), color = White.copy(alpha = .045f),
-            border = BorderStroke(RiffEqualizer.edge, White.copy(alpha = .08f))) {
+        // Feature 2: a glass card over the screen's background, like Settings'.
+        Surface(Modifier.fillMaxWidth().riffGlass(GlassRole.Card, RiffRadius.hero, backdrop = LocalPageBackdrop.current),
+            shape = RoundedCornerShape(RiffRadius.hero), color = Color.Transparent) {
             Column(Modifier.padding(horizontal = RiffSpace.block, vertical = RiffSpace.tight), content = content)
         }
     }
 }
 
-/** Dynamic | Manual: the chosen side is a white pill with dark text. */
+/**
+ * Dynamic | Manual (Feature 2): a glass track, and a glass pill that slides to the chosen side, bending the words under
+ * it. The words are recorded as the pill's own backdrop.
+ */
 @Composable private fun EqTabs(mode: EqMode, onChange: (EqMode) -> Unit) {
     val shape = RoundedCornerShape(RiffRadius.pill)
-    Row(Modifier.fillMaxWidth().clip(shape).background(White.copy(alpha = .08f)).padding(RiffSpace.tight)) {
-        EqMode.entries.forEach { tab ->
-            val chosen = tab == mode
-            Box(Modifier.weight(1f).heightIn(min = RiffEqualizer.tab).clip(shape).background(if (chosen) White else Color.Transparent)
-                .clickable(role = Role.Tab, onClick = { if (!chosen) onChange(tab) }).testTag("equalizer_tab_${tab.key}"),
-                contentAlignment = Alignment.Center) {
-                Text(string(if (tab == EqMode.Dynamic) R.string.eq_dynamic else R.string.eq_manual),
-                    color = if (chosen) Color.Black else White, fontSize = RiffType.body, fontWeight = FontWeight.SemiBold)
+    val motion = LocalMotionPolicy.current
+    val words = rememberRiffBackdrop()
+    val position by animateFloatAsState(EqMode.entries.indexOf(mode).toFloat(), GlassMotion.settle(motion), label = "equalizer mode")
+    Box(Modifier.fillMaxWidth().riffGlass(GlassRole.Card, RiffRadius.pill, backdrop = LocalPageBackdrop.current).padding(RiffSpace.tight)) {
+        Row(Modifier.fillMaxWidth().riffBackdropSource(words)) {
+            EqMode.entries.forEach { tab ->
+                val chosen = tab == mode
+                Box(Modifier.weight(1f).heightIn(min = RiffEqualizer.tab).clip(shape)
+                    .clickable(role = Role.Tab, onClick = { if (!chosen) onChange(tab) })
+                    .semantics { selected = chosen }.testTag("equalizer_tab_${tab.key}"),
+                    contentAlignment = Alignment.Center) {
+                    Text(string(if (tab == EqMode.Dynamic) R.string.eq_dynamic else R.string.eq_manual),
+                        color = if (chosen) White else Muted, fontSize = RiffType.body, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
+        val count = EqMode.entries.size
+        Box(Modifier.matchParentSize().layout { measurable, constraints ->
+            val width = constraints.maxWidth / count
+            val placeable = measurable.measure(Constraints.fixed(width, constraints.maxHeight))
+            layout(constraints.maxWidth, constraints.maxHeight) { placeable.place((position * width).roundToInt(), 0) }
+        }.riffGlass(GlassRole.Button, RiffRadius.pill, backdrop = words).background(White.copy(alpha = .12f), shape))
     }
 }
 
