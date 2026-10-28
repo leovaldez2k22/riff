@@ -94,4 +94,27 @@ class SmartTransitionTest {
         var peak = 0; for (i in 24_000 until 48_000) peak = maxOf(peak, kotlin.math.abs(output.order(java.nio.ByteOrder.LITTLE_ENDIAN).getShort(i * 2).toInt()))
         assertTrue("50 Hz down by more than 18 dB: $peak", peak < 16_384 / 8)
     }
+
+    // Automix stage 2: a 120 BPM grid (500 ms beats) with downbeats every 2 s.
+    private fun grid(firstMs: Long, count: Int, confidence: Float = .8f, downbeat: Float = .6f) = BeatGrid(120.0,
+        LongArray(count) { firstMs + it * 500L }, LongArray(count / 4) { firstMs + it * 2_000L }, confidence, downbeat)
+
+    @Test fun aSureBlendStartsOnADownbeatAndEntersOnOne() {
+        val plan = SmartPlan(190_300, 198_000, 1_200)
+        val aligned = alignToBeats(plan, grid(160_000, 80), grid(150, 60))!!
+        assertTrue(aligned.onBeat)
+        assertEquals("the phrase line nearest the stage 1 start", 192_000L, aligned.startMs)
+        assertEquals(198_000L, aligned.endMs)
+        assertEquals("the first downbeat after the entry", 2_150L, aligned.incomingStartMs)
+    }
+
+    @Test fun unsureBeatsKeepStageOne() {
+        val plan = SmartPlan(190_300, 198_000, 1_200)
+        assertNull(alignToBeats(plan, grid(160_000, 80, confidence = .2f), grid(150, 60)))
+        assertNull(alignToBeats(plan, grid(160_000, 80), grid(150, 60, downbeat = .1f)))
+        assertNull(alignToBeats(plan, null, grid(150, 60)))
+    }
+
+    @Test fun noDownbeatNearTheStartKeepsStageOne() =
+        assertNull(alignToBeats(SmartPlan(190_300, 198_000, 1_200), grid(100_000, 80), grid(150, 60)))
 }

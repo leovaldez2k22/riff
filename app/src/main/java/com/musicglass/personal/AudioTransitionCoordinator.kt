@@ -47,7 +47,9 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
             val envelope = if (part == "tail") TrackAnalysis.envelope(context, source, -ANALYSIS_TAIL_MS, ANALYSIS_TAIL_MS)
                 else TrackAnalysis.envelope(context, source, 0, ANALYSIS_HEAD_MS)
             envelopes[key] = envelope
-            events.append("automix_analysis part=$part found=${if (envelope == null) 0 else 1}")
+            val beats = envelope?.beats
+            events.append("automix_analysis part=$part found=${if (envelope == null) 0 else 1}" +
+                if (beats == null) "" else " bpm=${beats.bpm.toInt()} beat=${"%.2f".format(java.util.Locale.ROOT, beats.confidence)} downbeat=${"%.2f".format(java.util.Locale.ROOT, beats.downbeatConfidence)}")
         }
     }
     private fun analyseAround(main: Player) {

@@ -1,6 +1,7 @@
 package com.musicglass.personal
 
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.log10
 
@@ -28,7 +29,9 @@ internal const val BASS_SWAP_MS = 1_000L
  * A stretch of a song as loudness: [loudnessDb] and [lowDb] (below 150 Hz) per [ENVELOPE_BLOCK_MS] block, the first
  * block starting at [startMs] into the song.
  */
-internal class TrackEnvelope(val startMs: Long, val loudnessDb: FloatArray, val lowDb: FloatArray, val durationMs: Long) {
+internal class TrackEnvelope(val startMs: Long, val loudnessDb: FloatArray, val lowDb: FloatArray, val durationMs: Long,
+    /** Automix stage 2: the beats in this stretch, when it has a pulse. */
+    val beats: BeatGrid? = null) {
     val endMs: Long get() = startMs + loudnessDb.size.toLong() * ENVELOPE_BLOCK_MS
     private fun timeOf(block: Int) = startMs + block.toLong() * ENVELOPE_BLOCK_MS
 
@@ -59,8 +62,10 @@ internal class EnvelopeBuilder(private val sampleRate: Int, private val channels
     private var low1 = 0f; private var low2 = 0f
     private var frames = 0; private var sum = 0.0; private var lowSum = 0.0
     private val loudness = ArrayList<Float>(); private val low = ArrayList<Float>()
+    private val onsets = OnsetBuilder(sampleRate, channels, startMs)
 
     fun add(samples: ShortArray, count: Int = samples.size) {
+        onsets.add(samples, count)
         var i = 0
         while (i + channels <= count) {
             var mono = 0f
@@ -75,14 +80,16 @@ internal class EnvelopeBuilder(private val sampleRate: Int, private val channels
         }
     }
     private fun db(power: Double) = if (power <= 1e-12) -120f else (10 * log10(power)).toFloat()
-    fun build(durationMs: Long) = TrackEnvelope(startMs, loudness.toFloatArray(), low.toFloatArray(), durationMs)
+    fun build(durationMs: Long) = TrackEnvelope(startMs, loudness.toFloatArray(), low.toFloatArray(), durationMs, onsets.beats())
 }
 
 /**
  * Where a smart blend goes. The outgoing song blends from [startMs] to [endMs], its audible end; the incoming one
  * enters at [incomingStartMs].
  */
-internal data class SmartPlan(val startMs: Long, val endMs: Long, val incomingStartMs: Long) {
+internal data class SmartPlan(val startMs: Long, val endMs: Long, val incomingStartMs: Long,
+    /** Automix stage 2: the blend starts on the outgoing song's downbeat and the incoming one enters on its own. */
+    val onBeat: Boolean = false) {
     val blendMs: Long get() = endMs - startMs
 }
 
@@ -101,7 +108,34 @@ internal fun planSmartTransition(outgoing: TrackEnvelope?, incoming: TrackEnvelo
     val built = incoming?.takeIf { incomingIsMusic && it.startMs < ENVELOPE_BLOCK_MS }?.introEndMs()
     // A quiet intro is skipped to a moment before the song has built up; a long one is played as it is.
     val entry = if (built != null && built - firstSound in 1..SMART_MAX_INTRO_SKIP_MS) maxOf(firstSound, built - 1_000) else firstSound
-    return SmartPlan((end - blend).coerceAtLeast(0), end, entry.coerceAtLeast(0))
+    val plan = SmartPlan((end - blend).coerceAtLeast(0), end, entry.coerceAtLeast(0))
+    return alignToBeats(plan, outgoing.beats, incoming?.takeIf { it.startMs < ENVELOPE_BLOCK_MS }?.beats) ?: plan
+}
+
+/** Stage 2 asks this much of both songs' beats and downbeats (engine report, section 5.4, DJ-assisted). */
+internal const val BEAT_CONFIDENCE = .35f
+internal const val DOWNBEAT_CONFIDENCE = .3f
+/** How far a downbeat may move the blend's start from where stage 1 put it. */
+private const val BEAT_REACH_MS = 2_500L
+
+/**
+ * Automix stage 2, DJ-assisted: moves [plan]'s start onto the outgoing song's downbeat nearest to it, preferring the
+ * first beat of a four-bar phrase, and lets the incoming song enter on its first downbeat at or after its stage 1
+ * entry. Both songs keep their speed; the downbeats meet as the blend begins. Null when either song's beats are not
+ * sure enough, or no downbeat fits: then stage 1's timing stands.
+ */
+internal fun alignToBeats(plan: SmartPlan, outgoing: BeatGrid?, incoming: BeatGrid?): SmartPlan? {
+    outgoing ?: return null; incoming ?: return null
+    if (minOf(outgoing.confidence, incoming.confidence) < BEAT_CONFIDENCE) return null
+    if (minOf(outgoing.downbeatConfidence, incoming.downbeatConfidence) < DOWNBEAT_CONFIDENCE) return null
+    val fits = outgoing.downbeatsMs.withIndex().filter { (_, ms) ->
+        abs(ms - plan.startMs) <= BEAT_REACH_MS && plan.endMs - ms in SMART_MIN_BLEND_MS..SMART_MAX_BLEND_MS }
+    if (fits.isEmpty()) return null
+    val phrase = fits.filter { it.index % 4 == 0 }.minByOrNull { abs(it.value - plan.startMs) }
+    val start = phrase?.value ?: fits.minBy { abs(it.value - plan.startMs) }.value
+    val entry = incoming.downbeatsMs.firstOrNull { it >= plan.incomingStartMs - 50 } ?: return null
+    if (entry - plan.incomingStartMs > SMART_MAX_INTRO_SKIP_MS) return null
+    return SmartPlan(start, plan.endMs, entry, onBeat = true)
 }
 
 /**
