@@ -24,7 +24,9 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Mic
@@ -106,11 +108,22 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         loading=false
     }
     fun open(card:ProviderHomeCard) {history.record(model.searchQuery);keyboard?.hide();openCatalogCard(model,card) {scope.launch {playRealTrack(provider,playback,it,onNotice,video=model.searchFilter=="Videos")}}}
+    // Feature 24: suggestions while the field is being typed in; each key cancels the request before it.
+    val focusManager=LocalFocusManager.current
+    var typing by remember { mutableStateOf(false) }
+    var suggestions by remember { mutableStateOf(SearchSuggestions()) }
+    val suggestionsOn=remember(context) {searchSuggestionsOn(context)}
+    LaunchedEffect(model.searchQuery,typing,provider.authRevision) {
+        if(!typing || !suggestionsOn || model.searchQuery.isBlank()) { suggestions=SearchSuggestions();return@LaunchedEffect }
+        delay(SEARCH_SUGGESTIONS_DEBOUNCE_MS)
+        provider.searchSuggestions(model.searchQuery).onSuccess {suggestions=it}
+    }
+    fun searchFor(query:String) {history.record(query);model.searchQuery=query;keyboard?.hide();focusManager.clearFocus()}
     ScreenList(model,bottom) {
         item { ScreenTitle(string(R.string.search),string(R.string.songs_albums_artists_and_playlists)) }
         item { OutlinedTextField(model.searchQuery,{ model.searchQuery=it.take(160) },singleLine=true,shape=RoundedCornerShape(28.dp),
-            label={ Text(string(R.string.search_youtube_music)) },modifier=Modifier.fillMaxWidth().focusRequester(focus).testTag("search_input"),
-            keyboardOptions=KeyboardOptions(imeAction=ImeAction.Search),keyboardActions=KeyboardActions(onSearch={history.record(model.searchQuery);keyboard?.hide()}),
+            label={ Text(string(R.string.search_youtube_music)) },modifier=Modifier.fillMaxWidth().focusRequester(focus).onFocusChanged {typing=it.isFocused}.testTag("search_input"),
+            keyboardOptions=KeyboardOptions(imeAction=ImeAction.Search),keyboardActions=KeyboardActions(onSearch={searchFor(model.searchQuery)}),
             trailingIcon={Row {
                 if(model.searchQuery.isNotEmpty()) IconButton({uiHaptic();model.searchQuery=""},modifier=Modifier.testTag("search_clear")) {Icon(Icons.Rounded.Close,string(R.string.clear_search))}
                 IconButton({ uiHaptic(); if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) voice.start {model.searchQuery=it} else micPermission.launch(Manifest.permission.RECORD_AUDIO)}) {Icon(Icons.Rounded.Mic,string(R.string.voice_search))}
@@ -131,12 +144,20 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
                 }
             }
         }
-        voice.message?.let {item {Text(it,color=Muted,fontSize=12.sp)}}
+        if(typing && !suggestions.isEmpty) {
+            items(suggestions.queries,key={"suggestion:$it"}) {query->
+                SearchSuggestionRow(query,onSearch={searchFor(query)}) {model.searchQuery=query}
+            }
+            items(suggestions.results,key={"quick:${it.key()}"}) {card->CatalogCardRow(card) {open(card);focusManager.clearFocus()}}
+        }
+        voice.message?.let {item {Text(it,color=Muted,fontSize=RiffType.detail)}}
         item {FilterChip(model.searchSort=="Title",{ uiHaptic(HapticCue.Selection); model.searchSort=if(model.searchSort=="Title") "Relevance" else "Title"},label={Text(string(R.string.sort_x, keyLabel(model.searchSort)))})}
         if(loading && cards.isEmpty()) item(key="state:loading") { ListSkeleton(string(R.string.searching)) }
         error?.let { item(key="state:problem") { ContentProblem(it,onRetry={retry++},onSignIn={model.push(Route.Account)}) } }
-        if(!loading && error==null && cards.isEmpty()) item(key="state:empty") { ContentEmpty(if(model.searchQuery.isBlank()) string(R.string.find_your_next_listen) else string(R.string.no_matching_results)) }
-        items(if(model.searchSort=="Title") cards.sortedBy {it.title.lowercase()} else cards,key={it.key()}) { card -> CatalogCardRow(card,onEnqueue={next->scope.launch{enqueueRealTrack(provider,playback,card,next,onNotice)}}) { open(card) } }
+        if(!loading && error==null && cards.isEmpty() && !(typing && !suggestions.isEmpty)) item(key="state:empty") { ContentEmpty(if(model.searchQuery.isBlank()) string(R.string.find_your_next_listen) else string(R.string.no_matching_results)) }
+        val top=if(model.searchSort=="Title") null else searchTopResult(cards,model.searchFilter)
+        top?.let {item(key="top:${it.key()}") {SearchTopResultCard(it) {open(it)}}}
+        items(if(model.searchSort=="Title") cards.sortedBy {it.title.lowercase()} else cards.drop(if(top!=null) 1 else 0),key={it.key()}) { card -> CatalogCardRow(card,onEnqueue={next->scope.launch{enqueueRealTrack(provider,playback,card,next,onNotice)}}) { open(card) } }
         moreError?.let { item(key="state:more") { Text(it,color=White,fontSize=RiffType.body,modifier=Modifier.testTag("load_more_problem")) } }
         if(next!=null) item { Button({ uiHaptic(); 
             val token=next?:return@Button;val query=model.searchQuery;val filter=model.searchFilter;val revision=provider.authRevision

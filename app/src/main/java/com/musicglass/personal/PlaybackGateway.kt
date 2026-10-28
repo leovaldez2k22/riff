@@ -61,6 +61,8 @@ internal interface PlaybackGateway {
     fun setPlaybackSpeed(speed:Float) {}
     /** Q18-096: the open queue reached its last song; asks for more recommendations. */
     fun loadMoreQueue() {}
+    /** Feature 16: the format-level figures of what is playing, or null with no player. */
+    suspend fun nerdStats(): Bundle? = null
     fun pause()
     fun resume()
     /** Tries the selected entry again after a failure, and plays it. */
@@ -264,6 +266,15 @@ internal class MusicPlaybackGateway(context: Context,
         player.sendCustomCommand(SessionCommand(RETRY_PLAYBACK, Bundle.EMPTY), Bundle().apply { putString("entry", player.currentMediaItem?.entryId().orEmpty()) })
     }
     override fun retry() { transport(true); withPlayer { commandError = null; start(it) } }
+    override suspend fun nerdStats(): Bundle? {
+        val player = controller ?: return null
+        val result = kotlinx.coroutines.suspendCancellableCoroutine<SessionResult?> { done ->
+            val command = player.sendCustomCommand(SessionCommand(GET_NERD_STATS, Bundle.EMPTY), Bundle.EMPTY)
+            command.addListener({ done.resumeWith(Result.success(runCatching { command.get() }.getOrNull())) }, appContext.mainExecutor)
+            done.invokeOnCancellation { command.cancel(false) }
+        }
+        return result?.takeIf { it.resultCode == SessionResult.RESULT_SUCCESS }?.extras
+    }
     override fun loadMoreQueue() = withPlayer {it.sendCustomCommand(SessionCommand(LOAD_MORE_QUEUE,Bundle.EMPTY),Bundle.EMPTY)}
     override fun setSleepTimer(minutes:Int) = withPlayer {it.sendCustomCommand(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY),Bundle().apply {putInt("minutes",minutes)})}
     override fun setSleepTimerSongs(songs:Int) = withPlayer {it.sendCustomCommand(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY),Bundle().apply {putInt("songs",songs)})}

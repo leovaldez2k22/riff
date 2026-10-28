@@ -116,6 +116,7 @@ internal class YouTubeMusicProvider(context: Context,
     override suspend fun homeSections(mood:String)=catalog.homeSections(mood)
     suspend fun search(query:String)=catalog.search(query)
     suspend fun searchPage(query:String,nextToken:String?=null)=catalog.searchPage(query,nextToken)
+    suspend fun searchSuggestions(query:String)=catalog.searchSuggestions(query)
     suspend fun likedSongsPage(nextToken:String?=null)=catalog.likedSongsPage(nextToken)
     suspend fun likedSongsCount(onCount:(Int)->Unit={})=catalog.likedSongsCount(onCount)
     suspend fun artistFor(track:ProviderTrack)=catalog.artistFor(track)

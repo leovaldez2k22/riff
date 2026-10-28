@@ -42,6 +42,33 @@ class MusicPlaybackService : MediaSessionService() {
     private val sleepSongs=SleepSongs()
     /** Feature 15: songs and episodes keep their own speed. */
     private val speeds by lazy {PlaybackSpeeds(this)}
+    /** Feature 16: decoder, dropouts and the network estimate for the stats for nerds panel. */
+    private val nerdStats=NerdStatsCollector()
+    /** Feature 23: Like and Shuffle on the notification and lock screen; sent again only when they change. */
+    private var mediaButtonState:MediaButtonState?=null
+    private val buttonVideoId=androidx.compose.runtime.mutableStateOf("")
+    private fun refreshMediaButtons() {
+        val player=mainPlayer?:return
+        val id=player.currentMediaItem?.mediaId?.takeIf {it.startsWith("yt:")}?.removePrefix("yt:").orEmpty()
+        buttonVideoId.value=id
+        val state=MediaButtonState(likeable=id.isNotEmpty() && provider.signedIn && !isLive(player.currentMediaItem),
+            liked=provider.songLikes[id]==true,shuffle=player.shuffleModeEnabled)
+        if(state==mediaButtonState) return
+        mediaButtonState=state
+        session?.setMediaButtonPreferences(mediaButtons(state))
+    }
+    private fun isLive(item:MediaItem?)=item?.mediaMetadata?.extras?.getBoolean("live")==true
+    private fun pressMediaButton(player:Player,action:String):Int {
+        if(action==TOGGLE_SHUFFLE) {player.shuffleModeEnabled=!player.shuffleModeEnabled;return SessionResult.RESULT_SUCCESS}
+        val id=buttonVideoId.value
+        if(id.isEmpty() || !provider.signedIn) return SessionError.ERROR_NOT_SUPPORTED
+        val liked=provider.songLikes[id]==true
+        serviceScope.launch {
+            provider.setSongLike(id,!liked).onFailure {events.append("media_button_like_failed")}
+            refreshMediaButtons()
+        }
+        return SessionResult.RESULT_SUCCESS
+    }
     private fun isMusic(item:MediaItem?)=item?.mediaMetadata?.extras?.getBoolean("music",true)!=false
     /** Points the timer's deadline at the end of the last counted song, so the fade leads up to it. */
     private fun rearmSleepSong() {
@@ -137,6 +164,7 @@ class MusicPlaybackService : MediaSessionService() {
                 mainPlayer?.let {p->(0 until p.mediaItemCount).any {p.getMediaItemAt(it).mediaId.removePrefix("yt:")==id}}?:false}},events=events)}
         }
         persistence.start()
+        serviceScope.launch {androidx.compose.runtime.snapshotFlow {provider.songLikes[buttonVideoId.value]}.collect {refreshMediaButtons()}}
         val mediaFactory = sources
         audio.start()
         val renderers = audio.renderers()
@@ -155,11 +183,12 @@ class MusicPlaybackService : MediaSessionService() {
                 androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.Builder()
                     .setAudioOffloadMode(androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED).build()).build()
             setHandleAudioBecomingNoisy(true)
+            addAnalyticsListener(nerdStats)
             audio.attach(this)
             repeatMode = Player.REPEAT_MODE_OFF
             addListener(object : Player.Listener {
                 override fun onAudioSessionIdChanged(audioSessionId: Int) = audio.audioSessionChanged(audioSessionId)
-                override fun onEvents(player: Player,events: Player.Events) {audio.update();persistence.save(player);publishState();RiffWidgets.publish(this@MusicPlaybackService,player);sources.lookUpNext(player)}
+                override fun onEvents(player: Player,events: Player.Events) {refreshMediaButtons();audio.update();persistence.save(player);publishState();RiffWidgets.publish(this@MusicPlaybackService,player);sources.lookUpNext(player)}
                 override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
                     if(reason==Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) order.edited()
                 }
@@ -225,13 +254,19 @@ class MusicPlaybackService : MediaSessionService() {
             .setCallback(object : MediaSession.Callback {
             override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
                 // Another app: transport and reading, not rewriting the queue, and none of the app's own commands.
-                if (!isOwnController(controller.packageName, controller.uid, packageName, android.os.Process.myUid()))
-                    return MediaSession.ConnectionResult.AcceptedResultBuilder(session).setAvailablePlayerCommands(foreignPlayerCommands()).build()
+                if (!isOwnController(controller.packageName, controller.uid, packageName, android.os.Process.myUid())) {
+                    val accepted=MediaSession.ConnectionResult.AcceptedResultBuilder(session).setAvailablePlayerCommands(foreignPlayerCommands())
+                    // Feature 23: the lock screen and the car may press Like and Shuffle.
+                    if(mayPressMediaButtons(session,controller,own=false)) accepted.setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
+                        .buildUpon().apply {mediaButtonCommands.forEach {add(SessionCommand(it,Bundle.EMPTY))}}.build())
+                    return accepted.build()
+                }
                 return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                     .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
                         .buildUpon().add(SessionCommand(PLAY_PROVIDER_STREAM, Bundle.EMPTY))
                         .add(SessionCommand(PLAY_LOCAL_AUDIO, Bundle.EMPTY)).add(SessionCommand(RETRY_PLAYBACK, Bundle.EMPTY))
-                        .add(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY)).add(SessionCommand(RESTORE_SAVED_QUEUE,Bundle.EMPTY)).add(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY)).add(SessionCommand(LOAD_MORE_QUEUE,Bundle.EMPTY)).build())
+                        .add(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY)).add(SessionCommand(RESTORE_SAVED_QUEUE,Bundle.EMPTY)).add(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY)).add(SessionCommand(LOAD_MORE_QUEUE,Bundle.EMPTY)).add(SessionCommand(GET_NERD_STATS,Bundle.EMPTY))
+                        .apply {mediaButtonCommands.forEach {add(SessionCommand(it,Bundle.EMPTY))}}.build())
                     .build()
             }
 
@@ -239,8 +274,12 @@ class MusicPlaybackService : MediaSessionService() {
                 controller: MediaSession.ControllerInfo, customCommand: SessionCommand,
                 args: Bundle): ListenableFuture<SessionResult> {
                 if (!isOwnController(controller.packageName, controller.uid, packageName, android.os.Process.myUid())) {
-                    return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
+                    // Feature 23: the lock screen and the car may press Like and Shuffle; nothing else of the app's.
+                    if(!mayPressMediaButtons(session,controller,own=false)) return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
+                    return Futures.immediateFuture(if(customCommand.customAction in mediaButtonCommands) SessionResult(pressMediaButton(player,customCommand.customAction))
+                        else SessionResult(SessionError.ERROR_PERMISSION_DENIED))
                 }
+                if(customCommand.customAction in mediaButtonCommands) return Futures.immediateFuture(SessionResult(pressMediaButton(player,customCommand.customAction)))
                 if(customCommand.customAction==SET_SLEEP_TIMER) {
                     val songs=args.getInt("songs",0)
                     if(songs>0) {
@@ -255,6 +294,8 @@ class MusicPlaybackService : MediaSessionService() {
                     sleepTimer.set(minutes)
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
+                if(customCommand.customAction==GET_NERD_STATS)
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS,nerdStatsBundle(player,nerdStats)))
                 if(customCommand.customAction==LOAD_MORE_QUEUE) {
                     queue.replenish(player,onDemand=true)
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))

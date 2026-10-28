@@ -126,7 +126,7 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         val videoUri = stream.sabrVideoBootstrap?.let { val key = UUID.randomUUID().toString(); sabrSelections[key] = it; Uri.parse("sabrvideo://$key") }
             ?: stream.videoUrl?.let(Uri::parse)
         videoUri?.let { streamHeaders[it.toString()] = stream.headers.filterKeys { k -> k.lowercase() in STREAM_HEADERS } }
-        val extra = Bundle().apply { putString(ENTRY_ID, entryId); putString("videoUri", videoUri?.toString()); putBoolean("video", videoUri != null || track.isLive || stream.includesVideo); putString("artistId", track.artistId); putString("albumId", track.albumId); putBoolean("live", track.isLive); putString("profileId", stream.profileId); putString("sourceVideoId", stream.sourceVideoId ?: track.videoId); putBoolean("music", track.isMusic) }
+        val extra = Bundle().apply { putString(ENTRY_ID, entryId); putString("videoUri", videoUri?.toString()); putBoolean("video", videoUri != null || track.isLive || stream.includesVideo); putString("artistId", track.artistId); putString("albumId", track.albumId); putBoolean("live", track.isLive); putString("profileId", stream.profileId); putString("sourceVideoId", stream.sourceVideoId ?: track.videoId); putBoolean("music", track.isMusic); putInt("itag", stream.itag); putInt("bitrate", stream.bitrate) }
         val hls = stream.mimeType?.contains("mpegurl", true) == true
         // HLS forbids MediaItem custom cache keys; live/video also bypass the audio cache.
         val cacheKey = if (!hls && !track.isLive && !stream.includesVideo && videoUri == null)

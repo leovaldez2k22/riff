@@ -208,6 +208,8 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     if(sleepTimerVisible) SleepTimerDialog(playback) {sleepTimerVisible=false}
     var speedVisible by remember {mutableStateOf(false)}
     if(speedVisible) PlaybackSpeedDialog(playback) {speedVisible=false}
+    var nerdStatsVisible by remember {mutableStateOf(false)}
+    if(nerdStatsVisible) NerdStatsDialog(playback,onNotice) {nerdStatsVisible=false}
     var moreExpanded by remember(state.mediaId) { mutableStateOf(false) }
     var moreAnchor by remember { mutableStateOf<androidx.compose.ui.unit.IntRect?>(null) }
     var creditsVisible by remember(state.mediaId) { mutableStateOf(false) }
@@ -418,8 +420,8 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 PlayerActionMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }, anchorBounds=moreAnchor) {
                     if(state.source=="YouTube Music") DownloadSongAction(providerTrack(),onNotice,onDismiss={moreExpanded=false})
                     val options = if (state.source == "YouTube Music")
-                        listOf("View credits", "Add to playlist", "Share song", "View album", "View artist", "Favorite", "Play next", "Add to queue", if(keptOnPhone) "Remove from Saved on this phone" else "Save on this phone", "Library shortcuts", "Sleep timer", "Playback speed", if(providerTrack().videoId in pins) "Unpin from speed dial" else "Pin to speed dial") + (if(hasQueue) listOf("Remove from queue") else emptyList()) + (if(state.live) emptyList() else listOf("Not interested"))
-                        else listOf("Library shortcuts", "View credits", "Sleep timer", "Playback speed")
+                        listOf("View credits", "Add to playlist", "Share song", "View album", "View artist", "Favorite", "Play next", "Add to queue", if(keptOnPhone) "Remove from Saved on this phone" else "Save on this phone", "Library shortcuts", "Sleep timer", "Playback speed", "Stats for nerds", if(providerTrack().videoId in pins) "Unpin from speed dial" else "Pin to speed dial") + (if(hasQueue) listOf("Remove from queue") else emptyList()) + (if(state.live) emptyList() else listOf("Not interested"))
+                        else listOf("Library shortcuts", "View credits", "Sleep timer", "Playback speed", "Stats for nerds")
                     options.forEach { option ->
                         SongActionItem(if(option=="Sleep timer" && state.sleepDeadlineMs>0) string(R.string.sleep_timer_x_min, sleepMinutesRemaining(state.sleepDeadlineMs,android.os.SystemClock.elapsedRealtime())) else option, onClick = { 
                             moreExpanded = false
@@ -440,6 +442,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                                 "Add to playlist" -> playlistTrack=providerTrack()
                                 "Sleep timer" -> sleepTimerVisible=true
                                 "Playback speed" -> speedVisible=true
+                                "Stats for nerds" -> nerdStatsVisible=true
                                 "Library shortcuts" -> onLibrary()
                                 "Share song" -> share("${state.title} \u00B7 ${state.artist}\nhttps://music.youtube.com/watch?v=${providerTrack().videoId}")
                                 "View credits" -> creditsVisible = true

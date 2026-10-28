@@ -199,6 +199,12 @@ internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult, ret
                     { on -> uiHaptic(); setKeepEncoreTotals(context, on); keepTotals = on },
                     Icons.Rounded.BarChart, "privacy_keep_encore_totals", string(R.string.keep_encore_totals_detail))
                 SettingsDivider()
+                // Feature 24: typing in Search is sent to YouTube Music as it is typed, for suggestions.
+                var suggestOn by remember { mutableStateOf(searchSuggestionsOn(context)) }
+                SettingsToggleRow(string(R.string.search_suggestions), suggestOn,
+                    { on -> uiHaptic(); setSearchSuggestionsOn(context, on); suggestOn = on },
+                    Icons.Rounded.Search, "privacy_search_suggestions", string(R.string.search_suggestions_detail))
+                SettingsDivider()
                 if (verified) SettingsLinkRow(string(R.string.clear_history_of_x, owner), found?.let { quantity(R.plurals.n_plays, it.accountPlays) }, Icons.Rounded.History,
                     "privacy_clear_account_history") { ask(PrivacyAction.ClearAccountHistory, found?.accountPlays ?: 0) }
                 else Text(string(R.string.riff_could_not_verify_this_account_so_2), color = Muted, fontSize = 13.sp,

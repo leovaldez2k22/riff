@@ -237,10 +237,10 @@ private data class DownloadListing(val entries:List<DownloadDisplay>,val used:Lo
                     label={Text(name,fontSize=12.sp)},modifier=Modifier.testTag("downloads_filter_${name.lowercase()}"))}
             }
         }
+        // Feature 28: the shared empty look, with the reason in its title.
         if(loaded && visible.isEmpty()) item {
-            Text(if(query.isNotBlank()) string(R.string.no_songs_match_this_search) else if(entries.isEmpty()) string(R.string.download_a_song_from_its_menu_or)
-                else if(filter=="Pending") string(R.string.all_downloads_are_ready) else string(R.string.no_downloaded_songs_yet),color=White.copy(alpha=.7f),fontSize=14.sp,
-                modifier=Modifier.padding(horizontal=24.dp,vertical=20.dp))
+            EmptyState(Icons.Rounded.DownloadDone,if(query.isNotBlank()) string(R.string.no_songs_match_this_search) else if(entries.isEmpty()) string(R.string.download_a_song_from_its_menu_or)
+                else if(filter=="Pending") string(R.string.all_downloads_are_ready) else string(R.string.no_downloaded_songs_yet))
         }
         itemsIndexed(visible,key={_,entry->entry.song.track.videoId}) {index,entry->
             val song=entry.song;var menu by remember(song.track.videoId) {mutableStateOf(false)}

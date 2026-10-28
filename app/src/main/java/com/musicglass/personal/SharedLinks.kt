@@ -60,4 +60,12 @@ internal fun sharedTargetOf(intent: Intent?): SharedTarget? = when (intent?.acti
 /** Links waiting for the shell; MainActivity puts them here and RiffApp takes them. */
 internal object SharedLinkInbox {
     val pending = MutableStateFlow<SharedTarget?>(null)
+    /** Feature 27: an app shortcut or the Quick Settings tile asked for this. */
+    val shortcut = MutableStateFlow<AppShortcut?>(null)
+}
+
+/** What MainActivity reads from any intent it is started or brought forward with. */
+internal fun deliverIntent(intent: Intent?) {
+    sharedTargetOf(intent)?.let { SharedLinkInbox.pending.value = it }
+    appShortcutOf(intent)?.let { SharedLinkInbox.shortcut.value = it }
 }

@@ -158,9 +158,10 @@ not written, because a test in the app's own package runs with the app's user id
 - cleartext is off and there is no network security override;
 - the app is not debuggable, not test-only, not profileable from the shell, has no shared user id and no
   instrumentation entry;
-- the exported components are exactly four: `MainActivity` (launcher), `MusicPlaybackService` (above),
-  Media3's `BluetoothValidationActivity` (callers need `BLUETOOTH_PRIVILEGED`), and the profile installer's
-  receiver (callers need `DUMP`, which only the shell has);
+- the exported components are exactly five: `MainActivity` (launcher), `MusicPlaybackService` (above),
+  Media3's `BluetoothValidationActivity` (callers need `BLUETOOTH_PRIVILEGED`), the profile installer's
+  receiver (callers need `DUMP`, which only the shell has), and the Quick Settings tile `PlaybackTile`
+  (callers need `BIND_QUICK_SETTINGS_TILE`, which only the system holds; Feature 27);
 - no provider is exported or grants URI access;
 - the permissions are exactly the twelve reviewed ones;
 - no class, file or manifest entry from the test, stress, fixture or benchmark builds is inside;

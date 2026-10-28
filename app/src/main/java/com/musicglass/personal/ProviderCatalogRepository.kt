@@ -109,6 +109,14 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
             }
         }
     }
+    /** Feature 24: suggestions for the words typed so far; light enough not to wait behind the search pacing. */
+    suspend fun searchSuggestions(query: String): Result<SearchSuggestions> = providerResult {
+        val revision = authRevision
+        val response = innerTube.getSearchSuggestions(YouTubeClient.WEB_REMIX, query.trim().take(100), signedIn)
+        if (response.status.value >= 400) throw ProviderHttpException(response.status.value)
+        check(revision == authRevision) { string(R.string.account_changed_while_searching) }
+        parseSearchSuggestions(json.parseToJsonElement(response.bodyAsText()), query)
+    }
     suspend fun discover(query: String)=discover(query,null,"All")
     suspend fun discover(query: String, filter: String)=discover(query,null,filter)
     suspend fun discover(query: String, token: String?, filter: String): Result<CatalogPage> = providerResult {

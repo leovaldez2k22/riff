@@ -18,6 +18,7 @@ def manifest(application="", body="", permissions=None, package="com.musicglass.
               component("service", "com.musicglass.personal.MusicPlaybackService", "true"),
               component("activity", "androidx.media3.session.BluetoothValidationActivity", "true", "android.permission.BLUETOOTH_PRIVILEGED"),
               component("receiver", "androidx.profileinstaller.ProfileInstallReceiver", "true", "android.permission.DUMP"),
+              component("service", "com.musicglass.personal.PlaybackTile", "true", "android.permission.BIND_QUICK_SETTINGS_TILE"),
               component("service", "com.musicglass.personal.SolverService", "false"), body]
     return content.parse_tree("\n".join(line for line in lines if line))
 
@@ -90,14 +91,14 @@ class ManifestChecks(unittest.TestCase):
         self.assertTrue(any("profileable" in text for text in failures(manifest(body=shell))))
 
     def test_a_new_exported_component_or_a_lost_permission_guard_fails(self):
-        self.assertTrue(any("reviewed four" in text for text in failures(manifest(body=component("activity", "com.musicglass.personal.ShareActivity", "true")))))
+        self.assertTrue(any("reviewed five" in text for text in failures(manifest(body=component("activity", "com.musicglass.personal.ShareActivity", "true")))))
         unguarded = manifest()
         receiver = [item for item in unguarded.all("receiver") if item.get("name").endswith("ProfileInstallReceiver")][0]
         del receiver.attributes[A + "permission"]
-        self.assertTrue(any("reviewed four" in text for text in failures(unguarded)))
+        self.assertTrue(any("reviewed five" in text for text in failures(unguarded)))
         unexported = manifest()
         [item for item in unexported.all("service") if item.get("name").endswith("MusicPlaybackService")][0].attributes[A + "exported"] = "false"
-        self.assertTrue(any("reviewed four" in text for text in failures(unexported)))
+        self.assertTrue(any("reviewed five" in text for text in failures(unexported)))
         implicit = component("receiver", "com.musicglass.personal.Boot", None, extra="              E: intent-filter (line=41)")
         self.assertTrue(any("exported is stated" in text for text in failures(manifest(body=implicit))))
 

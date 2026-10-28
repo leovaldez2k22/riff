@@ -54,6 +54,7 @@ private val keyLabels: Map<String, Int> = mapOf(
     "Share song" to R.string.share_song,
     "Sleep timer" to R.string.sleep_timer,
     "Playback speed" to R.string.playback_speed,
+    "Stats for nerds" to R.string.stats_for_nerds,
     "Songs" to R.string.songs,
     "Sports" to R.string.sports,
     "Tech" to R.string.tech,

@@ -72,19 +72,32 @@ internal fun HomeFeedSkeleton(modifier: Modifier = Modifier) {
             Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
                 SkeletonHeading(pulse)
                 Row(Modifier.padding(start = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    repeat(3) {
-                        Column(Modifier.width(150.dp)) {
-                            SkeletonBlock(pulse, Modifier.fillMaxWidth().aspectRatio(1f), 15.dp)
-                            Spacer(Modifier.height(9.dp))
-                            SkeletonBlock(pulse, Modifier.width(120.dp).height(12.dp), 6.dp)
-                            Spacer(Modifier.height(6.dp))
-                            SkeletonBlock(pulse, Modifier.width(80.dp).height(10.dp), 5.dp)
-                        }
-                    }
+                    repeat(3) { SkeletonCard(pulse, 150.dp) }
                 }
             }
         }
     }
+}
+
+/** A square card with its title and subtitle lines, the size of a HomeCardShelf card [width] wide. */
+@Composable
+private fun SkeletonCard(pulse: State<Float>, width: Dp) {
+    Column(Modifier.width(width)) {
+        SkeletonBlock(pulse, Modifier.fillMaxWidth().aspectRatio(1f), 15.dp)
+        Spacer(Modifier.height(9.dp))
+        SkeletonBlock(pulse, Modifier.width(120.dp).height(12.dp), 6.dp)
+        Spacer(Modifier.height(6.dp))
+        SkeletonBlock(pulse, Modifier.width(80.dp).height(10.dp), 5.dp)
+    }
+}
+
+/** Feature 28: one card shelf still loading, in place of the "Loading from YouTube Music" line. */
+@Composable
+internal fun CardShelfSkeleton(width: Dp, modifier: Modifier = Modifier) {
+    val pulse = rememberSkeletonPulse()
+    Row(modifier.padding(start = RiffSpace.screenEdge).testTag("card_shelf_skeleton").clearAndSetSemantics {
+        contentDescription = string(R.string.loading_from_youtube_music); liveRegion = LiveRegionMode.Polite
+    }, horizontalArrangement = Arrangement.spacedBy(RiffSpace.rowGap)) { repeat(3) { SkeletonCard(pulse, width) } }
 }
 
 /** One shared pulse for a whole placeholder; a fixed value under reduced motion. */

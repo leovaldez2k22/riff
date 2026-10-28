@@ -1,6 +1,5 @@
 package com.musicglass.personal
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -178,6 +177,25 @@ internal fun RiffApp() {
             }, onFailure = { snackbar.showSnackbar(it.message ?: string(R.string.link_could_not_open)) })
         }
     }
+    // Feature 27: app shortcuts and the Quick Settings tile; Resume names the song that is loaded.
+    val pendingShortcut by SharedLinkInbox.shortcut.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingShortcut) {
+        val which = pendingShortcut ?: return@LaunchedEffect
+        SharedLinkInbox.shortcut.value = null
+        model.sheet = ""
+        when (which) {
+            AppShortcut.Search -> { model.select("Search"); model.searchFocusRequest++ }
+            AppShortcut.Downloads -> model.push(Route.Downloads)
+            AppShortcut.ShuffleLiked -> if (!provider.signedIn) { model.select("Library"); model.resetRoot("Library"); model.libraryFilter = "Favorites" }
+                else provider.likedSongsPage().fold(onSuccess = { page ->
+                    if (page.tracks.isEmpty()) snackbar.showSnackbar(string(R.string.no_liked_songs))
+                    else playback.playCollection(page.tracks, 0, string(R.string.liked_songs), shuffle = true)
+                }, onFailure = { snackbar.showSnackbar(it.message ?: string(R.string.could_not_load_liked_songs)) })
+            AppShortcut.Resume -> if (playback.state.queue.isNotEmpty()) playback.resume() else playback.restoreSavedQueue { if (it) playback.resume() }
+        }
+    }
+    val resumeTitle = playback.state.title
+    LaunchedEffect(resumeTitle) { withContext(Dispatchers.IO) { publishAppShortcuts(context, resumeTitle) } }
     val scope = rememberCoroutineScope()
     val cardPeek = remember(scope) { CardPeekController(scope) }
     // Where the player is between the mini bar and the full screen. Its frames are read through lambdas and
@@ -232,15 +250,17 @@ internal fun RiffApp() {
     val categoryChips = remember { mutableStateMapOf<String, GlassChipStyle>() }
     val backdropLayer=androidx.compose.ui.graphics.rememberGraphicsLayer()
     val frostedBackdrop=remember(backdropLayer) {FrostedBackdrop(backdropLayer)}
-    BackHandler(enabled = !keyboardOpen && (model.sheet.isNotEmpty() || model.route.isNotEmpty() || model.tab != "Home")) {
-        model.back()
-    }
+    // Feature 22: the gesture previews the close of the player, or the way back from a pushed page.
+    val backGesture = RiffBackHandler(enabled = !keyboardOpen && (model.sheet.isNotEmpty() || model.route.isNotEmpty() || model.tab != "Home"),
+        reduced = motion.reduced) { model.back() }
+    val pagePreview = if (model.sheet.isEmpty() && model.route.isNotEmpty()) Modifier.pageBackPreview(backGesture) else Modifier
 
     CompositionLocalProvider(LocalGlassBounds provides categoryBounds,LocalGlassChips provides categoryChips,
         LocalFrostedBackdrop provides frostedBackdrop,LocalFrostedIntensity provides if(accessibility.solidControls) -1f else accessibility.frostedIntensity,
         LocalSongCrossfade provides SongCrossfadeState.active,
         androidx.compose.foundation.LocalOverscrollFactory provides StretchOverscrollFactory,LocalAccessibilitySettings provides accessibility,LocalStatusBarRequests provides statusBar,
-        LocalMotionPolicy provides motion,LocalCardPeek provides cardPeek) {
+        LocalMotionPolicy provides motion,LocalCardPeek provides cardPeek,
+        LocalOpenDownloads provides { model.sheet = ""; model.push(Route.Downloads) }) {
     RiffTheme {
         SharedTransitionLayout {
         CompositionLocalProvider(LocalLyricsSharedScope provides this) {
@@ -250,6 +270,7 @@ internal fun RiffApp() {
             .semantics { testTagsAsResourceId = true }) {
             GlassScene(categoryBounds,categoryChips,area,density,compact,showMini,sceneHasChrome,bottomInset,
                 model.tab,model.route,accessibility) {
+                Box(Modifier.fillMaxSize().then(pagePreview)) {
                 ShellScene(model, compact, sceneHasChrome, playback, collections, provider,
                     ambient,
                     onNotice = { scope.launch { snackbar.showSnackbar(it) } },
@@ -260,6 +281,7 @@ internal fun RiffApp() {
                             kotlin.math.abs(old.top - bounds.top) > .5f || old.size != bounds.size)
                             categoryBounds[label] = bounds
                     })
+                }
                 // Feature 11: inside the glass scene, so the floating bar refracts the darkened page, not a darker band.
                 EdgeFades(highContrast = accessibility.solidControls)
             }
@@ -284,7 +306,7 @@ internal fun RiffApp() {
             AnimatedVisibility(visible=model.sheet!="lyrics",
                 enter=fadeIn(GlassMotion.timed(GlassMotion.playerMs,motion)) + slideInVertically(GlassMotion.timed(GlassMotion.playerMs,motion)) { -it/14 },
                 exit=fadeOut(GlassMotion.exit(GlassMotion.playerMs,motion)) + slideOutVertically(GlassMotion.exit(GlassMotion.playerMs,motion)) { -it/14 },
-                modifier=Modifier.fillMaxSize()) {
+                modifier=Modifier.fillMaxSize().playerBackPreview(backGesture)) {
             CompositionLocalProvider(LocalLyricsVisibilityScope provides this) {
             if (showPlayer) {
                 PlayerMorphHost({ playerMorph.position.value }, model, compact, playback, collections,
@@ -339,7 +361,7 @@ internal fun RiffApp() {
                 CompositionLocalProvider(LocalLyricsVisibilityScope provides this) {
                 // Touches that no lyrics control takes stop here: before, a tap between the controls at the bottom
                 // reached the home page underneath and could start one of its songs.
-                Box(Modifier.fillMaxSize().background(Color.Black).blockTouchesBelow().testTag("lyrics_screen")) {
+                Box(Modifier.fillMaxSize().playerBackPreview(backGesture).background(Color.Black).blockTouchesBelow().testTag("lyrics_screen")) {
                     LyricsPanel(playback, provider, lyricsRepository, onBack = { model.sheet = "mini" })
                 }
                 }

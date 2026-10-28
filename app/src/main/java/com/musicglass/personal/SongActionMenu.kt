@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.sp
         "View artist"->Icons.Rounded.Person;"View album"->Icons.Rounded.Album
         "Play next"->Icons.Rounded.PlaylistPlay;"Add to queue"->Icons.Rounded.QueueMusic
         "Add to playlist"->Icons.Rounded.PlaylistAdd;"Share song","Share"->Icons.Rounded.Share
-        "Sleep timer"->Icons.Rounded.Bedtime;"Playback speed"->Icons.Rounded.Speed;"View credits"->Icons.Rounded.Info;"Favorite"->Icons.Rounded.StarBorder
+        "Sleep timer"->Icons.Rounded.Bedtime;"Playback speed"->Icons.Rounded.Speed;"Stats for nerds"->Icons.Rounded.Analytics;"View credits"->Icons.Rounded.Info;"Favorite"->Icons.Rounded.StarBorder
         "Download details"->Icons.Rounded.Info;"Resume download","Retry missing assets"->Icons.Rounded.Refresh
         "Keep downloaded"->Icons.Rounded.DownloadDone;"Pause download"->Icons.Rounded.Pause;"Remove download"->Icons.Rounded.DeleteOutline
         "Download song"->Icons.Rounded.Download;"Not interested"->Icons.Rounded.Block;"Open"->Icons.Rounded.OpenInNew;"Remove from queue"->Icons.Rounded.DeleteOutline

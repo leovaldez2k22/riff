@@ -19,6 +19,7 @@
         android:name=".RiffApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
@@ -54,6 +55,10 @@
                 <data android:host="youtube.com" />
                 <data android:host="youtu.be" />
             </intent-filter>
+            <!-- Feature 27: long-pressing Riff's Quick Settings tile opens Riff. -->
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -71,6 +76,18 @@
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
+        </service>
+        <!-- Feature 27: play and pause from Quick Settings. -->
+        <service
+            android:name=".PlaybackTile"
+            android:exported="true"
+            android:icon="@drawable/tile_riff"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data android:name="android.service.quicksettings.TOGGLEABLE_TILE" android:value="true" />
         </service>
         <!-- QuickJS challenge solving runs here so a native crash can't stop playback. -->
         <service android:name=".SolverService" android:process=":solver" android:exported="false" />

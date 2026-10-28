@@ -52,6 +52,31 @@ internal object RiffMarquee {
     const val restMs = 2_500
 }
 
+/** Feature 22: how far the back gesture's preview moves the player and pushed pages. */
+internal object RiffPredictiveBack {
+    /** At the end of the gesture the player is drawn at 90 %. */
+    const val playerShrink = .1f
+    val playerDrop = 64.dp
+    val playerCorner = 32.dp
+    /** A pushed page moves this share of its width, and fades a little. */
+    const val pageSlide = .15f
+    const val pageFade = .2f
+}
+
+/** Feature 24: the large card for an artist or album at the top of an "All" search. */
+internal object RiffTopResult {
+    val artwork = 88.dp
+    val title = 20.sp
+}
+
+/** Feature 16: the stats for nerds panel. */
+internal object RiffNerdStats {
+    /** The label column, wide enough for "Network estimate". */
+    val label = 128.dp
+    /** Between two rows. */
+    val rowGap = 2.dp
+}
+
 /** Feature 11: the dark fade at the top and bottom of the screen, under the status bar and behind the floating bar. */
 internal object RiffEdgeFade {
     /** Below the status bar, the top fade carries on this far. */
