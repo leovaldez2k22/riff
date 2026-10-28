@@ -1,7 +1,5 @@
 package com.musicglass.personal
 
-import android.graphics.RenderEffect
-import android.graphics.Shader
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -12,7 +10,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
@@ -20,7 +17,10 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlin.math.ceil
 
 /** Popup windows sample the app layer underneath them; their own text stays sharp. */
 internal class FrostedBackdrop(val layer:GraphicsLayer) {
@@ -38,15 +38,16 @@ internal fun Modifier.frostedBackdropSource(backdrop:FrostedBackdrop):Modifier =
         } else drawContent()
     }
 
-@Composable internal fun Modifier.frostedPopupBackground():Modifier {
+/** Feature 2: [cornerRadius] is the popup's own corner, for the Menu lens's rim. */
+@Composable internal fun Modifier.frostedPopupBackground(cornerRadius:Dp=RiffGlassPopup.corner):Modifier {
     val backdrop=LocalFrostedBackdrop.current
     val intensity=LocalFrostedIntensity.current
     val density=LocalDensity.current.density
     val blurred=rememberGraphicsLayer()
     var origin by remember {mutableStateOf(Offset.Zero)}
-    val effect=remember(intensity,density) {
-        if(intensity>0f) RenderEffect.createBlurEffect(22f*density*intensity,22f*density*intensity,Shader.TileMode.CLAMP).asComposeRenderEffect() else null
-    }
+    val style=LocalGlassStyle.current
+    val spec=remember(style) {glassSpec(GlassRole.Menu,style)}
+    val piece=remember {GlassPiece()}
     DisposableEffect(backdrop) {
         backdrop?.let {it.readers++}
         onDispose {backdrop?.let {it.readers--}}
@@ -54,12 +55,16 @@ internal fun Modifier.frostedBackdropSource(backdrop:FrostedBackdrop):Modifier =
     return onGloballyPositioned {origin=it.positionOnScreen()}.drawWithContent {
         if(intensity<0f) drawRect(Color(0xFF2A2B32)) else {
             if(backdrop!=null) {
-                blurred.renderEffect=effect
-                blurred.record {
+                // The owner's frosted-glass blur, bent at the rim by the Menu lens.
+                val blur=22f*density*intensity.coerceAtLeast(0f)
+                val reach=glassReach(blur)
+                val radius=cornerRadius.toPx().coerceAtMost(size.minDimension/2f)
+                blurred.renderEffect=glassEffect(piece,spec,blur,reach,size.width,size.height,radius,density,1f)
+                blurred.record(IntSize(ceil(size.width+2*reach).toInt(),ceil(size.height+2*reach).toInt())) {
                     val offset=backdrop.origin-origin
-                    translate(offset.x,offset.y) {drawLayer(backdrop.layer)}
+                    translate(offset.x+reach,offset.y+reach) {drawLayer(backdrop.layer)}
                 }
-                drawLayer(blurred)
+                translate(-reach,-reach) {drawLayer(blurred)}
             } else drawRect(Color(0xFF171C27).copy(alpha=.92f)) // Q18-046: nothing to blur, so the words beneath would show through.
             // A translucent tint keeps controls readable over bright covers, including at zero blur.
             drawRect(Color(0xFF171C27).copy(alpha=.64f))
@@ -73,6 +78,6 @@ internal fun Modifier.frostedBackdropSource(backdrop:FrostedBackdrop):Modifier =
     text:@Composable ()->Unit,confirmButton:@Composable ()->Unit,dismissButton:(@Composable ()->Unit)?=null,
     modifier:Modifier=Modifier) {
     AlertDialog(onDismissRequest=onDismissRequest,title=title,text=text,confirmButton=confirmButton,
-        dismissButton=dismissButton,modifier=modifier.clip(RoundedCornerShape(28.dp)).frostedPopupBackground(),containerColor=Color.Transparent,
+        dismissButton=dismissButton,modifier=modifier.clip(RoundedCornerShape(28.dp)).frostedPopupBackground(RiffRadius.pill),containerColor=Color.Transparent,
         tonalElevation=0.dp,shape=RoundedCornerShape(28.dp),titleContentColor=White,textContentColor=White)
 }

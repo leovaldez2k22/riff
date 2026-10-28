@@ -16,7 +16,7 @@ internal enum class RootTab {
 
 internal enum class SettingsSection(val wire: String) {
     Main("settings"), PrivacyData("privacy_data"), NotInterested("not_interested"), EarlierData("earlier_data"),
-    Diagnostics("diagnostics"), Equalizer("equalizer")
+    Diagnostics("diagnostics"), Equalizer("equalizer"), GlassGallery("glass_gallery")
 }
 
 /**

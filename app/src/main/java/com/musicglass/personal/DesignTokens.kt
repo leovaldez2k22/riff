@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -72,6 +73,27 @@ internal object RiffTopResult {
 }
 
 /** Feature 34: the redesigned player (sizes from BitChord's, 34.3). */
+/** Feature 2: the glass controls' sizes, after iOS's. */
+internal object RiffGlassControl {
+    /** A slider's thumb at rest; held it grows by [held]. */
+    val thumb = DpSize(30.dp, 20.dp)
+    const val held = .3f
+    val switchTrack = DpSize(51.dp, 31.dp)
+    val switchThumb = 27.dp
+    val switchInset = 2.dp
+    /** How much wider the switch's thumb is halfway across. */
+    const val stretch = .25f
+    val galleryHeight = 520.dp
+    val galleryBar = 64.dp
+    val galleryLens = 96.dp
+    val galleryCard = 110.dp
+}
+
+/** Feature 2: popups' corner when the caller doesn't give one (the song menus'). */
+internal object RiffGlassPopup {
+    val corner = 18.dp
+}
+
 internal object RiffPlayer {
     val title = 26.sp
     val titleTracking = (-.45).sp

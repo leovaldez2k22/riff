@@ -253,6 +253,8 @@ internal fun RiffApp() {
     val glassLayer=androidx.compose.ui.graphics.rememberGraphicsLayer()
     val glassBackdrop=remember(glassLayer) {RiffBackdrop(glassLayer)}
     val glassStyle=rememberGlassStyle(accessibility)
+    // Feature 2: the screens' background, for glass inside a page.
+    val pageBackdrop=rememberRiffBackdrop()
     val frostedBackdrop=remember(backdropLayer) {FrostedBackdrop(backdropLayer)}
     // Feature 22: the gesture previews the close of the player, or the way back from a pushed page.
     val backGesture = RiffBackHandler(enabled = !keyboardOpen && (model.sheet.isNotEmpty() || model.route.isNotEmpty() || model.tab != "Home"),
@@ -260,7 +262,7 @@ internal fun RiffApp() {
     val pagePreview = if (model.sheet.isEmpty() && model.route.isNotEmpty()) Modifier.pageBackPreview(backGesture) else Modifier
 
     CompositionLocalProvider(LocalGlassBounds provides categoryBounds,LocalGlassChips provides categoryChips,
-        LocalFrostedBackdrop provides frostedBackdrop,LocalRiffBackdrop provides glassBackdrop,LocalGlassStyle provides glassStyle,LocalFrostedIntensity provides if(accessibility.solidControls) -1f else accessibility.frostedIntensity,
+        LocalFrostedBackdrop provides frostedBackdrop,LocalRiffBackdrop provides glassBackdrop,LocalPageBackdrop provides pageBackdrop,LocalGlassStyle provides glassStyle,LocalFrostedIntensity provides if(accessibility.solidControls) -1f else accessibility.frostedIntensity,
         LocalSongCrossfade provides SongCrossfadeState.active,
         androidx.compose.foundation.LocalOverscrollFactory provides StretchOverscrollFactory,LocalAccessibilitySettings provides accessibility,LocalStatusBarRequests provides statusBar,
         LocalMotionPolicy provides motion,LocalCardPeek provides cardPeek,

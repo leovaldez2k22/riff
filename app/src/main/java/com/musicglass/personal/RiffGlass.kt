@@ -51,6 +51,18 @@ internal class RiffBackdrop(val layer: GraphicsLayer) {
 
 internal val LocalRiffBackdrop = staticCompositionLocalOf<RiffBackdrop?> { null }
 
+/**
+ * Feature 2: the screens' own background (the artwork-coloured ambient gradient), for glass inside a page. Glass in a
+ * page cannot read the shell's backdrop: that is the page, glass included, and a layer can't draw itself.
+ */
+internal val LocalPageBackdrop = staticCompositionLocalOf<RiffBackdrop?> { null }
+
+/** A backdrop of its own: a screen's background, or a slider's or a switch's track under its glass thumb. */
+@Composable internal fun rememberRiffBackdrop(): RiffBackdrop {
+    val layer = rememberGraphicsLayer()
+    return remember(layer) { RiffBackdrop(layer) }
+}
+
 /** Records what this draws into [backdrop] for the glass above it, while there is glass to read it. */
 internal fun Modifier.riffBackdropSource(backdrop: RiffBackdrop): Modifier =
     onGloballyPositioned { backdrop.origin = it.positionInRoot() }.drawWithContent {
@@ -121,7 +133,7 @@ internal fun glassQuality(sdk: Int, solid: Boolean, powerSave: Boolean, thermalH
 }
 
 /** Per piece of glass: its place on the screen, and its shader when the lens runs. Not snapshot state. */
-private class GlassPiece { var position = Offset.Zero; var lens: Any? = null }
+internal class GlassPiece { var position = Offset.Zero; var lens: Any? = null }
 
 /**
  * Makes this control glass. [cornerRadius] null is a capsule. [zoom] magnifies what the lens shows (the drag lens);
@@ -169,7 +181,7 @@ private class GlassPiece { var position = Offset.Zero; var lens: Any? = null }
     }
 }
 
-private fun glassEffect(piece: GlassPiece, spec: GlassSpec, blur: Float, reach: Float, width: Float, height: Float,
+internal fun glassEffect(piece: GlassPiece, spec: GlassSpec, blur: Float, reach: Float, width: Float, height: Float,
     radius: Float, density: Float, zoom: Float): androidx.compose.ui.graphics.RenderEffect? {
     val blurEffect = if (blur > 0f) RenderEffect.createBlurEffect(blur, blur, Shader.TileMode.CLAMP) else null
     if (!spec.lens || Build.VERSION.SDK_INT < 33) return blurEffect?.asComposeRenderEffect()
@@ -201,8 +213,9 @@ private class GlassLens {
 /*
  * page: the backdrop around the glass, [reach] px of margin on each side. Inside the rim the sample moves toward the
  * centre along the shape's normal (bent by [depth] toward the centre, so it reads as a convex lens), by a quarter-circle
- * profile: little in the middle of the rim, most at the edge. Rim and bend stop at half the short side. The colour fringe samples red further and blue nearer,
- * most at the corners. A light from the top left brightens the rim.
+ * profile: little in the middle of the rim, most at the edge. The rim stops at half the short side, the bend at 0.6
+ * of the rim. The colour fringe samples red further and blue nearer, most at the corners. A light from the top left
+ * brightens the rim.
  */
 private const val GLASS_SHADER = """
     uniform shader page;
@@ -229,12 +242,12 @@ private const val GLASS_SHADER = """
         float2 centre = float2(reach) + b;
         float2 base = centre + p / zoom;
         float inner = -d;
-        // Never bend further than half the short side, or the edge would read past the centre and fold the image.
-        float limit = 0.5 * min(b.x, b.y);
-        float band = min(rim, limit);
+        // The rim is at most half the short side, or the edge would read past the centre. The bend is at most 0.6
+        // of the rim: bending by the whole rim folds it back over itself, a second ring inside a round lens.
+        float band = min(rim, 0.5 * min(b.x, b.y));
         if (inner >= band) return page.eval(base);
         float x = 1.0 - max(inner, 0.0) / band;
-        float amount = (1.0 - sqrt(max(1.0 - x * x, 0.0))) * min(bend, limit);
+        float amount = (1.0 - sqrt(max(1.0 - x * x, 0.0))) * min(bend, 0.6 * band);
         float e = 0.5;
         float2 g = float2(box(p + float2(e, 0.0), b, r) - box(p - float2(e, 0.0), b, r),
                           box(p + float2(0.0, e), b, r) - box(p - float2(0.0, e), b, r));

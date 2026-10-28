@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -260,8 +261,9 @@ import kotlinx.coroutines.withContext
     val turn by animateFloatAsState(if(open) 180f else 0f,GlassMotion.timed(GlassMotion.screenMs,motion),label="compartment chevron")
     val openText=string(R.string.settings_group_open);val closedText=string(R.string.settings_group_closed)
     val shape=RoundedCornerShape(24.dp)
-    Column(Modifier.fillMaxWidth().padding(vertical=RiffSpace.tight).clip(shape)
-        .background(Brush.linearGradient(listOf(White.copy(alpha=.10f),White.copy(alpha=.035f))))
+    // Feature 2: glass over the screen's artwork-coloured background, keeping a little of the old light from the top left.
+    Column(Modifier.fillMaxWidth().padding(vertical=RiffSpace.tight).riffGlass(GlassRole.Card,RiffRadius.hero,backdrop=LocalPageBackdrop.current).clip(shape)
+        .background(Brush.linearGradient(listOf(White.copy(alpha=.05f),Color.Transparent)))
         .border(.6.dp,edge,shape)) {
         Row(Modifier.fillMaxWidth().heightIn(min=64.dp).testTag("settings_group_$id")
             .clickable(role=Role.Button,onClick=hapticClick(onToggle))
@@ -290,8 +292,9 @@ import kotlinx.coroutines.withContext
     Column(Modifier.fillMaxWidth().padding(top=10.dp,bottom=RiffSpace.tight),verticalArrangement=Arrangement.spacedBy(RiffSpace.item)) {
         Text(title.uppercase(),color=Muted,fontSize=RiffType.detail,fontWeight=FontWeight.SemiBold,letterSpacing=.8.sp,
             modifier=Modifier.padding(start=RiffSpace.item).semantics {heading()})
-        Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(24.dp),color=White.copy(alpha=.045f),
-            border=BorderStroke(.6.dp,White.copy(alpha=.08f))) {
+        // Feature 2: a glass card over the screen's artwork-coloured background.
+        Surface(Modifier.fillMaxWidth().riffGlass(GlassRole.Card,RiffRadius.hero,backdrop=LocalPageBackdrop.current),
+            shape=RoundedCornerShape(RiffRadius.hero),color=Color.Transparent) {
             Column(Modifier.padding(horizontal=RiffSpace.block,vertical=RiffSpace.tight),content=content)
         }
     }
@@ -328,7 +331,7 @@ internal fun songQualityLabel(choice:SongQuality) = string(when(choice) {
             Text(title,color=White,style=RiffText.settingsRow)
             if(subtitle!=null) Text(subtitle,color=White.copy(alpha=.55f),style=RiffText.settingsHelp,modifier=Modifier.padding(top=3.dp))
         }
-        Switch(checked,onCheckedChange=null)
+        GlassSwitch(checked)
     }
 }
 @Composable internal fun SettingsLinkRow(title:String,value:String?=null,icon:ImageVector,tag:String,onClick:()->Unit) {

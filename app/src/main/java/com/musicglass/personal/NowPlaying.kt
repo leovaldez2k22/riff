@@ -282,9 +282,11 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         }
     }
     val preferences = LocalAccessibilitySettings.current
+    // Feature 2: the player's glass bends its own backdrop, the blurred cover.
+    val playerGlass = rememberRiffBackdrop()
     // Feature 34.2: the cover's own colours, blurred, under the whole panel; the video and live radio stay on black.
     Box(Modifier.fillMaxWidth().fillMaxHeight()) {
-    if(!state.video && !state.live) PlayerBackdrop(state.artworkUrl, artworkColor.value, Modifier.matchParentSize())
+    if(!state.video && !state.live) PlayerBackdrop(state.artworkUrl, artworkColor.value, Modifier.matchParentSize().riffBackdropSource(playerGlass))
     Column(Modifier.fillMaxWidth().fillMaxHeight().preferredFrameRate(LocalUiRefreshRate.current)
         .drawBehind {if(state.video || state.live) drawRect(Color.Black)}
         .then(if(queueOpen) Modifier else Modifier.nestedScroll(swipeConnection))
@@ -411,7 +413,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     },onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))});likeBusy=false
                 } }
             }, enabled = state.source == "YouTube Music" && !likeBusy && !queueOpen, modifier = Modifier.size(RiffPlayer.circle)
-                .clip(CircleShape).background(White.copy(alpha = .18f))
+                .riffGlass(GlassRole.Button, backdrop = playerGlass).clip(CircleShape).background(White.copy(alpha = .10f))
                 .testTag("playback_favorite").semantics {
                     contentDescription = string(R.string.like_on_youtube_music); stateDescription = if(favorite) string(R.string.liked) else string(R.string.not_liked)
                 }) {
@@ -426,7 +428,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             Spacer(Modifier.width(RiffSpace.item))
             Box {
                 IconButton(onClick = { uiHaptic();  moreExpanded = true },
-                    enabled=!queueOpen,modifier = Modifier.size(RiffPlayer.circle).clip(CircleShape).background(White.copy(alpha = .18f))
+                    enabled=!queueOpen,modifier = Modifier.size(RiffPlayer.circle).riffGlass(GlassRole.Button, backdrop = playerGlass).clip(CircleShape).background(White.copy(alpha = .10f))
                         .testTag("player_more").onGloballyPositioned {if(!queueOpen) {val r=it.boundsInWindow();moreAnchor=androidx.compose.ui.unit.IntRect(r.topLeft.round(),r.bottomRight.round())}}) {
                     Icon(Icons.Rounded.MoreHoriz, contentDescription = string(R.string.more_song_options),
                         tint = White, modifier = Modifier.size(RiffPlayer.circleIcon))
@@ -500,7 +502,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 playback::cycleRepeat, modifier = Modifier.testTag("playback_repeat"),
                 active = state.repeat != 0, diameter = RiffPlayer.toggle, iconSize = RiffPlayer.toggleIcon, toggle = true)
         }
-        AudioOutputControls(onLyrics = onLyrics, onQueue = onQueue)
+        AudioOutputControls(onLyrics = onLyrics, onQueue = onQueue, glass = playerGlass)
         if(state.sleepDeadlineMs>0) SleepTimerCountdown(state.sleepDeadlineMs) {uiHaptic();sleepTimerVisible=true}
         PlaybackProblem(state.notice, state.error, state.playback.failure, onFailureAction)
         }

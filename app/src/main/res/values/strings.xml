@@ -922,6 +922,11 @@
     <string name="update_check_busy">The release feed is busy. Try again later.</string>
     <string name="update_check_failed">Couldn\'t check for updates. Try again later.</string>
     <string name="diagnostics">Diagnostics</string>
+    <string name="glass_gallery">Glass gallery</string>
+    <string name="glass_gallery_detail">Every kind of glass over one test pattern, for tuning. Debug builds only.</string>
+    <string name="glass_gallery_controls">Controls</string>
+    <string name="glass_gallery_switch">A glass switch</string>
+    <string name="glass_gallery_slider">A glass slider</string>
     <string name="diagnostics_detail">How Riff last closed, as Android reports it, and the errors Riff recorded. Nothing leaves the phone unless you share it.</string>
     <string name="last_exits">Last exits</string>
     <string name="no_exits_recorded">No exits recorded yet.</string>

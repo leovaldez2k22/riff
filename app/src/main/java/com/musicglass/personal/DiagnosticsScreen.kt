@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -89,6 +90,11 @@ private suspend fun buildReport(context: Context, io: CoroutineContext) = withCo
         // there are none), so no row moves under a finger.
         item(key = "back") { BackHeading(string(R.string.settings), model::back) }
         item(key = "title") { ScreenTitle(string(R.string.diagnostics), string(R.string.diagnostics_detail)) }
+        if (BuildConfig.DEBUG) item(key = "glass") {
+            SettingsLinkRow(string(R.string.glass_gallery), icon = Icons.Rounded.AutoAwesome, tag = "diagnostics_glass_gallery") {
+                model.push(Route.Settings(SettingsSection.GlassGallery))
+            }
+        }
         item(key = "exits") {
             SettingsSection(string(R.string.last_exits)) {
                 val exits = data?.exits.orEmpty().asReversed()

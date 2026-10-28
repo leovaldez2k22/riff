@@ -29,7 +29,7 @@ Quality documents (`quality/`):
 | Accounts and data | [sign-in-design.md](quality/sign-in-design.md), [account-scope.md](quality/account-scope.md), [state-and-migration.md](quality/state-and-migration.md), [privacy-controls.md](quality/privacy-controls.md), [local-export-import.md](quality/local-export-import.md) |
 | Playback | [playback-state.md](quality/playback-state.md), [recovery.md](quality/recovery.md), [crossfade-and-audio.md](quality/crossfade-and-audio.md), [downloads.md](quality/downloads.md) |
 | Provider | [provider-compatibility.md](quality/provider-compatibility.md) |
-| Interface | [core-journeys.md](quality/core-journeys.md), [accessibility.md](quality/accessibility.md) |
+| Interface | [core-journeys.md](quality/core-journeys.md), [accessibility.md](quality/accessibility.md), [glass-controls.md](quality/glass-controls.md) |
 | Performance | [performance.md](quality/performance.md) |
 | Security and diagnostics | [security-review.md](quality/security-review.md), [exit-diagnostics.md](quality/exit-diagnostics.md), [update-notice.md](quality/update-notice.md) |
 | Record of the work | [execution-ledger.md](quality/execution-ledger.md), [q18-bugs.md](quality/q18-bugs.md), [final-stretch-plan.md](quality/final-stretch-plan.md); [baseline.md](quality/baseline.md) (historical, Q00) |

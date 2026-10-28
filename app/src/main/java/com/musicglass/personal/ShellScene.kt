@@ -55,7 +55,7 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
         GlassMotion.timed(GlassMotion.selectionMs, motion), label = "chrome inset")
     val totalBottomPadding = chromePadding + navigationInset
     Box(Modifier.fillMaxSize()) {
-        AmbientBackdrop(ambient)
+        AmbientBackdrop(ambient, LocalPageBackdrop.current?.let { Modifier.riffBackdropSource(it) } ?: Modifier)
         // Dismissing hides the expired-session banner until the account or session changes.
         var expiredBannerDismissed by remember(provider.authRevision, provider.sessionState) { mutableStateOf(false) }
         AnimatedContent(targetState = model.screen,
@@ -97,6 +97,7 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
             Route.Settings(SettingsSection.EarlierData) -> EarlierDataScreen(model,totalBottomPadding,provider,playback,onNotice)
             Route.Settings(SettingsSection.Diagnostics) -> DiagnosticsScreen(model,totalBottomPadding,onNotice=onNotice)
             Route.Settings(SettingsSection.Equalizer) -> EqualizerScreen(model,totalBottomPadding)
+            Route.Settings(SettingsSection.GlassGallery) -> GlassGalleryScreen(model,totalBottomPadding)
             Route.Settings(SettingsSection.PrivacyData) -> {
                 val accessibility=LocalAccessibilitySettings.current
                 PrivacyDataScreen(model,totalBottomPadding,provider,collections,playback,onNotice,onSettingsImported=accessibility::reload)

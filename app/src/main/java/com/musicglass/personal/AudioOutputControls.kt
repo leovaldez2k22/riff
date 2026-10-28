@@ -82,7 +82,7 @@ internal fun routeDeviceType(sdk: Int, hasRoute: Boolean, routeType: () -> Int):
 /** Uses the system music stream and the platform's own phone/Bluetooth output picker. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
+internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit, glass: RiffBackdrop? = null) {
     val context = LocalContext.current
     val largeText = LocalDensity.current.fontScale >= 1.6f
     val audio = remember(context) { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
@@ -135,8 +135,8 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
                 .testTag("player_output"), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
                 // Feature 34: the output sits in a pill (a second segment comes with Cast, Feature 19).
-                Box(Modifier.size(RiffPlayer.pillWidth, RiffPlayer.pillHeight).clip(RoundedCornerShape(RiffPlayer.pillHeight / 2))
-                    .background(White.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(RiffPlayer.pillWidth, RiffPlayer.pillHeight).riffGlass(GlassRole.Button, backdrop = glass)
+                    .clip(RoundedCornerShape(RiffPlayer.pillHeight / 2)).background(White.copy(alpha = .06f)), contentAlignment = Alignment.Center) {
                     Icon(when(routeKind) {OutputKind.Phone->Icons.Rounded.Smartphone;OutputKind.Earphones->Icons.Rounded.Earbuds;OutputKind.Headphones->Icons.Rounded.Headphones;OutputKind.Speaker->Icons.Rounded.SpeakerGroup}, contentDescription = null, tint = White,
                         modifier = Modifier.size(RiffPlayer.bottomIcon))
                 }
