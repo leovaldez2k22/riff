@@ -1,0 +1,122 @@
+package com.musicglass.personal
+
+import kotlin.math.PI
+import kotlin.math.exp
+import kotlin.math.log10
+
+/*
+ * Automix stage 1, the smart crossfade (engine report, section 6.2 stage B, without beats). From a song's loudness
+ * in 100 ms blocks: where the sound really starts and ends, where the outro begins, where the intro has built up.
+ * The planner places the blend from those, and the bass of the two songs is swapped at its midpoint.
+ */
+
+internal const val ENVELOPE_BLOCK_MS = 100
+/** Below this a block is silence: the same line as Feature 9's. */
+internal const val AUDIBLE_DBFS = SILENCE_DBFS.toFloat()
+/** The outro starts where the level falls, for good, under 60 % of the song's body; the intro ends at 80 %. */
+private val OUTRO_BELOW_DB = (20 * log10(.6)).toFloat()
+private val INTRO_REACHES_DB = (20 * log10(.8)).toFloat()
+internal const val SMART_MIN_BLEND_MS = 4_000L
+internal const val SMART_MAX_BLEND_MS = 12_000L
+/** The most of a quiet intro the incoming song may skip. */
+internal const val SMART_MAX_INTRO_SKIP_MS = 8_000L
+/** How deep the bass swap cuts, and how long each side takes to cross. */
+internal const val BASS_SWAP_CUT_DB = -26f
+internal const val BASS_SWAP_MS = 1_000L
+
+/**
+ * A stretch of a song as loudness: [loudnessDb] and [lowDb] (below 150 Hz) per [ENVELOPE_BLOCK_MS] block, the first
+ * block starting at [startMs] into the song.
+ */
+internal class TrackEnvelope(val startMs: Long, val loudnessDb: FloatArray, val lowDb: FloatArray, val durationMs: Long) {
+    val endMs: Long get() = startMs + loudnessDb.size.toLong() * ENVELOPE_BLOCK_MS
+    private fun timeOf(block: Int) = startMs + block.toLong() * ENVELOPE_BLOCK_MS
+
+    /** The loud part of the song: the level three quarters of the audible blocks stay under. */
+    val bodyDb: Float? get() = loudnessDb.filter { it > AUDIBLE_DBFS }.sorted().let { if (it.size < 10) null else it[it.size * 3 / 4] }
+    /** Where the first sound is. */
+    fun audibleStartMs(): Long? = loudnessDb.indexOfFirst { it > AUDIBLE_DBFS }.takeIf { it >= 0 }?.let(::timeOf)
+    /** Just after the last sound, with 300 ms left for a reverb. */
+    fun audibleEndMs(): Long? = loudnessDb.indexOfLast { it > AUDIBLE_DBFS }.takeIf { it >= 0 }?.let { minOf(timeOf(it + 1) + 300, durationMs) }
+    /** Where the level last falls under 60 % of the body and stays there. */
+    fun outroStartMs(body: Float? = bodyDb): Long? {
+        body ?: return null
+        val last = loudnessDb.indexOfLast { it >= body + OUTRO_BELOW_DB }.takeIf { it >= 0 } ?: return null
+        return timeOf(last + 1)
+    }
+    /** Where the level first reaches 80 % of the body. */
+    fun introEndMs(body: Float? = bodyDb): Long? {
+        body ?: return null
+        return loudnessDb.indexOfFirst { it >= body + INTRO_REACHES_DB }.takeIf { it >= 0 }?.let(::timeOf)
+    }
+}
+
+/** Builds a [TrackEnvelope] from 16-bit PCM, fed in pieces as it is decoded. */
+internal class EnvelopeBuilder(private val sampleRate: Int, private val channels: Int, private val startMs: Long) {
+    private val blockFrames = (sampleRate * ENVELOPE_BLOCK_MS / 1_000).coerceAtLeast(1)
+    // Two one-pole low-passes at 150 Hz: a gentle split, enough to tell where the kick and bass are.
+    private val lowCoefficient = (1 - exp(-2 * PI * 150 / sampleRate)).toFloat()
+    private var low1 = 0f; private var low2 = 0f
+    private var frames = 0; private var sum = 0.0; private var lowSum = 0.0
+    private val loudness = ArrayList<Float>(); private val low = ArrayList<Float>()
+
+    fun add(samples: ShortArray, count: Int = samples.size) {
+        var i = 0
+        while (i + channels <= count) {
+            var mono = 0f
+            for (c in 0 until channels) mono += samples[i + c] / 32768f
+            mono /= channels; i += channels
+            low1 += (mono - low1) * lowCoefficient; low2 += (low1 - low2) * lowCoefficient
+            sum += mono * mono; lowSum += low2 * low2
+            if (++frames == blockFrames) {
+                loudness += db(sum / frames); low += db(lowSum / frames)
+                frames = 0; sum = 0.0; lowSum = 0.0
+            }
+        }
+    }
+    private fun db(power: Double) = if (power <= 1e-12) -120f else (10 * log10(power)).toFloat()
+    fun build(durationMs: Long) = TrackEnvelope(startMs, loudness.toFloatArray(), low.toFloatArray(), durationMs)
+}
+
+/**
+ * Where a smart blend goes. The outgoing song blends from [startMs] to [endMs], its audible end; the incoming one
+ * enters at [incomingStartMs].
+ */
+internal data class SmartPlan(val startMs: Long, val endMs: Long, val incomingStartMs: Long) {
+    val blendMs: Long get() = endMs - startMs
+}
+
+/**
+ * The blend for [outgoing]'s analysed end and [incoming]'s analysed start, with [fadeMs] the crossfade setting.
+ * Starts at the outro, or [fadeMs] before the audible end, whichever is later, and lasts 4 to 12 s. The incoming song
+ * enters at its first sound, past a quiet intro of up to 8 s when it is music. Null when the end could not be read.
+ */
+internal fun planSmartTransition(outgoing: TrackEnvelope?, incoming: TrackEnvelope?, fadeMs: Long, incomingIsMusic: Boolean = true): SmartPlan? {
+    outgoing ?: return null
+    val end = outgoing.audibleEndMs() ?: return null
+    val outro = outgoing.outroStartMs()
+    val start = maxOf(outro ?: (end - fadeMs), end - fadeMs)
+    val blend = (end - start).coerceIn(SMART_MIN_BLEND_MS, SMART_MAX_BLEND_MS)
+    val firstSound = incoming?.takeIf { it.startMs < ENVELOPE_BLOCK_MS }?.audibleStartMs() ?: 0L
+    val built = incoming?.takeIf { incomingIsMusic && it.startMs < ENVELOPE_BLOCK_MS }?.introEndMs()
+    // A quiet intro is skipped to a moment before the song has built up; a long one is played as it is.
+    val entry = if (built != null && built - firstSound in 1..SMART_MAX_INTRO_SKIP_MS) maxOf(firstSound, built - 1_000) else firstSound
+    return SmartPlan((end - blend).coerceAtLeast(0), end, entry.coerceAtLeast(0))
+}
+
+/**
+ * The bass swap at a moment of a blend: how far each side's low end is cut. The incoming song comes in without its
+ * bass; at the midpoint, over [BASS_SWAP_MS], the outgoing song's bass goes out as the incoming one's comes in.
+ */
+internal fun bassSwapCuts(progress: Float, blendMs: Long): Pair<Float, Float> {
+    val half = (BASS_SWAP_MS / 2f / blendMs.coerceAtLeast(1)).coerceAtMost(.5f)
+    val t = ((progress.coerceIn(0f, 1f) - (.5f - half)) / (2 * half)).coerceIn(0f, 1f)
+    return BASS_SWAP_CUT_DB * t + 0f to BASS_SWAP_CUT_DB * (1 - t) + 0f // + 0f: never −0 dB
+}
+
+/** A smart blend: [plan] when the outgoing song's end could be read, else only the bass swap on the plain timing. */
+internal class SmartBlend(val plan: SmartPlan?)
+
+/** Apple leaves an album played in order alone: consecutive tracks of the same album blend plainly. */
+internal fun albumInOrder(outgoingAlbum: String?, outgoingTrack: Int?, incomingAlbum: String?, incomingTrack: Int?): Boolean =
+    !outgoingAlbum.isNullOrBlank() && outgoingAlbum == incomingAlbum && outgoingTrack != null && incomingTrack == outgoingTrack + 1

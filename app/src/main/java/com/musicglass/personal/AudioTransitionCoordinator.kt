@@ -25,6 +25,45 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
     private val audioEffects = AudioSessionEffects(context, volumeBoost.boost) { events.append(it) }
     private val boostPrefs = context.getSharedPreferences(AUDIO_BOOST_PREFS, Context.MODE_PRIVATE)
     private val boostListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> updateBoost() }
+    /** Feature 10: the equalizer, on the main player and on the crossfade's tail alike. */
+    private val equalizer = EqualizerProcessor()
+    /** Feature 9: watches for the silence at the end of a song; the main player only. */
+    private val silenceWatch = SilenceWatchProcessor()
+    private var silenceMonitor: kotlinx.coroutines.Job? = null
+    /** The song the user sought near the end of: its silence is left alone. */
+    private var soughtKey: String? = null
+    /** Automix stage 1: analysed ends ("id:tail") and starts ("id:head") of songs on the phone; null when unreadable. */
+    private val envelopes = java.util.Collections.synchronizedMap(object : LinkedHashMap<String, TrackEnvelope?>(16, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, TrackEnvelope?>?) = size > 24
+    })
+    private val crossfadePrefs = context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE)
+    private fun analyse(item: MediaItem?, part: String) {
+        item ?: return
+        val key = "${item.mediaId}:$part"
+        if (!crossfadePrefs.getBoolean(SMART_CROSSFADE_KEY, false) || envelopes.containsKey(key)) return
+        envelopes[key] = null
+        scope.launch(runtime.dispatchers.io) {
+            val source = TrackAnalysis.localSource(context, item) ?: return@launch
+            val envelope = if (part == "tail") TrackAnalysis.envelope(context, source, -ANALYSIS_TAIL_MS, ANALYSIS_TAIL_MS)
+                else TrackAnalysis.envelope(context, source, 0, ANALYSIS_HEAD_MS)
+            envelopes[key] = envelope
+            events.append("automix_analysis part=$part found=${if (envelope == null) 0 else 1}")
+        }
+    }
+    private fun analyseAround(main: Player) {
+        analyse(main.currentMediaItem, "tail")
+        main.nextMediaItemIndex.takeIf { it >= 0 }?.let { analyse(main.getMediaItemAt(it), "head") }
+    }
+    /** The smart blend between two songs, or null where Automix leaves the plain crossfade: an album played in order. */
+    private fun smartBlend(outgoing: MediaItem, incoming: MediaItem): SmartBlend? {
+        val a = outgoing.mediaMetadata; val b = incoming.mediaMetadata
+        if (albumInOrder(a.albumTitle?.toString(), a.trackNumber, b.albumTitle?.toString(), b.trackNumber)) return null
+        val fadeMs = crossfadeSeconds(crossfadePrefs.getInt("seconds", 6)) * 1_000L
+        return SmartBlend(planSmartTransition(envelopes["${outgoing.mediaId}:tail"], envelopes["${incoming.mediaId}:head"], fadeMs))
+    }
+    private var tailEqualizer: EqualizerProcessor? = null
+    private val equalizerPrefs = EqualizerSettings.prefs(context)
+    private val equalizerListener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, _ -> updateEqualizer(prefs) }
     private var crossfader: Crossfader? = null
     private var tailAudioEffects: AudioSessionEffects? = null
     private var tailNormalization: Pair<Player, PcmVolumeBoost>? = null
@@ -41,11 +80,43 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Unit>?) = size > 2048
     })
 
+    private fun silenceKey(main: Player) = "${main.currentMediaItemIndex}:${main.currentMediaItem?.mediaId}"
+    private fun watchSilence(main: ExoPlayer) {
+        analyseAround(main)
+        main.addListener(object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = analyseAround(main)
+            override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) = analyseAround(main)
+            override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+                val duration = main.duration
+                if (reason == Player.DISCONTINUITY_REASON_SEEK && duration > 0 && duration - newPosition.positionMs <= minOf(duration / 4, SILENCE_WINDOW_MS))
+                    soughtKey = silenceKey(main)
+            }
+        })
+        silenceMonitor?.cancel()
+        silenceMonitor = scope.launch {
+            while (true) {
+                runtime.wait(if (main.isPlaying) 250 else 1_000)
+                main.skipSilenceEnabled = boostPrefs.getBoolean(SKIP_ALL_SILENCE_KEY, false)
+                val item = main.currentMediaItem ?: continue
+                val quiet = silenceWatch.meter.quietMs
+                if (SongCrossfadeState.active != null) continue
+                if (shouldSkipSilence(boostPrefs.getBoolean(SKIP_END_SILENCE_KEY, false), quiet, main.currentPosition, main.duration, main.isPlaying,
+                        main.hasNextMediaItem(), main.repeatMode == Player.REPEAT_MODE_ONE, crossfadeSkipsItem(item), soughtKey == silenceKey(main))) {
+                    events.append("silence_skip at=${main.currentPosition} quiet_ms=$quiet path=b")
+                    main.seekToNextMediaItem()
+                }
+            }
+        }
+    }
     private fun currentBoostGain() = boostGain(boostPrefs.getBoolean("enabled", false), boostPrefs.getInt("percent", 200))
     private fun updateBoost() {
         audioEffects.setGain(currentBoostGain())
         tailAudioEffects?.setGain(currentBoostGain())
         update()
+    }
+    private fun updateEqualizer(prefs: SharedPreferences) {
+        val config = EqualizerSettings.read(prefs)
+        equalizer.equalizer.config = config; tailEqualizer?.equalizer?.config = config
     }
     private fun normalizationFor(item: MediaItem?) = normalizationGain(boostPrefs.getBoolean(NORMALIZE_KEY, false), item?.entryId()?.let(entryLoudness::get))
 
@@ -79,9 +150,11 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
     fun start() {
         updateBoost()
         boostPrefs.registerOnSharedPreferenceChangeListener(boostListener)
+        updateEqualizer(equalizerPrefs)
+        equalizerPrefs.registerOnSharedPreferenceChangeListener(equalizerListener)
     }
-    /** The main player's renderers, with the booster in its PCM stage. */
-    fun renderers() = riffAudioRenderers(context, volumeBoost)
+    /** The main player's renderers, with the equalizer and then the booster in its PCM stage. */
+    fun renderers() = riffAudioRenderers(context, volumeBoost, silenceWatch, equalizer)
     /**
      * Builds the crossfade. The outgoing song plays on a second player made here on demand: same sources and
      * loudness, no audio focus and no session of its own.
@@ -93,7 +166,8 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         crossfader = Crossfader(context, scope, createTail = {
             // Match the main player's frequent position updates for muted synchronization.
             val processor = VolumeBoostProcessor()
-            val tail = ExoPlayer.Builder(context, riffAudioRenderers(context, processor)).setMediaSourceFactory(mediaFactory).setLoadControl(riffLoadControl())
+            val tailEq = EqualizerProcessor().also { it.equalizer.config = equalizer.equalizer.config; tailEqualizer = it }
+            val tail = ExoPlayer.Builder(context, riffAudioRenderers(context, processor, tailEq)).setMediaSourceFactory(mediaFactory).setLoadControl(riffLoadControl())
                 .experimentalSetDynamicSchedulingEnabled(false).build()
             tail.setAudioAttributes(audioAttributes, false)
             tail.trackSelectionParameters = tail.trackSelectionParameters.buildUpon().setAudioOffloadPreferences(pcmOnly).build()
@@ -109,17 +183,20 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
                     if (gain != 1f) events.append("normalize_outgoing gain_db=${normalizationDecibels(gain)}")
                 }
             })
-            tail to { if (tailAudioEffects === effects) tailAudioEffects = null; if (tailNormalization?.first === tail) tailNormalization = null; effects.release() }
+            tail to { if (tailEqualizer === tailEq) tailEqualizer = null; if (tailAudioEffects === effects) tailAudioEffects = null; if (tailNormalization?.first === tail) tailNormalization = null; effects.release() }
         }, sleepActive = sleepActive, tailItem = tailItem,
-            onBlend = { SongCrossfadeState.active = it }, clock = runtime.clocks::monotonicMillis, wait = runtime.wait) { events.append(it) }
+            onBlend = { SongCrossfadeState.active = it }, clock = runtime.clocks::monotonicMillis, wait = runtime.wait,
+            smart = ::smartBlend, bassSwap = { outgoing, incoming -> tailEqualizer?.equalizer?.bassCutDb = outgoing; equalizer.equalizer.bassCutDb = incoming }) { events.append(it) }
     }
     /** Called while the main player is being built, once it has an audio session. */
-    fun attach(main: ExoPlayer) { audioEffects.attach(main.audioSessionId); crossfader?.start(main) }
+    fun attach(main: ExoPlayer) { audioEffects.attach(main.audioSessionId); crossfader?.start(main); watchSilence(main) }
     fun audioSessionChanged(audioSessionId: Int) = audioEffects.attach(audioSessionId)
     /** Ends a blend in progress at once: the queue is being replaced, or a sleep timer was set. */
     fun cancelBlend() { crossfader?.cancel() }
     fun release() {
         boostPrefs.unregisterOnSharedPreferenceChangeListener(boostListener)
+        equalizerPrefs.unregisterOnSharedPreferenceChangeListener(equalizerListener)
+        silenceMonitor?.cancel()
         crossfader?.release()
         audioEffects.release()
     }

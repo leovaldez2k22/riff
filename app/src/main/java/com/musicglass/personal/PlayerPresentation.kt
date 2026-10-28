@@ -345,6 +345,7 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                         onQueue = { PerfTrace.action(if(model.sheet=="queue") "queue_close" else "queue_open"); model.sheet = if(model.sheet=="queue") "mini" else "queue" },
                         queueOpen=model.sheet=="queue",onQueueClose={PerfTrace.action("queue_close");model.sheet="mini"},
                         onLibrary = { model.sheet = "libraryShortcuts" },
+                        onEqualizer = { model.sheet = ""; model.push(Route.Settings(SettingsSection.Equalizer)) },
                         onLyrics = { model.sheet = "lyrics" },onArtist=onArtist,onAlbum=onAlbum,
                         onFailureAction = onFailureAction,
                         onNotice = onNotice)

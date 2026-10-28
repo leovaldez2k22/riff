@@ -2,6 +2,8 @@
 
 Code: `Crossfade.kt` (`CrossfadeOwner`, `CrossfadeEnvelope`, `Crossfader`), `SleepTimerController.kt`, `VolumeBoostProcessor.kt`, `AudioSessionEffects.kt`, `RemoteCipherClient.kt`, `CipherBridgeInstaller.java`.
 
+The PCM chain of each player, in order (`riffAudioRenderers`): `SilenceWatchProcessor` (main player only; measures, changes nothing), `EqualizerProcessor` (Feature 10; bit-exact while off and flat; also carries Automix's bass swap), `VolumeBoostProcessor` (booster, normalization and the limiter). The smart crossfade (Automix stage 1, `SmartTransition.kt`, `TrackAnalysis.kt`) moves where a blend starts and ends; the owner, curve and handoff below are unchanged.
+
 ## What a blend is
 
 When a song ends on its own and crossfade is on, a second, short-lived player picks up the end of that song at the same position. The main player moves to the next song and the two levels cross over. The main player, its session, queue and notification are never paused or rebuilt. The design and the curve are unchanged by Q08.

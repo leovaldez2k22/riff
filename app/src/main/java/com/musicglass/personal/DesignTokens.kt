@@ -103,6 +103,21 @@ internal object RiffPlayer {
 }
 
 /** Feature 16: the stats for nerds panel. */
+/** Feature 10: the equalizer's tone pad, faders and curve. */
+internal object RiffEqualizer {
+    val edge = .6.dp
+    val tab = 40.dp
+    /** A grid dot's radius and the puck's. */
+    val dot = 2.5.dp
+    val puck = 11.dp
+    val readout = 15.sp
+    val faders = 220.dp
+    val track = 4.dp
+    val knob = 18.dp
+    val label = 11.sp
+    val curve = 88.dp
+}
+
 internal object RiffNerdStats {
     /** The label column, wide enough for "Network estimate". */
     val label = 128.dp

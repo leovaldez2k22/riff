@@ -55,6 +55,7 @@ import kotlinx.coroutines.withContext
     val crossfade=remember(context) {CrossfadeSettings.get(context)}
     var crossfadeLength by remember(crossfade) {mutableFloatStateOf(crossfade.seconds.toFloat())}
     val dataSaver=remember(context) {DataSaverSettings(context)}
+    val equalizerOn=remember(context) {EqualizerSettings.read(EqualizerSettings.prefs(context)).enabled}
     val scope=rememberCoroutineScope()
     val store=remember(context) {OfflineMusicStore.get(context)}
     val storeRevision by store.revision.collectAsStateWithLifecycle()
@@ -107,6 +108,17 @@ import kotlinx.coroutines.withContext
             SettingsToggleRow(string(R.string.normalize_volume),audio.normalize,hapticToggle(audio::updateNormalize),
                 Icons.Rounded.GraphicEq,"settings_normalize_volume",string(R.string.turns_down_louder_songs_from_youtube_music))
             SettingsDivider()
+            SettingsToggleRow(string(R.string.skip_end_silence),audio.skipEndSilence,hapticToggle(audio::updateSkipEndSilence),
+                Icons.Rounded.SkipNext,"settings_skip_end_silence",string(R.string.skip_end_silence_detail))
+            SettingsDivider()
+            SettingsToggleRow(string(R.string.skip_all_silence),audio.skipAllSilence,hapticToggle(audio::updateSkipAllSilence),
+                Icons.Rounded.ContentCut,"settings_skip_all_silence",string(R.string.skip_all_silence_detail))
+            SettingsDivider()
+            // Feature 10: Riff's own equalizer has a screen of its own.
+            SettingsLinkRow(string(R.string.equalizer),string(if(equalizerOn) R.string.on else R.string.off),Icons.Rounded.Equalizer,"settings_equalizer") {
+                model.push(Route.Settings(SettingsSection.Equalizer))
+            }
+            SettingsDivider()
             SettingsToggleRow(string(R.string.crossfade),crossfade.enabled,hapticToggle(crossfade::updateEnabled),
                 Icons.Rounded.Shuffle,"settings_crossfade",string(R.string.blend_the_end_of_each_song_into))
             if(crossfade.enabled) {
@@ -121,6 +133,10 @@ import kotlinx.coroutines.withContext
                         haptics=SliderHaptics.Seconds,label=string(R.string.crossfade_length),spokenValue=quantity(R.plurals.n_seconds,crossfadeLength.roundToInt()),
                         modifier=Modifier.fillMaxWidth().testTag("settings_crossfade_length"))
                 }
+                SettingsDivider()
+                // Automix stage 1: blends placed by each song's own end and start, with the bass swapped halfway.
+                SettingsToggleRow(string(R.string.smart_crossfade),crossfade.smart,hapticToggle(crossfade::updateSmart),
+                    Icons.Rounded.AutoAwesome,"settings_smart_crossfade",string(R.string.smart_crossfade_detail))
             }
         }}
         item {SettingsCompartment("look",string(R.string.settings_look_and_feel),Icons.Rounded.BlurOn,

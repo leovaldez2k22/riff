@@ -86,12 +86,14 @@ internal class VolumeBoostProcessor : BaseAudioProcessor() {
 }
 
 @androidx.annotation.OptIn(markerClass = [UnstableApi::class])
-internal fun riffAudioRenderers(context: android.content.Context, processor: VolumeBoostProcessor) =
+internal fun riffAudioRenderers(context: android.content.Context, processor: VolumeBoostProcessor,
+    /** Stages that run before the booster, in order: the silence watch, then the equalizer. */
+    vararg before: androidx.media3.common.audio.AudioProcessor) =
     object : androidx.media3.exoplayer.DefaultRenderersFactory(context) {
         override fun buildAudioSink(context: android.content.Context, enableFloatOutput: Boolean,
             enableAudioOutputPlaybackParams: Boolean): androidx.media3.exoplayer.audio.AudioSink =
             androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
-                .setAudioProcessors(arrayOf(processor))
+                .setAudioProcessors(arrayOf(*before, processor))
                 .setEnableFloatOutput(false)
                 .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams).build()
     }

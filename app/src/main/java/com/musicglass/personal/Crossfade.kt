@@ -50,6 +50,8 @@ internal class CrossfadeTailContinuity {
 
 internal const val CROSSFADE_PREFS = "crossfade"
 internal fun crossfadeSeconds(value: Int) = value.coerceIn(1, 12)
+/** Automix stage 1: Settings → Sound → Smart crossfade. Off by default. */
+internal const val SMART_CROSSFADE_KEY = "smart"
 
 internal fun crossfadeSkipsItem(item:MediaItem):Boolean {
     val extras=item.mediaMetadata.extras
@@ -70,8 +72,10 @@ internal class CrossfadeSettings(context: Context) {
     var seconds by mutableIntStateOf(crossfadeSeconds(prefs.getInt("seconds", 6))); private set
     fun updateEnabled(value: Boolean) { enabled = value; prefs.edit { putBoolean("enabled", value) } }
     fun updateSeconds(value: Int) { seconds = crossfadeSeconds(value); prefs.edit { putInt("seconds", seconds) } }
+    var smart by mutableStateOf(prefs.getBoolean(SMART_CROSSFADE_KEY, false)); private set
+    fun updateSmart(value: Boolean) { smart = value; prefs.edit { putBoolean(SMART_CROSSFADE_KEY, value) } }
     /** Reads the stored values again, after an import wrote them. */
-    fun reload() { enabled = prefs.getBoolean("enabled", false); seconds = crossfadeSeconds(prefs.getInt("seconds", 6)) }
+    fun reload() { enabled = prefs.getBoolean("enabled", false); seconds = crossfadeSeconds(prefs.getInt("seconds", 6)); smart = prefs.getBoolean(SMART_CROSSFADE_KEY, false) }
 }
 
 /** Equal-power curves keep the blend about as loud as either song: (outgoing, incoming). */
@@ -171,7 +175,11 @@ internal class Crossfader(private val context: Context, private val scope: Corou
     private val createTail: () -> Pair<ExoPlayer, () -> Unit>, private val sleepActive: () -> Boolean,
     private val tailItem:(MediaItem)->MediaItem={it},private val onBlend:(SongCrossfade?)->Unit={},
     private val clock:()->Long=AndroidAppClocks::monotonicMillis,
-    private val wait:suspend (Long)->Unit={delay(it)},private val log: (String) -> Unit) {
+    private val wait:suspend (Long)->Unit={delay(it)},
+    /** Automix stage 1: the smart blend from the outgoing song to the next, or null for the plain crossfade. */
+    private val smart:(MediaItem,MediaItem)->SmartBlend?={_,_->null},
+    /** Sets how far the outgoing (tail) and incoming (main) players' bass is cut. */
+    private val bassSwap:(Float,Float)->Unit={_,_->},private val log: (String) -> Unit) {
     private val prefs = context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE)
     private var monitor: Job? = null
     private var fade: Job? = null
@@ -232,19 +240,25 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                 if (key == handledKey) {
                     continue
                 }
-                val fadeMs = crossfadeSeconds(prefs.getInt("seconds", 6)) * 1_000L
                 val nextIndex=main.nextMediaItemIndex
                 val skipNext=nextIndex<0 || crossfadeSkipsItem(main.getMediaItemAt(nextIndex))
-                if (shouldPrepareCrossfade(fadeMs, main.currentPosition, main.duration, main.isPlaying, main.hasNextMediaItem(),
+                // Automix stage 1: the analysed end and outro move the blend; without them it is the plain one, with the bass swap.
+                val blend=if(nextIndex>=0 && !skipNext && prefs.getBoolean(SMART_CROSSFADE_KEY,false)) smart(item,main.getMediaItemAt(nextIndex)) else null
+                val plan=blend?.plan?.takeIf {main.duration>0 && it.endMs<=main.duration}
+                val fadeMs = plan?.blendMs ?: (crossfadeSeconds(prefs.getInt("seconds", 6)) * 1_000L)
+                val endMs = plan?.endMs ?: main.duration
+                if (shouldPrepareCrossfade(fadeMs, main.currentPosition, endMs, main.isPlaying, main.hasNextMediaItem(),
                         main.repeatMode == Player.REPEAT_MODE_ONE, crossfadeSkipsItem(item) || skipNext, sleepActive())) {
                     handledKey = key
-                    fade = launch { blend(main, item, key, fadeMs) }
+                    fade = launch { blend(main, item, key, fadeMs, endMs, blend != null, plan?.incomingStartMs ?: 0L) }
                 }
             }
         }
     }
 
-    private suspend fun blend(main: ExoPlayer, item: MediaItem, key: String, fadeMs: Long) {
+    /** [endMs] is where the outgoing song's sound ends; [smart] adds the bass swap; the next song enters at [entryMs]. */
+    private suspend fun blend(main: ExoPlayer, item: MediaItem, key: String, fadeMs: Long, endMs: Long = main.duration,
+        smart: Boolean = false, entryMs: Long = 0L) {
         // A copy that cannot be built is a skipped blend, not a failure of the service that plays.
         val (tail, releaseTail) = try { createTail() } catch (e: CancellationException) { throw e }
             catch (e: Exception) { log("crossfade_skipped reason=tail_unavailable type=${e::class.simpleName}"); return }
@@ -271,7 +285,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
             }
             log("crossfade_prepared")
             var bufferedSince:Long?=null
-            while(main.duration-main.currentPosition>fadeMs+12_000 || !main.isPlaying) {
+            while(endMs-main.currentPosition>fadeMs+12_000 || !main.isPlaying) {
                 if(abandoned() || main.playerError!=null || main.playbackState==Player.STATE_ENDED) {log("crossfade_skipped reason=left_before_warmup");return}
                 // A short network stall is not a user pause. Keep the prepared, muted copy;
                 // abandoning it here marks this song handled and loses its eventual crossfade.
@@ -341,7 +355,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                         val desired=if(correction==1f) parameters
                             else PlaybackParameters(parameters.speed*correction,parameters.pitch)
                         if(tail.playbackParameters!=desired) tail.playbackParameters=desired
-                        if(main.duration-main.currentPosition<=fadeMs && synchronizer.ready(now))
+                        if(endMs-main.currentPosition<=fadeMs && synchronizer.ready(now))
                             return@withTimeoutOrNull true
                         wait(10)
                     }
@@ -356,7 +370,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
             }
             // Muted preparation prevents two copies of the outgoing song doubling its volume.
             val tailDuration=tail.duration.takeIf {it>0}?:main.duration
-            val overlap = minOf(main.duration-main.currentPosition,tailDuration-tail.currentPosition,fadeMs)
+            val overlap = minOf(endMs-main.currentPosition,tailDuration-tail.currentPosition,fadeMs)
             if(overlap<500) {log("crossfade_skipped reason=too_little_left ms=$overlap");return}
             val incomingId=main.getMediaItemAt(main.nextMediaItemIndex).mediaId
             // The level is read at the moment it is taken, not when preparation began.
@@ -371,9 +385,9 @@ internal class Crossfader(private val context: Context, private val scope: Corou
             expectedTransition="${main.nextMediaItemIndex}:${main.getMediaItemAt(main.nextMediaItemIndex).mediaId}"
             expectedSeek=expectedTransition
             handoff=true
-            try {main.seekToNextMediaItem()} finally {handoff=false}
+            try {if(entryMs>0) main.seekTo(main.nextMediaItemIndex,entryMs) else main.seekToNextMediaItem()} finally {handoff=false}
             val next = itemKey(main)
-            log("crossfade_start ms=$overlap")
+            log("crossfade_start ms=$overlap smart=$smart")
             var stalledSince:Long?=null
             while (true) {
                 wait(16)
@@ -389,6 +403,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                 val levels=owner.levels(held,clock(),main.isPlaying,tail.isPlaying)?:break
                 tail.volume = levels.outgoing
                 main.volume = levels.incoming
+                if(smart) bassSwapCuts(levels.progress,overlap).let {(outgoing,incoming)->bassSwap(outgoing,incoming)}
                 // Full player, mini player and queue all draw from this one value.
                 visual.progress=levels.progress
                 if (levels.progress>=1f) break
@@ -397,6 +412,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
         catch (e: Exception) { log("crossfade_failed type=${e::class.simpleName}") }
         finally {
             runCatching { tail.volume=0f }
+            if(smart) bassSwap(0f,0f)
             // Only a blend that still holds the level puts it back; cancel() may already have, once.
             owner.release(grant)?.let {clearVisualBlend();main.volume=it}
             if(activeTail===tail) activeTail=null
@@ -413,6 +429,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
     fun cancel() {
         // Coroutine cleanup runs later: mute and pause now so user actions cannot leave overlap.
         activeTail?.let {it.volume=0f;it.pause()}
+        bassSwap(0f,0f)
         expectedTransition=null
         expectedSeek=null
         // Restore synchronously before a sleep timer or another volume owner captures the level.

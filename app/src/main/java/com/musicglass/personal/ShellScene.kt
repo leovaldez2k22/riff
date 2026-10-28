@@ -96,6 +96,7 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
             Route.Settings(SettingsSection.NotInterested) -> NotInterestedScreen(model,totalBottomPadding,onNotice)
             Route.Settings(SettingsSection.EarlierData) -> EarlierDataScreen(model,totalBottomPadding,provider,playback,onNotice)
             Route.Settings(SettingsSection.Diagnostics) -> DiagnosticsScreen(model,totalBottomPadding,onNotice=onNotice)
+            Route.Settings(SettingsSection.Equalizer) -> EqualizerScreen(model,totalBottomPadding)
             Route.Settings(SettingsSection.PrivacyData) -> {
                 val accessibility=LocalAccessibilitySettings.current
                 PrivacyDataScreen(model,totalBottomPadding,provider,collections,playback,onNotice,onSettingsImported=accessibility::reload)

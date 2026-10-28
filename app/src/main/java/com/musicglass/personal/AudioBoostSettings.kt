@@ -20,6 +20,11 @@ internal class AudioBoostSettings(context: Context) {
     /** Normalize volume. Off for new installs and after an update. */
     var normalize by mutableStateOf(prefs.getBoolean(NORMALIZE_KEY, false)); private set
     fun updateNormalize(value: Boolean) { normalize = value; prefs.edit {putBoolean(NORMALIZE_KEY, value)} }
+    /** Feature 9: skip the silence at the end of songs; or, Media3's own, every silence. Both off by default. */
+    var skipEndSilence by mutableStateOf(prefs.getBoolean(SKIP_END_SILENCE_KEY, false)); private set
+    var skipAllSilence by mutableStateOf(prefs.getBoolean(SKIP_ALL_SILENCE_KEY, false)); private set
+    fun updateSkipEndSilence(value: Boolean) { skipEndSilence = value; prefs.edit {putBoolean(SKIP_END_SILENCE_KEY, value)} }
+    fun updateSkipAllSilence(value: Boolean) { skipAllSilence = value; prefs.edit {putBoolean(SKIP_ALL_SILENCE_KEY, value)} }
     fun updateEnabled(value: Boolean) { enabled = value; prefs.edit {putBoolean("enabled", value)} }
     fun updatePercent(value: Int) { percent = boostPercent(value); prefs.edit {putInt("percent", percent)} }
 }
