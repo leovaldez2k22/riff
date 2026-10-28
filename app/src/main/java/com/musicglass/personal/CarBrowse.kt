@@ -48,6 +48,7 @@ internal class ServiceCarSource(context: Context, private val online: () -> Bool
 }
 
 /** Media3's library calls answered from [library], on [scope] (the service's main-thread scope). */
+@androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 internal class CarBrowse(private val scope: CoroutineScope, private val library: CarLibrary) {
     private fun <T> future(block: suspend () -> T): ListenableFuture<T> = SettableFuture.create<T>().also { answer ->
         scope.launch {

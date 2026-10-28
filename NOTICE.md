@@ -22,5 +22,6 @@ not affiliated with or endorsed by Google or YouTube.
 Every other runtime dependency, its version and its declared license is listed in
 [docs/dependency-license-audit.csv](docs/dependency-license-audit.csv) and summarized in
 [docs/dependency-license-inventory.md](docs/dependency-license-inventory.md): Apache-2.0 for AndroidX, Kotlin,
-Ktor, OkHttp, Okio, Coil, QuickJS for Kotlin and Guava, and MIT for SLF4J. That inventory is declared
-metadata, not a legal review.
+Ktor, OkHttp, Okio, Coil, QuickJS for Kotlin and Guava, MIT for SLF4J, and Google's Android SDK terms for the
+Google Play services parts Cast uses (closed source, distributed by Google). That inventory is declared metadata, not a
+legal review.

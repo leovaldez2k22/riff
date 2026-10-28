@@ -18,15 +18,23 @@ The script reads each resolved coordinate's POM from the local Gradle cache and 
 
 ## Result
 
-210 resolved release runtime dependencies: 206 licenses from POM declarations, 4 from upstream sources (three Guava modules, SLF4J). None unresolved.
+233 resolved release runtime dependencies on 29 October 2026, after Cast (Feature 19): 229 licenses from POM declarations, 4 from upstream sources (three Guava modules, SLF4J). None unresolved.
 
 | Declared license | Artifacts |
 |---|---:|
-| Apache-2.0 (under three spellings) | 207 |
+| Apache-2.0 (under three spellings) | 224 |
+| Android Software Development Kit License (Google Play services: `play-services-base`, `-basement`, `-cast`, `-cast-framework`, `-flags`, `-tasks`) | 6 |
 | GNU GPL-3.0 (`innertubex`, `innertubex-android`) | 2 |
 | MIT (`slf4j-api`) | 1 |
 
 **Closed 24 October 2026:** the seven artifacts under Google's proprietary terms (ML Kit and the Play services parts it brought) are gone with lyrics translation (Q18-101), and so are the Firebase components and Google data-transport libraries ML Kit used. Every artifact left is under an open-source license.
+
+**Reopened 29 October 2026 (Feature 19, Cast):** `androidx.media3:media3-cast` 1.11.1 brings Google Play services' Cast
+framework 22.3.1 and five Play services parts under Google's Android SDK terms, closed source, plus AndroidX
+MediaRouter 1.8.1 and the AppCompat and Fragment libraries it needs (Apache-2.0). The plan accepted this for Cast. Play
+services' Firebase data transport comes with them; its uploader (`transport-backend-cct`) is excluded in
+`app/build.gradle.kts`, so the Cast library's own usage reports are dropped on the phone (see `docs/privacy.md`).
+Cast does nothing on a phone without Play services.
 
 ## Main components
 
@@ -34,7 +42,8 @@ The script reads each resolved coordinate's POM from the local Gradle cache and 
 |---|---|---|
 | Riff (this repository) | 0.10.0-rc1 | GNU GPL-3.0; root `LICENSE` |
 | InnerTubeX | 0.7.2 (JitPack) | GNU GPL-3.0; [upstream](https://github.com/MetrolistGroup/innertubex) |
-| AndroidX: Compose BOM, Activity, Media3, Profile installer | 2026.06.01, 1.13.0, 1.11.1, 1.4.1 | Apache-2.0; [AndroidX](https://github.com/androidx/androidx) |
+| AndroidX: Compose BOM, Activity, Media3 (with Cast), MediaRouter, Profile installer | 2026.06.01, 1.13.0, 1.11.1, 1.8.1, 1.4.1 | Apache-2.0; [AndroidX](https://github.com/androidx/androidx) |
+| Google Play services Cast framework (through `media3-cast`) | 22.3.1 | Android Software Development Kit License; closed source |
 | Kotlin, kotlinx coroutines and serialization | 2.4.10, 1.11.0, 1.11.0 | Apache-2.0; [Kotlin](https://github.com/JetBrains/kotlin) |
 | Ktor client | 3.5.2 | Apache-2.0; [upstream](https://github.com/ktorio/ktor) |
 | OkHttp, Okio | 5.3.2, 3.17.0 | Apache-2.0; [OkHttp](https://github.com/square/okhttp), [Okio](https://github.com/square/okio) |

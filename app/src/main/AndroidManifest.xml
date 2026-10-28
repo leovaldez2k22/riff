@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <queries>
         <intent>
             <action android:name="android.speech.RecognitionService" />
@@ -28,9 +29,14 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar"
+        tools:ignore="MissingIntentFilterForMediaSearch"
         android:usesCleartextTraffic="false">
-        <!-- Feature 14: Android Auto lists Riff as a media app. -->
+        <!-- Feature 14: Android Auto lists Riff as a media app. Its voice search reaches the media session
+             (CarLibrary.queueFor reads the query), so no activity takes MEDIA_PLAY_FROM_SEARCH: asking the phone's
+             Assistant to play in Riff is not built. -->
         <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />
+        <!-- Feature 19: Cast with Google's Default Media Receiver (RiffCastOptions). -->
+        <meta-data android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME" android:value="com.musicglass.personal.RiffCastOptions" />
         <!-- Compose reads LocalConfiguration/LocalDensity and updates in place; recreating the
              activity for these changes rebuilt the whole UI (~280 ms per rotation or theme change).
              Locale is not listed, so a language change still recreates.

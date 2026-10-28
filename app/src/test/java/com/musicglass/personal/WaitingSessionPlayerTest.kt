@@ -81,7 +81,9 @@ class WaitingSessionPlayerTest {
 
     @Test fun theServiceGivesTheSessionTheWrapperAndDrivesTheRealPlayer() {
         val service = java.io.File("src/main/java/com/musicglass/personal/MusicPlaybackService.kt").readText()
-        assertTrue(service.contains("MediaSession.Builder(this, shown)"))
+        // Feature 14 made the session a library session; Feature 19 lets Media3's Cast player move it to a speaker.
+        assertTrue(service.contains("MediaLibrarySession.Builder(this, castable(shown, player)"))
+        assertTrue(service.contains("setLocalPlayer(shown)"))
         assertTrue(service.contains("WaitingSessionPlayer(player) { recovery.masksError }"))
         assertFalse("Riff's own code does not read the session's view of the player", service.contains("session?.player"))
     }

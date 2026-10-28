@@ -173,7 +173,9 @@ class WebBoundariesTest {
         val service = File("src/main/java/com/musicglass/personal/MusicPlaybackService.kt").readText()
         val connect = service.substringAfter("override fun onConnect").substringBefore("override fun onCustomCommand")
         assertTrue(connect.contains("isOwnController(controller.packageName, controller.uid, packageName, android.os.Process.myUid())"))
-        assertTrue(connect.contains("setAvailablePlayerCommands(foreignPlayerCommands())"))
+        // Feature 14: Android Auto, and only it, gets the full player commands to play what it browsed.
+        assertTrue(connect.contains("setAvailablePlayerCommands(if(browses) MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS else foreignPlayerCommands())"))
+        assertTrue(connect.contains("val browses=mayBrowse(session,controller)"))
         val custom = service.substringAfter("override fun onCustomCommand").substringBefore("customCommand.customAction")
         assertTrue(custom.contains("if (!isOwnController(controller.packageName, controller.uid, packageName, android.os.Process.myUid())) {"))
         assertTrue(custom.contains("SessionError.ERROR_PERMISSION_DENIED"))

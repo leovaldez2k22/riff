@@ -146,6 +146,7 @@ internal class CarLibrary(private val source: CarSource, private val clock: () -
             .setArtworkUri(carArtwork(track.artworkUrl)).setIsBrowsable(false).setIsPlayable(true)
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC).build()).build()
 
+    @androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
     private fun folder(id: String, title: String, subtitle: String? = null, art: String? = null, grid: Boolean,
         type: Int = MediaMetadata.MEDIA_TYPE_FOLDER_MIXED) = MediaItem.Builder().setMediaId(id)
         .setMediaMetadata(MediaMetadata.Builder().setTitle(title).setSubtitle(subtitle?.ifBlank { null }).setArtworkUri(carArtwork(art))
@@ -171,6 +172,7 @@ private fun carArtwork(url: String?): Uri? = validProviderArtworkUrl(url)?.let {
 private const val CAR_ARTWORK_PX = 400
 
 /** Root hints: Riff answers searches, and lists are the default style. */
+@androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 internal fun carRootExtras() = Bundle().apply {
     putBoolean(CAR_SEARCH_SUPPORTED, true)
     putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE, MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM)

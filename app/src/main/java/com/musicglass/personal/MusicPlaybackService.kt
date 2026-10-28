@@ -112,6 +112,28 @@ class MusicPlaybackService : MediaLibraryService() {
     private val order=PlaybackCommandOrder()
     private val commands by lazy {OrderedCommands(serviceScope,order,SessionResult(SessionError.INFO_CANCELLED),SessionResult(SessionError.ERROR_UNKNOWN))}
     private val internalChange=InternalChange()
+    /** Feature 19: null on a phone without Google Play services, where Riff plays only on the phone. */
+    private var cast: CastSync? = null
+
+    /**
+     * The session's player: [shown] alone, or, where Cast works, Media3's player that moves between [shown] and a
+     * speaker. Riff's queue stays on [local] either way.
+     */
+    @androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
+    private fun castable(shown: Player, local: ExoPlayer): Player = try {
+        androidx.media3.cast.Cast.getSingletonInstance(this).initialize()
+        val sync = CastSync(serviceScope, {mainPlayer}, {item->provider.resolve(item.mediaId.removePrefix("yt:")).getOrNull()}, events::append) {item->
+            android.widget.Toast.makeText(this, getString(R.string.cast_song_refused, item.mediaMetadata.title ?: ""), android.widget.Toast.LENGTH_SHORT).show()
+        }
+        val remote = androidx.media3.cast.RemoteCastPlayer.Builder(this).setMediaItemConverter(RiffCastConverter).build()
+        sync.remote = remote
+        local.addListener(sync.localListener)
+        cast = sync
+        androidx.media3.cast.CastPlayer.Builder(this).setLocalPlayer(shown).setRemotePlayer(remote).setTransferCallback(sync).build()
+    } catch (e: RuntimeException) {
+        events.append("cast_unavailable type=${e.javaClass.simpleName}")
+        shown
+    }
     private inline fun <T> internally(block:()->T):T=internalChange.run(block)
     private val queue:QueueCoordinator by lazy {QueueCoordinator(this,serviceScope,provider,sessions,offline,events,order,audio,{persistence},internalChange,{mainPlayer}) {recovery.clear()}}
     private val faults:PlaybackFaults by lazy {PlaybackFaults(serviceScope,runtime,provider,offline,events,queue)}
@@ -255,7 +277,7 @@ class MusicPlaybackService : MediaLibraryService() {
             }, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         mainPlayer = player
         val shown = WaitingSessionPlayer(player) { recovery.masksError }.also { sessionPlayer = it }
-        session = MediaLibrarySession.Builder(this, shown, object : MediaLibrarySession.Callback {
+        session = MediaLibrarySession.Builder(this, castable(shown, player), object : MediaLibrarySession.Callback {
             override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
                 // Another app: transport and reading, not rewriting the queue, and none of the app's own commands.
                 if (!isOwnController(controller.packageName, controller.uid, packageName, android.os.Process.myUid())) {
