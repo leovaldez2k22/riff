@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -162,6 +163,20 @@ internal fun RiffApp() {
                 == androidx.compose.material3.SnackbarResult.ActionPerformed) { uiHaptic(HapticCue.Confirm); undo() }
         } }
         onDispose { UndoNotices.listener = null }
+    }
+    // Feature 13: a YouTube Music link opened in Riff (tapped, or shared to it).
+    val pendingLink by SharedLinkInbox.pending.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingLink) {
+        val target = pendingLink ?: return@LaunchedEffect
+        SharedLinkInbox.pending.value = null
+        when (target) {
+            is SharedTarget.Collection -> { model.sheet = ""; model.openCollection(target.browseId, "") }
+            is SharedTarget.Song -> provider.resolve(target.videoId).fold(onSuccess = { stream ->
+                val track = ProviderTrack(target.videoId, stream.resolvedTitle, stream.resolvedAuthor, providerArtworkUrl(target.videoId))
+                SongTaps.tapped("yt:${target.videoId}")
+                playback.playProvider(track, stream, target.startMs)
+            }, onFailure = { snackbar.showSnackbar(it.message ?: string(R.string.link_could_not_open)) })
+        }
     }
     val scope = rememberCoroutineScope()
     val cardPeek = remember(scope) { CardPeekController(scope) }

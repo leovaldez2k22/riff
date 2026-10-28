@@ -177,6 +177,13 @@ import kotlinx.coroutines.withContext
             SettingsDivider()
             SongQualityRow(dataSaver)
             SettingsDivider()
+            // Feature 13: Android opens these links in Riff only once allowed here (Riff cannot verify YouTube's domains).
+            SettingsLinkRow(string(R.string.open_links_in_riff),null,Icons.Rounded.Link,"settings_open_links") {
+                runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS,
+                    android.net.Uri.parse("package:${context.packageName}"))) }
+            }
+            Text(string(R.string.open_links_in_riff_detail),color=Muted,fontSize=RiffType.detail,modifier=Modifier.padding(bottom=RiffSpace.item))
+            SettingsDivider()
             DownloadSettings(model,onNotice)
         }}
         item {SettingsCompartment("library",string(R.string.settings_library_and_privacy),Icons.Rounded.Lock,
@@ -270,10 +277,15 @@ import kotlinx.coroutines.withContext
 @Composable private fun SongQualityRow(dataSaver:DataSaverSettings) {
     Column(Modifier.fillMaxWidth().padding(vertical=RiffSpace.item).testTag("settings_song_quality")) {
         Text(string(R.string.song_quality),color=White,fontSize=RiffType.rowTitle)
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(top=RiffSpace.tight),horizontalArrangement=Arrangement.spacedBy(RiffSpace.item)) {
-            SongQuality.entries.forEach {choice->
-                FilterChip(dataSaver.songQuality==choice,{ uiHaptic(HapticCue.Selection); dataSaver.updateSongQuality(choice)},{Text(songQualityLabel(choice))},
-                    modifier=Modifier.testTag("settings_song_quality_${choice.key}"))
+        // Feature 17: one choice for Wi-Fi (any unmetered network) and one for mobile data.
+        for (metered in listOf(false, true)) {
+            Text(string(if (metered) R.string.on_mobile_data else R.string.on_wifi),color=Muted,fontSize=RiffType.detail,modifier=Modifier.padding(top=RiffSpace.item))
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(top=RiffSpace.tight),horizontalArrangement=Arrangement.spacedBy(RiffSpace.item)) {
+                SongQuality.entries.forEach {choice->
+                    val chosen=if(metered) dataSaver.meteredQuality else dataSaver.unmeteredQuality
+                    FilterChip(chosen==choice,{ uiHaptic(HapticCue.Selection); dataSaver.updateNetworkQuality(metered,choice)},{Text(songQualityLabel(choice))},
+                        modifier=Modifier.testTag(if(metered) "settings_song_quality_mobile_${choice.key}" else "settings_song_quality_${choice.key}"))
+                }
             }
         }
         Text(string(if(dataSaver.enabled) R.string.song_quality_data_saver_on else R.string.song_quality_note),

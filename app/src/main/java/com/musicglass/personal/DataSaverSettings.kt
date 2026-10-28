@@ -27,7 +27,22 @@ internal class DataSaverSettings(context: Context) {
         songQuality = value
         prefs.edit().putString(SONG_QUALITY_KEY, value.key).apply()
     }
+    /** Feature 17: the quality on an unmetered network (usually Wi-Fi) and on mobile data; both start as [songQuality]. */
+    var unmeteredQuality by mutableStateOf(networkSongQuality(prefs, metered = false)); private set
+    var meteredQuality by mutableStateOf(networkSongQuality(prefs, metered = true)); private set
+    fun updateNetworkQuality(metered: Boolean, value: SongQuality) {
+        if (metered) meteredQuality = value else unmeteredQuality = value
+        prefs.edit().putString(if (metered) SONG_QUALITY_METERED_KEY else SONG_QUALITY_UNMETERED_KEY, value.key).apply()
+    }
 }
+
+internal const val SONG_QUALITY_UNMETERED_KEY = "song_quality_unmetered"
+internal const val SONG_QUALITY_METERED_KEY = "song_quality_metered"
+
+/** Feature 17: the quality for this kind of network; until one is chosen, the single choice older builds kept. */
+internal fun networkSongQuality(prefs: android.content.SharedPreferences, metered: Boolean): SongQuality =
+    songQualityFrom(prefs.getString(if (metered) SONG_QUALITY_METERED_KEY else SONG_QUALITY_UNMETERED_KEY, null)
+        ?: prefs.getString(SONG_QUALITY_KEY, null))
 
 /** Downloads always ask for the best; Data saver wins over the chosen quality while it is on. */
 internal fun streamingAudioQuality(dataSaver: Boolean, download: Boolean, song: SongQuality = SongQuality.Medium): AudioQuality = when {

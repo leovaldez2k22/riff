@@ -19,9 +19,16 @@ class MainActivity : ComponentActivity() {
         // (StatusBarTone.kt). The deprecated systemUiVisibility forced white everywhere.
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT))
+        sharedTargetOf(intent)?.let { SharedLinkInbox.pending.value = it }
         val panel=display
         val uiRate=panel?.let {p->preferredUiRefreshRate(p.supportedModes.filter {it.physicalWidth==p.mode.physicalWidth && it.physicalHeight==p.mode.physicalHeight}.map {it.refreshRate})}?:60f
         setContent { androidx.compose.runtime.CompositionLocalProvider(LocalUiRefreshRate provides uiRate) {StartupLogo(savedInstanceState==null) { RiffApp() }} }
+    }
+
+    /** Feature 13: Riff runs singleTask, so a link tapped while it is open arrives here. */
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        sharedTargetOf(intent)?.let { SharedLinkInbox.pending.value = it }
     }
 
     override fun onResume() {

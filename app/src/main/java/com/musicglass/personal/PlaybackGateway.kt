@@ -20,6 +20,8 @@ import androidx.media3.session.SessionResult
 
 internal data class PlaybackUiState(
     val sleepDeadlineMs:Long=0,
+    /** Feature 15: the player's speed, 1 normally. */
+    val speed:Float=1f,
     val ready: Boolean = false,
     val index: Int = 0,
     val playing: Boolean = false,
@@ -53,6 +55,10 @@ internal interface PlaybackGateway {
     fun currentPositionMs(): Long = positionMs
     fun toggle()
     fun setSleepTimer(minutes:Int)
+    /** Feature 18: stop after [songs] more songs end, the one playing included (1 = "End of this song"). */
+    fun setSleepTimerSongs(songs:Int) {}
+    /** Feature 15: plays faster or slower without changing pitch; songs and episodes each keep their own speed. */
+    fun setPlaybackSpeed(speed:Float) {}
     /** Q18-096: the open queue reached its last song; asks for more recommendations. */
     fun loadMoreQueue() {}
     fun pause()
@@ -196,6 +202,7 @@ internal class MusicPlaybackGateway(context: Context,
         val updated = PlaybackUiState(
             playback = typed,
             sleepDeadlineMs=player.sessionExtras.getLong("sleepDeadlineMs"),
+            speed=player.playbackParameters.speed,
             ready = true,
             index = player.currentMediaItemIndex.coerceAtLeast(0),
             playing = if((embeddedId!=null && embeddedId==player.currentMediaItem?.mediaId)) embeddedPlaying
@@ -259,6 +266,8 @@ internal class MusicPlaybackGateway(context: Context,
     override fun retry() { transport(true); withPlayer { commandError = null; start(it) } }
     override fun loadMoreQueue() = withPlayer {it.sendCustomCommand(SessionCommand(LOAD_MORE_QUEUE,Bundle.EMPTY),Bundle.EMPTY)}
     override fun setSleepTimer(minutes:Int) = withPlayer {it.sendCustomCommand(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY),Bundle().apply {putInt("minutes",minutes)})}
+    override fun setSleepTimerSongs(songs:Int) = withPlayer {it.sendCustomCommand(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY),Bundle().apply {putInt("songs",songs)})}
+    override fun setPlaybackSpeed(speed:Float) = withPlayer {it.setPlaybackSpeed(playbackSpeedStep(speed))}
     override fun pause() { transport(false); withPlayer { it.pause();if(state.embedded) embeddedControl?.invoke(false) } }
     override fun resume() { transport(true); withPlayer { start(it) } }
     override fun next() { PerfTrace.began("skip"); transport(true); withPlayer { commandError = null; it.seekToNextMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }

@@ -58,7 +58,8 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
     private val qualityPrefs=appContext.getSharedPreferences(STREAM_QUALITY_PREFS,Context.MODE_PRIVATE)
     /** Read at each lookup, so a change applies from the next song without interrupting this one. */
     private fun chosenQuality(download:Boolean):AudioQuality = streamingAudioQuality(dataSaverPrefs.getBoolean("enabled",false),download,
-        songQualityFrom(dataSaverPrefs.getString(SONG_QUALITY_KEY,null)))
+        // Feature 17: Wi-Fi and mobile data each have their own; a metered hotspot counts as mobile data.
+        networkSongQuality(dataSaverPrefs, appContext.getSystemService(android.net.ConnectivityManager::class.java)?.isActiveNetworkMetered != false))
     /** Q18-090: Premium is known for an account only once YouTube served it a Premium-only format. */
     private fun premiumConfirmed():Boolean = session.signedIn && session.accountScopeKey()?.let {qualityPrefs.getBoolean("premium:$it",false)}==true
     private var streamRevision=0L

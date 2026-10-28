@@ -83,7 +83,9 @@ class SettingsCompartmentsTest {
         compose.onNodeWithTag("settings_song_quality_low").performClick(); compose.waitForIdle()
         compose.onNodeWithTag("settings_song_quality_low").assertIsSelected()
         compose.onNodeWithTag("settings_song_quality_medium").assertIsNotSelected()
-        assertEquals(SongQuality.Low, DataSaverSettings(context).songQuality)
+        // Feature 17: the first row is On Wi-Fi; mobile data keeps its own choice.
+        assertEquals(SongQuality.Low, DataSaverSettings(context).unmeteredQuality)
+        assertEquals(SongQuality.Medium, DataSaverSettings(context).meteredQuality)
         scrollTo("settings_data_saver"); compose.onNodeWithTag("settings_data_saver").performClick(); compose.waitForIdle()
         scrollTo("settings_song_quality_note")
         compose.onNodeWithTag("settings_song_quality_note").assertTextEquals(string(R.string.song_quality_data_saver_on))

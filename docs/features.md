@@ -50,6 +50,10 @@ This guide describes Riff 0.10.0 (version code 33), the final candidate of the e
 - During an instrumental stretch of 4 seconds or more (an intro, a solo, a break between verses), three dots fill one after another until the singing returns, where the lyrics say when each line ends. Tapping them plays from the start of the stretch.
 - Lyrics can also come from lrc.red, which often has word timing.
 - For lyrics in another script (Hindi, Japanese, Korean, Russian and others), a chip under the lyrics switches between the original, a romanized form and both. The romanization comes from the lyrics source when it has one, otherwise the phone makes one ("Auto").
+- Song quality has separate choices **On Wi-Fi** and **On mobile data** (Settings → Playback); a phone hotspot counts as mobile data.
+- The sleep timer can stop at the **end of this song**, **after 2, 3 or 5 songs** or at the **end of the queue**, and its fade-out lasts off, 5, 15, 30 or 60 seconds.
+- **Playback speed** (player menu) goes from 0.5× to 2× without changing pitch. Episodes keep their speed; songs return to normal when Riff restarts.
+- YouTube Music and YouTube links can be shared to Riff, or opened in it once allowed in Android's settings (Settings → Playback → Open YouTube Music links in Riff): songs, videos, playlists, albums and artists, with a start time when the link has one.
 - Removing a song from the queue offers **Undo**, which puts it back where it was; removing one from your playlist offers Undo too, which adds it back at the end.
 - In the full player, a song title too long for its line scrolls slowly after a pause. The mini player, lists and the queue keep "…".
 - Screens move at a calm pace (Settings → Appearance → Calm transitions; off makes them quicker). Things that follow your finger or the music keep their own timing.

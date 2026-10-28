@@ -133,7 +133,7 @@ private val SETTINGS = listOf(
     SettingSpec(AUDIO_BOOST_PREFS, "enabled", acceptBool), SettingSpec(AUDIO_BOOST_PREFS, "percent", acceptInt { it in 100..300 }),
     SettingSpec(AUDIO_BOOST_PREFS, NORMALIZE_KEY, acceptBool),
     SettingSpec(CROSSFADE_PREFS, "enabled", acceptBool), SettingSpec(CROSSFADE_PREFS, "seconds", acceptInt { it in 1..12 }),
-    SettingSpec(DATA_SAVER_PREFS, "enabled", acceptBool), SettingSpec(DATA_SAVER_PREFS, SONG_QUALITY_KEY, acceptWord(SongQuality.entries.map { it.key }.toSet())),
+    SettingSpec(DATA_SAVER_PREFS, "enabled", acceptBool), SettingSpec(DATA_SAVER_PREFS, SONG_QUALITY_KEY, acceptWord(SongQuality.entries.map { it.key }.toSet())), *listOf(SONG_QUALITY_UNMETERED_KEY, SONG_QUALITY_METERED_KEY).map { SettingSpec(DATA_SAVER_PREFS, it, acceptWord(SongQuality.entries.map { q -> q.key }.toSet())) }.toTypedArray(),
     SettingSpec("music_collections", "history_enabled", acceptBool), SettingSpec("music_collections", RETENTION_KEY, acceptInt { it in setOf(30, 90, 365) }),
 ).associateBy { it.name }
 private const val RETENTION_KEY = "history_retention_days"

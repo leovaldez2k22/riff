@@ -37,7 +37,19 @@ class MusicPlaybackService : MediaSessionService() {
     @OptIn(ExperimentalCoroutinesApi::class)
     private val queueDecoder by lazy {runtime.dispatchers.io.limitedParallelism(1)}
     private val provider by lazy { YouTubeMusicProvider.shared(this) }
-    private val sleepTimer by lazy {SleepTimerController(serviceScope,runtime.clocks::monotonicMillis,wait=runtime.wait,pause={mainPlayer?.pause()},publish={deadline->sleepDeadlineMs=deadline;publishState()},readVolume={mainPlayer?.volume?:1f},writeVolume={mainPlayer?.volume=it},persist=::persistSleepDeadline)}
+    private val sleepTimer by lazy {SleepTimerController(serviceScope,runtime.clocks::monotonicMillis,wait=runtime.wait,pause={mainPlayer?.pause()},publish={deadline->sleepDeadlineMs=deadline;publishState()},readVolume={mainPlayer?.volume?:1f},writeVolume={mainPlayer?.volume=it},persist=::persistSleepDeadline,fadeMs={sleepFadeMs(this)})}
+    /** Feature 18: a timer counted in songs ("End of this song", "After 3 songs", "End of queue"). */
+    private val sleepSongs=SleepSongs()
+    /** Feature 15: songs and episodes keep their own speed. */
+    private val speeds by lazy {PlaybackSpeeds(this)}
+    private fun isMusic(item:MediaItem?)=item?.mediaMetadata?.extras?.getBoolean("music",true)!=false
+    /** Points the timer's deadline at the end of the last counted song, so the fade leads up to it. */
+    private fun rearmSleepSong() {
+        val player=mainPlayer?:return
+        if(!sleepSongs.onLastSong || player.duration<=0) return
+        val deadline=sleepSongDeadline(runtime.clocks.monotonicMillis(),player.duration,player.currentPosition,player.playbackParameters.speed)
+        if(kotlin.math.abs(deadline-sleepDeadlineMs)>1_000) sleepTimer.arm(deadline)
+    }
     private fun bootCount()=android.provider.Settings.Global.getInt(contentResolver,android.provider.Settings.Global.BOOT_COUNT,-1)
     private fun persistSleepDeadline(deadline:Long) {
         val edit=snapshotPrefs.edit()
@@ -163,12 +175,25 @@ class MusicPlaybackService : MediaSessionService() {
                     events.append("playback_state=$playbackState")
                     offline.playbackBusy=playbackState==Player.STATE_BUFFERING || this@apply.isPlaying
                     if(playbackState==Player.STATE_READY) {queue.replenish(this@apply);this@apply.currentMediaItem?.entryId()?.let(recovery::ready)}
-                    if(playbackState==Player.STATE_ENDED) {plays.completed();encore.ended(EncoreEnded.FINISHED)}
+                    if(playbackState==Player.STATE_ENDED) {plays.completed();encore.ended(EncoreEnded.FINISHED)
+                        if(sleepSongs.active) {sleepSongs.cancel();sleepTimer.close()}}
                 }
                 override fun onIsPlayingChanged(isPlaying:Boolean) {offline.playbackBusy=isPlaying || this@apply.playbackState==Player.STATE_BUFFERING;lastListenTick=android.os.SystemClock.elapsedRealtime()}
+                override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
+                    // Feature 15: the speed asked for is remembered for this kind of item. The crossfade's own small
+                    // corrections are made on its tail player, never here.
+                    speeds.remember(isMusic(this@apply.currentMediaItem),playbackParameters.speed)
+                }
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    val wanted=speeds.forKind(isMusic(mediaItem))
+                    if(kotlin.math.abs(this@apply.playbackParameters.speed-wanted)>.001f) this@apply.setPlaybackSpeed(wanted)
                     if(reason!=Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED || mediaItem!==queue.replacement) {
                         encore.ended(encoreEndedBy(reason))
+                        if(sleepSongs.active) {
+                            val finished=reason==Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason==Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
+                            if(finished && sleepSongs.finishedOne()) {this@apply.pause();sleepTimer.close();events.append("sleep_timer_songs_done")}
+                            else serviceScope.launch {rearmSleepSong()}
+                        }
                         listeningId="";plays.started();lastListenTick=android.os.SystemClock.elapsedRealtime()
                         queue.replacement=null
                     }
@@ -217,9 +242,16 @@ class MusicPlaybackService : MediaSessionService() {
                     return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
                 }
                 if(customCommand.customAction==SET_SLEEP_TIMER) {
+                    val songs=args.getInt("songs",0)
+                    if(songs>0) {
+                        // Feature 18: counted in songs; the crossfade stays off once the last one is playing.
+                        audio.cancelBlend();sleepTimer.close();sleepSongs.set(songs);rearmSleepSong()
+                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                    }
                     val minutes=args.getInt("minutes")
                     if(minutes !in 0..1440) return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
                     if(minutes>0) audio.cancelBlend()
+                    sleepSongs.cancel()
                     sleepTimer.set(minutes)
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
@@ -309,6 +341,7 @@ class MusicPlaybackService : MediaSessionService() {
             val now=android.os.SystemClock.elapsedRealtime();val delta=(now-lastListenTick).coerceIn(0,5000);lastListenTick=now
             recordHistory(player)
             if(player.isPlaying) encore.heard(delta)
+            if(player.isPlaying && sleepSongs.onLastSong) rearmSleepSong()
             if(player.isPlaying && player.currentMediaItem?.mediaId?.startsWith("yt:")==true) {
                 val track=queue.trackFromItem(player.currentMediaItem!!);val id=track.videoId
                 val duration=player.duration.coerceAtLeast(0);val newPlay=id!=listeningId;listeningId=id
