@@ -173,7 +173,7 @@ internal fun SeekControl(playback: PlaybackGateway, mediaId: String, durationMs:
                 stateDescription=if(live) LIVE_SEEK_EXPLANATION else string(R.string.position_x_of_x, playerClock(position.toLong()), playerClock(duration))
             })
         // Feature 34: times at 55 % in figures of one width, the quality streams ask for between them.
-        val timeStyle = TextStyle(fontSize = RiffPlayer.time, fontFeatureSettings = "tnum")
+        val timeStyle = TextStyle(fontFamily = InterFamily, fontSize = RiffPlayer.time, fontFeatureSettings = RiffText.TABULAR)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(if(playback.state.live) string(R.string.live) else playerClock(position.toLong()), color = if(playback.state.live) Pink else White.copy(alpha = .55f), style = timeStyle)
             if(!live) PlayerQualityLabel(mediaId)
@@ -376,7 +376,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         Row(Modifier.fillMaxWidth().graphicsLayer {alpha=if(queueOpen) 0f else 1f}.then(if(queueOpen) Modifier.clearAndSetSemantics {} else Modifier), verticalAlignment = Alignment.CenterVertically) {
             songTransition.SongContentFade(Modifier.weight(1f)) {song->
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                val titleStyle = TextStyle(fontSize = RiffPlayer.title, fontWeight = FontWeight.Bold)
+                val titleStyle = TextStyle(fontFamily = InterDisplayFamily, fontSize = RiffPlayer.title, fontWeight = FontWeight.Bold, letterSpacing = RiffPlayer.titleTracking)
                 val scrollTitle = playerTitleScrolls(motion.reduced, fontScale, interactive, queueOpen, dragging)
                 var titleRowWidth by remember { mutableIntStateOf(0) }
                 val titleMeasurer = rememberTextMeasurer()

@@ -10,6 +10,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -72,6 +74,7 @@ internal object RiffTopResult {
 /** Feature 34: the redesigned player (sizes from BitChord's, 34.3). */
 internal object RiffPlayer {
     val title = 26.sp
+    val titleTracking = (-.45).sp
     val artist = 22.sp
     /** The like and more circles, and their icons. */
     val circle = 44.dp
@@ -151,9 +154,29 @@ internal object RiffRadius {
     val pill = 28.dp
 }
 
+/**
+ * Feature 3: the type scale, after Apple's. Display sizes (20 sp and up) take Inter Display; the rest Inter Text.
+ * Tracking tightens as the size grows, as SF's does.
+ */
+internal object RiffText {
+    /** Home, Library, Settings and every page's own title. */
+    val largeTitle = TextStyle(fontFamily = InterDisplayFamily, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold, letterSpacing = (-.9).sp)
+    val sectionHeading = TextStyle(fontFamily = InterDisplayFamily, fontSize = 22.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, letterSpacing = (-.4).sp)
+    /** A headline that is not a page title: a sheet's, a message's. */
+    val headline = TextStyle(fontFamily = InterDisplayFamily, fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = (-.5).sp)
+    val rowTitle = TextStyle(fontFamily = InterFamily, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-.4).sp)
+    val body = TextStyle(fontFamily = InterFamily, fontSize = 15.sp, letterSpacing = (-.2).sp)
+    val subtitle = TextStyle(fontFamily = InterFamily, fontSize = 13.sp, letterSpacing = (-.05).sp)
+    /** A Settings row, as in the owner's screenshot: larger and regular, its help under it at 55 %. */
+    val settingsRow = TextStyle(fontFamily = InterFamily, fontSize = 19.sp, letterSpacing = (-.45).sp)
+    val settingsHelp = TextStyle(fontFamily = InterFamily, fontSize = 15.sp, letterSpacing = (-.2).sp)
+    /** Times and counts: tabular figures, so a running clock doesn't jitter. */
+    const val TABULAR = "tnum"
+}
+
 internal object RiffType {
-    val screenTitle = 31.sp
-    val screenTitleLine = 34.sp
+    val screenTitle = 34.sp
+    val screenTitleLine = 40.sp
     /** A message that stands in for content: nothing here, something failed. */
     val message = 16.sp
     val body = 14.sp
@@ -165,6 +188,7 @@ internal object RiffType {
 /** Q16A: the lyrics screen's sung lines, their background vocals and the emphasis on held words. */
 internal object RiffLyrics {
     val text = 29.sp
+    val tracking = (-.6).sp
     val textLine = 38.sp
     /** A background vocal: smaller, under its line. */
     val backing = 20.sp

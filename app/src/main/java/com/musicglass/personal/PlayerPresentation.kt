@@ -441,7 +441,7 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                             transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
                         })
                 // The player's title and artist, shrunk to the mini player's size, take over once moving.
-                Text(state.title, color = White,
+                Text(state.title, color = White, fontFamily = InterDisplayFamily, letterSpacing = RiffPlayer.titleTracking,
                     fontSize = 22.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,

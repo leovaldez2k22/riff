@@ -378,7 +378,7 @@ internal fun RiffApp() {
                 containerColor = Raised, scrimColor = Color.Black.copy(alpha = .55f)) {
                 Column(Modifier.fillMaxWidth().preferredFrameRate(LocalUiRefreshRate.current).padding(horizontal = 24.dp)
                     .padding(bottom = 36.dp)) {
-                    Text(string(R.string.library), color = White, fontSize = 23.sp,
+                    Text(string(R.string.library), color = White, style = RiffText.sectionHeading,
                         modifier = Modifier.padding(bottom = 12.dp))
                     listOf("All", "Favorites", "History", "Playlists").forEach { filter ->
                         Text(filter, color = White, modifier = Modifier.fillMaxWidth()

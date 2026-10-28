@@ -10,7 +10,7 @@ from JitPack at build time. Riff's Android stream attestation adapter and JavaSc
 
 Design reference images and retired prototype assets are not bundled in the APK.
 
-The app bundles [Inter 4.1](https://github.com/rsms/inter), copyright The Inter Project Authors,
+The app bundles [Inter 4.1](https://github.com/rsms/inter) (the variable font), copyright The Inter Project Authors,
 under the SIL Open Font License 1.1. See [licenses/INTER-OFL.txt](licenses/INTER-OFL.txt).
 
 YouTube Music and YouTube are trademarks of Google LLC. This is an independent client and is

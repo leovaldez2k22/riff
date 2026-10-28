@@ -207,7 +207,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                     Text(string(R.string.looking_for_word_and_line_timing),color = Muted,fontSize = RiffType.body)
                 }
                 else -> Column(Modifier.weight(1f).fillMaxWidth().padding(28.dp),verticalArrangement = Arrangement.Center) {
-                    Text(if (failed) string(R.string.couldn_t_load_lyrics) else string(R.string.no_lyrics_found),color = White,fontSize = 26.sp,fontWeight = FontWeight.Bold)
+                    Text(if (failed) string(R.string.couldn_t_load_lyrics) else string(R.string.no_lyrics_found),color = White,style = RiffText.headline)
                     Text(if (failed) string(R.string.check_your_connection_and_try_again) else string(R.string.lyrics_aren_t_available_for_this_recording),
                         color = Muted,fontSize = 15.sp,modifier = Modifier.padding(top = 10.dp,bottom = RiffSpace.block))
                     TextButton(onClick = { uiHaptic();  refresh++ },modifier = Modifier.testTag("lyrics_retry")) { Text(string(R.string.try_again),color = Pink) }
@@ -287,7 +287,7 @@ internal fun LyricsTimingDialog(offsetMs: Long, onOffset: (Long) -> Unit, onDism
 @Composable
 private fun LyricsMessage(title: String,subtitle: String,modifier: Modifier) {
     Column(modifier.fillMaxWidth().padding(28.dp),verticalArrangement = Arrangement.Center) {
-        Text(title,color = White,fontSize = 28.sp,fontWeight = FontWeight.Bold)
+        Text(title,color = White,style = RiffText.largeTitle)
         Text(subtitle,color = Muted,fontSize = RiffType.message,modifier = Modifier.padding(top = RiffSpace.rowGap))
     }
 }

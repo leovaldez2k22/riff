@@ -22,25 +22,31 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import java.time.LocalDateTime
 import kotlinx.coroutines.delay
 
-internal val InterFamily = FontFamily(
-    Font(R.font.inter_regular, FontWeight.Normal),
-    Font(R.font.inter_medium, FontWeight.Medium),
-    Font(R.font.inter_semibold, FontWeight.SemiBold),
-    Font(R.font.inter_bold, FontWeight.Bold),
-)
+/**
+ * Feature 3: Inter 4.1's variable font, in the two optical sizes SF Pro has. Text (opsz 14) is drawn for reading
+ * sizes; Display (opsz 32), tighter and finer, for 20 sp and up, as SF switches from Text to Display.
+ */
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+private fun interFamily(opticalSize: Float) = FontFamily(listOf(300, 400, 500, 600, 700, 800).map { weight ->
+    Font(R.font.inter_variable, FontWeight(weight),
+        variationSettings = FontVariation.Settings(FontVariation.weight(weight), FontVariation.Setting("opsz", opticalSize)))
+})
+internal val InterFamily = interFamily(14f)
+internal val InterDisplayFamily = interFamily(32f)
 
 private val baseTypography = Typography()
 internal val GlassTypography = Typography(
-    displayLarge = baseTypography.displayLarge.copy(fontFamily = InterFamily),
-    displayMedium = baseTypography.displayMedium.copy(fontFamily = InterFamily),
-    displaySmall = baseTypography.displaySmall.copy(fontFamily = InterFamily),
-    headlineLarge = baseTypography.headlineLarge.copy(fontFamily = InterFamily),
-    headlineMedium = baseTypography.headlineMedium.copy(fontFamily = InterFamily),
-    headlineSmall = baseTypography.headlineSmall.copy(fontFamily = InterFamily),
+    displayLarge = baseTypography.displayLarge.copy(fontFamily = InterDisplayFamily),
+    displayMedium = baseTypography.displayMedium.copy(fontFamily = InterDisplayFamily),
+    displaySmall = baseTypography.displaySmall.copy(fontFamily = InterDisplayFamily),
+    headlineLarge = baseTypography.headlineLarge.copy(fontFamily = InterDisplayFamily),
+    headlineMedium = baseTypography.headlineMedium.copy(fontFamily = InterDisplayFamily),
+    headlineSmall = baseTypography.headlineSmall.copy(fontFamily = InterDisplayFamily),
     titleLarge = baseTypography.titleLarge.copy(fontFamily = InterFamily),
     titleMedium = baseTypography.titleMedium.copy(fontFamily = InterFamily),
     titleSmall = baseTypography.titleSmall.copy(fontFamily = InterFamily),

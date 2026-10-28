@@ -211,7 +211,7 @@ private data class DownloadListing(val entries:List<DownloadDisplay>,val used:Lo
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha=.32f),.42f to Color.Transparent,1f to tone)))
                 Box(Modifier.statusBarsPadding().padding(horizontal=16.dp)) {BackHeading(string(R.string.library),model::back,overPicture=true)}
                 Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally) {
-                    Text(string(R.string.downloads),color=White,fontSize=28.sp,fontWeight=FontWeight.SemiBold)
+                    Text(string(R.string.downloads),color=White,style=RiffText.largeTitle)
                     Text(if(!loaded) string(R.string.loading_2) else quantity(R.plurals.n_songs_n, ready.size, storageLabel(used)),
                         color=White.copy(alpha=.78f),fontSize=15.sp,modifier=Modifier.padding(top=6.dp))
                 }

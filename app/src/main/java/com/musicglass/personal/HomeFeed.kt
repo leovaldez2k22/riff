@@ -125,7 +125,7 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
         verticalArrangement = Arrangement.spacedBy(18.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(string(R.string.home), color = White, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(string(R.string.home), color = White, style = RiffText.largeTitle, modifier = Modifier.weight(1f))
                 IconButton(onClick = { uiHaptic();  model.push(Route.Settings()) },modifier = Modifier.testTag("home_settings")) {
                     if (profile?.artworkUrl != null) AsyncImage(profile?.artworkUrl, contentDescription = string(R.string.settings),
                         contentScale = ContentScale.Crop, modifier = Modifier.size(38.dp).clip(CircleShape))
@@ -186,7 +186,7 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
 private fun HomeHeading(title: String, action: (() -> Unit)? = null,
     actionLabel: String = string(R.string.play_all)) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+        Text(title, color = White, style = RiffText.sectionHeading,
             maxLines = 2, modifier = Modifier.weight(1f))
         if (action != null) Text(actionLabel, color = White, fontSize = 12.sp,
             modifier = Modifier.clip(RoundedCornerShape(20.dp))

@@ -173,7 +173,9 @@ internal fun KaraokeLine(line: LyricLine, active: Boolean, backingActive: Boolea
 @Composable
 private fun KaraokeText(text: String, parts: List<LyricPart>, active: Boolean, position: () -> Long, motion: MotionPolicy,
     size: TextUnit, lineHeight: TextUnit, modifier: Modifier = Modifier) {
-    val style = LocalTextStyle.current.merge(TextStyle(fontSize = size, lineHeight = lineHeight, fontWeight = FontWeight.Bold))
+    // Feature 3: sung lines are display-sized, so they take Inter Display, tracked in a little.
+    val style = LocalTextStyle.current.merge(TextStyle(fontFamily = InterDisplayFamily, fontSize = size, lineHeight = lineHeight,
+        fontWeight = FontWeight.Bold, letterSpacing = RiffLyrics.tracking))
     val measurer = rememberTextMeasurer(cacheSize = 4)
     var layout by remember(text) { mutableStateOf<TextLayoutResult?>(null) }
     val highlights = remember(layout, parts) {

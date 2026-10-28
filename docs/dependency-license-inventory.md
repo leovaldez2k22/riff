@@ -81,7 +81,7 @@ this source and the hashed AAR rests on JitPack building the tag.
 
 | Asset | Provenance |
 |---|---|
-| Inter 4.1 (`res/font/inter_*.ttf`, four weights) | The Inter Project Authors, SIL OFL-1.1; `licenses/INTER-OFL.txt` |
+| Inter 4.1 variable (`res/font/inter_variable.ttf`, axes `opsz` 14–32 and `wght`) | The Inter Project Authors, SIL OFL-1.1; `licenses/INTER-OFL.txt`. `InterVariable.ttf` taken unchanged from `Inter-4.1.zip` of the official release (github.com/rsms/inter/releases/tag/v4.1, downloaded 28 October 2026). SHA-256: zip `9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e`, font `4989b125924991b90d05b2d16e0e388c48f7d5bb8b30539bbf9c755278d0ccaf`. The zip's `LICENSE.txt` matches `licenses/INTER-OFL.txt`. |
 | 20 fallback covers (`res/drawable-nodpi/cover_fallback_01..20.webp`) | Generated for Riff on 2 October 2026 with an image-generation tool; prompts and process in [licenses/placeholder-art.md](../licenses/placeholder-art.md) |
 | Launcher icon, liked-songs art, widget backgrounds and controls (`res/drawable/*.xml`) | Vector drawings in this repository; history in Git |
 | Icons in screens | Material icons from `androidx.compose.material:material-icons-extended`, Apache-2.0 |

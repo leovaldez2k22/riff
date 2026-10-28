@@ -325,8 +325,8 @@ internal fun songQualityLabel(choice:SongQuality) = string(when(choice) {
         verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(RiffSpace.rowGap)) {
         Icon(icon,null,tint=Muted,modifier=Modifier.size(21.dp))
         Column(Modifier.weight(1f)) {
-            Text(title,color=White,fontSize=15.sp)
-            if(subtitle!=null) Text(subtitle,color=Muted,fontSize=RiffType.detail,modifier=Modifier.padding(top=3.dp))
+            Text(title,color=White,style=RiffText.settingsRow)
+            if(subtitle!=null) Text(subtitle,color=White.copy(alpha=.55f),style=RiffText.settingsHelp,modifier=Modifier.padding(top=3.dp))
         }
         Switch(checked,onCheckedChange=null)
     }
@@ -335,8 +335,8 @@ internal fun songQualityLabel(choice:SongQuality) = string(when(choice) {
     Row(Modifier.fillMaxWidth().heightIn(min=56.dp).testTag(tag).clickable(onClick=hapticClick(onClick))
         .padding(vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(RiffSpace.rowGap)) {
         Icon(icon,null,tint=Muted,modifier=Modifier.size(21.dp))
-        Text(title,color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
-        if(value!=null) Text(value,color=Muted,fontSize=RiffType.detail)
+        Text(title,color=White,style=RiffText.settingsRow,modifier=Modifier.weight(1f))
+        if(value!=null) Text(value,color=White.copy(alpha=.55f),style=RiffText.settingsHelp)
         Icon(Icons.Rounded.ChevronRight,null,tint=Muted,modifier=Modifier.size(18.dp))
     }
 }

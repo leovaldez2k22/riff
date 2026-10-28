@@ -78,8 +78,7 @@ internal fun ScreenTitle(title: String, subtitle: String? = null) {
     Column(Modifier.focusRequester(focusRequester).focusable()
         .semantics { heading() },
         verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text(title, color = White, fontSize = RiffType.screenTitle, lineHeight = RiffType.screenTitleLine,
-            fontWeight = FontWeight.Bold)
+        Text(title, color = White, style = RiffText.largeTitle)
         if (subtitle != null) Text(subtitle, color = Muted, fontSize = RiffType.body)
     }
 }
