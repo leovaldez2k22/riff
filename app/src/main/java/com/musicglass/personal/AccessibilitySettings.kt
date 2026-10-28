@@ -27,6 +27,16 @@ internal class AccessibilitySettings(context: Context) {
         private set
     fun updateLyricsBlur(enabled: Boolean) { lyricsBlur = enabled; prefs.edit().putBoolean("lyrics_blur", enabled).apply() }
 
+    /** Feature 34.4: the current lyric line above the player's seek bar. */
+    var playerLyricLine by mutableStateOf(prefs.getBoolean("player_lyric_line", true))
+        private set
+    fun updatePlayerLyricLine(enabled: Boolean) { playerLyricLine = enabled; prefs.edit().putBoolean("player_lyric_line", enabled).apply() }
+
+    /** Features 16 and 34.3: the format line over the player's art. */
+    var playerStats by mutableStateOf(prefs.getBoolean("player_stats", false))
+        private set
+    fun updatePlayerStats(enabled: Boolean) { playerStats = enabled; prefs.edit().putBoolean("player_stats", enabled).apply() }
+
     /** Feature 25: lyrics in their own script, in Latin letters, or both. */
     var lyricsRoman by mutableStateOf(lyricsRomanModeFrom(prefs.getString("lyrics_roman", null)))
         private set
@@ -53,6 +63,8 @@ internal class AccessibilitySettings(context: Context) {
         reduceMotion = runCatching { prefs.getBoolean("reduce_motion", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE)
         motionPace = motionPaceFrom(prefs.getString("motion_pace", null))
         lyricsBlur = prefs.getBoolean("lyrics_blur", true)
+        playerLyricLine = prefs.getBoolean("player_lyric_line", true)
+        playerStats = prefs.getBoolean("player_stats", false)
         lyricsRoman = lyricsRomanModeFrom(prefs.getString("lyrics_roman", null))
         frostedGlass = prefs.getBoolean("frosted_glass", FROSTED_GLASS_DEFAULT)
         glassIntensity = prefs.getFloat("glass_intensity", 1f).coerceIn(0f, 1.5f)

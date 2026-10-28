@@ -1,5 +1,6 @@
 package com.musicglass.personal
 
+import androidx.compose.ui.draw.clip
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
@@ -109,23 +110,23 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(if (volume == 0) Icons.Rounded.VolumeOff else Icons.Rounded.VolumeDown,
-                contentDescription = null, tint = White, modifier = Modifier.size(20.dp))
-            CapsuleSlider(value = volume.toFloat().coerceIn(0f,maxVolume.toFloat()),
+                contentDescription = null, tint = White.copy(alpha = .5f), modifier = Modifier.size(RiffPlayer.volumeIcon))
+            ThinSlider(value = volume.toFloat().coerceIn(0f,maxVolume.toFloat()), idle = RiffPlayer.volumeIdle, dragged = RiffPlayer.volumeDragged,
                 onValueChange={ next -> volume=next.roundToInt().coerceIn(0,maxVolume)
                     audio.setStreamVolume(AudioManager.STREAM_MUSIC,volume,0) },valueRange=0f..maxVolume.toFloat(),haptics=SliderHaptics.Volume,
                 modifier=Modifier.weight(1f).padding(horizontal=8.dp).testTag("player_volume").semantics {
                     contentDescription=string(R.string.volume)
                     stateDescription=if(volume==0) string(R.string.muted) else "${volume*100/maxVolume.coerceAtLeast(1)} percent"
                 })
-            Icon(Icons.Rounded.VolumeUp, contentDescription = null, tint = White,
-                modifier = Modifier.size(23.dp))
+            Icon(Icons.Rounded.VolumeUp, contentDescription = null, tint = White.copy(alpha = .5f),
+                modifier = Modifier.size(RiffPlayer.volumeIcon))
         }
         Row(Modifier.fillMaxWidth().height(62.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).height(62.dp).clickable(onClick = hapticClick(onLyrics))
                 .testTag("player_lyrics"), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
                 Icon(Icons.Rounded.SpeakerNotes, contentDescription = string(R.string.open_lyrics), tint = White,
-                    modifier = Modifier.size(27.dp))
+                    modifier = Modifier.size(RiffPlayer.bottomIcon))
             }
             Column(Modifier.weight(1f).height(62.dp).clickable { uiHaptic(); 
                 if (Build.VERSION.SDK_INT >= 34) router.showSystemOutputSwitcher()
@@ -133,10 +134,14 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
             }.semantics { contentDescription = string(R.string.change_audio_output_x_x, routeKind.label, routeName) }
                 .testTag("player_output"), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
-                Icon(when(routeKind) {OutputKind.Phone->Icons.Rounded.Smartphone;OutputKind.Earphones->Icons.Rounded.Earbuds;OutputKind.Headphones->Icons.Rounded.Headphones;OutputKind.Speaker->Icons.Rounded.SpeakerGroup}, contentDescription = null, tint = White,
-                    modifier = Modifier.size(28.dp))
+                // Feature 34: the output sits in a pill (a second segment comes with Cast, Feature 19).
+                Box(Modifier.size(RiffPlayer.pillWidth, RiffPlayer.pillHeight).clip(RoundedCornerShape(RiffPlayer.pillHeight / 2))
+                    .background(White.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
+                    Icon(when(routeKind) {OutputKind.Phone->Icons.Rounded.Smartphone;OutputKind.Earphones->Icons.Rounded.Earbuds;OutputKind.Headphones->Icons.Rounded.Headphones;OutputKind.Speaker->Icons.Rounded.SpeakerGroup}, contentDescription = null, tint = White,
+                        modifier = Modifier.size(RiffPlayer.bottomIcon))
+                }
                 if (!largeText) {
-                    Text(routeName, color = Muted, fontSize = 10.sp, maxLines = 1,
+                    Text(routeName, color = White.copy(alpha = .55f), fontSize = RiffPlayer.deviceName, maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(horizontal = 4.dp))
                 }
@@ -145,7 +150,7 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
                 .testTag("player_queue_bottom"), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
                 Icon(Icons.Rounded.FormatListBulleted, contentDescription = string(R.string.open_queue), tint = White,
-                    modifier = Modifier.size(28.dp))
+                    modifier = Modifier.size(RiffPlayer.bottomIcon))
             }
         }
     }

@@ -158,6 +158,13 @@ import kotlinx.coroutines.withContext
                 hapticToggle(preferences::updateLyricsBlur),Icons.Rounded.BlurOn,"settings_lyrics_blur",
                 subtitle=string(R.string.blur_other_lyric_lines_detail))
             SettingsDivider()
+            SettingsToggleRow(string(R.string.player_lyric_line),preferences.playerLyricLine,
+                hapticToggle(preferences::updatePlayerLyricLine),Icons.Rounded.Subtitles,"settings_player_lyric_line")
+            SettingsDivider()
+            SettingsToggleRow(string(R.string.show_stats_for_nerds),preferences.playerStats,
+                hapticToggle(preferences::updatePlayerStats),Icons.Rounded.Analytics,"settings_player_stats",
+                subtitle=string(R.string.show_stats_for_nerds_detail))
+            SettingsDivider()
             SettingsToggleRow(string(R.string.reduce_motion),preferences.reduceMotion,
                 hapticToggle(preferences::updateReduceMotion),Icons.Rounded.MotionPhotosOff,"settings_reduce_motion")
             SettingsDivider()

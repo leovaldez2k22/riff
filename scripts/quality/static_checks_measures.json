@@ -1,7 +1,7 @@
 {
  "_note": "Raw dp and sp measures still written in each screen file. See the measures rule in static_checks.py. Counts only go down.",
  "AccountScreen.kt": 21,
- "AudioOutputControls.kt": 14,
+ "AudioOutputControls.kt": 8,
  "CapsuleSlider.kt": 3,
  "CatalogScreens.kt": 24,
  "CollectionTools.kt": 9,
@@ -17,7 +17,7 @@
  "LibraryShortcuts.kt": 14,
  "LocalDataTransferScreen.kt": 24,
  "LyricsPanel.kt": 36,
- "NowPlaying.kt": 34,
+ "NowPlaying.kt": 15,
  "OnDeviceScreen.kt": 4,
  "PlayerActionMenu.kt": 8,
  "PlayerPresentation.kt": 59,

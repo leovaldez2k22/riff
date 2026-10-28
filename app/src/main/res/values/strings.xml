@@ -996,4 +996,13 @@
     <string name="could_not_load_liked_songs">Could not load liked songs</string>
     <string name="no_liked_songs">No liked songs yet</string>
     <string name="your_downloads_still_play">Your downloads still play.</string>
+    <string name="player_lyric_line">Show the current lyric line in the player</string>
+    <string name="show_stats_for_nerds">Show stats for nerds</string>
+    <string name="show_stats_for_nerds_detail">The format, sample rate and bitrate over the player\u2019s artwork</string>
+    <string name="lyrics_x_open_full_lyrics">Lyrics: %1$s. Open full lyrics</string>
+    <string name="mono">Mono</string>
+    <string name="stereo">Stereo</string>
+    <string name="quality_high">High quality</string>
+    <string name="quality_medium">Medium quality</string>
+    <string name="quality_low">Low quality</string>
 </resources>

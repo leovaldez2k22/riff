@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -124,7 +125,9 @@ internal fun playerClock(ms: Long): String {
 private fun TransportButton(icon: ImageVector, label: String, onClick: () -> Unit,
     modifier: Modifier = Modifier, active: Boolean = false,
     enabled: Boolean = true, diameter: androidx.compose.ui.unit.Dp = 50.dp,
-    iconSize: androidx.compose.ui.unit.Dp = 28.dp) {
+    iconSize: androidx.compose.ui.unit.Dp = 28.dp,
+    /** Feature 34: shuffle and repeat are white at 50 % when off, full white with a dot under when on. */
+    toggle: Boolean = false) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val motion = LocalMotionPolicy.current
@@ -137,12 +140,13 @@ private fun TransportButton(icon: ImageVector, label: String, onClick: () -> Uni
             animationSpec = GlassMotion.timed(GlassMotion.selectionMs, motion),
             label = "$label icon") { current ->
             Icon(current, contentDescription = label,
-                tint = if (active) Pink else White,
+                tint = White,
                 modifier = Modifier.size(iconSize).graphicsLayer {
                     scaleX = scale.value; scaleY = scale.value
-                    alpha = if (enabled) 1f else .36f
+                    alpha = if (!enabled) .35f else if (toggle && !active) .5f else 1f
                 })
         }
+        if (toggle) ActiveDot(active && enabled, Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -159,7 +163,7 @@ internal fun SeekControl(playback: PlaybackGateway, mediaId: String, durationMs:
     val position = if(live) 0f else if (dragging) preview else playback.positionMs
         .coerceIn(0L, duration).toFloat()
     Column {
-        CapsuleSlider(value=position.coerceIn(0f,duration.toFloat()),
+        ThinSlider(value=position.coerceIn(0f,duration.toFloat()),
             onValueChange={dragging=true;preview=it},onValueChangeFinished={
                 if(dragging) playback.seekTo(preview.toLong());dragging=false
             },valueRange=0f..duration.toFloat(),enabled=durationMs>0 && !playback.state.live,
@@ -168,10 +172,13 @@ internal fun SeekControl(playback: PlaybackGateway, mediaId: String, durationMs:
                 contentDescription=string(R.string.position)
                 stateDescription=if(live) LIVE_SEEK_EXPLANATION else string(R.string.position_x_of_x, playerClock(position.toLong()), playerClock(duration))
             })
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(if(playback.state.live) string(R.string.live) else playerClock(position.toLong()), color = if(playback.state.live) Pink else Muted, fontSize = 12.sp)
+        // Feature 34: times at 55 % in figures of one width, the quality streams ask for between them.
+        val timeStyle = TextStyle(fontSize = RiffPlayer.time, fontFeatureSettings = "tnum")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(if(playback.state.live) string(R.string.live) else playerClock(position.toLong()), color = if(playback.state.live) Pink else White.copy(alpha = .55f), style = timeStyle)
+            if(!live) PlayerQualityLabel(mediaId)
             Text(if(playback.state.live) LIVE_SEEK_EXPLANATION else "−${playerClock((duration - position.toLong()).coerceAtLeast(0))}",
-                color = Muted, fontSize = 12.sp)
+                color = White.copy(alpha = .55f), style = timeStyle)
         }
     }
 }
@@ -274,8 +281,12 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             }
         }
     }
+    val preferences = LocalAccessibilitySettings.current
+    // Feature 34.2: the cover's own colours, blurred, under the whole panel; the video and live radio stay on black.
+    Box(Modifier.fillMaxWidth().fillMaxHeight()) {
+    if(!state.video && !state.live) PlayerBackdrop(state.artworkUrl, artworkColor.value, Modifier.matchParentSize())
     Column(Modifier.fillMaxWidth().fillMaxHeight().preferredFrameRate(LocalUiRefreshRate.current)
-        .drawBehind {drawRect(if(state.video || state.live) Brush.verticalGradient(listOf(Color.Black,Color.Black)) else playerBackground(artworkColor.value))}
+        .drawBehind {if(state.video || state.live) drawRect(Color.Black)}
         .then(if(queueOpen) Modifier else Modifier.nestedScroll(swipeConnection))
         .verticalScroll(scrollState, enabled = (interactive || dragging) && allowScroll && !queueOpen)
         .padding(bottom = bottomSpace),
@@ -336,6 +347,8 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     SeekNudgeOverlay(seekNudge)
                 }
             }
+            PlayerStatsLine(playback, preferences.playerStats && interactive && !queueOpen,
+                Modifier.align(Alignment.BottomCenter).padding(bottom = RiffSpace.item))
             // No fade over the artwork (Q18-002, the owner's choice): the close button and the heading carry their own shadows.
             CompositionLocalProvider(LocalLightPicture provides lightPicture) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)
@@ -363,7 +376,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         Row(Modifier.fillMaxWidth().graphicsLayer {alpha=if(queueOpen) 0f else 1f}.then(if(queueOpen) Modifier.clearAndSetSemantics {} else Modifier), verticalAlignment = Alignment.CenterVertically) {
             songTransition.SongContentFade(Modifier.weight(1f)) {song->
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                val titleStyle = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                val titleStyle = TextStyle(fontSize = RiffPlayer.title, fontWeight = FontWeight.Bold)
                 val scrollTitle = playerTitleScrolls(motion.reduced, fontScale, interactive, queueOpen, dragging)
                 var titleRowWidth by remember { mutableIntStateOf(0) }
                 val titleMeasurer = rememberTextMeasurer()
@@ -378,7 +391,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                         .onSizeChanged { titleRowWidth = it.width }
                         .playerTitleMarquee(scrollTitle, titleOverflows)
                         .then(if (scrollTitle) Modifier.testTag("player_title_marquee") else Modifier))
-                Text(playerArtistLabel(song.artist), color = Muted, fontSize = 13.sp,
+                Text(playerArtistLabel(song.artist), color = White.copy(alpha = .55f), fontSize = RiffPlayer.artist,
                     maxLines = if (fontScale >= 1.5f) 2 else 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.lyricsSharedBounds("song-artist:${song.mediaId}")
@@ -397,7 +410,8 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                         onNotice(if(!favorite) string(R.string.liked_on_youtube_music) else string(R.string.removed_from_youtube_music_liked_songs))
                     },onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))});likeBusy=false
                 } }
-            }, enabled = state.source == "YouTube Music" && !likeBusy && !queueOpen, modifier = Modifier.size(40.dp)
+            }, enabled = state.source == "YouTube Music" && !likeBusy && !queueOpen, modifier = Modifier.size(RiffPlayer.circle)
+                .clip(CircleShape).background(White.copy(alpha = .18f))
                 .testTag("playback_favorite").semantics {
                     contentDescription = string(R.string.like_on_youtube_music); stateDescription = if(favorite) string(R.string.liked) else string(R.string.not_liked)
                 }) {
@@ -406,16 +420,16 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     label = "favorite state") { saved ->
                     Icon(if (saved) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                         contentDescription = null,
-                        tint = White, modifier = Modifier.size(21.dp))
+                        tint = White, modifier = Modifier.size(RiffPlayer.circleIcon))
                 }
             }
-            Spacer(Modifier.width(7.dp))
+            Spacer(Modifier.width(RiffSpace.item))
             Box {
                 IconButton(onClick = { uiHaptic();  moreExpanded = true },
-                    enabled=!queueOpen,modifier = Modifier.size(40.dp)
+                    enabled=!queueOpen,modifier = Modifier.size(RiffPlayer.circle).clip(CircleShape).background(White.copy(alpha = .18f))
                         .testTag("player_more").onGloballyPositioned {if(!queueOpen) {val r=it.boundsInWindow();moreAnchor=androidx.compose.ui.unit.IntRect(r.topLeft.round(),r.bottomRight.round())}}) {
                     Icon(Icons.Rounded.MoreHoriz, contentDescription = string(R.string.more_song_options),
-                        tint = White, modifier = Modifier.size(21.dp))
+                        tint = White, modifier = Modifier.size(RiffPlayer.circleIcon))
                 }
                 PlayerActionMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }, anchorBounds=moreAnchor) {
                     if(state.source=="YouTube Music") DownloadSongAction(providerTrack(),onNotice,onDismiss={moreExpanded=false})
@@ -453,6 +467,8 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 }
             }
         }
+        if(preferences.playerLyricLine && !state.live && !state.video && fontScale < 1.5f)
+            PlayerLyricLine(playback, provider, visible = interactive && !queueOpen, onLyrics = onLyrics)
         SeekControl(playback, state.mediaId, state.durationMs)
         Row(Modifier.fillMaxWidth().graphicsLayer { alpha = transportAlpha() },
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -460,33 +476,34 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             TransportButton(RoundedTransportIcons.Shuffle,
                 if (state.shuffle) string(R.string.shuffle_on) else string(R.string.shuffle_off), playback::toggleShuffle,
                 modifier = Modifier.testTag("playback_shuffle"), active = state.shuffle,
-                enabled = hasQueue, diameter = 42.dp, iconSize = 22.dp)
+                enabled = hasQueue, diameter = RiffPlayer.toggle, iconSize = RiffPlayer.toggleIcon, toggle = true)
             TransportButton(Icons.Rounded.FastRewind, string(R.string.previous_track), playback::previous,
                 // Q18-063: Previous starts a song on its own again, so it is never greyed while a song is loaded.
                 modifier = Modifier.testTag("playback_previous"), enabled = state.mediaId.isNotEmpty(),
-                diameter = 54.dp, iconSize = 38.dp)
+                diameter = RiffPlayer.skip, iconSize = RiffPlayer.skipIcon)
             TransportButton(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 if (state.playing) string(R.string.pause) else string(R.string.play), playback::toggle,
                 modifier = Modifier.testTag("playback_toggle")
                     .graphicsLayer { alpha = sharedContentAlpha() }
                     .onGloballyPositioned {
                         onMorphElementBounds("play", it) },
-                diameter = 64.dp, iconSize = 52.dp)
+                diameter = RiffPlayer.play, iconSize = RiffPlayer.playIcon)
             TransportButton(Icons.Rounded.FastForward, string(R.string.next_track), playback::next,
                 modifier = Modifier.testTag("playback_next")
                     .graphicsLayer { alpha = sharedContentAlpha() }
                     .onGloballyPositioned {
                         onMorphElementBounds("next", it) }, enabled = hasQueue,
-                diameter = 54.dp, iconSize = 38.dp)
+                diameter = RiffPlayer.skip, iconSize = RiffPlayer.skipIcon)
             TransportButton(if (state.repeat == 1) RoundedTransportIcons.RepeatOne else RoundedTransportIcons.Repeat,
                 when (state.repeat) { 1 -> string(R.string.repeat_one); 2 -> string(R.string.repeat_all); else -> string(R.string.repeat_off) },
                 playback::cycleRepeat, modifier = Modifier.testTag("playback_repeat"),
-                active = state.repeat != 0, diameter = 42.dp, iconSize = 22.dp)
+                active = state.repeat != 0, diameter = RiffPlayer.toggle, iconSize = RiffPlayer.toggleIcon, toggle = true)
         }
         AudioOutputControls(onLyrics = onLyrics, onQueue = onQueue)
         if(state.sleepDeadlineMs>0) SleepTimerCountdown(state.sleepDeadlineMs) {uiHaptic();sleepTimerVisible=true}
         PlaybackProblem(state.notice, state.error, state.playback.failure, onFailureAction)
         }
+    }
     }
     if (creditsVisible) AlertDialog(onDismissRequest = { creditsVisible = false },
         title = { Text(string(R.string.credits), color = White) },

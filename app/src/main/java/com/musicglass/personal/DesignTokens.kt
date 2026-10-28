@@ -69,6 +69,39 @@ internal object RiffTopResult {
     val title = 20.sp
 }
 
+/** Feature 34: the redesigned player (sizes from BitChord's, 34.3). */
+internal object RiffPlayer {
+    val title = 26.sp
+    val artist = 22.sp
+    /** The like and more circles, and their icons. */
+    val circle = 44.dp
+    val circleIcon = 20.dp
+    val lyricLine = 17.sp
+    val lyricDot = 9.dp
+    val seekIdle = 7.dp
+    val seekDragged = 12.dp
+    val volumeIdle = 6.dp
+    val volumeDragged = 10.dp
+    /** Room for Material's slider to measure a thumb that isn't drawn. */
+    val seekThumbSpace = 12.dp
+    val time = 12.sp
+    val statsLine = 11.sp
+    val qualityText = 12.5.sp
+    val qualityIcon = 14.dp
+    val toggle = 42.dp
+    val toggleIcon = 22.dp
+    val skip = 56.dp
+    val skipIcon = 46.dp
+    val play = 64.dp
+    val playIcon = 52.dp
+    val activeDot = 4.dp
+    val volumeIcon = 20.dp
+    val bottomIcon = 24.dp
+    val pillHeight = 44.dp
+    val pillWidth = 64.dp
+    val deviceName = 11.sp
+}
+
 /** Feature 16: the stats for nerds panel. */
 internal object RiffNerdStats {
     /** The label column, wide enough for "Network estimate". */
