@@ -1,23 +1,33 @@
 package com.musicglass.personal
 
 import android.graphics.Bitmap
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.toIntSize
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
@@ -41,6 +51,8 @@ private const val BACKDROP_BLUR_RADIUS = 6
 private const val BACKDROP_BLUR_PASSES = 3
 /** The blurred copy's opacity over the mesh. */
 private const val BACKDROP_BLUR_ALPHA = .6f
+/** How far down the panel below the seam the blurred copy takes to come in fully. */
+private const val BACKDROP_BLUR_FADE = .35f
 
 /** The average colour of each cell of a [grid] × [grid] split of [pixels] ([width] × [height]), row by row. */
 internal fun meshColors(pixels: IntArray, width: Int, height: Int, grid: Int = BACKDROP_GRID): IntArray {
@@ -133,26 +145,53 @@ internal fun rememberPlayerBackdrop(url: String?): PlayerBackdropImages? {
 
 /**
  * The player's background: [fallback] (the cover's tone) until the backdrop is ready, then the mesh, the blurred
- * cover and the legibility gradient, cross-faded when the song changes.
+ * cover and the legibility gradient, cross-faded when the song changes. It also paints itself into [glass] for the
+ * player's glass to read. Not through [riffBackdropSource], and recorded with the standalone [GraphicsLayer.record]:
+ * recorded from inside its own drawing, the canvas stopped redrawing, stayed on its first frame (the flat tone), and the
+ * art faded into nothing.
  */
 @Composable
-internal fun PlayerBackdrop(url: String?, fallback: Color, modifier: Modifier = Modifier) {
+internal fun PlayerBackdrop(url: String?, fallback: Color, modifier: Modifier = Modifier, glass: RiffBackdrop? = null) {
     val images = rememberPlayerBackdrop(url)
     val motion = LocalMotionPolicy.current
-    Box(modifier) {
-        Canvas(Modifier.fillMaxSize()) { drawRect(fallback.readableArtworkTone()) }
-        Crossfade(images, animationSpec = GlassMotion.timed(GlassMotion.ambientMs, motion), label = "player backdrop") { shown ->
-            Canvas(Modifier.fillMaxSize()) {
-                if (shown == null) return@Canvas
-                val seam = size.height * BACKDROP_SEAM
-                val deck = IntSize(size.width.toInt(), (size.height - seam).toInt().coerceAtLeast(1))
-                // The mesh fills the whole panel, so the art's faded lower edge melts into it.
-                drawImage(shown.mesh, dstSize = IntSize(size.width.toInt(), size.height.toInt()), filterQuality = FilterQuality.Low)
-                drawImage(shown.blurred, dstOffset = IntOffset(0, seam.toInt()), dstSize = deck, alpha = BACKDROP_BLUR_ALPHA,
-                    filterQuality = FilterQuality.Low)
-                drawRect(Brush.verticalGradient(0f to Color.Transparent, .28f to Color.Black.copy(alpha = .4f), 1f to Color.Black.copy(alpha = .4f),
-                    startY = seam, endY = size.height), topLeft = Offset(0f, seam))
-            }
-        }
+    var shown by remember { mutableStateOf(images) }
+    var leaving by remember { mutableStateOf<PlayerBackdropImages?>(null) }
+    val arrival = remember { Animatable(1f) }
+    LaunchedEffect(images) {
+        if (images === shown) return@LaunchedEffect
+        leaving = shown; shown = images
+        arrival.snapTo(0f)
+        arrival.animateTo(1f, GlassMotion.timed(GlassMotion.ambientMs, motion))
+        leaving = null
     }
+    Canvas(modifier.then(if (glass == null) Modifier else Modifier.onGloballyPositioned { glass.origin = it.positionInRoot() })) {
+        val progress = arrival.value
+        val incoming = shown
+        val outgoing = leaving
+        val paint: DrawScope.() -> Unit = {
+            drawRect(fallback.readableArtworkTone())
+            // The new cover fades in over the old one; with no new cover the old one fades out.
+            outgoing?.let { drawPlayerBackdrop(it, if (incoming == null) 1f - progress else 1f) }
+            incoming?.let { drawPlayerBackdrop(it, progress) }
+        }
+        paint()
+        if (glass != null && glass.readers > 0) glass.layer.record(this, layoutDirection, size.toIntSize()) { paint() }
+    }
+}
+
+private fun DrawScope.drawPlayerBackdrop(images: PlayerBackdropImages, alpha: Float) {
+    if (alpha <= 0f) return
+    val seam = size.height * BACKDROP_SEAM
+    val deck = IntSize(size.width.toInt(), (size.height - seam).toInt().coerceAtLeast(1))
+    // The mesh fills the whole panel, so the art's faded lower edge melts into it.
+    drawImage(images.mesh, dstSize = IntSize(size.width.toInt(), size.height.toInt()), alpha = alpha, filterQuality = FilterQuality.Low)
+    // The blurred cover comes in gradually below the seam, so its top edge never draws a line across the page.
+    drawContext.canvas.saveLayer(Rect(0f, seam, size.width, size.height), Paint())
+    drawImage(images.blurred, dstOffset = IntOffset(0, seam.toInt()), dstSize = deck, alpha = BACKDROP_BLUR_ALPHA * alpha,
+        filterQuality = FilterQuality.Low)
+    drawRect(Brush.verticalGradient(0f to Color.Transparent, BACKDROP_BLUR_FADE to Color.Black, startY = seam, endY = size.height),
+        topLeft = Offset(0f, seam), blendMode = BlendMode.DstIn)
+    drawContext.canvas.restore()
+    drawRect(Brush.verticalGradient(0f to Color.Transparent, .28f to Color.Black.copy(alpha = .4f * alpha), 1f to Color.Black.copy(alpha = .4f * alpha),
+        startY = seam, endY = size.height), topLeft = Offset(0f, seam))
 }

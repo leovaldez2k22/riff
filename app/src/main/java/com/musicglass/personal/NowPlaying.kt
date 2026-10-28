@@ -286,7 +286,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     val playerGlass = rememberRiffBackdrop()
     // Feature 34.2: the cover's own colours, blurred, under the whole panel; the video and live radio stay on black.
     Box(Modifier.fillMaxWidth().fillMaxHeight()) {
-    if(!state.video && !state.live) PlayerBackdrop(state.artworkUrl, artworkColor.value, Modifier.matchParentSize().riffBackdropSource(playerGlass))
+    if(!state.video && !state.live) PlayerBackdrop(state.artworkUrl, artworkColor.value, Modifier.matchParentSize(), glass = playerGlass)
     Column(Modifier.fillMaxWidth().fillMaxHeight().preferredFrameRate(LocalUiRefreshRate.current)
         .drawBehind {if(state.video || state.live) drawRect(Color.Black)}
         .then(if(queueOpen) Modifier else Modifier.nestedScroll(swipeConnection))

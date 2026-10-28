@@ -10,7 +10,7 @@ A piece of glass draws a recorded backdrop through the lens (`RiffGlass.kt`). Wh
 |---|---|---|
 | The page (`LocalRiffBackdrop`) | `GlassScene` in `ShellChrome.kt` | what sits above the page: the shell's chrome, the chip faces (`GlassCategoryLabels`), snack bars |
 | The screen's background (`LocalPageBackdrop`) | `AmbientBackdrop` in `ShellScene.kt`: the artwork-coloured gradient | glass inside a page: back buttons, Settings compartments and cards, the equalizer's cards and mode switcher |
-| The player's backdrop | `PlayerBackdrop` in `NowPlaying.kt`: the blurred cover | the player's circles and output pill, the queue's buttons and toggles |
+| The player's backdrop | `PlayerBackdrop.kt`, which paints a copy of itself for the glass: the cover's colours and blurred cover | the player's circles and output pill, the queue's buttons and toggles |
 | The lyrics page's background | `LyricsPanel.kt`: its gradient and faint cover | the lyrics header buttons, script pill and play button |
 | The sign-in backdrop (`LocalSignInBackdrop`) | `SignInBackdrop` in `AccountScreen.kt` | the sign-in panels and bars (`signInGlass`) |
 | The app under a popup (`FrostedBackdrop`) | the app root in `RiffApp.kt`, in screen coordinates | popups and dialogs (`FrostedPopup.kt`) |
