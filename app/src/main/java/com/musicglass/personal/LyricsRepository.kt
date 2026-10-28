@@ -368,6 +368,7 @@ internal fun encodeLyricsDocument(doc: LyricsDocument): JsonObject = buildJsonOb
     putJsonArray("lines") { doc.lines.forEach { line -> add(buildJsonObject {
         put("start",line.startMs); put("end",line.endMs); put("text",line.text)
         if (line.knownEnd) put("knownEnd",true)
+        line.romanized?.let { put("romanized",it) }
         put("parts",encodeLyricParts(line.parts))
         line.backing?.let { backing -> put("backing",buildJsonObject {
             put("start",backing.startMs); put("end",backing.endMs); put("text",backing.text)
@@ -383,7 +384,8 @@ internal fun decodeLyricsDocument(raw: JsonObject): LyricsDocument = LyricsDocum
             (line["backing"] as? JsonObject)?.let { backing -> LyricBacking(backing.getValue("start").jsonPrimitive.long,
                 backing.getValue("end").jsonPrimitive.long,backing.getValue("text").jsonPrimitive.content,
                 decodeLyricParts(backing["parts"])) },
-            knownEnd = line["knownEnd"]?.jsonPrimitive?.booleanOrNull ?: false)
+            knownEnd = line["knownEnd"]?.jsonPrimitive?.booleanOrNull ?: false,
+            romanized = line["romanized"]?.jsonPrimitive?.contentOrNull?.take(1000))
     },raw["instrumental"]?.jsonPrimitive?.booleanOrNull ?: false)
 
 internal data class LyricsLoadState(val document: LyricsDocument? = null,val loading: Boolean = true,val failed: Boolean = false,val generation: Long = 0)

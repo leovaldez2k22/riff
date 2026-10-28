@@ -129,7 +129,7 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
                 Row(Modifier.fillMaxWidth().height(54.dp).zIndex(if(dragged) 1f else 0f).then(if(motion.reduced || dragged) Modifier else Modifier.animateItem())
                     .graphicsLayer {val info=if(dragged) listState.layoutInfo.visibleItemsInfo.firstOrNull {it.key==key} else null;translationY=if(info!=null) fingerY-grabY-info.offset else 0f;scaleX=if(dragged) 1.015f else 1f;scaleY=scaleX}
                     .background(if(dragged) White.copy(alpha=.1f) else Color.Transparent,RoundedCornerShape(8.dp))
-                    .pointerInput(item.mediaId,index) {detectHorizontalDragGestures(onHorizontalDrag={change,x->val before=swipe;swipe+=x;if(before>= -70.dp.toPx() && swipe< -70.dp.toPx()) uiHaptic(HapticCue.Threshold);change.consume()},onDragCancel={swipe=0f},onDragEnd={if(swipe< -70.dp.toPx()) {playback.removeQueueItem(latestIndex);uiHaptic(HapticCue.Confirm)};swipe=0f})}
+                    .pointerInput(item.mediaId,index) {detectHorizontalDragGestures(onHorizontalDrag={change,x->val before=swipe;swipe+=x;if(before>= -70.dp.toPx() && swipe< -70.dp.toPx()) uiHaptic(HapticCue.Threshold);change.consume()},onDragCancel={swipe=0f},onDragEnd={if(swipe< -70.dp.toPx()) {playback.removeQueueItemWithUndo(latestIndex);uiHaptic(HapticCue.Confirm)};swipe=0f})}
                     .clickable { uiHaptic(); playback.seekQueueItem(index)}.semantics {
                         stateDescription=queuePositionLabel(index,state.index,state.queue.size)
                         customActions=queueRowActions(index,state.index,state.queue.size).map {action->CustomAccessibilityAction(action.label) {
@@ -137,7 +137,7 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
                                 QueueRowAction.MoveUp->playback.moveQueueItem(index,index-1)
                                 QueueRowAction.MoveDown->playback.moveQueueItem(index,index+1)
                                 QueueRowAction.PlayNext->playback.moveQueueItem(index,playNextTarget(index,state.index))
-                                QueueRowAction.Remove->playback.removeQueueItem(index)
+                                QueueRowAction.Remove->playback.removeQueueItemWithUndo(index)
                             }
                             uiHaptic(if(action==QueueRowAction.Remove) HapticCue.Confirm else HapticCue.Selection);true
                         }}
@@ -147,7 +147,7 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
                         Text(item.title,color=White,fontSize=13.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                         Text(playerArtistLabel(item.artist),color=White.copy(alpha=.6f),fontSize=11.sp,maxLines=1)
                     }
-                    IconButton(onClick=hapticClick {playback.removeQueueItem(latestIndex)},
+                    IconButton(onClick=hapticClick {playback.removeQueueItemWithUndo(latestIndex)},
                         modifier=Modifier.size(48.dp).testTag("queue_remove_$index")) {
                         Icon(Icons.Rounded.RemoveCircleOutline,string(R.string.remove_x_from_queue, item.title),tint=White.copy(alpha=.65f),modifier=Modifier.size(22.dp))
                     }

@@ -27,6 +27,11 @@ internal class AccessibilitySettings(context: Context) {
         private set
     fun updateLyricsBlur(enabled: Boolean) { lyricsBlur = enabled; prefs.edit().putBoolean("lyrics_blur", enabled).apply() }
 
+    /** Feature 25: lyrics in their own script, in Latin letters, or both. */
+    var lyricsRoman by mutableStateOf(lyricsRomanModeFrom(prefs.getString("lyrics_roman", null)))
+        private set
+    fun updateLyricsRoman(mode: LyricsRomanMode) { lyricsRoman = mode; prefs.edit().putString("lyrics_roman", mode.key).apply() }
+
     var motionPace by mutableStateOf(motionPaceFrom(prefs.getString("motion_pace", null)))
         private set
     fun updateMotionPace(pace: MotionPace) { motionPace = pace; prefs.edit().putString("motion_pace", pace.key).apply() }
@@ -48,6 +53,7 @@ internal class AccessibilitySettings(context: Context) {
         reduceMotion = runCatching { prefs.getBoolean("reduce_motion", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE)
         motionPace = motionPaceFrom(prefs.getString("motion_pace", null))
         lyricsBlur = prefs.getBoolean("lyrics_blur", true)
+        lyricsRoman = lyricsRomanModeFrom(prefs.getString("lyrics_roman", null))
         frostedGlass = prefs.getBoolean("frosted_glass", FROSTED_GLASS_DEFAULT)
         glassIntensity = prefs.getFloat("glass_intensity", 1f).coerceIn(0f, 1.5f)
         frostedIntensity = prefs.getFloat("frosted_intensity", FROSTED_INTENSITY_DEFAULT).coerceIn(0f, 1.5f)

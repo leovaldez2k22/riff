@@ -49,6 +49,8 @@ This guide describes Riff 0.10.0 (version code 33), the final candidate of the e
 - Lines that aren't being sung are very slightly blurred, more the further they are from the sung one, and the lyrics fade out at the top and bottom of the page. The blur stops while you scroll the lyrics yourself, for unsynced lyrics and under Reduce motion; Settings → Appearance → Blur other lyric lines turns it off.
 - During an instrumental stretch of 4 seconds or more (an intro, a solo, a break between verses), three dots fill one after another until the singing returns, where the lyrics say when each line ends. Tapping them plays from the start of the stretch.
 - Lyrics can also come from lrc.red, which often has word timing.
+- For lyrics in another script (Hindi, Japanese, Korean, Russian and others), a chip under the lyrics switches between the original, a romanized form and both. The romanization comes from the lyrics source when it has one, otherwise the phone makes one ("Auto").
+- Removing a song from the queue offers **Undo**, which puts it back where it was; removing one from your playlist offers Undo too, which adds it back at the end.
 - In the full player, a song title too long for its line scrolls slowly after a pause. The mini player, lists and the queue keep "…".
 - Screens move at a calm pace (Settings → Appearance → Calm transitions; off makes them quicker). Things that follow your finger or the music keep their own timing.
 - The top and bottom of each screen fade to slightly dark, under the status bar and behind the floating bar.

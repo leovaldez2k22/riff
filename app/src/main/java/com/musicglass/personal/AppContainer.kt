@@ -144,7 +144,8 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
     val libraryState: LibraryStateDb by lazy { LibraryStateDb(app) }
     private val epochs by lazy { ScopeEpochs(libraryState) }
     val history: HistoryRepository by lazy {
-        HistoryRepository(libraryState, epochs, runtime.clocks::wallTimeMillis) { historyRetentionDays(app) }
+        HistoryRepository(libraryState, epochs, runtime.clocks::wallTimeMillis, retentionDays = { historyRetentionDays(app) },
+            keepEncoreTotals = { keepEncoreTotals(app) })
     }
     val snapshots: PlaybackSnapshotRepository by lazy {
         PlaybackSnapshotRepository(libraryState, epochs, runtime.clocks::wallTimeMillis,
@@ -206,6 +207,8 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
         stateScope.async {
             runCatching { epochs.warm() }.onFailure { eventLog.append("state_open_failed kind=${it::class.simpleName}") }
             runCatching { legacyState.run() }.onFailure { eventLog.append("legacy_migration_failed kind=${it::class.simpleName}") }
+            // Feature 12: plays kept from before Encore get their daily totals once, after the version 2 upgrade.
+            if (libraryState.upgradedFrom1) runCatching { history.rebuildEncore() }.onFailure { eventLog.append("encore_rebuild_failed kind=${it::class.simpleName}") }
             // Retention is applied when the app runs, at most once a day. Nothing waits for it.
             stateScope.launch { suspendCatching { localData.pruneIfDue() } }
             Unit

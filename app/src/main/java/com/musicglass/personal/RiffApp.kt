@@ -153,6 +153,16 @@ internal fun RiffApp() {
         }
     }
     val snackbar = remember { SnackbarHostState() }
+    // Feature 26: removals offer Undo for a few seconds; a newer one replaces the last.
+    val undoScope = rememberCoroutineScope()
+    DisposableEffect(snackbar) {
+        UndoNotices.listener = { message, undo -> undoScope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            if (snackbar.showSnackbar(message, actionLabel = string(R.string.undo), duration = androidx.compose.material3.SnackbarDuration.Short)
+                == androidx.compose.material3.SnackbarResult.ActionPerformed) { uiHaptic(HapticCue.Confirm); undo() }
+        } }
+        onDispose { UndoNotices.listener = null }
+    }
     val scope = rememberCoroutineScope()
     val cardPeek = remember(scope) { CardPeekController(scope) }
     // Where the player is between the mini bar and the full screen. Its frames are read through lambdas and

@@ -184,8 +184,13 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         if (tracks.any { !it.videoId.matches(PLAYABLE_ID) }) return SessionResult(SessionError.ERROR_BAD_VALUE)
         if (args.containsKey("enqueueNext") && tracks.size == 1 && player.mediaItemCount > 0) {
             val track = tracks[0]; val existing = indexOfRecording(player, track)
+            // Feature 26: Undo puts a removed song back at the row it left.
+            val insertAt = args.getInt("insertAt", -1)
             if (existing != null) { if (args.getBoolean("enqueueNext") && existing != player.currentMediaItemIndex) player.moveMediaItem(existing, afterCurrent(player, existing)) }
-            else { queuedIds.add(track.videoId); player.addMediaItem(if (args.getBoolean("enqueueNext")) player.currentMediaItemIndex + 1 else player.mediaItemCount, catalogItem(track)) }
+            else { queuedIds.add(track.videoId); player.addMediaItem(when {
+                insertAt >= 0 -> insertAt.coerceAtMost(player.mediaItemCount)
+                args.getBoolean("enqueueNext") -> player.currentMediaItemIndex + 1
+                else -> player.mediaItemCount }, catalogItem(track)) }
             return SessionResult(SessionResult.RESULT_SUCCESS)
         }
         if (args.containsKey("replacePosition") && tracks.size == 1 && player.mediaItemCount > 0) {

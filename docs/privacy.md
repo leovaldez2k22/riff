@@ -19,7 +19,7 @@ Signing out or switching accounts hides the other owner's queue, history, search
 
 ## What stays on the phone
 
-- Playback position and queue (per owner), settings, tracks saved in Riff, listening history (up to 100,000 plays per owner), recent searches (30 per owner), catalog caches.
+- Playback position and queue (per owner), settings, tracks saved in Riff, listening history (up to 100,000 plays per owner, each with how long it was heard, its album and how it ended, and daily listening totals for Encore that follow the history and its retention), recent searches (30 per owner), catalog caches.
 - Downloaded audio, artwork and lyrics, app-private and per owner. Uninstalling deletes them.
 - A 256 MB playback cache of streamed audio, and the last successful mood photograph per mood.
 - Provider sign-in cookies, in WebView's cookie store, used only for YouTube Music and YouTube requests.

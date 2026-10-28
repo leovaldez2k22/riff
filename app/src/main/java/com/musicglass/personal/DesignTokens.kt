@@ -121,6 +121,10 @@ internal object RiffLyrics {
     const val gapBreathMs = 1_600
     /** In the last moment before singing returns, the dots shrink away so the next line lights into empty space. */
     const val gapExitMs = 300L
+    /** Feature 25: the romanized line under the original, when both are shown. */
+    val romanUnder = 19.sp
+    val romanUnderLine = 25.sp
+    const val romanUnderAlpha = .7f
     /** Feature 5: lines not being sung are very slightly blurred, more the further they are from the sung one. */
     val blurNear = 1.dp
     val blurMid = 1.75.dp

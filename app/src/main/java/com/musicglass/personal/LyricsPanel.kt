@@ -1,5 +1,7 @@
 package com.musicglass.personal
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
@@ -92,6 +94,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
     }
     // Feature 32: instrumental stretches marked for display; the stored lyrics stay as the source gave them.
     val songLyrics = remember(document) { document?.let { it.copy(lines = withInstrumentalGaps(it.lines)) } }
+    val canRomanize = remember(songLyrics) { songLyrics != null && lyricsCanRomanize(songLyrics.lines) }
     // Every line being sung now: two voices can overlap (Q16A). The list only changes when a line starts or ends.
     val activeLines by remember(songLyrics) { derivedStateOf {
         if (songLyrics?.timed == true) activeLyricLines(songLyrics.lines,position+shownOffsetMs) else emptyList()
@@ -149,6 +152,7 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                         val space = maxHeight / 3
                         val blurOn = lyricsBlurOn(LocalAccessibilitySettings.current.lyricsBlur, motion.reduced, timed, follow, sharing)
+                        val romanMode = if (canRomanize) LocalAccessibilitySettings.current.lyricsRoman else LyricsRomanMode.Original
                         LazyColumn(state = list,modifier = Modifier.fillMaxSize().lyricsEdgeFade().testTag("lyrics_list"),
                             contentPadding = PaddingValues(start = 28.dp,end = 28.dp,top = maxOf(24.dp,maxHeight * RiffLyrics.fadeTop),bottom = space),
                             verticalArrangement = Arrangement.spacedBy(22.dp)) {
@@ -169,15 +173,27 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                                 if (line.gap) LyricGapRow(line, active && !sharing, { position+shownOffsetMs }, motion,
                                     onSeek = if (sharing) null else seek, modifier = Modifier.testTag("lyric_gap_$index"))
                                 else CompositionLocalProvider(LocalViewConfiguration provides holdConfiguration) {
-                                    KaraokeLine(line,active && !sharing,backingActive && !sharing,{ position+shownOffsetMs },motion,"lyric_backing_$index",
-                                        modifier = Modifier.then(if (blur.value > 0f) Modifier.blur(blur,BlurredEdgeTreatment.Unbounded) else Modifier)
-                                            .testTag("lyric_line_$index")
-                                            .lyricLineLook(dim = sharing && !chosen, chosen = chosen)
-                                            .lyricLineTouch(
-                                                onTap = when { sharing -> choose; line.startMs >= 0 -> seek; else -> null },
-                                                tapLabel = string(if (sharing) R.string.choose_this_line else R.string.play_from_this_line),
-                                                onLongPress = if (shareable) { if (sharing) choose else hold } else null,
-                                                longPressLabel = string(R.string.share_lyrics)))
+                                    val lineModifier = Modifier.then(if (blur.value > 0f) Modifier.blur(blur,BlurredEdgeTreatment.Unbounded) else Modifier)
+                                        .testTag("lyric_line_$index")
+                                        .lyricLineLook(dim = sharing && !chosen, chosen = chosen)
+                                        .lyricLineTouch(
+                                            onTap = when { sharing -> choose; line.startMs >= 0 -> seek; else -> null },
+                                            tapLabel = string(if (sharing) R.string.choose_this_line else R.string.play_from_this_line),
+                                            onLongPress = if (shareable) { if (sharing) choose else hold } else null,
+                                            longPressLabel = string(R.string.share_lyrics))
+                                    // Feature 25: the Latin form of the line, from the source or made on the phone.
+                                    val roman = remember(line,romanMode) { if (romanMode == LyricsRomanMode.Original) null else lyricRomanized(line) }
+                                    if (roman == null) KaraokeLine(line,active && !sharing,backingActive && !sharing,{ position+shownOffsetMs },motion,"lyric_backing_$index",
+                                        modifier = lineModifier)
+                                    else Column(lineModifier) {
+                                        // Word timing belongs to the original letters; the romanized line lights as a whole.
+                                        if (romanMode == LyricsRomanMode.Both) KaraokeLine(line,active && !sharing,backingActive && !sharing,{ position+shownOffsetMs },motion,"lyric_backing_$index")
+                                        Text(roman,color = White.copy(alpha = if (active && !sharing) (if (romanMode == LyricsRomanMode.Both) RiffLyrics.romanUnderAlpha else 1f) else .4f),
+                                            fontSize = if (romanMode == LyricsRomanMode.Both) RiffLyrics.romanUnder else RiffLyrics.text,
+                                            lineHeight = if (romanMode == LyricsRomanMode.Both) RiffLyrics.romanUnderLine else RiffLyrics.textLine,
+                                            fontWeight = if (romanMode == LyricsRomanMode.Both) FontWeight.SemiBold else FontWeight.Bold,
+                                            modifier = Modifier.testTag("lyric_roman_$index"))
+                                    }
                                 }
                             }
                         }
@@ -204,6 +220,15 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                 Text(when { songLyrics?.wordTimed == true -> string(R.string.word_synced); timed -> string(R.string.line_synced)
                     songLyrics?.instrumental == true -> string(R.string.instrumental); songLyrics != null -> string(R.string.text_lyrics); else -> "" },
                     color = Pink,fontSize = RiffType.detail,modifier = Modifier.testTag("lyrics_sync_level"))
+                if (canRomanize) {
+                    val accessibility = LocalAccessibilitySettings.current
+                    val modeName = string(when (accessibility.lyricsRoman) { LyricsRomanMode.Original -> R.string.lyrics_script_original
+                        LyricsRomanMode.Romanized -> R.string.lyrics_script_romanized; LyricsRomanMode.Both -> R.string.lyrics_script_both })
+                    Text(modeName,color = White,fontSize = RiffType.detail,
+                        modifier = Modifier.clip(RoundedCornerShape(RiffRadius.pill)).background(White.copy(alpha = .1f))
+                            .clickable(onClickLabel = string(R.string.lyrics_script_x, modeName)) { uiHaptic(); accessibility.updateLyricsRoman(accessibility.lyricsRoman.next) }
+                            .padding(horizontal = RiffSpace.rowGap, vertical = RiffSpace.tight).testTag("lyrics_script"))
+                }
                 if (loading && songLyrics != null) Text(string(R.string.finding_finer_timing),color = Muted,fontSize = 11.sp,
                     modifier = Modifier.weight(1f)) else Spacer(Modifier.weight(1f))
                 if (songLyrics != null) Text(songLyrics.source,color = Muted,fontSize = 11.sp,maxLines = 1,

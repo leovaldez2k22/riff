@@ -39,7 +39,12 @@ import kotlinx.coroutines.launch
     var removing by remember {mutableStateOf<ProviderHomeCard?>(null)}
     var removeBusy by remember {mutableStateOf(false)}
     removing?.let {card->AlertDialog(onDismissRequest={if(!removeBusy) removing=null},title={Text(string(R.string.remove_from_playlist))},text={Text(card.title)},
-        confirmButton={TextButton(enabled=!removeBusy,onClick={removeBusy=true;scope.launch {provider.removePlaylistSong(collectionId,card).fold(onSuccess={uiHaptic(HapticCue.Confirm);removing=null;onNotice(string(R.string.removed_from_playlist));provider.refreshLibraryIndex()},onFailure={onNotice(it.message?:string(R.string.could_not_remove_song))});removeBusy=false}}) {Text(string(R.string.remove))}},
+        confirmButton={TextButton(enabled=!removeBusy,onClick={removeBusy=true;scope.launch {provider.removePlaylistSong(collectionId,card).fold(onSuccess={uiHaptic(HapticCue.Confirm);removing=null;provider.refreshLibraryIndex()
+            // Feature 26: YouTube adds a song back at the end; the notice says so.
+            val videoId=card.videoId
+            if(videoId==null) onNotice(string(R.string.removed_from_playlist))
+            else UndoNotices.show(string(R.string.removed_from_playlist)) {scope.launch {provider.addPlaylistSong(collectionId,videoId).fold(
+                onSuccess={provider.refreshLibraryIndex();onNotice(string(R.string.added_back_at_the_end))},onFailure={onNotice(it.message?:string(R.string.collection_is_unavailable))})}}},onFailure={onNotice(it.message?:string(R.string.could_not_remove_song))});removeBusy=false}}) {Text(string(R.string.remove))}},
         dismissButton={TextButton(enabled=!removeBusy,onClick={removing=null}) {Text(string(R.string.cancel))}})}
     var expanded by remember(collectionId) {mutableStateOf(false)}
     var sortedPage by remember(data) {mutableStateOf<CatalogPage?>(null)}

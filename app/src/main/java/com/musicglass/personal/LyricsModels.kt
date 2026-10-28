@@ -21,7 +21,9 @@ internal data class LyricLine(val startMs: Long, val endMs: Long, val text: Stri
     /** Feature 32: the source said when this line's singing ends (word-timed TTML, YRC); not filled in from the next line. */
     val knownEnd: Boolean = false,
     /** Feature 32: an instrumental stretch, drawn as three dots that fill as it passes. Never shared or cached. */
-    val gap: Boolean = false) {
+    val gap: Boolean = false,
+    /** Feature 25: the line in Latin letters, as the source gave it (TTML spans with role x-roman). */
+    val romanized: String? = null) {
     /** The line is current until both its main text and its background vocal have ended. */
     val untilMs: Long get() = maxOf(endMs, backing?.endMs ?: endMs)
 }
@@ -137,6 +139,9 @@ internal fun parseTtml(raw: String, durationMs: Long, source: String = "Better L
         // Background vocals (role x-bg) are collected apart, with offsets into their own text (Q16A).
         val backText = StringBuilder()
         val backParts = mutableListOf<LyricPart>()
+        // Feature 25: a romanization is kept beside the line, never mixed into the sung text.
+        val romanText = StringBuilder()
+        val romanParts = mutableListOf<LyricPart>()
         var backStart = Long.MAX_VALUE
         var backEnd = -1L
         fun spanTime(node: Element): Pair<Long, Long>? {
@@ -154,8 +159,13 @@ internal fun parseTtml(raw: String, durationMs: Long, source: String = "Better L
             }
             if (node is Element) {
                 val role = node.getAttributeNS("http://www.w3.org/ns/ttml#metadata", "role")
-                // Translation/romanization is not the sung text.
-                if (role in setOf("x-translation", "x-roman", "x-romanization")) return
+                // Translation and romanization are not the sung text; a romanization is kept beside it (Feature 25).
+                if (role == "x-translation") return
+                if (role in setOf("x-roman", "x-romanization")) {
+                    if (romanText.isNotEmpty() && !romanText.last().isWhitespace()) romanText.append(' ')
+                    for (child in 0 until node.childNodes.length) walk(node.childNodes.item(child), romanText, romanParts, depth + 1)
+                    return
+                }
                 if (role == "x-bg" && out !== backText) {
                     if (backText.isNotEmpty() && !backText.last().isWhitespace()) backText.append(' ')
                     spanTime(node)?.let { (a, b) -> backStart = minOf(backStart, a); backEnd = maxOf(backEnd, b) }
@@ -179,7 +189,9 @@ internal fun parseTtml(raw: String, durationMs: Long, source: String = "Better L
             LyricBacking(if (backStart == Long.MAX_VALUE) -1 else backStart, backEnd, trimmed,
                 backParts.filter { it.to <= trimmed.length })
         }
-        if (text.isNotBlank() || backing != null) lines += LyricLine(start, end, if (backing == null) text.toString() else text.toString().trimEnd(), parts, backing)
+        val romanized = romanText.toString().trim().replace(Regex("\\s+"), " ").takeIf { it.isNotBlank() }
+        if (text.isNotBlank() || backing != null) lines += LyricLine(start, end, if (backing == null) text.toString() else text.toString().trimEnd(), parts, backing,
+            romanized = romanized)
     }
     val result = finishLyricLines(lines, durationMs)
     return result.takeIf { it.isNotEmpty() }?.let { LyricsDocument(source, "https://betterlyrics.org", it) }

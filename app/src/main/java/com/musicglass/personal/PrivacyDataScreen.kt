@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Search
@@ -191,6 +192,12 @@ internal fun privacyOutcome(action: PrivacyAction, result: DataActionResult, ret
                     Text(string(R.string.for_every_account_on_this_phone_riff),
                         color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                 }
+                SettingsDivider()
+                // Feature 12: Encore's daily totals normally go with the plays; this keeps them (no single play is kept).
+                var keepTotals by remember { mutableStateOf(keepEncoreTotals(context)) }
+                SettingsToggleRow(string(R.string.keep_encore_totals), keepTotals,
+                    { on -> uiHaptic(); setKeepEncoreTotals(context, on); keepTotals = on },
+                    Icons.Rounded.BarChart, "privacy_keep_encore_totals", string(R.string.keep_encore_totals_detail))
                 SettingsDivider()
                 if (verified) SettingsLinkRow(string(R.string.clear_history_of_x, owner), found?.let { quantity(R.plurals.n_plays, it.accountPlays) }, Icons.Rounded.History,
                     "privacy_clear_account_history") { ask(PrivacyAction.ClearAccountHistory, found?.accountPlays ?: 0) }

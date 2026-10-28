@@ -8,7 +8,9 @@ import kotlinx.serialization.json.*
 internal data class HistoryEntry(val mediaId: String, val title: String, val artist: String,
     val artworkUrl: String?, val playedAt: Long, val music: Boolean = true,
     /** Made once per logical play, so a retried write cannot count the play twice. */
-    val eventId: String = "", val durationMs: Long? = null) {
+    val eventId: String = "", val durationMs: Long? = null,
+    /** Feature 12: Encore's album and artist keys, and where the audio came from (EncoreSource). */
+    val album: String = "", val albumId: String? = null, val artistId: String? = null, val source: String? = null) {
     val videoId: String? get() = mediaId.removePrefix("yt:").takeIf { mediaId.startsWith("yt:") }
     fun track(): ProviderTrack? = videoId?.let { ProviderTrack(it, title, artist, artworkUrl ?: providerArtworkUrl(it), isMusic = music) }
 }

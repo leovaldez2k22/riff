@@ -130,7 +130,7 @@ internal class LegacyStateMigration(context: Context, private val db: LibrarySta
                     val key = playKey(entry)
                     val remaining = alreadyImported[key] ?: 0
                     if (remaining > 0) { alreadyImported[key] = remaining - 1; continue }
-                    insertHistoryEvent(d, DEVICE_LOCAL_SCOPE_KEY, entry)
+                    insertHistoryEvent(d, DEVICE_LOCAL_SCOPE_KEY, entry).also { if (it) encoreRecordPlay(d, DEVICE_LOCAL_SCOPE_KEY, entry) }
                     accepted++
                 }
                 // The rows and their marker commit together or not at all.
@@ -253,7 +253,7 @@ internal class LegacyStateMigration(context: Context, private val db: LibrarySta
             val now = wallTime()
             val added = db.write { d ->
                 var count = 0
-                kept.forEach { (_, entry) -> if (insertHistoryEvent(d, target, entry)) count++ }
+                kept.forEach { (_, entry) -> if (insertHistoryEvent(d, target, entry)) { encoreRecordPlay(d, target, entry); count++ } }
                 perSource.forEach { (short, plays) ->
                     db.putMigrationRun(d, MigrationRun("history-v1-provider:$short:$target", "history-v1:$short", "archived",
                         kept.count { it.first == short }, plays.size - kept.count { it.first == short }, now))

@@ -604,7 +604,7 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
                             when {
                                 oldest != null && record.entry.playedAt < oldest -> got.expired++
                                 free <= 0 -> got.full++
-                                insertHistoryEvent(d, to, record.entry) -> { got.plays++; room[to] = free - 1 }
+                                insertHistoryEvent(d, to, record.entry) -> { encoreRecordPlay(d, to, record.entry); got.plays++; room[to] = free - 1 }
                                 else -> got.present++
                             }
                         }

@@ -25,7 +25,7 @@ internal const val HISTORY_ROW_CAP = 100_000
  * (ADR-Q03). Downloads and saved tracks keep their own stores. Call off the main thread.
  */
 internal class LibraryStateDb(context: Context, name: String? = "library-state.db") :
-    SQLiteOpenHelper(context.applicationContext, name, null, 1) {
+    SQLiteOpenHelper(context.applicationContext, name, null, 2) {
     init { setWriteAheadLoggingEnabled(true) }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -35,10 +35,18 @@ internal class LibraryStateDb(context: Context, name: String? = "library-state.d
         db.execSQL("CREATE TABLE scope_generations(scope TEXT PRIMARY KEY NOT NULL,history_epoch INTEGER NOT NULL DEFAULT 0,snapshot_epoch INTEGER NOT NULL DEFAULT 0,deletion_epoch INTEGER NOT NULL DEFAULT 0)")
         db.execSQL("CREATE TABLE migration_runs(migration_id TEXT PRIMARY KEY NOT NULL,source_fingerprint TEXT NOT NULL,state TEXT NOT NULL,imported_count INTEGER NOT NULL,rejected_count INTEGER NOT NULL,completed_at INTEGER)")
         db.execSQL("CREATE TABLE scope_aliases(legacy_scope TEXT PRIMARY KEY NOT NULL,canonical_scope TEXT NOT NULL,verification_version INTEGER NOT NULL,state TEXT NOT NULL)")
+        encoreSchema(db)
     }
 
-    // Version 1 is the first. The inherited onDowngrade throws, so a newer schema is never rewritten by an older build.
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    // Version 2 (Feature 12): Encore's columns and daily totals; plays from version 1 are kept as they were, and
+    // their totals are built once (AppContainer). The inherited onDowngrade throws, so a newer schema is never
+    // rewritten by an older build.
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) { encoreSchema(db); upgradedFrom1 = true }
+    }
+
+    /** True once, in the process that upgraded this database from version 1, so Encore's totals are built for the old plays. */
+    @Volatile var upgradedFrom1 = false
 
     /** One transaction. An exception or a rollback request leaves the database as it was. */
     fun <T> write(block: (SQLiteDatabase) -> T): T = writableDatabase.transaction { block(this) }
@@ -134,13 +142,19 @@ internal fun insertHistoryEvent(db: SQLiteDatabase, scope: String, entry: Histor
         put("played_at", entry.playedAt.coerceAtLeast(0))
         entry.durationMs?.takeIf { it >= 0 }?.let { put("duration_ms", it) } ?: putNull("duration_ms")
         put("music", if (entry.music) 1 else 0); put("search_text", normalizeForSearch(title) + "\n" + normalizeForSearch(artist))
+        entry.album.takeIf(String::isNotBlank)?.let { put("album", it.take(180)) }
+        entry.albumId?.takeIf { it.length <= 200 }?.let { put("album_id", it) }
+        entry.artistId?.takeIf { it.length <= 200 }?.let { put("artist_id", it) }
+        entry.source?.let { put("source", it) }
     }, SQLiteDatabase.CONFLICT_IGNORE) != -1L
 
 internal fun validHistoryEvent(entry: HistoryEntry) = HISTORY_MEDIA_ID.matches(entry.mediaId) && HISTORY_EVENT_ID.matches(entry.eventId)
 
 /** Every qualified play, one row per logical play, kept per owner. */
 internal class HistoryRepository(private val db: LibraryStateDb, private val epochs: ScopeEpochs,
-    private val wallTime: () -> Long, private val rowCap: Int = HISTORY_ROW_CAP, private val retentionDays: () -> Int? = { null }) {
+    private val wallTime: () -> Long, private val rowCap: Int = HISTORY_ROW_CAP,
+    /** Feature 12: keep Encore's daily totals when retention removes the plays (Settings → Privacy and data). */
+    private val keepEncoreTotals: () -> Boolean = { false }, private val retentionDays: () -> Int? = { null }) {
     private val _revision = MutableStateFlow(0)
     val revision: StateFlow<Int> = _revision
     private val lastPrune = ConcurrentHashMap<String, Long>()
@@ -156,7 +170,7 @@ internal class HistoryRepository(private val db: LibraryStateDb, private val epo
         val outcome = try {
             db.write { d ->
                 if (ticket.epoch != null && epochs.current(d, EpochKind.History, ticket.scope) != ticket.epoch) StoreOutcome.Stale
-                else if (insertHistoryEvent(d, ticket.scope, entry)) StoreOutcome.Done else StoreOutcome.Duplicate
+                else if (insertHistoryEvent(d, ticket.scope, entry)) { encoreRecordPlay(d, ticket.scope, entry); StoreOutcome.Done } else StoreOutcome.Duplicate
             }
         } catch (error: SQLiteException) { return StoreOutcome.Failed(error::class.simpleName ?: "sqlite") }
         if (outcome == StoreOutcome.Done) {
@@ -198,7 +212,7 @@ internal class HistoryRepository(private val db: LibraryStateDb, private val epo
     /** As [clear]; returns how many plays were removed, or null when nothing was changed. */
     fun clearCounted(scope: String): Int? {
         val (removed, epoch) = try {
-            db.write { d -> d.delete("history_events", "scope=?", arrayOf(scope)) to epochs.advance(d, EpochKind.History, scope) }
+            db.write { d -> encoreClear(d, scope); d.delete("history_events", "scope=?", arrayOf(scope)) to epochs.advance(d, EpochKind.History, scope) }
         } catch (error: SQLiteException) { return null }
         epochs.committed(EpochKind.History, scope, epoch)
         _revision.value++
@@ -223,6 +237,7 @@ internal class HistoryRepository(private val db: LibraryStateDb, private val epo
         db.write { d ->
             retentionDays()?.takeIf { it > 0 }?.let { days ->
                 removed += d.delete("history_events", "scope=? AND played_at<?", arrayOf(scope, (now - days * 86_400_000L).toString()))
+                if (!keepEncoreTotals()) encorePruneBefore(d, scope, encoreDay(now - days * 86_400_000L))
             }
             d.query("history_events", arrayOf("played_at", "event_id"), "scope=?", arrayOf(scope), null, null,
                 "played_at DESC,event_id DESC", "$rowCap,1").use { c ->
@@ -232,6 +247,28 @@ internal class HistoryRepository(private val db: LibraryStateDb, private val epo
         }
         if (removed > 0) _revision.value++
         return removed
+    }
+
+    /**
+     * Feature 12: [deltaMs] more of play [eventId] was heard. False when the play is gone (cleared or pruned since),
+     * so nothing is written for a play the owner removed.
+     */
+    fun addListened(scope: String, eventId: String, deltaMs: Long, now: Long = wallTime()): Boolean = try {
+        db.write { d -> encoreAddListened(d, scope, eventId, deltaMs, now) }
+    } catch (error: SQLiteException) { false }
+
+    fun markEnded(scope: String, eventId: String, ended: Int) {
+        try { db.write { d -> encoreMarkEnded(d, scope, eventId, ended) } } catch (_: SQLiteException) { }
+    }
+
+    /** Feature 12: builds every owner's Encore totals again from their plays (after the version 2 upgrade or an import). */
+    fun rebuildEncore() {
+        try {
+            db.write { d ->
+                val scopes = d.rawQuery("SELECT DISTINCT scope FROM history_events", null).use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }
+                scopes.forEach { encoreRebuild(d, it) }
+            }
+        } catch (_: SQLiteException) { }
     }
 
     private companion object { const val PRUNE_INTERVAL_MS = 3_600_000L }

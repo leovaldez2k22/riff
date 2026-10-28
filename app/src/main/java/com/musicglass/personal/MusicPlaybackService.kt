@@ -57,6 +57,9 @@ class MusicPlaybackService : MediaSessionService() {
     private val sabrHttp = HttpClient(OkHttp)
     private val offline by lazy {OfflineMusicStore.get(this)}
     private var listeningId=""
+    /** Feature 12: listened time per play for Encore, written off the main thread. */
+    private val encore=EncoreListening({s,e,ms->serviceScope.launch(Dispatchers.IO) {history.addListened(s,e,ms)}},
+        {s,e,how->serviceScope.launch(Dispatchers.IO) {history.markEnded(s,e,how)}})
     private var lastListenTick=android.os.SystemClock.elapsedRealtime()
     private val snapshotPrefs by lazy {getSharedPreferences("last_playback",MODE_PRIVATE)}
     private var taskRemoved=false
@@ -160,11 +163,12 @@ class MusicPlaybackService : MediaSessionService() {
                     events.append("playback_state=$playbackState")
                     offline.playbackBusy=playbackState==Player.STATE_BUFFERING || this@apply.isPlaying
                     if(playbackState==Player.STATE_READY) {queue.replenish(this@apply);this@apply.currentMediaItem?.entryId()?.let(recovery::ready)}
-                    if(playbackState==Player.STATE_ENDED) plays.completed()
+                    if(playbackState==Player.STATE_ENDED) {plays.completed();encore.ended(EncoreEnded.FINISHED)}
                 }
                 override fun onIsPlayingChanged(isPlaying:Boolean) {offline.playbackBusy=isPlaying || this@apply.playbackState==Player.STATE_BUFFERING;lastListenTick=android.os.SystemClock.elapsedRealtime()}
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     if(reason!=Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED || mediaItem!==queue.replacement) {
+                        encore.ended(encoreEndedBy(reason))
                         listeningId="";plays.started();lastListenTick=android.os.SystemClock.elapsedRealtime()
                         queue.replacement=null
                     }
@@ -304,6 +308,7 @@ class MusicPlaybackService : MediaSessionService() {
         saveJob=serviceScope.launch {while(isActive){delay(5000);persistence.save(player)
             val now=android.os.SystemClock.elapsedRealtime();val delta=(now-lastListenTick).coerceIn(0,5000);lastListenTick=now
             recordHistory(player)
+            if(player.isPlaying) encore.heard(delta)
             if(player.isPlaying && player.currentMediaItem?.mediaId?.startsWith("yt:")==true) {
                 val track=queue.trackFromItem(player.currentMediaItem!!);val id=track.videoId
                 val duration=player.duration.coerceAtLeast(0);val newPlay=id!=listeningId;listeningId=id
@@ -335,8 +340,12 @@ class MusicPlaybackService : MediaSessionService() {
         // On-device audio belongs to the device; everything else to the owner active now. An unverified account records nothing.
         val scope=historyScopeKey(item.mediaId,offline.currentScope)?:return
         val art=m.artworkUri?.toString()?.takeUnless {item.mediaId.startsWith("yt:") && !it.startsWith("https://")}
+        val source=when {item.mediaId.startsWith("local:") -> EncoreSource.DEVICE
+            item.localConfiguration?.uri?.scheme in setOf("file","content") -> EncoreSource.DOWNLOAD; else -> EncoreSource.STREAM}
         val entry=HistoryEntry(item.mediaId,m.title?.toString().orEmpty(),m.artist?.toString().orEmpty(),art,runtime.clocks.wallTimeMillis(),m.extras?.getBoolean("music",true)!=false,
-            java.util.UUID.randomUUID().toString(),player.duration.takeIf {it>0})
+            java.util.UUID.randomUUID().toString(),player.duration.takeIf {it>0},album=m.albumTitle?.toString().orEmpty(),
+            albumId=m.extras?.getString("albumId"),artistId=m.extras?.getString("artistId"),source=source)
+        encore.started(scope,entry.eventId)
         // The ticket is taken now, so clearing history before the write lands rejects it.
         val ticket=history.ticket(scope)
         serviceScope.launch(Dispatchers.IO) {
@@ -403,6 +412,7 @@ class MusicPlaybackService : MediaSessionService() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         provider.discardPageMemory()
         taskRemoved=true
+        encore.ended(EncoreEnded.STOPPED)
         events.append("task_removed_stop")
         persistence.flushAndClose(mainPlayer)
         queue.reset();mainPlayer?.stop();mainPlayer?.clearMediaItems()
@@ -412,6 +422,7 @@ class MusicPlaybackService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
     override fun onDestroy() {
+        encore.ended(EncoreEnded.STOPPED)
         recovery.clear()
         networkCallback?.let {callback-> runCatching {getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(callback)}}
         networkCallback=null

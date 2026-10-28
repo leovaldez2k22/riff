@@ -554,6 +554,12 @@
     <string name="reduce_motion">Reduce motion</string>
     <string name="calm_transitions">Calm transitions</string>
     <string name="see_all">See all</string>
+    <string name="keep_encore_totals">Keep Encore totals beyond history</string>
+    <string name="keep_encore_totals_detail">When old plays are removed, keep how much you listened each day for Encore. No single play is kept.</string>
+    <string name="lyrics_script_original">Original</string>
+    <string name="lyrics_script_romanized">Romanized</string>
+    <string name="lyrics_script_both">Both</string>
+    <string name="lyrics_script_x">Lyrics script: %1$s</string>
     <string name="blur_other_lyric_lines">Blur other lyric lines</string>
     <string name="blur_other_lyric_lines_detail">Keeps the line being sung in focus</string>
     <string name="see_all_x">See all: %1$s</string>
@@ -573,6 +579,8 @@
     <string name="remove_x_from_queue">Remove %1$s from queue</string>
     <string name="remove_x_from_search_history">Remove %1$s from search history</string>
     <string name="removed_from_playlist">Removed from playlist</string>
+    <string name="removed_from_queue">Removed from queue</string>
+    <string name="added_back_at_the_end">Added back, at the end of the playlist</string>
     <string name="removed_from_speed_dial">Removed from speed dial</string>
     <string name="removed_from_youtube_music_liked_songs">Removed from YouTube Music liked songs</string>
     <string name="removes_everything_riff_keeps_on_this_phone">Removes everything Riff keeps on this phone for %1$s: listening history, searches, the saved queue, tracks saved in Riff and downloads. Playback from this account stops. Settings, other accounts\' data and the audio files stored on this phone are kept. You stay signed in, and nothing changes in YouTube Music. This cannot be undone.</string>

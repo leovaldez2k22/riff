@@ -79,6 +79,8 @@ internal interface PlaybackGateway {
     fun attachVideo(surface:android.view.SurfaceView?)
     fun detachVideo(surface:android.view.SurfaceView)
     fun removeQueueItem(index: Int)
+    /** Feature 26: puts a removed song back at [index]; songs from YouTube Music only (a file on the phone is not re-added). */
+    fun restoreQueueEntry(entry: QueueEntry, index: Int) {}
     /** Skips [videoId] if it is playing and takes every copy of it out of the queue. */
     fun dropTrack(videoId: String)
     fun playProvider(track: ProviderTrack, stream: ProviderStream, startPositionMs: Long = 0L)
@@ -316,6 +318,10 @@ internal class MusicPlaybackGateway(context: Context,
     override fun playCollection(tracks:List<ProviderTrack>,index:Int,title:String,shuffle:Boolean) {embeddedControl?.invoke(false);embeddedId=null;embeddedPlaying=false;sendCatalogQueue(tracks,index,true,title,shuffle)}
     override fun playSong(track:ProviderTrack) {embeddedControl?.invoke(false);embeddedId=null;embeddedPlaying=false;sendCatalogQueue(listOf(track),0,true,automatic=true)}
     fun enqueueSong(track:ProviderTrack,next:Boolean) {sendCatalogQueue(listOf(track),0,true,enqueueNext=next)}
+    override fun restoreQueueEntry(entry: QueueEntry, index: Int) {
+        val id = entry.mediaId.removePrefix("yt:").takeIf { entry.mediaId.startsWith("yt:") } ?: return
+        sendCatalogQueue(listOf(ProviderTrack(id, entry.title, entry.artist, entry.artworkUrl)),0,false,enqueueNext=false,insertAt=index)
+    }
     override fun restoreAudio(track:ProviderTrack,position:Long) {sendCatalogQueue(listOf(track),0,state.wantsPlayback,replacePosition=position)}
     // Raised by every request that replaces the queue. A request still being prepared when a later
     // replacement is made is dropped; requests that only add to the queue do not drop one another.
@@ -324,7 +330,7 @@ internal class MusicPlaybackGateway(context: Context,
     // One lane, so requests reach the service in the order the user made them.
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private val requestLane=dependencies.dispatchers.io.limitedParallelism(1)
-    private fun sendCatalogQueue(tracks:List<ProviderTrack>,index:Int,autoplay:Boolean,title:String="",shuffle:Boolean=false,automatic:Boolean=false,replacePosition:Long?=null,enqueueNext:Boolean?=null) {
+    private fun sendCatalogQueue(tracks:List<ProviderTrack>,index:Int,autoplay:Boolean,title:String="",shuffle:Boolean=false,automatic:Boolean=false,replacePosition:Long?=null,enqueueNext:Boolean?=null,insertAt:Int?=null) {
         if(tracks.isEmpty() || index !in tracks.indices || tracks.size>2000) {commandError=PlaybackFailure(PlaybackFailureKind.CollectionInvalid);return}
         val replaces=replacePosition==null && enqueueNext==null
         val generation=if(replaces) ++replaceSequence else replaceSequence
@@ -347,7 +353,7 @@ internal class MusicPlaybackGateway(context: Context,
                 val play=if(transportSequence!=pressed) autoplay && transportPlay else autoplay
                 withPlayer {player->
                     commandError=null
-                    val args=Bundle().apply {putString("queueFile",file.name);putBoolean("autoplay",play);entry?.takeIf {it.isNotEmpty()}?.let {putString("expectedEntry",it)};putBoolean("automatic",automatic);putLong("sessionGeneration",owner.generation);putString("sessionNonce",owner.nonce);replacePosition?.let {putLong("replacePosition",it)};enqueueNext?.let {putBoolean("enqueueNext",it)}}
+                    val args=Bundle().apply {putString("queueFile",file.name);insertAt?.let {putInt("insertAt",it)};putBoolean("autoplay",play);entry?.takeIf {it.isNotEmpty()}?.let {putString("expectedEntry",it)};putBoolean("automatic",automatic);putLong("sessionGeneration",owner.generation);putString("sessionNonce",owner.nonce);replacePosition?.let {putLong("replacePosition",it)};enqueueNext?.let {putBoolean("enqueueNext",it)}}
                     val command=player.sendCustomCommand(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY),args)
                     command.addListener({if(replaces) PerfTrace.ended("queue_prepare");try {if(command.get().resultCode !in setOf(SessionResult.RESULT_SUCCESS,SessionError.INFO_CANCELLED)) commandError=PlaybackFailure(PlaybackFailureKind.CollectionRejected);refresh()}
                         catch(_:Exception){commandError=PlaybackFailure(PlaybackFailureKind.CollectionRejected);refresh()}

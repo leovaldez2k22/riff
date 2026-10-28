@@ -139,6 +139,18 @@ class QueueCoordinatorTest {
         assertEquals(1, player.mediaItemCount)
     }
 
+    @Test fun undoPutsARemovedSongBackAtItsRow() {
+        // Feature 26: the song left the third row; Undo asks for it back there.
+        queue.playCatalogQueue(player, Bundle().apply { putBoolean("autoplay", false) }, saved("yt:fxsong00001", "yt:fxsong00002", "yt:fxsong00004"), ticket()) { false }
+        val back = Bundle().apply { putBoolean("enqueueNext", false); putInt("insertAt", 2) }
+        queue.playCatalogQueue(player, back, saved("yt:fxsong00003"), ticket(false)) { false }
+        assertEquals(listOf("yt:fxsong00001", "yt:fxsong00002", "yt:fxsong00003", "yt:fxsong00004"), ids())
+        // A row past the end (the queue shrank meanwhile) lands at the end.
+        val far = Bundle().apply { putBoolean("enqueueNext", false); putInt("insertAt", 40) }
+        queue.playCatalogQueue(player, far, saved("yt:fxsong00005"), ticket(false)) { false }
+        assertEquals("yt:fxsong00005", ids().last())
+    }
+
     @Test fun addingASongPutsItNextOrLastAndNeverTwice() {
         queue.playCatalogQueue(player, Bundle().apply { putBoolean("autoplay", false) }, saved("yt:fxsong00001", "yt:fxsong00002", "yt:fxsong00003"), ticket()) { false }
         val next = Bundle().apply { putBoolean("enqueueNext", true) }; val last = Bundle().apply { putBoolean("enqueueNext", false) }

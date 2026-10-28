@@ -425,7 +425,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                                 "Favorite" -> if(!provider.capabilities.like.available) onNotice(provider.capabilities.like.reason?:CHECKING_ACCOUNT_NOTICE) else scope.launch {
                                     provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);unlikedOffPhone(collections,providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))})
                                 }
-                                "Remove from queue" -> playback.removeQueueItem(state.index)
+                                "Remove from queue" -> playback.removeQueueItemWithUndo(state.index)
                                 "Not interested" -> scope.launch {markNotInterested(context,provider,playback,NotInterestedEntry(videoId,state.title,state.artist,state.artworkUrl),null,onNotice)}
                                 "View artist" -> onArtist()
                                 "View album" -> onAlbum()
