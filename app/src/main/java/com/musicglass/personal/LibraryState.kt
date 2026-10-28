@@ -25,7 +25,7 @@ internal const val HISTORY_ROW_CAP = 100_000
  * (ADR-Q03). Downloads and saved tracks keep their own stores. Call off the main thread.
  */
 internal class LibraryStateDb(context: Context, name: String? = "library-state.db") :
-    SQLiteOpenHelper(context.applicationContext, name, null, 2) {
+    SQLiteOpenHelper(context.applicationContext, name, null, 3) {
     init { setWriteAheadLoggingEnabled(true) }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -36,6 +36,7 @@ internal class LibraryStateDb(context: Context, name: String? = "library-state.d
         db.execSQL("CREATE TABLE migration_runs(migration_id TEXT PRIMARY KEY NOT NULL,source_fingerprint TEXT NOT NULL,state TEXT NOT NULL,imported_count INTEGER NOT NULL,rejected_count INTEGER NOT NULL,completed_at INTEGER)")
         db.execSQL("CREATE TABLE scope_aliases(legacy_scope TEXT PRIMARY KEY NOT NULL,canonical_scope TEXT NOT NULL,verification_version INTEGER NOT NULL,state TEXT NOT NULL)")
         encoreSchema(db)
+        encoreGenreSchema(db)
     }
 
     // Version 2 (Feature 12): Encore's columns and daily totals; plays from version 1 are kept as they were, and
@@ -43,6 +44,8 @@ internal class LibraryStateDb(context: Context, name: String? = "library-state.d
     // rewritten by an older build.
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) { encoreSchema(db); upgradedFrom1 = true }
+        // Version 3 (Feature 12.4): the optional genre cache.
+        if (oldVersion < 3) encoreGenreSchema(db)
     }
 
     /** True once, in the process that upgraded this database from version 1, so Encore's totals are built for the old plays. */
@@ -212,7 +215,11 @@ internal class HistoryRepository(private val db: LibraryStateDb, private val epo
     /** As [clear]; returns how many plays were removed, or null when nothing was changed. */
     fun clearCounted(scope: String): Int? {
         val (removed, epoch) = try {
-            db.write { d -> encoreClear(d, scope); d.delete("history_events", "scope=?", arrayOf(scope)) to epochs.advance(d, EpochKind.History, scope) }
+            db.write { d ->
+                // The genre cache names artists the owner listened to, so it goes with the history.
+                encoreClear(d, scope); d.delete("artist_genres", null, null)
+                d.delete("history_events", "scope=?", arrayOf(scope)) to epochs.advance(d, EpochKind.History, scope)
+            }
         } catch (error: SQLiteException) { return null }
         epochs.committed(EpochKind.History, scope, epoch)
         _revision.value++

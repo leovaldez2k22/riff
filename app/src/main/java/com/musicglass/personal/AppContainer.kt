@@ -147,6 +147,12 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
         HistoryRepository(libraryState, epochs, runtime.clocks::wallTimeMillis, retentionDays = { historyRetentionDays(app) },
             keepEncoreTotals = { keepEncoreTotals(app) })
     }
+    /** Feature 12: the Encore page's reads, with genres from the optional lookup when it is on. */
+    val encore: EncoreRepository by lazy { EncoreRepository(libraryState, genres = { names -> encoreGenres.cached(names) }) }
+    val encoreGenres: EncoreGenres by lazy {
+        EncoreGenres(libraryState, runtime.httpCalls, runtime.clocks::wallTimeMillis, enabled = { encoreGenresOn(app) },
+            unmetered = { app.getSystemService(android.net.ConnectivityManager::class.java)?.isActiveNetworkMetered == false })
+    }
     val snapshots: PlaybackSnapshotRepository by lazy {
         PlaybackSnapshotRepository(libraryState, epochs, runtime.clocks::wallTimeMillis,
             File(app.filesDir, "unassigned/playback-snapshot-rejected.json"), eventLog::append)

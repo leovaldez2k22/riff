@@ -5,6 +5,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.platform.testTag
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -69,5 +78,37 @@ import kotlin.math.roundToInt
                 val pill = if (moving) 1f - travel else 1f
                 drawRoundRect(White.copy(alpha = pill), cornerRadius = CornerRadius(size.height / 2))
             })
+    }
+}
+
+/**
+ * Feature 12: a glass segmented control, the equalizer's mode switch made general: a glass track and a glass pill
+ * that slides to the chosen segment. [onLongPress] is offered per segment (Encore opens a period's story that way).
+ */
+@Composable internal fun GlassSegmented(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, tag: String,
+    onLongPress: ((Int) -> Unit)? = null) {
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(RiffRadius.pill)
+    val motion = LocalMotionPolicy.current
+    val words = rememberRiffBackdrop()
+    val position by animateFloatAsState(selected.toFloat(), GlassMotion.settle(motion), label = "segment")
+    Box(Modifier.fillMaxWidth().riffGlass(GlassRole.Card, RiffRadius.pill, backdrop = LocalPageBackdrop.current).padding(RiffSpace.tight)) {
+        androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().riffBackdropSource(words)) {
+            labels.forEachIndexed { index, label ->
+                val chosen = index == selected
+                Box(Modifier.weight(1f).heightIn(min = RiffEncore.tab).clip(shape)
+                    .combinedClickable(role = androidx.compose.ui.semantics.Role.Tab, onClick = { if (!chosen) { uiHaptic(HapticCue.Selection); onSelect(index) } },
+                        onLongClick = onLongPress?.let { press -> { uiHaptic(HapticCue.Confirm); press(index) } })
+                    .semantics { this.selected = chosen }.testTag("${tag}_$index"), contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.Text(label, color = if (chosen) White else Muted, fontSize = RiffType.body,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, maxLines = 1)
+                }
+            }
+        }
+        val count = labels.size.coerceAtLeast(1)
+        Box(Modifier.matchParentSize().layout { measurable, constraints ->
+            val width = constraints.maxWidth / count
+            val placeable = measurable.measure(Constraints.fixed(width, constraints.maxHeight))
+            layout(constraints.maxWidth, constraints.maxHeight) { placeable.place((position * width).roundToInt(), 0) }
+        }.riffGlass(GlassRole.Button, RiffRadius.pill, backdrop = words).background(White.copy(alpha = .12f), shape))
     }
 }

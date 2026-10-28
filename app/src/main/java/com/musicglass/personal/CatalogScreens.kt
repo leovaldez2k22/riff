@@ -279,6 +279,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
                 GlassCategoryChip(if(filter=="Favorites") string(R.string.liked_songs) else filter,key="library:$filter",selected=kind==filter,tag="library_filter_${filter.lowercase()}") {model.libraryFilter=filter}}
         }}
         item {LibraryShortcutTiles(model)}
+        item(key="encore") {EncoreLibraryCard(model,provider)}
         if(!provider.signedIn) item {ToolLink(string(R.string.sign_in_to_youtube_music)){model.push(Route.Account)}}
         if(provider.signedIn && kind=="Playlists") item(key="new_playlist") {ToolLink(string(R.string.new_playlist)) {uiHaptic();newPlaylist=true}}
         if(loading && cards.isEmpty()) item(key="state:loading") {ListSkeleton(string(R.string.loading_your_library))}

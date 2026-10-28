@@ -143,6 +143,37 @@ internal object RiffEqualizer {
     val curve = 88.dp
 }
 
+/** Feature 12: Encore's page, charts and stories. */
+internal object RiffEncore {
+    /** The period control's tabs. */
+    val tab = 40.dp
+    val headline = 44.sp
+    val chart = 168.dp
+    val barGap = 3.dp
+    val barCorner = 4.dp
+    val clock = 232.dp
+    /** The clock's empty middle, as a share of its radius. */
+    const val clockHole = .42f
+    val cellGap = 2.dp
+    val cellCorner = 3.dp
+    val cellLabel = 10.sp
+    val rankArt = 48.dp
+    val rank = 15.sp
+    val ring = 68.dp
+    val ringStroke = 3.dp
+    val ringGap = 4.dp
+    val donut = 196.dp
+    val donutStroke = 30.dp
+    val storyBar = 3.dp
+    val storyBarGap = 4.dp
+    val storyNumber = 72.sp
+    val storyTitle = 34.sp
+    val storyBody = 19.sp
+    val storyArt = 248.dp
+    val storyRowArt = 72.dp
+    val storyShare = 52.dp
+}
+
 internal object RiffNerdStats {
     /** The label column, wide enough for "Network estimate". */
     val label = 128.dp

@@ -29,6 +29,8 @@ internal sealed interface Route {
     data object DeviceAudio : Route { override val wire = "device" }
     data object Downloads : Route { override val wire = "downloads" }
     data object ListeningHistory : Route { override val wire = "listening_history" }
+    /** Feature 12: Encore, the listening statistics page. */
+    data object Encore : Route { override val wire = "encore" }
     data class Settings(val section: SettingsSection = SettingsSection.Main) : Route { override val wire get() = section.wire }
     /** An album, a playlist, a podcast show or an artist (an id beginning UC). Made only through [collection]. */
     class Collection internal constructor(val id: String, val title: String) : Route {
@@ -68,7 +70,7 @@ internal sealed interface Route {
         }
         /** A route that carries no argument, by its saved name. */
         fun plain(wire: String): Route? = when (wire) {
-            Account.wire -> Account; DeviceAudio.wire -> DeviceAudio; Downloads.wire -> Downloads; ListeningHistory.wire -> ListeningHistory
+            Account.wire -> Account; DeviceAudio.wire -> DeviceAudio; Downloads.wire -> Downloads; ListeningHistory.wire -> ListeningHistory; Encore.wire -> Encore
             else -> SettingsSection.entries.firstOrNull { it.wire == wire }?.let(::Settings)
         }
         fun encode(route: Route): String = when (route) {

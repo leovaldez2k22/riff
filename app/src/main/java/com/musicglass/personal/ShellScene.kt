@@ -93,6 +93,7 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
             Route.Downloads -> DownloadsScreen(model,totalBottomPadding,playback,onNotice)
             Route.Settings(SettingsSection.Main) -> SettingsScreen(model,totalBottomPadding,provider,collections,onNotice)
             Route.ListeningHistory -> ListeningHistoryScreen(model,totalBottomPadding,provider,playback,onNotice,onCleared=collections::refresh)
+            Route.Encore -> EncoreScreen(model,totalBottomPadding,provider,playback,onNotice)
             Route.Settings(SettingsSection.NotInterested) -> NotInterestedScreen(model,totalBottomPadding,onNotice)
             Route.Settings(SettingsSection.EarlierData) -> EarlierDataScreen(model,totalBottomPadding,provider,playback,onNotice)
             Route.Settings(SettingsSection.Diagnostics) -> DiagnosticsScreen(model,totalBottomPadding,onNotice=onNotice)
