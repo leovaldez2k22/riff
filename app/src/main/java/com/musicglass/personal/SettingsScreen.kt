@@ -241,6 +241,11 @@ import kotlinx.coroutines.withContext
                 }
                 SettingsDivider()
             }
+            // Feature 29: the release's sheet again, or the tips when this release has none.
+            SettingsLinkRow(string(R.string.whats_new_and_tips),icon=Icons.Rounded.NewReleases,tag="settings_whats_new") {
+                whatsNewShowing=if(loadWhatsNew(context)?.cards.isNullOrEmpty()) WhatsNewShow.Tips else WhatsNewShow.Release
+            }
+            SettingsDivider()
             // Q15A: last exits, errors, Share diagnostics report and Copy playback diagnostics are on their own screen.
             SettingsLinkRow(string(R.string.diagnostics),icon=Icons.Rounded.BugReport,tag="settings_diagnostics") {
                 model.push(Route.Settings(SettingsSection.Diagnostics))

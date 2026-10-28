@@ -37,6 +37,12 @@
         <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />
         <!-- Feature 19: Cast with Google's Default Media Receiver (RiffCastOptions). -->
         <meta-data android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME" android:value="com.musicglass.personal.RiffCastOptions" />
+        <!-- Feature 19: Play services' Cast library reports its own use to Google through Firebase's data transport.
+             Its uploader ("cct") is unregistered here, so the transport has nowhere to send and drops the reports on
+             the phone. The classes stay: the Cast library refers to them, and R8 refuses a build without them. -->
+        <service android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery" android:exported="false">
+            <meta-data android:name="backend:com.google.android.datatransport.cct.CctBackendFactory" tools:node="remove" />
+        </service>
         <!-- Compose reads LocalConfiguration/LocalDensity and updates in place; recreating the
              activity for these changes rebuilt the whole UI (~280 ms per rotation or theme change).
              Locale is not listed, so a language change still recreates.

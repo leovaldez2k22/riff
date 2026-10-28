@@ -70,6 +70,14 @@
     <string name="last_backup_x">last backup %1$s</string>
     <string name="no_riff_backup_in_that_folder">No Riff backup in that folder</string>
     <string name="not_now">Not now</string>
+    <string name="whats_new">What\'s new</string>
+    <string name="whats_new_and_tips">What\'s new and tips</string>
+    <string name="tips">Tips</string>
+    <string name="try_it">Try it</string>
+    <string name="tip_links_title">Open YouTube Music links in Riff</string>
+    <string name="tip_links_body">Turn on Riff\'s links in Android\'s “Open by default” page, and music.youtube.com links open here. Sharing a link to Riff works without it.</string>
+    <string name="tip_car_title">Riff in your car</string>
+    <string name="tip_car_body">Riff appears in Android Auto. Because it is not from the Play Store, turn on Android Auto\'s developer settings once (tap its version ten times), then “Unknown sources”.</string>
     <string name="nothing_new_in_the_backup">Nothing new in the backup</string>
     <string name="off">Off</string>
     <string name="on">On</string>

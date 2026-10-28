@@ -399,6 +399,8 @@ internal fun RiffApp() {
         }
         }
         }
+        // Feature 29: once after an update, or the first-run tips on a new install.
+        WhatsNewSheet(model)
         if (model.sheet == "libraryShortcuts") {
             ModalBottomSheet(onDismissRequest = { model.sheet = "mini" },
                 containerColor = Raised, scrimColor = Color.Black.copy(alpha = .55f)) {

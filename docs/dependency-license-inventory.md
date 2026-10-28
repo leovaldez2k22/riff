@@ -18,11 +18,11 @@ The script reads each resolved coordinate's POM from the local Gradle cache and 
 
 ## Result
 
-233 resolved release runtime dependencies on 29 October 2026, after Cast (Feature 19): 229 licenses from POM declarations, 4 from upstream sources (three Guava modules, SLF4J). None unresolved.
+235 resolved release runtime dependencies on 29 October 2026, after Cast (Feature 19): 231 licenses from POM declarations, 4 from upstream sources (three Guava modules, SLF4J). None unresolved.
 
 | Declared license | Artifacts |
 |---|---:|
-| Apache-2.0 (under three spellings) | 224 |
+| Apache-2.0 (under three spellings) | 226 |
 | Android Software Development Kit License (Google Play services: `play-services-base`, `-basement`, `-cast`, `-cast-framework`, `-flags`, `-tasks`) | 6 |
 | GNU GPL-3.0 (`innertubex`, `innertubex-android`) | 2 |
 | MIT (`slf4j-api`) | 1 |
@@ -32,8 +32,10 @@ The script reads each resolved coordinate's POM from the local Gradle cache and 
 **Reopened 29 October 2026 (Feature 19, Cast):** `androidx.media3:media3-cast` 1.11.1 brings Google Play services' Cast
 framework 22.3.1 and five Play services parts under Google's Android SDK terms, closed source, plus AndroidX
 MediaRouter 1.8.1 and the AppCompat and Fragment libraries it needs (Apache-2.0). The plan accepted this for Cast. Play
-services' Firebase data transport comes with them; its uploader (`transport-backend-cct`) is excluded in
-`app/build.gradle.kts`, so the Cast library's own usage reports are dropped on the phone (see `docs/privacy.md`).
+services' Firebase data transport comes with them. Its uploader (`transport-backend-cct`) has to stay in the build,
+because the Cast library refers to its classes and R8 refuses a release without them, but Riff's manifest removes its
+registration, so the Cast library's own usage reports have nowhere to go and are dropped on the phone (see
+`docs/privacy.md`).
 Cast does nothing on a phone without Play services.
 
 ## Main components

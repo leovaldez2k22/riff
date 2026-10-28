@@ -1,0 +1,10 @@
+{
+  "version": 34,
+  "cards": [
+    {"title": "A new look", "body": "Glass controls that bend what is behind them, a calmer player, and the Inter typeface throughout.", "action": "settings"},
+    {"title": "Encore", "body": "Your listening by day, week, month and year, with charts and stories. It lives in Library.", "action": "encore"},
+    {"title": "Equalizer", "body": "Shape the sound with a tone pad or ten bands, before it reaches the phone.", "action": "equalizer"},
+    {"title": "Cars, speakers and TVs", "body": "Riff in Android Auto, and on Chromecasts and Google speakers from the output button under the player.", "action": "player"},
+    {"title": "Smart crossfade", "body": "Downloaded songs blend where they wind down, on the beat when both have one. Turn it on in Settings, Playback.", "action": "settings"}
+  ]
+}

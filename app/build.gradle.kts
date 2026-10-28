@@ -219,9 +219,9 @@ dependencies {
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.session)
-    // Feature 19. Play services' Cast library logs its own use to Google through Firebase's data transport; without
-    // the uploader (its "cct" backend) those reports are dropped on the phone. docs/privacy.md says so.
-    implementation(libs.media3.cast) { exclude(group = "com.google.android.datatransport", module = "transport-backend-cct") }
+    // Feature 19. Its Play services parts log the Cast library's own use to Google; the manifest unregisters the
+    // uploader (see AndroidManifest.xml).
+    implementation(libs.media3.cast)
     implementation(libs.mediarouter)
     implementation(libs.innertubex)
     implementation(libs.ktor.okhttp)

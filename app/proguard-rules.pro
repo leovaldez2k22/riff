@@ -11,3 +11,7 @@
     com.metrolist.innertubex.extraction.ExtractionCipherService cipherService;
 }
 
+
+# Feature 19: Play services finds the Cast options by the class name in the manifest's OPTIONS_PROVIDER_CLASS_NAME,
+# which R8 does not read. Without this the release build had no RiffCastOptions, and Cast could not start.
+-keep class com.musicglass.personal.RiffCastOptions { <init>(); }
