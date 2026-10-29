@@ -32,9 +32,12 @@ internal fun cleanSlate() {
     check("Success" in device.executeShellCommand("pm clear $TARGET")) { "Could not clear $TARGET" }
     openTarget(device)
     // Feature 29: a new install's first start opens the tips over Home, in a window of its own; it is closed as a
-    // person would, once, and later starts don't show it.
+    // person would, once, and later starts don't show it. Before the tips, a new install that finds a backup an
+    // earlier one left offers to restore it; Not now, so the slate stays clean (29 Oct, after the benchmark app was
+    // uninstalled on the owner's phone).
     val until = System.currentTimeMillis() + 30_000
     while (System.currentTimeMillis() < until) {
+        device.findObject(By.res("restore_offer_not_now"))?.let { it.click(); Thread.sleep(500); continue }
         device.findObject(By.res("whats_new_close"))?.let { it.click(); break }
         if (device.hasObject(By.text("Speed dial"))) break
         Thread.sleep(250)

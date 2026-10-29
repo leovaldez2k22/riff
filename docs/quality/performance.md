@@ -2,6 +2,8 @@
 
 What is measured, with what, on which build, and what has and has not been measured so far.
 
+**29 October 2026, feat/next-features: unsolved.** A benchmark lane on the same phone measured frames 2–4× worse than the table below and cold start at 1,990 ms p95. rc10's code, rebuilt and run on the phone that day, measured about as badly (Home 18.9 %, collection 20.6 %, player and queue 25.9 %), so the table below is not reproducible on the phone as it is now; the cause was not found and the owner stopped the investigation. The table stays as rc10's record. Details and evidence: the plan's implementation log, "Phone benchmark (29 Oct)".
+
 **Status on 24 October 2026 (0.10.0, measured on rc10).** Tier R is measured on the owner's phone (vivo I2217,
 Android 16, 7.2 GiB) with the benchmark lane on rc10's code (8adb2d1); rc11 and 0.10.0 change only colours (the
 artwork tone and the collection title block), which no budget measures. Evidence:
