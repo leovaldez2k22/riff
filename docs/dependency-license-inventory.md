@@ -22,7 +22,7 @@ The script reads each resolved coordinate's POM from the local Gradle cache and 
 
 | Declared license | Artifacts |
 |---|---:|
-| Apache-2.0 (under three spellings) | 226 |
+| Apache-2.0 (under three spellings) | 227 |
 | Android Software Development Kit License (Google Play services: `play-services-base`, `-basement`, `-cast`, `-cast-framework`, `-flags`, `-tasks`) | 6 |
 | GNU GPL-3.0 (`innertubex`, `innertubex-android`) | 2 |
 | MIT (`slf4j-api`) | 1 |
@@ -37,6 +37,9 @@ because the Cast library refers to its classes and R8 refuses a release without 
 registration, so the Cast library's own usage reports have nowhere to go and are dropped on the phone (see
 `docs/privacy.md`).
 Cast does nothing on a phone without Play services.
+
+**Added 29 October 2026 (Feature 9, skip silence on streams):** `androidx.media3:media3-inspector` 1.11.1 (Apache-2.0), Media3's
+own extractor behind the `MediaExtractor` API. It needs nothing beyond `media3-exoplayer`, which Riff already has.
 
 ## Main components
 

@@ -13,11 +13,30 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.ContentMetadata
+import androidx.media3.inspector.MediaExtractorCompat
 import java.nio.ByteOrder
 
 /** How much of a song's end and start Automix reads. */
 internal const val ANALYSIS_TAIL_MS = 45_000L
 internal const val ANALYSIS_HEAD_MS = 30_000L
+/** The start of a cached stream that must be there: the container's header and index sit in it. */
+internal const val CACHED_HEAD_BYTES = 256L * 1024
+
+/** How many of a cached stream's last bytes hold its tail: the tail's share of the length, with a quarter more for a variable bitrate. */
+internal fun cachedTailBytes(length: Long, durationMs: Long): Long =
+    (length.toDouble() * minOf(1.0, (ANALYSIS_TAIL_MS * 1.25 + 2_000) / durationMs)).toLong().coerceIn(1, length)
+/** Kept back from the start of a cached run, for a variable bitrate and the extractor landing on the cluster before. */
+internal const val CACHED_RUN_MARGIN_MS = 3_000L
+/** The shortest cached tail worth reading: less, and the end is left to Path B. */
+internal const val CACHED_TAIL_MIN_MS = 10_000L
+
+/**
+ * How much of a stream's end can be read from a cached run of bytes that starts at [runFrom] and reaches the end:
+ * up to [ANALYSIS_TAIL_MS]. A seek into the last minute leaves the run shorter, and the tail with it.
+ */
+internal fun cachedTailMs(length: Long, runFrom: Long, durationMs: Long): Long =
+    if (length <= 0 || durationMs <= 0) 0
+    else minOf(ANALYSIS_TAIL_MS, (durationMs.toDouble() * (length - runFrom) / length).toLong() - CACHED_RUN_MARGIN_MS).coerceAtLeast(0)
 
 /**
  * Automix stage 1: reads a stretch of a song the phone holds (a download, or a file on the device) as loudness. The
@@ -36,37 +55,61 @@ internal object TrackAnalysis {
     }
 
     /**
-     * A streamed [item]'s bytes in Riff's audio cache, when every one of them is there: the cache learns a stream's
-     * length when its download reaches the end. Null for a song not streamed, not cached, or not cached to its end.
+     * A streamed [item]'s bytes in Riff's audio cache, when its start (the container's header) is there and an unbroken
+     * run reaches its end, long enough for [CACHED_TAIL_MIN_MS] of tail. A seek ahead leaves a hole before that run,
+     * which is never read. The cache learns a stream's length when its download reaches the end. Null for a song not
+     * streamed or not cached that far.
      */
-    fun cachedSource(context: Context, item: MediaItem): MediaDataSource? {
+    fun cachedSource(context: Context, item: MediaItem, durationMs: Long): CachedTail? {
         val key = item.localConfiguration?.customCacheKey ?: return null
         val cache = MusicDiskCache.get(context)
+        val state = cachedState(cache, key, durationMs)
+        if (!(state.known && state.head && state.tail)) return null
+        val tailFrom = maxOf(state.runFrom, state.length - cachedTailBytes(state.length, durationMs))
+        return CachedTail(CachedBytes.copy(cache, key, state.length, minOf(state.length, CACHED_HEAD_BYTES), state.length - tailFrom), state.tailMs)
+    }
+
+    /** What the cache holds of a stream: whether it knows the length, and has the start and the tail. For the event log. */
+    fun cachedState(context: Context, item: MediaItem, durationMs: Long): CachedState? =
+        item.localConfiguration?.customCacheKey?.let { cachedState(MusicDiskCache.get(context), it, durationMs) }
+
+    private fun cachedState(cache: Cache, key: String, durationMs: Long): CachedState {
         val length = ContentMetadata.getContentLength(cache.getContentMetadata(key))
-        if (length <= 0 || !cache.isCached(key, 0, length)) return null
-        return CachedBytes(cache, key, length)
+        if (length <= 0 || durationMs <= 0) return CachedState(length, false, cache.isCached(key, 0, CACHED_HEAD_BYTES), length, 0)
+        // Where the unbroken run of cached bytes that reaches the end begins.
+        var runFrom = length
+        for (span in cache.getCachedSpans(key).descendingSet()) {
+            if (span.position + span.length < runFrom) break
+            runFrom = minOf(runFrom, span.position)
+        }
+        return CachedState(length, true, cache.isCached(key, 0, minOf(length, CACHED_HEAD_BYTES)), runFrom, cachedTailMs(length, runFrom, durationMs))
     }
 
     /** The envelope of [lengthMs] from [fromMs] (negative: that far before the end), or null when it cannot be read. */
     fun envelope(context: Context, source: Uri, fromMs: Long, lengthMs: Long): TrackEnvelope? =
-        envelope({ it.setDataSource(context, source, null) }, fromMs, lengthMs, null)
+        envelope({ PlatformDemuxer(MediaExtractor().also { it.setDataSource(context, source, null) }) }, fromMs, lengthMs, null)
 
     /**
-     * The same from bytes [open] gives the extractor. [knownDurationMs] stands in for a container that does not say
-     * its length (a stream's fragments often do not).
+     * A cached stream's tail. Read with Media3's extractor, which goes to the tail by the container's index; the
+     * platform's reads a WebM file's clusters from the start, into the part that was never cached. [knownDurationMs]
+     * stands in for a container that does not say its length.
      */
-    fun envelope(open: (MediaExtractor) -> Unit, fromMs: Long, lengthMs: Long, knownDurationMs: Long?): TrackEnvelope? {
-        val extractor = MediaExtractor()
+    fun envelope(context: Context, cached: CachedTail, knownDurationMs: Long?): TrackEnvelope? = cached.source.use { bytes ->
+        envelope({ Media3Demuxer(MediaExtractorCompat(context).also { it.setDataSource(bytes) }) }, -cached.tailMs, cached.tailMs, knownDurationMs)
+    }
+
+    private fun envelope(open: () -> Demuxer, fromMs: Long, lengthMs: Long, knownDurationMs: Long?): TrackEnvelope? {
+        var extractor: Demuxer? = null
         var codec: MediaCodec? = null
         try {
-            open(extractor)
-            val track = (0 until extractor.trackCount).firstOrNull { extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true }
+            val extractor = open().also { extractor = it }
+            val track = (0 until extractor.trackCount).firstOrNull { extractor.format(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true }
                 ?: return null
-            val format = extractor.getTrackFormat(track); extractor.selectTrack(track)
+            val format = extractor.format(track); extractor.select(track)
             val durationMs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) / 1_000 else knownDurationMs ?: return null
             val startMs = (if (fromMs < 0) durationMs + fromMs else fromMs).coerceIn(0, durationMs)
             val endMs = minOf(durationMs, startMs + lengthMs)
-            extractor.seekTo(startMs * 1_000, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+            extractor.seekTo(startMs * 1_000)
             val decoder = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!).also { codec = it }
             decoder.configure(format, null, null, 0); decoder.start()
             var builder: EnvelopeBuilder? = null
@@ -74,7 +117,7 @@ internal object TrackAnalysis {
             while (true) {
                 if (++turns > 200_000) return null // A decoder that never ends its stream.
                 if (!inputDone) decoder.dequeueInputBuffer(10_000).takeIf { it >= 0 }?.let { index ->
-                    val size = extractor.readSampleData(decoder.getInputBuffer(index)!!, 0)
+                    val size = extractor.read(decoder.getInputBuffer(index)!!)
                     if (size < 0 || extractor.sampleTime > endMs * 1_000) { decoder.queueInputBuffer(index, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM); inputDone = true }
                     else { decoder.queueInputBuffer(index, 0, size, extractor.sampleTime, 0); extractor.advance() }
                 }
@@ -97,36 +140,92 @@ internal object TrackAnalysis {
         } catch (e: Exception) {
             return null // A file the platform cannot decode is a song without a smart blend.
         } finally {
-            runCatching { codec?.stop() }; runCatching { codec?.release() }; extractor.release()
+            runCatching { codec?.stop() }; runCatching { codec?.release() }; runCatching { extractor?.release() }
         }
     }
 }
 
-/** A whole cached stream as the platform extractor reads it: cache only, so a missing byte is an error, never a fetch. */
+/** The few calls an envelope makes of an extractor: the platform's for a file, Media3's for a cached stream. */
+private interface Demuxer {
+    val trackCount: Int
+    val sampleTime: Long
+    fun format(track: Int): MediaFormat
+    fun select(track: Int)
+    /** To the sync sample at or before [us]. */
+    fun seekTo(us: Long)
+    fun read(buffer: java.nio.ByteBuffer): Int
+    fun advance()
+    fun release()
+}
+
+private class PlatformDemuxer(private val e: MediaExtractor) : Demuxer {
+    override val trackCount get() = e.trackCount
+    override val sampleTime get() = e.sampleTime
+    override fun format(track: Int): MediaFormat = e.getTrackFormat(track)
+    override fun select(track: Int) = e.selectTrack(track)
+    override fun seekTo(us: Long) = e.seekTo(us, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+    override fun read(buffer: java.nio.ByteBuffer) = e.readSampleData(buffer, 0)
+    override fun advance() { e.advance() }
+    override fun release() = e.release()
+}
+
 @androidx.annotation.OptIn(markerClass = [UnstableApi::class])
-private class CachedBytes(cache: Cache, private val key: String, private val length: Long) : MediaDataSource() {
-    private val source = CacheDataSource(cache, null)
-    /** Where the open read is; a read anywhere else opens again there. */
-    private var at = -1L
+private class Media3Demuxer(private val e: MediaExtractorCompat) : Demuxer {
+    override val trackCount get() = e.trackCount
+    override val sampleTime get() = e.sampleTime
+    override fun format(track: Int): MediaFormat = e.getTrackFormat(track)
+    override fun select(track: Int) = e.selectTrack(track)
+    override fun seekTo(us: Long) = e.seekTo(us, MediaExtractorCompat.SEEK_TO_PREVIOUS_SYNC)
+    override fun read(buffer: java.nio.ByteBuffer) = e.readSampleData(buffer, 0)
+    override fun advance() { e.advance() }
+    override fun release() = e.release()
+}
+
+internal class CachedState(val length: Long, val known: Boolean, val head: Boolean, val runFrom: Long, val tailMs: Long) {
+    val tail get() = tailMs >= CACHED_TAIL_MIN_MS
+}
+
+/** A cached stream ready to read, and how much of its end can be: up to [ANALYSIS_TAIL_MS]. */
+internal class CachedTail(val source: MediaDataSource, val tailMs: Long)
+
+/**
+ * A cached stream's start and tail, copied into memory in two reads, as the platform extractor reads them. The
+ * extractor reads in many small jumps; reading each from the cache took tens of seconds on the phone. A read in
+ * the part not copied is an error, so the song is left to Path B; nothing is ever fetched.
+ */
+@androidx.annotation.OptIn(markerClass = [UnstableApi::class])
+private class CachedBytes(private val length: Long, private val head: ByteArray, private val tailFrom: Long, private val tail: ByteArray) : MediaDataSource() {
+    companion object {
+        fun copy(cache: Cache, key: String, length: Long, headBytes: Long, tailBytes: Long): CachedBytes {
+            fun read(from: Long, size: Long): ByteArray {
+                val source = CacheDataSource(cache, null)
+                val out = ByteArray(size.toInt())
+                source.open(DataSpec.Builder().setUri(Uri.EMPTY).setKey(key).setPosition(from).setLength(size).build())
+                try {
+                    var done = 0
+                    while (done < out.size) { val n = source.read(out, done, out.size - done); if (n < 0) break; done += n }
+                    if (done < out.size) throw java.io.IOException("cache ended early")
+                } finally { source.close() }
+                return out
+            }
+            val tailFrom = maxOf(length - tailBytes, headBytes)
+            return CachedBytes(length, read(0, headBytes), tailFrom, read(tailFrom, length - tailFrom))
+        }
+    }
 
     override fun getSize() = length
 
     override fun readAt(position: Long, buffer: ByteArray, offset: Int, size: Int): Int {
         if (position >= length) return -1
-        if (position != at) {
-            if (at >= 0) source.close()
-            source.open(DataSpec.Builder().setUri(Uri.EMPTY).setKey(key).setPosition(position).build())
-            at = position
+        val (part, at) = when {
+            position < head.size -> head to position.toInt()
+            position >= tailFrom -> tail to (position - tailFrom).toInt()
+            else -> throw java.io.IOException("not cached")
         }
-        var read = 0
-        while (read < size) {
-            val n = source.read(buffer, offset + read, size - read)
-            if (n < 0) break
-            read += n
-        }
-        at += read
-        return if (read == 0) -1 else read
+        val n = minOf(size, part.size - at)
+        System.arraycopy(part, at, buffer, offset, n)
+        return n
     }
 
-    override fun close() { if (at >= 0) source.close(); at = -1 }
+    override fun close() = Unit
 }

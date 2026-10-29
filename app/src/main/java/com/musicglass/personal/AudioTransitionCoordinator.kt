@@ -55,23 +55,34 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         envelopes[key] = null
         scope.launch(runtime.dispatchers.io) {
             val local = TrackAnalysis.localSource(context, item)
-            val cached = if (local == null && part == "tail") TrackAnalysis.cachedSource(context, item) else null
+            val cached = try { if (local == null && part == "tail") TrackAnalysis.cachedSource(context, item, playerDurationMs) else null }
+                catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (e: Exception) {
+                    // Left marked as read, so a stream whose cache cannot be copied is not tried every 2 s.
+                    events.append("automix_analysis part=$part found=0 source=cache failure=${e::class.simpleName ?: "error"}"); return@launch
+                }
             if (local == null && cached == null) {
-                // Not on the phone; a stream not yet cached to its end is tried again, anything else stays unread.
-                if (part == "tail" && item.localConfiguration?.customCacheKey != null) envelopes.remove(key)
+                // Not on the phone and not cached yet: a tail is asked for again. A song is often asked for before its
+                // stream is resolved, when it has no cache key yet, so the silence watch decides what is worth asking.
+                if (part == "tail") envelopes.remove(key)
                 return@launch
             }
             val known = playerDurationMs.takeIf { it > 0 }
+            val began = runtime.clocks.monotonicMillis()
+            // Why a cached tail was not used: it could not be decoded, or its end is not where the player's is.
+            var refused = ""
             val envelope = when {
-                cached != null -> cached.use { bytes -> TrackAnalysis.envelope({ it.setDataSource(bytes) }, -ANALYSIS_TAIL_MS, ANALYSIS_TAIL_MS, known) }
+                cached != null -> TrackAnalysis.envelope(context, cached, known)
+                    .also { if (it == null) refused = " reason=decode" }
                     // A file whose end is not where the player's is would cut the song in the wrong place.
-                    ?.takeIf { known != null && kotlin.math.abs(it.durationMs - known) <= CACHED_LENGTH_SLACK_MS && kotlin.math.abs(it.endMs - known) <= CACHED_LENGTH_SLACK_MS }
+                    ?.takeIf { (known != null && kotlin.math.abs(it.durationMs - known) <= CACHED_LENGTH_SLACK_MS && kotlin.math.abs(it.endMs - known) <= CACHED_LENGTH_SLACK_MS)
+                        .also { fits -> if (!fits) refused = " reason=length delta=${(it.endMs - (known ?: 0)) / 100 * 100}" } }
                 part == "tail" -> TrackAnalysis.envelope(context, local!!, -ANALYSIS_TAIL_MS, ANALYSIS_TAIL_MS)
                 else -> TrackAnalysis.envelope(context, local!!, 0, ANALYSIS_HEAD_MS)
             }
             envelopes[key] = envelope
             val beats = envelope?.beats
-            events.append("automix_analysis part=$part found=${if (envelope == null) 0 else 1} source=${if (cached != null) "cache" else "file"}" +
+            events.append("automix_analysis part=$part found=${if (envelope == null) 0 else 1} source=${if (cached != null) "cache" else "file"} ms=${runtime.clocks.monotonicMillis() - began}$refused" +
                 if (beats == null) "" else " bpm=${beats.bpm.toInt()} beat=${"%.2f".format(java.util.Locale.ROOT, beats.confidence)} downbeat=${"%.2f".format(java.util.Locale.ROOT, beats.downbeatConfidence)}")
         }
     }
@@ -108,6 +119,21 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
     /** Path A: where [item]'s sound ends, when its tail has been read and the switch is on. */
     private fun audibleEnd(item: MediaItem): Long? = if (!boostPrefs.getBoolean(SKIP_END_SILENCE_KEY, false)) null
         else envelopes["${item.mediaId}:tail"]?.audibleEndMs()
+    /** The song whose unread stream tail was last written to the event log, so each says it once. */
+    private var notedTail: String? = null
+    /** Near the end of a stream whose tail was never read, what the cache held of it: why Path B was left to do it. */
+    private fun noteMissingTail(main: Player, item: MediaItem) {
+        if (!boostPrefs.getBoolean(SKIP_END_SILENCE_KEY, false) || item.localConfiguration?.customCacheKey == null) return
+        val duration = main.duration
+        if (duration <= 0 || duration - main.currentPosition > ANALYSIS_TAIL_MS / 2 || envelopes["${item.mediaId}:tail"] != null) return
+        val key = silenceKey(main)
+        if (notedTail == key) return
+        notedTail = key
+        scope.launch(runtime.dispatchers.io) {
+            val state = TrackAnalysis.cachedState(context, item, duration) ?: return@launch
+            events.append("stream_tail_unread known=${state.known} init=${state.head} cached=${state.tail} ms=${state.tailMs}")
+        }
+    }
     private fun silenceKey(main: Player) = "${main.currentMediaItemIndex}:${main.currentMediaItem?.mediaId}"
     private fun watchSilence(main: ExoPlayer) {
         analyseAround(main)
@@ -126,7 +152,8 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
                 main.skipSilenceEnabled = boostPrefs.getBoolean(SKIP_ALL_SILENCE_KEY, false)
                 val item = main.currentMediaItem ?: continue
                 // A stream's tail, once the player has cached it to the end (about 50 s ahead of what is heard).
-                if (++ticks % CACHED_TAIL_EVERY == 0) analyse(item, "tail", main.duration)
+                if (++ticks % CACHED_TAIL_EVERY == 0 && item.localConfiguration?.customCacheKey != null) analyse(item, "tail", main.duration)
+                noteMissingTail(main, item)
                 val quiet = silenceWatch.meter.quietMs
                 if (SongCrossfadeState.active != null) continue
                 val end = audibleEnd(item)

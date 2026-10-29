@@ -218,6 +218,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.inspector)
     implementation(libs.media3.session)
     // Feature 19. Its Play services parts log the Cast library's own use to Google; the manifest unregisters the
     // uploader (see AndroidManifest.xml).
