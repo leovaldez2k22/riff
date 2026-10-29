@@ -199,6 +199,13 @@ internal class EncoreRepository(private val db: LibraryStateDb, private val zone
         return listOfNotNull(daily, played).minOrNull()
     }
 
+    /** Plays and listened time by year, oldest first, from the song totals: Encore's part of an Export file. */
+    fun years(scopes: List<String>): List<Triple<Int, Int, Long>> =
+        db.readableDatabase.rawQuery("SELECT substr(day,1,4) AS y,SUM(plays),SUM(listened_ms) FROM stats_daily WHERE ${scopeIn(scopes)} AND kind='song' " +
+            "GROUP BY y ORDER BY y", scopes.toTypedArray()).use { c ->
+            buildList { while (c.moveToNext()) c.getString(0).toIntOrNull()?.let { add(Triple(it, c.getInt(1), c.getLong(2))) } }
+        }
+
     private fun dayArgs(scopes: List<String>, period: EncorePeriod) = (scopes + period.start.toString() + period.end.toString()).toTypedArray()
 
     /** Listening per day from the song totals (each play counts once there). */

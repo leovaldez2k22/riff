@@ -154,6 +154,25 @@ class LocalDataTransferTest {
         assertFalse("the private copy is removed", plan.file.exists())
     }
 
+    // Feature 12: Encore's numbers are written for reading and passed over on import, which rebuilds them from the plays.
+    @Test fun encoresNumbersTravelForReadingAndImportPassesThemOver() {
+        val source = Phone(); source.seed(accountA); source.play(accountA, 1)
+        val bytes = source.exported(accountA)
+        val lines = bytes.toString(Charsets.UTF_8).trim().lines().drop(1).map(::JSONObject)
+        val years = lines.filter { it.getString("t") == "encore" }
+        assertEquals(1, years.size)
+        assertEquals(5, years.single().getInt("plays"))
+        val songs = lines.filter { it.getString("t") == "encore_top" && it.getString("kind") == EncoreKind.SONG }
+        assertEquals(listOf(1, 2, 3, 4), songs.map { it.getInt("rank") })
+        assertEquals("the song played twice leads", "Song 1", songs.first().getString("title"))
+        assertTrue(lines.filter { it.getString("t") == "encore_top" }.map { it.getString("kind") }.toSet() == setOf(EncoreKind.SONG, EncoreKind.ARTIST))
+
+        wipe()
+        val plan = Phone().plan(bytes)
+        assertEquals(0, plan.malformed)
+        assertEquals(SectionCounts(saved = 3, recents = 2, searches = 2, plays = 5, downloads = 2), plan.sections.single().counts)
+    }
+
     @Test fun importedDownloadsAreNamesOnlyAndNothingIsQueued() {
         val source = Phone(); source.seed(accountA)
         val bytes = source.exported(accountA)
@@ -188,7 +207,7 @@ class LocalDataTransferTest {
         Regex("""[a-z][a-z0-9+.-]*:\\?/\\?/[^"]*""").findAll(text).forEach { assertTrue("unexpected address ${it.value}", allowed.matches(it.value)) }
         val lines = text.trim().lines()
         assertTrue(lines.all { it.length <= LOCAL_DATA_MAX_LINE })
-        assertEquals(setOf("owner", "setting", "track", "search", "play", "download", "end"), lines.drop(1).mapTo(mutableSetOf()) { JSONObject(it).getString("t") })
+        assertEquals(setOf("owner", "setting", "track", "search", "play", "download", "encore", "encore_top", "end"), lines.drop(1).mapTo(mutableSetOf()) { JSONObject(it).getString("t") })
         // An account is named by the digest of its identity, also when its data is stored under an older key.
         assertEquals(listOf(null, null, accountA, accountB), lines.filter { it.contains("\"owner\"") }.map { JSONObject(it).opt("id") })
         assertEquals(JSONObject().put("riff", "local-data").put("schema", 1).put("exported_at", clock.wall).put("app", BuildConfig.VERSION_NAME).toString(), lines.first())

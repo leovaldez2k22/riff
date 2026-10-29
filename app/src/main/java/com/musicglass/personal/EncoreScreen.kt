@@ -1,5 +1,7 @@
 package com.musicglass.personal
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -82,6 +84,16 @@ import kotlin.math.abs
     var historyStart by remember { mutableStateOf<LocalDate?>(null) }
     val rowActions = remember(provider, playback, onNotice) { EncoreRowActions(provider, playback, onNotice) }
     var saving by remember { mutableStateOf<List<ProviderTrack>?>(null) }
+    var csvFor by remember { mutableStateOf<EncoreSummary?>(null) }
+    val saveCsv = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        val chosen = csvFor; csvFor = null
+        if (uri != null && chosen != null) scope.launch {
+            val ok = withContext(process.runtime.dispatchers.io) {
+                runCatching { context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(encoreCsv { chosen.top(it, EncoreSort.Minutes) }.toByteArray(Charsets.UTF_8)) } }.isSuccess
+            }
+            onNotice(string(if (ok) R.string.encore_csv_saved else R.string.encore_csv_failed))
+        }
+    }
     val range = EncoreRange.entries[rangeIndex]
     val period = remember(range, anchor, historyStart) { EncorePeriod.containing(range, LocalDate.parse(anchor), firstDay, historyStart) }
     LaunchedEffect(scopes, period, revision, genresOn, genresFound) {
@@ -195,6 +207,9 @@ import kotlin.math.abs
                 // Riff's own playlist create, so the account write is the one the owner starts here, never automatic.
                 if (top.size > 1 && provider.capabilities.editPlaylists.available) item(key = "save_top") {
                     ToolLink(string(R.string.encore_save_playlist)) { uiHaptic(); saving = top }
+                }
+                if (current.top(EncoreKind.SONG, EncoreSort.Minutes).isNotEmpty()) item(key = "save_csv") {
+                    ToolLink(string(R.string.encore_save_csv)) { csvFor = current; saveCsv.launch(encoreCsvName(current.period)) }
                 }
             }
         }

@@ -1143,6 +1143,17 @@
     <string name="encore_play_top">Play your top %1$d</string>
     <string name="encore_on_this_day">On this day</string>
     <string name="encore_your_week">Your week in Encore</string>
+    <!-- Feature 12, Export -->
+    <string name="encore_save_csv">Save top lists as CSV</string>
+    <string name="encore_csv_saved">Top lists saved</string>
+    <string name="encore_csv_failed">Couldn\'t save the top lists</string>
+    <!-- Feature 12, home widget -->
+    <string name="encore_widget_name">Encore today</string>
+    <string name="encore_widget_description">Today\'s listening time and most played song</string>
+    <string name="encore_widget_label">Today in Encore</string>
+    <string name="encore_widget_none">Nothing yet</string>
+    <string name="encore_widget_none_detail">Play something to start today</string>
+    <string name="encore_widget_top">Most played: %1$s</string>
     <!-- Feature 12, weekly recap -->
     <string name="encore_recap">Weekly recap</string>
     <string name="encore_recap_detail">A notification on Sunday evening when your week in Encore is ready.</string>

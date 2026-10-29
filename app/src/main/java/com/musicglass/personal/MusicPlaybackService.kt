@@ -98,7 +98,7 @@ class MusicPlaybackService : MediaLibraryService() {
     private var listeningId=""
     /** Feature 12: listened time per play for Encore, written off the main thread. */
     private val encore=EncoreListening({s,e,ms->serviceScope.launch(Dispatchers.IO) {history.addListened(s,e,ms)}},
-        {s,e,how->serviceScope.launch(Dispatchers.IO) {history.markEnded(s,e,how)}})
+        {s,e,how->serviceScope.launch(Dispatchers.IO) {history.markEnded(s,e,how);EncoreWidgets.refresh(this@MusicPlaybackService)}})
     private var lastListenTick=android.os.SystemClock.elapsedRealtime()
     private val snapshotPrefs by lazy {getSharedPreferences("last_playback",MODE_PRIVATE)}
     private var taskRemoved=false
