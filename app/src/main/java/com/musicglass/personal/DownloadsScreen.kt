@@ -197,7 +197,7 @@ private data class DownloadListing(val entries:List<DownloadDisplay>,val used:Lo
             val songs=store.shown(scopeKey).filter {it.status!=DownloadState.Metadata && it.status!=DownloadState.Cancelled}
                 .sortedWith(compareByDescending<OfflineSong> {it.downloadedAt}.thenBy {it.track.title.lowercase(java.util.Locale.ROOT)}.thenBy {it.track.videoId})
             songs.map {song->DownloadDisplay(song,store.audio(scopeKey,song.track.videoId)!=null,
-                store.artwork(scopeKey,song.track.videoId)?.toURI()?.toString()?:song.track.artworkUrl)}.let {DownloadListing(it,store.usedBytes(scopeKey))}
+                store.artwork(scopeKey,song.track.videoId)?.toURI()?.toString()?:song.track.artworkUrl)}.let {DownloadListing(it,store.usedBytes(scopeKey,store.shown(scopeKey)))}
         }
         // Written on the main thread: an effect's dispatcher need not bring it back there (a test's unconfined one
         // does not), and a write from elsewhere can land while the list is being measured ("Index 3, size 3").

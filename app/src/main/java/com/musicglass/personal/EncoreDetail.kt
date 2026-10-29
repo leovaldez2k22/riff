@@ -88,7 +88,8 @@ import kotlinx.coroutines.withContext
 @Composable internal fun EncoreHistoryAction(kind: String, key: String?, title: String, onDismiss: () -> Unit) {
     val model = LocalShellModel.current ?: return
     val route = Route.encoreDetail(kind, key, title) ?: return
-    SongActionItem("Your history with this") { onDismiss(); model.push(route) }
+    // Like "View album": the player closes, or the page opens behind it.
+    SongActionItem("Your history with this") { onDismiss(); model.sheet = ""; model.push(route) }
 }
 
 /** A song's Encore key: the media id its plays are recorded under. */

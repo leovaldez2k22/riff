@@ -380,5 +380,6 @@ internal class OfflineMusicStore private constructor(private val context:Context
         if(track.isLive || !track.isMusic || !context.getSharedPreferences("music_collections",Context.MODE_PRIVATE).getBoolean("history_enabled",true)) return
         val scope=currentScope;remember(track,scope);db.writableDatabase.execSQL("UPDATE songs SET lastPlayed=?,duration=?,plays=plays+?,listened=listened+? WHERE scope=? AND id=?",arrayOf<Any>(System.currentTimeMillis(),duration,if(newPlay) 1 else 0,millis.coerceIn(0,30_000),scope,track.videoId));changed()
     }
-    fun usedBytes(scope:String=currentScope)=rows(scope).sumOf {r->directory(scope,r.track.videoId).listFiles()?.sumOf {it.length()}?:0}
+    /** The files' size on the phone; the download lists pass [shown] rows, so a removal waiting on Undo is not counted. */
+    fun usedBytes(scope:String=currentScope,rows:List<OfflineSong> = rows(scope))=rows.sumOf {r->directory(scope,r.track.videoId).listFiles()?.sumOf {it.length()}?:0}
 }
