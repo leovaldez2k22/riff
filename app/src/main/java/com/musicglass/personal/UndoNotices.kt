@@ -5,8 +5,15 @@ package com.musicglass.personal
  * (one at a time, the newest replacing the last); pressing it runs the undo. Set by RiffApp while it is shown.
  */
 internal object UndoNotices {
-    @Volatile internal var listener: ((message: String, undo: () -> Unit) -> Unit)? = null
-    fun show(message: String, undo: () -> Unit) { listener?.invoke(message, undo) }
+    @Volatile internal var listener: ((message: String, undo: () -> Unit, expire: () -> Unit) -> Unit)? = null
+    /**
+     * [expire] runs once when the offer ends without Undo: timed out, dismissed, or replaced by a newer removal, so a
+     * second removal commits the first. With no shell to show the notice it runs at once, and this returns false.
+     */
+    fun show(message: String, expire: () -> Unit = {}, undo: () -> Unit): Boolean {
+        val shown = listener ?: run { expire(); return false }
+        shown(message, undo, expire); return true
+    }
 }
 
 /** Removes a queue row and offers to put it back at the same row. A file on the phone is removed without Undo. */

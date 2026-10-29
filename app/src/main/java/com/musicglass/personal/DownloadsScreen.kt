@@ -41,19 +41,34 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 internal suspend fun requestSongDownload(context:Context,track:ProviderTrack,onNotice:(String)->Unit) {
     try {
         if(!OfflineMusicStore.get(context).canSave) {uiHaptic(HapticCue.Reject);onNotice(VERIFY_TO_SAVE_NOTICE);return}
-        withContext(Dispatchers.IO) {OfflineMusicStore.get(context).enqueue(track)}
+        withContext(Dispatchers.IO) {OfflineMusicStore.get(context).run {unhide(currentScope,track.videoId);enqueue(track)}}
         DownloadCoordinator.start(context);uiHaptic(HapticCue.Confirm);onNotice(string(R.string.downloading_highest_available_audio_artwork))
     } catch(e:CancellationException) {throw e} catch(_:Exception) {uiHaptic(HapticCue.Reject);onNotice(string(R.string.could_not_start_download_retry_from_download))}
 }
 /** What a song's menu offers for its download (Q16B): to remove one that is ready or on its way, else to download it. */
 internal fun songDownloadOffer(song:OfflineSong?,audioReady:Boolean)=
     if(audioReady || song?.status?.pending==true) "Remove download" else "Download song"
-internal suspend fun requestSongRemoval(context:Context,track:ProviderTrack,onNotice:(String)->Unit) {
+internal suspend fun requestSongRemoval(context:Context,track:ProviderTrack,onNotice:(String)->Unit,scope:String=OfflineMusicStore.get(context).currentScope) {
     try {
-        val store=OfflineMusicStore.get(context)
-        withContext(Dispatchers.IO) {store.remove(store.currentScope,track.videoId)}
-        uiHaptic(HapticCue.Confirm);onNotice(string(R.string.download_removed))
+        val store=OfflineMusicStore.get(context);val id=track.videoId
+        uiHaptic(HapticCue.Confirm)
+        // Feature 26: a finished download leaves the lists at once and its files go once Undo is no longer offered. One
+        // still on its way is removed at once: there is nothing yet worth keeping, and its transfer should stop.
+        if(withContext(Dispatchers.IO) {store.audio(scope,id)==null}) {withContext(Dispatchers.IO) {store.remove(scope,id)};onNotice(string(R.string.download_removed));return}
+        store.hideUntilRemoved(scope,id)
+        if(!UndoNotices.show(string(R.string.download_removed),expire={DownloadRemovals.commit(store,scope,id)}) {store.unhide(scope,id)})
+            onNotice(string(R.string.download_removed))
     } catch(e:CancellationException) {throw e} catch(_:Exception) {uiHaptic(HapticCue.Reject);onNotice(string(R.string.could_not_change_this_download))}
+}
+/** Feature 26: the removals whose Undo has passed, finished off the main thread and beyond any screen's life. */
+internal object DownloadRemovals {
+    private val work=CoroutineScope(SupervisorJob()+Dispatchers.IO)
+    fun commit(store:OfflineMusicStore,scope:String,id:String)=work.launch {
+        // Kept meanwhile by a new download of the same song: nothing to remove.
+        if(!store.awaitingRemoval(scope,id)) return@launch
+        // A failure leaves the row cancelled, and the removal is finished at the next start.
+        try {store.remove(scope,id)} catch(_:Exception) {} finally {store.unhide(scope,id)}
+    }
 }
 /**
  * "Download song", or "Remove download" (pink, with a trash can) for a song already downloaded or on its way. Every
@@ -67,7 +82,7 @@ internal suspend fun requestSongRemoval(context:Context,track:ProviderTrack,onNo
     val offer by produceState<String?>(null,track.videoId,revision) {
         value=withContext(Dispatchers.IO) {
             val scopeName=store.currentScope
-            songDownloadOffer(store.song(scopeName,track.videoId),store.audio(scopeName,track.videoId)!=null)
+            if(store.awaitingRemoval(scopeName,track.videoId)) "Download song" else songDownloadOffer(store.song(scopeName,track.videoId),store.audio(scopeName,track.videoId)!=null)
         }
     }
     when(offer) {
@@ -179,7 +194,7 @@ private data class DownloadListing(val entries:List<DownloadDisplay>,val used:Lo
         val result=withContext(Dispatchers.IO) {
             // A finished download whose files have gone is shown as needing a new download, not as downloaded.
             store.verifyComplete(scopeKey)
-            val songs=store.rows(scopeKey).filter {it.status!=DownloadState.Metadata && it.status!=DownloadState.Cancelled}
+            val songs=store.shown(scopeKey).filter {it.status!=DownloadState.Metadata && it.status!=DownloadState.Cancelled}
                 .sortedWith(compareByDescending<OfflineSong> {it.downloadedAt}.thenBy {it.track.title.lowercase(java.util.Locale.ROOT)}.thenBy {it.track.videoId})
             songs.map {song->DownloadDisplay(song,store.audio(scopeKey,song.track.videoId)!=null,
                 store.artwork(scopeKey,song.track.videoId)?.toURI()?.toString()?:song.track.artworkUrl)}.let {DownloadListing(it,store.usedBytes(scopeKey))}
@@ -266,7 +281,7 @@ private data class DownloadListing(val entries:List<DownloadDisplay>,val used:Lo
                                 SongActionItem(downloadRetryLabel(entry.ready),onClick={menu=false;scope.launch {requestSongDownload(context,song.track,onNotice)}})
                             if(!song.pinned && entry.ready) SongActionItem("Keep downloaded",onClick={menu=false;scope.launch {requestSongDownload(context,song.track,onNotice)}})
                             if(active) SongActionItem("Pause download",onClick={menu=false;scope.launch {withContext(Dispatchers.IO) {store.pause(song.scope,song.track.videoId)}}})
-                            SongActionItem("Remove download",onClick={menu=false;scope.launch {withContext(Dispatchers.IO) {store.remove(song.scope,song.track.videoId)};onNotice(string(R.string.download_removed))}})
+                            SongActionItem("Remove download",onClick={menu=false;scope.launch {requestSongRemoval(context,song.track,onNotice,song.scope)}})
                         }
                     }
                 }

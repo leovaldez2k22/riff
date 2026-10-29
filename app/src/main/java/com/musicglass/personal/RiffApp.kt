@@ -160,10 +160,15 @@ internal fun RiffApp() {
     // Feature 26: removals offer Undo for a few seconds; a newer one replaces the last.
     val undoScope = rememberCoroutineScope()
     DisposableEffect(snackbar) {
-        UndoNotices.listener = { message, undo -> undoScope.launch {
+        UndoNotices.listener = { message, undo, expire -> undoScope.launch {
             snackbar.currentSnackbarData?.dismiss()
-            if (snackbar.showSnackbar(message, actionLabel = string(R.string.undo), duration = androidx.compose.material3.SnackbarDuration.Short)
-                == androidx.compose.material3.SnackbarResult.ActionPerformed) { uiHaptic(HapticCue.Confirm); undo() }
+            var undone = false
+            // In finally, so a notice cut short (replaced, or the shell leaving) still lets its removal go ahead.
+            try {
+                undone = snackbar.showSnackbar(message, actionLabel = string(R.string.undo), duration = androidx.compose.material3.SnackbarDuration.Short) ==
+                    androidx.compose.material3.SnackbarResult.ActionPerformed
+                if (undone) { uiHaptic(HapticCue.Confirm); undo() }
+            } finally { if (!undone) expire() }
         } }
         onDispose { UndoNotices.listener = null }
     }

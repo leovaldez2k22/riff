@@ -39,7 +39,7 @@ internal class ServiceCarSource(context: Context, private val online: () -> Bool
     override suspend fun collection(browseId: String) = provider.browseCatalog(browseId).getOrNull()?.let { page ->
         (page.albumTracks + page.cards + page.shelves.flatMap { it.cards }).mapNotNull { it.track() }.distinctBy { it.videoId }.take(MAX_SNAPSHOT_ITEMS)
     }
-    override suspend fun downloadedSongs() = withContext(Dispatchers.IO) { offline.rows().filter { it.status == DownloadState.Complete }.map { it.track } }
+    override suspend fun downloadedSongs() = withContext(Dispatchers.IO) { offline.shown(offline.currentScope).filter { it.status == DownloadState.Complete }.map { it.track } }
     override suspend fun recent(limit: Int) = withContext(Dispatchers.IO) {
         val scope = historyScopeKey("yt:", offline.currentScope) ?: return@withContext emptyList()
         process.history.page(scope, limit = limit * 2).entries.mapNotNull { it.track() }.distinctBy { it.videoId }.take(limit)

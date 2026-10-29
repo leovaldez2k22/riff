@@ -65,6 +65,14 @@ internal class OfflineMusicStore private constructor(private val context:Context
     fun setAllowMobileData(enabled:Boolean) {prefs.edit().putBoolean("allow_mobile_data",enabled).apply();changed();OfflineDownloadScheduler.schedule(context,immediate=smartEnabled)}
     fun setBudget(bytes:Long) {prefs.edit().putLong("budget_bytes",bytes).apply();changed();OfflineDownloadScheduler.schedule(context)}
     private fun changed() {revision.update {it+1}}
+    /** Feature 26: downloads whose removal can still be undone, as "scope/id": out of every list until removed or kept. */
+    private val undoable=java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    fun hideUntilRemoved(scope:String,id:String) {if(undoable.add("$scope/$id")) changed()}
+    /** True when [id] was waiting to be removed: Undo, or a new download of it, keeps it. */
+    fun unhide(scope:String,id:String):Boolean=undoable.remove("$scope/$id").also {if(it) changed()}
+    fun awaitingRemoval(scope:String,id:String)="$scope/$id" in undoable
+    /** [rows] without the downloads waiting to be removed: what the lists show. */
+    fun shown(scope:String,rows:List<OfflineSong> = rows(scope))=if(undoable.isEmpty()) rows else rows.filter {!awaitingRemoval(scope,it.track.videoId)}
     private fun scopeDirectory(scope:String)=File(root,MessageDigest.getInstance("SHA-256").digest(scope.toByteArray()).joinToString("") {"%02x".format(it.toInt() and 255)})
     fun directory(scope:String,id:String):File {
         require(id.matches(VIDEO_ID))
