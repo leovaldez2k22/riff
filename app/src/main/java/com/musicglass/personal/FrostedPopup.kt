@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -26,6 +27,8 @@ import kotlin.math.ceil
 internal class FrostedBackdrop(val layer:GraphicsLayer) {
     var origin by mutableStateOf(Offset.Zero)
     var readers by mutableIntStateOf(0)
+    /** The app's window, whose frames the popups follow (phone checks 29 Oct, bug 11). */
+    var view:android.view.View?=null
 }
 internal val LocalFrostedBackdrop = staticCompositionLocalOf<FrostedBackdrop?> {null}
 internal val LocalFrostedIntensity = compositionLocalOf {1f}
@@ -48,9 +51,20 @@ internal fun Modifier.frostedBackdropSource(backdrop:FrostedBackdrop):Modifier =
     val style=LocalGlassStyle.current
     val spec=remember(style) {glassSpec(GlassRole.Menu,style)}
     val piece=remember {GlassPiece()}
-    DisposableEffect(backdrop) {
+    // A popup is a window of its own: it draws only when it changes, not when the app under it does, so its glass kept
+    // the page it opened over (phone checks 29 Oct, bug 11). Before each frame of the app's window it reads the page
+    // again and asks its own window for a frame.
+    val popupView=LocalView.current
+    val read=remember {arrayOfNulls<()->Unit>(1)}
+    DisposableEffect(backdrop,popupView) {
         backdrop?.let {it.readers++}
-        onDispose {backdrop?.let {it.readers--}}
+        val app=backdrop?.view?.takeIf {it!==popupView}
+        val refresh=android.view.ViewTreeObserver.OnPreDrawListener {read[0]?.let {it(); popupView.invalidate()}; true}
+        app?.viewTreeObserver?.addOnPreDrawListener(refresh)
+        onDispose {
+            backdrop?.let {it.readers--}
+            app?.viewTreeObserver?.takeIf {it.isAlive}?.removeOnPreDrawListener(refresh)
+        }
     }
     return onGloballyPositioned {origin=it.positionOnScreen()}.drawWithContent {
         if(intensity<0f) drawRect(Color(0xFF2A2B32)) else {
@@ -60,10 +74,13 @@ internal fun Modifier.frostedBackdropSource(backdrop:FrostedBackdrop):Modifier =
                 val reach=glassReach(blur)
                 val radius=cornerRadius.toPx().coerceAtMost(size.minDimension/2f)
                 blurred.renderEffect=glassEffect(piece,spec,blur,reach,size.width,size.height,radius,density,1f)
-                blurred.record(IntSize(ceil(size.width+2*reach).toInt(),ceil(size.height+2*reach).toInt())) {
+                val area=IntSize(ceil(size.width+2*reach).toInt(),ceil(size.height+2*reach).toInt())
+                val at=androidx.compose.ui.unit.Density(density,fontScale)
+                read[0]={
                     val offset=backdrop.origin-origin
-                    translate(offset.x+reach,offset.y+reach) {drawLayer(backdrop.layer)}
+                    blurred.record(at,androidx.compose.ui.unit.LayoutDirection.Ltr,area) {translate(offset.x+reach,offset.y+reach) {drawLayer(backdrop.layer)}}
                 }
+                read[0]?.invoke()
                 translate(-reach,-reach) {drawLayer(blurred)}
             } else drawRect(Color(0xFF171C27).copy(alpha=.92f)) // Q18-046: nothing to blur, so the words beneath would show through.
             // A translucent tint keeps controls readable over bright covers, including at zero blur.

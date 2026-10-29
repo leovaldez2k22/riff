@@ -138,7 +138,11 @@ private fun backdropImages(bitmap: Bitmap): PlayerBackdropImages {
 internal fun rememberPlayerBackdrop(url: String?): PlayerBackdropImages? {
     val context = LocalContext.current
     val images by produceState(url?.let(backdropCache::get), url) {
-        if (url.isNullOrBlank() || value != null) return@produceState
+        // A new song keeps the producer's old value (the last song's images) until its own are ready, so the old cover
+        // cross-fades into the new one. Checking that old value instead of the cache left the bottom of the player on
+        // the first cover (phone checks 29 Oct, bug 2).
+        url?.let(backdropCache::get)?.let { value = it; return@produceState }
+        if (url.isNullOrBlank()) { value = null; return@produceState }
         val request = ImageRequest.Builder(context).data(url).size(BACKDROP_SAMPLE_PX * 2).allowHardware(false).build()
         val bitmap = suspendCatching { SingletonImageLoader.get(context).execute(request).image?.toBitmap() }.getOrNull() ?: return@produceState
         value = withContext(Dispatchers.Default) { runCatching { backdropImages(bitmap) }.getOrNull() }?.also { backdropCache.put(url, it) }

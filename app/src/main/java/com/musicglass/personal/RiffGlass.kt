@@ -27,11 +27,15 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import kotlin.math.ceil
 
 /*
@@ -46,6 +50,9 @@ import kotlin.math.ceil
 internal class RiffBackdrop(val layer: GraphicsLayer) {
     /** Where the recorded page starts, in root coordinates. Not snapshot state: it is only read while drawing. */
     var origin = Offset.Zero
+        get() = coordinates?.takeIf { it.isAttached }?.positionInRoot() ?: field
+    /** Read again each time the glass is refreshed, so a page that moved is read from where it is now. */
+    var coordinates: LayoutCoordinates? = null
     var readers by mutableIntStateOf(0)
 }
 
@@ -65,7 +72,7 @@ internal val LocalPageBackdrop = staticCompositionLocalOf<RiffBackdrop?> { null 
 
 /** Records what this draws into [backdrop] for the glass above it, while there is glass to read it. */
 internal fun Modifier.riffBackdropSource(backdrop: RiffBackdrop): Modifier =
-    onGloballyPositioned { backdrop.origin = it.positionInRoot() }.drawWithContent {
+    onGloballyPositioned { backdrop.coordinates = it; backdrop.origin = it.positionInRoot() }.drawWithContent {
         if (backdrop.readers > 0) {
             backdrop.layer.record { this@drawWithContent.drawContent() }
             drawLayer(backdrop.layer)
@@ -136,8 +143,32 @@ internal fun glassQuality(sdk: Int, solid: Boolean, powerSave: Boolean, thermalH
 internal fun glassRadius(width: Float, height: Float, corner: Float?): Float =
     (corner?.takeIf { it > 0f } ?: (height / 2f)).coerceAtMost(minOf(width, height) / 2f)
 
-/** Per piece of glass: its place on the screen, and its shader when the lens runs. Not snapshot state. */
-internal class GlassPiece { var position = Offset.Zero; var lens: Any? = null }
+/**
+ * Per piece of glass: its place on the screen, its shader when the lens runs, and what it last read, so it can be read
+ * again before each frame (Q-phone 6). Not snapshot state.
+ */
+internal class GlassPiece {
+    var position = Offset.Zero
+    var lens: Any? = null
+    var coordinates: LayoutCoordinates? = null
+    var area = IntSize.Zero
+    var reach = 0f
+    var density: Density? = null
+
+    /**
+     * The page under this piece, recorded into [layer] from where both are now. Android redraws a blurred piece of glass
+     * only when the piece itself changes, not when the page it reads scrolls or animates, so without this the glass kept
+     * an old page (phone checks 29 Oct: bugs 6, 7 and 11).
+     */
+    fun read(layer: GraphicsLayer, backdrop: RiffBackdrop) {
+        val at = density ?: return
+        if (area == IntSize.Zero) return
+        coordinates?.takeIf { it.isAttached }?.let { position = it.positionInRoot() }
+        val offset = backdrop.origin - position
+        val margin = reach
+        layer.record(at, LayoutDirection.Ltr, area) { translate(offset.x + margin, offset.y + margin) { drawLayer(backdrop.layer) } }
+    }
+}
 
 /**
  * Makes this control glass. [cornerRadius] null is a capsule. [zoom] magnifies what the lens shows (the drag lens);
@@ -151,12 +182,19 @@ internal class GlassPiece { var position = Offset.Zero; var lens: Any? = null }
     val layer = rememberGraphicsLayer()
     val piece = remember { GlassPiece() }
     val solid = style.quality == GlassQuality.Solid
-    DisposableEffect(backdrop, solid) {
+    val view = LocalView.current
+    DisposableEffect(backdrop, solid, view) {
         val reading = backdrop.takeUnless { solid }
         reading?.let { it.readers++ }
-        onDispose { reading?.let { it.readers-- } }
+        // Before every frame the window draws (and only then: a still screen draws none), the piece reads the page again.
+        val refresh = android.view.ViewTreeObserver.OnPreDrawListener { reading?.let { piece.read(layer, it) }; true }
+        if (reading != null) view.viewTreeObserver.addOnPreDrawListener(refresh)
+        onDispose {
+            reading?.let { it.readers-- }
+            if (view.viewTreeObserver.isAlive) view.viewTreeObserver.removeOnPreDrawListener(refresh)
+        }
     }
-    return onGloballyPositioned { piece.position = it.positionInRoot() }.drawWithContent {
+    return onGloballyPositioned { piece.coordinates = it; piece.position = it.positionInRoot() }.drawWithContent {
         val radius = glassRadius(size.width, size.height, cornerRadius?.toPx())
         val shape = RoundRect(0f, 0f, size.width, size.height, CornerRadius(radius))
         if (solid) {
@@ -171,10 +209,8 @@ internal class GlassPiece { var position = Offset.Zero; var lens: Any? = null }
             val reach = glassReach(blur)
             val area = IntSize(ceil(size.width + 2 * reach).toInt(), ceil(size.height + 2 * reach).toInt())
             layer.renderEffect = glassEffect(piece, spec, blur, reach, size.width, size.height, radius, density, zoom())
-            layer.record(area) {
-                val offset = backdrop.origin - piece.position
-                translate(offset.x + reach, offset.y + reach) { drawLayer(backdrop.layer) }
-            }
+            piece.area = area; piece.reach = reach; piece.density = Density(density, fontScale)
+            piece.read(layer, backdrop)
             clipPath(path) { translate(-reach, -reach) { drawLayer(layer) } }
         }
         drawPath(path, spec.tint)

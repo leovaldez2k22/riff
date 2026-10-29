@@ -269,6 +269,8 @@ internal fun RiffApp() {
     // Feature 2: the screens' background, for glass inside a page.
     val pageBackdrop=rememberRiffBackdrop()
     val frostedBackdrop=remember(backdropLayer) {FrostedBackdrop(backdropLayer)}
+    val appView=androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.SideEffect {frostedBackdrop.view=appView}
     // Feature 22: the gesture previews the close of the player, or the way back from a pushed page.
     val backGesture = RiffBackHandler(enabled = !keyboardOpen && (model.sheet.isNotEmpty() || model.route.isNotEmpty() || model.tab != "Home"),
         reduced = motion.reduced) { model.back() }
