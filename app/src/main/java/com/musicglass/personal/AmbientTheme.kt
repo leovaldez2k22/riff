@@ -21,7 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import java.time.LocalDateTime
@@ -40,22 +42,32 @@ internal val InterFamily = interFamily(14f)
 internal val InterDisplayFamily = interFamily(32f)
 
 private val baseTypography = Typography()
+
+/**
+ * Inter's own spacing for a size, in em so it scales with whatever size a text is given (Inter's published dynamic
+ * metrics: -0.0223 + 0.185 e^(-0.1745 size)). Material's defaults keep Roboto's spacing (+0.5 sp on body text), which
+ * set Inter wide and made small text look like another font (phone checks 29 Oct, bug 17).
+ */
+internal fun interTracking(sizeSp: Float) = (-.0223f + .185f * kotlin.math.exp(-.1745f * sizeSp)).em
+
+private fun TextStyle.inter(family: FontFamily) = copy(fontFamily = family, letterSpacing = interTracking(fontSize.value))
+
 internal val GlassTypography = Typography(
-    displayLarge = baseTypography.displayLarge.copy(fontFamily = InterDisplayFamily),
-    displayMedium = baseTypography.displayMedium.copy(fontFamily = InterDisplayFamily),
-    displaySmall = baseTypography.displaySmall.copy(fontFamily = InterDisplayFamily),
-    headlineLarge = baseTypography.headlineLarge.copy(fontFamily = InterDisplayFamily),
-    headlineMedium = baseTypography.headlineMedium.copy(fontFamily = InterDisplayFamily),
-    headlineSmall = baseTypography.headlineSmall.copy(fontFamily = InterDisplayFamily),
-    titleLarge = baseTypography.titleLarge.copy(fontFamily = InterFamily),
-    titleMedium = baseTypography.titleMedium.copy(fontFamily = InterFamily),
-    titleSmall = baseTypography.titleSmall.copy(fontFamily = InterFamily),
-    bodyLarge = baseTypography.bodyLarge.copy(fontFamily = InterFamily),
-    bodyMedium = baseTypography.bodyMedium.copy(fontFamily = InterFamily),
-    bodySmall = baseTypography.bodySmall.copy(fontFamily = InterFamily),
-    labelLarge = baseTypography.labelLarge.copy(fontFamily = InterFamily),
-    labelMedium = baseTypography.labelMedium.copy(fontFamily = InterFamily),
-    labelSmall = baseTypography.labelSmall.copy(fontFamily = InterFamily),
+    displayLarge = baseTypography.displayLarge.inter(InterDisplayFamily),
+    displayMedium = baseTypography.displayMedium.inter(InterDisplayFamily),
+    displaySmall = baseTypography.displaySmall.inter(InterDisplayFamily),
+    headlineLarge = baseTypography.headlineLarge.inter(InterDisplayFamily),
+    headlineMedium = baseTypography.headlineMedium.inter(InterDisplayFamily),
+    headlineSmall = baseTypography.headlineSmall.inter(InterDisplayFamily),
+    titleLarge = baseTypography.titleLarge.inter(InterFamily),
+    titleMedium = baseTypography.titleMedium.inter(InterFamily),
+    titleSmall = baseTypography.titleSmall.inter(InterFamily),
+    bodyLarge = baseTypography.bodyLarge.inter(InterFamily),
+    bodyMedium = baseTypography.bodyMedium.inter(InterFamily),
+    bodySmall = baseTypography.bodySmall.inter(InterFamily),
+    labelLarge = baseTypography.labelLarge.inter(InterFamily),
+    labelMedium = baseTypography.labelMedium.inter(InterFamily),
+    labelSmall = baseTypography.labelSmall.inter(InterFamily),
 )
 
 internal data class AmbientPalette(val top: Color, val middle: Color, val accent: Color = top)
