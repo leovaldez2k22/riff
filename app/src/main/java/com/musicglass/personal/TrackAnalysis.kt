@@ -3,10 +3,16 @@ package com.musicglass.personal
 import android.content.Context
 import android.media.AudioFormat
 import android.media.MediaCodec
+import android.media.MediaDataSource
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
 import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.cache.Cache
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.ContentMetadata
 import java.nio.ByteOrder
 
 /** How much of a song's end and start Automix reads. */
@@ -15,9 +21,11 @@ internal const val ANALYSIS_HEAD_MS = 30_000L
 
 /**
  * Automix stage 1: reads a stretch of a song the phone holds (a download, or a file on the device) as loudness. The
- * file is decoded on the caller's thread with the platform's decoder; nothing is sent anywhere. Streams that are not
- * downloaded are not read: their blend falls back to the plain crossfade, with the bass swap.
+ * file is decoded on the caller's thread with the platform's decoder; nothing is sent anywhere. A stream is read only
+ * from Riff's audio cache, once all of it is there (Feature 9, Path A for streams); nothing is fetched for it. Until
+ * then, and for streams the cache does not keep, the blend falls back to the plain crossfade, with the bass swap.
  */
+@androidx.annotation.OptIn(markerClass = [UnstableApi::class])
 internal object TrackAnalysis {
     /** The file or content address a [item] plays from on this phone, or null when it streams. */
     fun localSource(context: Context, item: MediaItem): Uri? {
@@ -27,16 +35,35 @@ internal object TrackAnalysis {
         return store.audio(store.currentScope, item.mediaId.removePrefix("yt:"))?.let(Uri::fromFile)
     }
 
+    /**
+     * A streamed [item]'s bytes in Riff's audio cache, when every one of them is there: the cache learns a stream's
+     * length when its download reaches the end. Null for a song not streamed, not cached, or not cached to its end.
+     */
+    fun cachedSource(context: Context, item: MediaItem): MediaDataSource? {
+        val key = item.localConfiguration?.customCacheKey ?: return null
+        val cache = MusicDiskCache.get(context)
+        val length = ContentMetadata.getContentLength(cache.getContentMetadata(key))
+        if (length <= 0 || !cache.isCached(key, 0, length)) return null
+        return CachedBytes(cache, key, length)
+    }
+
     /** The envelope of [lengthMs] from [fromMs] (negative: that far before the end), or null when it cannot be read. */
-    fun envelope(context: Context, source: Uri, fromMs: Long, lengthMs: Long): TrackEnvelope? {
+    fun envelope(context: Context, source: Uri, fromMs: Long, lengthMs: Long): TrackEnvelope? =
+        envelope({ it.setDataSource(context, source, null) }, fromMs, lengthMs, null)
+
+    /**
+     * The same from bytes [open] gives the extractor. [knownDurationMs] stands in for a container that does not say
+     * its length (a stream's fragments often do not).
+     */
+    fun envelope(open: (MediaExtractor) -> Unit, fromMs: Long, lengthMs: Long, knownDurationMs: Long?): TrackEnvelope? {
         val extractor = MediaExtractor()
         var codec: MediaCodec? = null
         try {
-            extractor.setDataSource(context, source, null)
+            open(extractor)
             val track = (0 until extractor.trackCount).firstOrNull { extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true }
                 ?: return null
             val format = extractor.getTrackFormat(track); extractor.selectTrack(track)
-            val durationMs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) / 1_000 else return null
+            val durationMs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) / 1_000 else knownDurationMs ?: return null
             val startMs = (if (fromMs < 0) durationMs + fromMs else fromMs).coerceIn(0, durationMs)
             val endMs = minOf(durationMs, startMs + lengthMs)
             extractor.seekTo(startMs * 1_000, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
@@ -73,4 +100,33 @@ internal object TrackAnalysis {
             runCatching { codec?.stop() }; runCatching { codec?.release() }; extractor.release()
         }
     }
+}
+
+/** A whole cached stream as the platform extractor reads it: cache only, so a missing byte is an error, never a fetch. */
+@androidx.annotation.OptIn(markerClass = [UnstableApi::class])
+private class CachedBytes(cache: Cache, private val key: String, private val length: Long) : MediaDataSource() {
+    private val source = CacheDataSource(cache, null)
+    /** Where the open read is; a read anywhere else opens again there. */
+    private var at = -1L
+
+    override fun getSize() = length
+
+    override fun readAt(position: Long, buffer: ByteArray, offset: Int, size: Int): Int {
+        if (position >= length) return -1
+        if (position != at) {
+            if (at >= 0) source.close()
+            source.open(DataSpec.Builder().setUri(Uri.EMPTY).setKey(key).setPosition(position).build())
+            at = position
+        }
+        var read = 0
+        while (read < size) {
+            val n = source.read(buffer, offset + read, size - read)
+            if (n < 0) break
+            read += n
+        }
+        at += read
+        return if (read == 0) -1 else read
+    }
+
+    override fun close() { if (at >= 0) source.close(); at = -1 }
 }

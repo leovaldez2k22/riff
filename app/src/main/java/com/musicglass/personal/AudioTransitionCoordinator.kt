@@ -13,6 +13,11 @@ import androidx.media3.exoplayer.source.MediaSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
+/** How often, in silence-watch turns (250 ms while playing), a stream's cached tail is looked for. */
+private const val CACHED_TAIL_EVERY = 8
+/** How far a cached file's length may be from the player's before its tail is not trusted. */
+private const val CACHED_LENGTH_SLACK_MS = 2_000L
+
 /**
  * The level of what is heard: the booster, each track's normalization gain, and the crossfade with its second
  * player. Owned by the playback service and released with it. The main player's own volume is left to the
@@ -37,7 +42,11 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, TrackEnvelope?>?) = size > 24
     })
     private val crossfadePrefs = context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE)
-    private fun analyse(item: MediaItem?, part: String) {
+    /**
+     * Reads [item]'s [part] once. A streamed song's tail is read from the cache when all of it is there, so until then
+     * its key is left unset and the silence watch asks again; [playerDurationMs] checks the cached file is that song.
+     */
+    private fun analyse(item: MediaItem?, part: String, playerDurationMs: Long = C.TIME_UNSET) {
         item ?: return
         val key = "${item.mediaId}:$part"
         // Feature 9's Path A reads the same tail, for where the sound ends.
@@ -45,17 +54,29 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         if (!wanted || envelopes.containsKey(key)) return
         envelopes[key] = null
         scope.launch(runtime.dispatchers.io) {
-            val source = TrackAnalysis.localSource(context, item) ?: return@launch
-            val envelope = if (part == "tail") TrackAnalysis.envelope(context, source, -ANALYSIS_TAIL_MS, ANALYSIS_TAIL_MS)
-                else TrackAnalysis.envelope(context, source, 0, ANALYSIS_HEAD_MS)
+            val local = TrackAnalysis.localSource(context, item)
+            val cached = if (local == null && part == "tail") TrackAnalysis.cachedSource(context, item) else null
+            if (local == null && cached == null) {
+                // Not on the phone; a stream not yet cached to its end is tried again, anything else stays unread.
+                if (part == "tail" && item.localConfiguration?.customCacheKey != null) envelopes.remove(key)
+                return@launch
+            }
+            val known = playerDurationMs.takeIf { it > 0 }
+            val envelope = when {
+                cached != null -> cached.use { bytes -> TrackAnalysis.envelope({ it.setDataSource(bytes) }, -ANALYSIS_TAIL_MS, ANALYSIS_TAIL_MS, known) }
+                    // A file whose end is not where the player's is would cut the song in the wrong place.
+                    ?.takeIf { known != null && kotlin.math.abs(it.durationMs - known) <= CACHED_LENGTH_SLACK_MS && kotlin.math.abs(it.endMs - known) <= CACHED_LENGTH_SLACK_MS }
+                part == "tail" -> TrackAnalysis.envelope(context, local!!, -ANALYSIS_TAIL_MS, ANALYSIS_TAIL_MS)
+                else -> TrackAnalysis.envelope(context, local!!, 0, ANALYSIS_HEAD_MS)
+            }
             envelopes[key] = envelope
             val beats = envelope?.beats
-            events.append("automix_analysis part=$part found=${if (envelope == null) 0 else 1}" +
+            events.append("automix_analysis part=$part found=${if (envelope == null) 0 else 1} source=${if (cached != null) "cache" else "file"}" +
                 if (beats == null) "" else " bpm=${beats.bpm.toInt()} beat=${"%.2f".format(java.util.Locale.ROOT, beats.confidence)} downbeat=${"%.2f".format(java.util.Locale.ROOT, beats.downbeatConfidence)}")
         }
     }
     private fun analyseAround(main: Player) {
-        analyse(main.currentMediaItem, "tail")
+        analyse(main.currentMediaItem, "tail", main.duration)
         main.nextMediaItemIndex.takeIf { it >= 0 }?.let { analyse(main.getMediaItemAt(it), "head") }
     }
     /** The smart blend between two songs, or null where Automix leaves the plain crossfade: an album played in order. */
@@ -99,10 +120,13 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         })
         silenceMonitor?.cancel()
         silenceMonitor = scope.launch {
+            var ticks = 0
             while (true) {
                 runtime.wait(if (main.isPlaying) 250 else 1_000)
                 main.skipSilenceEnabled = boostPrefs.getBoolean(SKIP_ALL_SILENCE_KEY, false)
                 val item = main.currentMediaItem ?: continue
+                // A stream's tail, once the player has cached it to the end (about 50 s ahead of what is heard).
+                if (++ticks % CACHED_TAIL_EVERY == 0) analyse(item, "tail", main.duration)
                 val quiet = silenceWatch.meter.quietMs
                 if (SongCrossfadeState.active != null) continue
                 val end = audibleEnd(item)
