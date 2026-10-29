@@ -323,8 +323,6 @@ private fun walk(file: File, now: Long, sections: Sections, check: () -> Unit, r
             when (o?.opt("t")) {
                 null -> malformed++
                 "end" -> done = Walked(head.whole("exported_at") ?: 0L, malformed)
-                // Feature 12: Encore's numbers are for reading; they are rebuilt from the plays.
-                "encore", "encore_top" -> Unit
                 "owner" -> {
                     val named = OwnerKind.entries.firstOrNull { it.word == o.opt("kind") }
                     val digest = (o.opt("id") as? String)?.takeIf { named == OwnerKind.Provider }
@@ -335,7 +333,7 @@ private fun walk(file: File, now: Long, sections: Sections, check: () -> Unit, r
                 }
                 else -> {
                     val parsed = kind?.let { parseRecord(it, o, now) }
-                    if (parsed == null) malformed++ else record(section, parsed)
+                    if (parsed == null) { if (o.opt("t") !in ENCORE_RECORDS) malformed++ } else record(section, parsed)
                 }
             }
         }
@@ -369,7 +367,6 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
     private val maxBytes: Long = LOCAL_DATA_MAX_BYTES, private val historyCap: Int = HISTORY_ROW_CAP,
     private val pins: () -> SpeedDialPins = { SpeedDialPins.get(context) }) {
     private val app = context.applicationContext
-    private val encore by lazy { EncoreRepository(db) }
     private val work = File(app.cacheDir, "local-data-transfer")
     private fun prefs(name: String) = app.getSharedPreferences(name, Context.MODE_PRIVATE)
 
@@ -439,7 +436,7 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
                     val chosen = inventory().filter { it.key in owners }
                     for (source in chosen) {
                         if (cancelled()) throw Stopped()
-                        line(ownerLine(source.kind, if (source.kind == OwnerKind.Provider) exportScopeDigest(app, source.key) else null))
+                        line(ownerLine(source.kind, if (source.kind == OwnerKind.Provider) exportScopeDigest(app, source.key) else null)); encoreExportLines(EncoreRepository(db), source.key, wallTime()).forEach(::line)
                         if (source.kind == OwnerKind.Device) {
                             storedSettings().forEach(::put)
                             hidden().entries.forEach { put(DataRecord.Hidden(it)) }
@@ -456,16 +453,6 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
                             page.entries.forEach { if (validHistoryEvent(it)) put(DataRecord.Play(it)) }
                             cursor = page.next
                         } while (cursor != null)
-                        // Feature 12: what Encore said, for reading; import rebuilds Encore from the plays above.
-                        val owner = listOf(source.key)
-                        encore.years(owner).forEach { (year, plays, ms) -> line(encoreYearLine(year, plays, ms)) }
-                        val start = encore.historyStart(owner)
-                        if (start != null) {
-                            val all = EncorePeriod.containing(EncoreRange.All, java.time.Instant.ofEpochMilli(wallTime()).atZone(java.time.ZoneId.systemDefault()).toLocalDate(), EncorePeriod.firstDayOfWeek(), start)
-                            ENCORE_EXPORT_KINDS.forEach { kind ->
-                                encore.top(owner, all, kind, EncoreSort.Minutes, ENCORE_EXPORT_TOP).forEachIndexed { i, item -> line(encoreTopLine(kind, i + 1, item)) }
-                            }
-                        }
                     }
                     line(JSONObject().put("t", "end").put("records", records).toString())
                 }

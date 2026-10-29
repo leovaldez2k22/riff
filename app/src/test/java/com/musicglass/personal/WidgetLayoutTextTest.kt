@@ -9,7 +9,8 @@ class WidgetLayoutTextTest {
     private val layouts = File("src/main/res/layout").listFiles { f -> f.name.startsWith("widget_") }!!.sortedBy { it.name }
 
     @Test fun noWidgetWritesItsOwnWords() {
-        assertEquals(6, layouts.size)
+        // The six player presets and Encore today.
+        assertEquals(7, layouts.size)
         for (layout in layouts) {
             val written = Regex("""android:text="([^"@][^"]*)"""").findAll(layout.readText()).map { it.groupValues[1] }.toList()
             assertEquals("${layout.name} writes text instead of a @string", emptyList<String>(), written)
