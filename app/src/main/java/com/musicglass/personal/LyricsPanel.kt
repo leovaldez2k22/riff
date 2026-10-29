@@ -174,7 +174,11 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                                     playback.seekTo((line.startMs-offsetMs).coerceAtLeast(0))
                                     position = playback.currentPositionMs(); follow = true }
                                 val hold = { uiHaptic(HapticCue.Confirm); shareAnchor = index; shareRange = index..index; follow = false }
-                                if (line.gap) LyricGapRow(line, active && !sharing, { position+shownOffsetMs }, motion,
+                                // A gap has no words, so it is never one of the active lines: it opens while the
+                                // music is inside it, as the player's line does (phone checks 29 Oct, bug 13).
+                                val inGap by remember(songLyrics,index) { derivedStateOf {
+                                    line.gap && (position+shownOffsetMs).let { it >= line.startMs && it < line.endMs } } }
+                                if (line.gap) LyricGapRow(line, (active || inGap) && !sharing, { position+shownOffsetMs }, motion,
                                     onSeek = if (sharing) null else seek, modifier = Modifier.testTag("lyric_gap_$index"))
                                 else CompositionLocalProvider(LocalViewConfiguration provides holdConfiguration) {
                                     val lineModifier = Modifier.then(if (blur.value > 0f) Modifier.blur(blur,BlurredEdgeTreatment.Unbounded) else Modifier)

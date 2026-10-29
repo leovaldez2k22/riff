@@ -140,9 +140,27 @@ private fun lyricLetters(text: String, layout: TextLayoutResult, highlights: Lis
  */
 private class HeldLetter(val glyph: TextLayoutResult, val at: Offset, val column: Rect, val litMs: Long)
 
-/** A held word on one display line, measured alone so it can be drawn grown and glowing without its neighbours. */
+/**
+ * A held word on one display line, measured alone so it can be drawn grown and glowing without its neighbours.
+ * [maxGrow] is how far it may grow before its letters reach a neighbour's or the line's edge (phone checks 29 Oct, bug 12).
+ */
 private class HeldWord(val word: LyricWord, val path: Path, val alone: TextLayoutResult, val topLeft: Offset, val rtl: Boolean,
-    val letters: List<HeldLetter>)
+    val letters: List<HeldLetter>, val maxGrow: Float = RiffLyrics.heldScale)
+
+/**
+ * How much a word from [left] to [right] may grow around its centre: up to half the gap to the letters on either
+ * side ([before] is the right edge of the letters before it on its line, [after] the left edge of those after it),
+ * or to the line's edges (0 and [lineWidth]) when it starts or ends the line, less [margin] for the letters' own swell.
+ * Never below 1 and never above [RiffLyrics.heldScale].
+ */
+internal fun heldWordMaxGrow(left: Float, right: Float, before: Float?, after: Float?, lineWidth: Float, margin: Float): Float {
+    val width = right - left
+    if (width <= 0f) return 1f
+    val leftRoom = (if (before != null) (left - before) / 2f else left) - margin
+    val rightRoom = (if (after != null) (after - right) / 2f else lineWidth - right) - margin
+    val room = minOf(leftRoom, rightRoom).coerceAtLeast(0f)
+    return (1f + 2f * room / width).coerceIn(1f, RiffLyrics.heldScale)
+}
 
 private val separateScripts = setOf(Character.UnicodeScript.LATIN, Character.UnicodeScript.CYRILLIC, Character.UnicodeScript.GREEK,
     Character.UnicodeScript.COMMON, Character.UnicodeScript.INHERITED, Character.UnicodeScript.HAN, Character.UnicodeScript.HIRAGANA,
@@ -209,18 +227,33 @@ private fun KaraokeText(text: String, parts: List<LyricPart>, active: Boolean, p
                     if (single) topLeft else Offset(column.left, topLeft.y), column,
                     word.startMs + (word.durationMs * sweepShare(column.center.x, whole, rtl)).toLong())
             }
-            HeldWord(word, path, alone, topLeft, rtl, letters)
+            // The letters on either side of the word on its line, spaces left out.
+            var before: Float? = null; var after: Float? = null
+            for (index in measured.getLineStart(row) until measured.getLineEnd(row)) {
+                if (index in word.from until word.to || text[index].isWhitespace()) continue
+                val box = measured.getBoundingBox(index)
+                if (box.right <= bounds.left + .5f) before = maxOf(before ?: box.right, box.right)
+                else if (box.left >= bounds.right - .5f) after = minOf(after ?: box.left, box.left)
+            }
+            // The end letters swell by up to (letterSwell - 1) / 2 of their own width beyond the word.
+            val swell = (letters.maxOfOrNull { it.column.width } ?: 0f) * (RiffLyrics.letterSwell - 1f) / 2f
+            HeldWord(word, path, alone, topLeft, rtl, letters,
+                heldWordMaxGrow(bounds.left, bounds.right, before, after, measured.size.width.toFloat(), swell))
         }
     }
     val letters = remember(layout, highlights) { layout?.let { if (highlights.isEmpty()) null else lyricLetters(text, it, highlights) } }
     // Q18-056: a line lights at once when it starts (a slow fade read as late); it dims at the usual pace.
     val baseColor by animateColorAsState(if (active) White.copy(alpha = if (parts.isEmpty()) 1f else .38f)
         else White.copy(alpha = .40f), GlassMotion.timed(if (active) LYRIC_LIGHT_MS else GlassMotion.selectionMs, motion), label = "lyric focus")
+    val rtlLine = remember(layout) { layout?.let { it.getParagraphDirection(0) == ResolvedTextDirection.Rtl } ?: false }
     val scale = animateFloatAsState(if (active && !motion.reduced) 1.025f else 1f,
         GlassMotion.timed(GlassMotion.selectionMs, motion), label = "lyric emphasis")
     Text(text, color = baseColor, style = style, onTextLayout = { layout = it },
         modifier = modifier.fillMaxWidth()
-            .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
+            // Grown from the start of the line, not its middle: from the middle a full-width line pushed its first
+            // letters into the left margin's dark edge as it lit (phone checks 29 Oct, bug 15).
+            .graphicsLayer { scaleX = scale.value; scaleY = scale.value
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(if (rtlLine) 1f else 0f, .5f) }
             .drawWithContent {
                 val measured = layout
                 val lifted = letters
@@ -288,7 +321,7 @@ private fun DrawScope.drawHeldWord(held: HeldWord, now: Long, dim: Color, reduce
     val sweep = ((now - word.startMs).toFloat() / word.durationMs).coerceIn(0f, 1f)
     val width = held.alone.size.width.toFloat()
     val height = held.alone.size.height.toFloat()
-    val grow = 1f + (RiffLyrics.heldScale - 1f) * emphasis
+    val grow = 1f + (held.maxGrow - 1f) * emphasis
     val centre = Offset(held.topLeft.x + width / 2, held.topLeft.y + height / 2)
     val glowRadius = RiffLyrics.heldGlow.toPx()
     val soft = RiffLyrics.sweepEdge.toPx()

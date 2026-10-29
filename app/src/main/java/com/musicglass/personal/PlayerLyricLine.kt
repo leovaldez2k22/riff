@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -30,19 +32,35 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.delay
 
 /** Feature 34.4: what the player's lyric row shows at a moment. */
 internal sealed interface PlayerLyricRow {
-    /** A line of the lyrics; [past] when it is the last line sung rather than one being sung. */
-    data class Line(val text: String, val past: Boolean) : PlayerLyricRow
+    /**
+     * A line of the lyrics; [past] when it is the last line sung rather than one being sung. [parts] are its words'
+     * timings when the lyrics are word-synced, so the line lights word by word as in the full lyrics (phone checks
+     * 29 Oct, bug 14); empty for line-synced lyrics.
+     */
+    data class Line(val text: String, val past: Boolean, val parts: List<LyricPart> = emptyList()) : PlayerLyricRow
     /** An instrumental stretch, [progress] of the way through. */
     data class Gap(val progress: Float) : PlayerLyricRow
 }
 
 internal const val PLAYER_LYRIC_POLL_MS = 250L
+
+/** How many characters of a word-synced line are sung at [atMs]: whole words that have ended, and a share of the one being sung. */
+internal fun playerLyricSung(parts: List<LyricPart>, atMs: Long): Int = parts.maxOfOrNull { part ->
+    when {
+        atMs >= part.endMs -> part.to
+        atMs < part.startMs -> 0
+        else -> part.from + ((part.to - part.from) * (atMs - part.startMs).toFloat() / (part.endMs - part.startMs).coerceAtLeast(1)).toInt()
+    }
+} ?: 0
 
 /**
  * The row for [document] at [atMs]: the line being sung; between lines (and before the first) the last one sung
@@ -59,7 +77,7 @@ internal fun playerLyricRow(document: LyricsDocument?, atMs: Long): PlayerLyricR
         return PlayerLyricRow.Gap(((atMs - it.startMs).toFloat() / (it.endMs - it.startMs).coerceAtLeast(1)).coerceIn(0f, 1f))
     }
     val active = activeLyricLine(lines, atMs)
-    if (active >= 0) return PlayerLyricRow.Line(lines[active].text, past = false)
+    if (active >= 0) return PlayerLyricRow.Line(lines[active].text, past = false, parts = lines[active].parts)
     val last = lines.lastOrNull { !it.gap && it.text.isNotBlank() && it.startMs in 0..atMs }
     return PlayerLyricRow.Line((last ?: sung.first()).text, past = true)
 }
@@ -90,6 +108,14 @@ internal fun PlayerLyricLine(playback: PlaybackGateway, provider: YouTubeMusicPr
     }
     val row = if (visible) playerLyricRow(document, position + DEFAULT_LYRICS_OFFSET_MS) else null
     val motion = LocalMotionPolicy.current
+    // A word-synced line follows the music each frame while it is shown, but redraws only when a letter is lit.
+    val parts = (row as? PlayerLyricRow.Line)?.takeUnless { it.past }?.parts.orEmpty()
+    var now by remember(state.mediaId) { mutableLongStateOf(position) }
+    LaunchedEffect(visible, state.playing, parts) {
+        now = playback.currentPositionMs()
+        while (visible && state.playing && parts.isNotEmpty()) { withFrameMillis { }; now = playback.currentPositionMs() }
+    }
+    val sung by remember(parts) { derivedStateOf { playerLyricSung(parts, now + DEFAULT_LYRICS_OFFSET_MS) } }
     AnimatedVisibility(row != null, modifier,
         enter = fadeIn(GlassMotion.timed(GlassMotion.selectionMs, motion)), exit = fadeOut(GlassMotion.exit(GlassMotion.selectionMs, motion))) {
         val shown = row ?: return@AnimatedVisibility
@@ -105,8 +131,14 @@ internal fun PlayerLyricLine(playback: PlaybackGateway, provider: YouTubeMusicPr
                         fadeOut(GlassMotion.exit(GlassMotion.selectionMs, motion))
                 }) { current ->
                 when (current) {
-                    is PlayerLyricRow.Line -> Text(current.text, color = White.copy(alpha = if (current.past) .55f else .92f),
+                    is PlayerLyricRow.Line -> if (current.parts.isEmpty() || current.past) Text(current.text,
+                        color = White.copy(alpha = if (current.past) .55f else .92f),
                         fontSize = RiffPlayer.lyricLine, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    else Text(buildAnnotatedString {
+                            val lit = sung.coerceIn(0, current.text.length)
+                            withStyle(SpanStyle(color = White.copy(alpha = .92f))) { append(current.text.substring(0, lit)) }
+                            withStyle(SpanStyle(color = White.copy(alpha = .45f))) { append(current.text.substring(lit)) }
+                        }, fontSize = RiffPlayer.lyricLine, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     is PlayerLyricRow.Gap -> Canvas(Modifier.width(RiffPlayer.lyricDot * (LYRIC_GAP_DOTS * 2 - 1)).heightIn(min = RiffPlayer.lyricDot)) {
                         val radius = RiffPlayer.lyricDot.toPx() / 2f
                         repeat(LYRIC_GAP_DOTS) { dot ->
