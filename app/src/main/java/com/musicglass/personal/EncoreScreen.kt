@@ -79,6 +79,7 @@ import kotlin.math.abs
     var story by remember { mutableStateOf<EncorePeriod?>(null) }
     var historyStart by remember { mutableStateOf<LocalDate?>(null) }
     val rowActions = remember(provider, playback, onNotice) { EncoreRowActions(provider, playback, onNotice) }
+    var saving by remember { mutableStateOf<List<ProviderTrack>?>(null) }
     val range = EncoreRange.entries[rangeIndex]
     val period = remember(range, anchor, historyStart) { EncorePeriod.containing(range, LocalDate.parse(anchor), firstDay, historyStart) }
     LaunchedEffect(scopes, period, revision, genresOn, genresFound) {
@@ -110,6 +111,11 @@ import kotlin.math.abs
         if (next != null) { uiHaptic(HapticCue.Selection); anchor = next.start.toString() }
     }
     story?.let { shown -> EncoreStories(scopes, shown, process, onClose = { story = null }, onPeriod = { story = it }) }
+    saving?.let { tracks ->
+        SaveTracksPlaylistDialog(provider, string(R.string.encore_playlist_name, encorePeriodLabel(period, today)), tracks, onDismiss = { saving = null }) { name, count ->
+            saving = null; onNotice(string(R.string.encore_saved_playlist, count, name))
+        }
+    }
     val current = summary
     ScreenList(model, bottom) {
         item(key = "back") { BackHeading(string(R.string.library), model::back) }
@@ -183,6 +189,10 @@ import kotlin.math.abs
                 val top = current.top(EncoreKind.SONG, EncoreSort.Minutes).mapNotNull(EncoreItem::track).take(25)
                 if (top.size > 1) item(key = "play_top") {
                     ToolLink(string(R.string.encore_play_top, top.size)) { playback.playCollection(top, 0, string(R.string.encore_play_top, top.size)) }
+                }
+                // Riff's own playlist create, so the account write is the one the owner starts here, never automatic.
+                if (top.size > 1 && provider.capabilities.editPlaylists.available) item(key = "save_top") {
+                    ToolLink(string(R.string.encore_save_playlist)) { uiHaptic(); saving = top }
                 }
             }
         }

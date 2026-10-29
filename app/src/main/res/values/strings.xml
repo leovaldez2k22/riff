@@ -1142,6 +1142,11 @@
     <string name="encore_milestone_artists">100 different artists</string>
     <string name="encore_play_top">Play your top %1$d</string>
     <string name="encore_on_this_day">On this day</string>
+    <!-- Feature 12, Save to YouTube Music -->
+    <string name="encore_save_playlist">Save to YouTube Music</string>
+    <string name="encore_save_playlist_detail">A new private playlist with these %1$d songs, in their order.</string>
+    <string name="encore_playlist_name">Encore: %1$s</string>
+    <string name="encore_saved_playlist">Saved %1$d songs to %2$s</string>
     <!-- Feature 12, "Your history with this" -->
     <string name="encore_your_history">Your history with this</string>
     <string name="encore_history_first">First played</string>

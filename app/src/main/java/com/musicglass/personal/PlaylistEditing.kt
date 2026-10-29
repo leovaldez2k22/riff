@@ -132,6 +132,42 @@ internal suspend fun newPlaylistWith(mutations:ProviderMutations,name:String,tra
         onFailure={Result.failure(IllegalStateException(string(R.string.x_was_made_the_song_was_not_added,name.trim(),it.message.orEmpty().trimEnd('.'))))})
 }
 
+/**
+ * Feature 12: a new private playlist holding [tracks] in their order, added one at a time ([added] hears each count).
+ * Once made, the playlist stays even when some songs could not be added; the result says how many were.
+ */
+internal suspend fun newPlaylistWithAll(mutations:ProviderMutations,name:String,tracks:List<ProviderTrack>,added:(Int)->Unit={}):Result<Int> {
+    val id=mutations.createPlaylist(name).getOrElse {return Result.failure(it)}
+    var count=0
+    for(track in tracks) if(mutations.addPlaylistSong(id,track.videoId).isSuccess) added(++count)
+    return Result.success(count)
+}
+
+/** Feature 12, "Save to YouTube Music": Encore's top songs as a new private playlist, named as the owner likes. */
+@Composable internal fun SaveTracksPlaylistDialog(provider:YouTubeMusicProvider,suggested:String,tracks:List<ProviderTrack>,onDismiss:()->Unit,onSaved:(String,Int)->Unit) {
+    val scope=rememberCoroutineScope()
+    var name by remember {mutableStateOf(suggested.take(PLAYLIST_TITLE_LIMIT))};var busy by remember {mutableStateOf(false)}
+    var done by remember {mutableStateOf(0)};var error by remember {mutableStateOf<String?>(null)}
+    AlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.encore_save_playlist))},
+        text={Column(Modifier.testTag("encore_save_dialog")) {
+            OutlinedTextField(name,{name=it.take(PLAYLIST_TITLE_LIMIT)},enabled=!busy,singleLine=true,
+                label={Text(string(R.string.playlist_name))},modifier=Modifier.fillMaxWidth().testTag("encore_save_name"))
+            if(busy) LinearProgressIndicator({done.toFloat()/tracks.size.coerceAtLeast(1)},Modifier.fillMaxWidth().padding(top=RiffSpace.item))
+            Text(string(R.string.encore_save_playlist_detail,tracks.size),color=Muted,modifier=Modifier.padding(top=RiffSpace.item))
+            error?.let {Text(it,color=Pink,modifier=Modifier.padding(top=RiffSpace.item))}
+        }},
+        confirmButton={TextButton(enabled=name.isNotBlank() && !busy && tracks.isNotEmpty(),modifier=Modifier.testTag("encore_save_confirm"),onClick={
+            busy=true;error=null;done=0;val title=name.trim();val revision=provider.authRevision
+            scope.launch {
+                newPlaylistWithAll(provider,title,tracks) {done=it}.fold(onSuccess={count->
+                    provider.refreshLibraryIndex()
+                    if(provider.authRevision==revision) {uiHaptic(HapticCue.Confirm);onSaved(title,count)}
+                },onFailure={uiHaptic(HapticCue.Reject);error=it.message;busy=false})
+            }
+        }) {Text(if(busy) string(R.string.saving) else string(R.string.save))}},
+        dismissButton={TextButton(enabled=!busy,onClick=onDismiss) {Text(string(R.string.cancel))}})
+}
+
 /** Q18-081: Library's New playlist. An empty private playlist on the account; [onCreated] hears its name. */
 @Composable internal fun NewPlaylistDialog(provider:YouTubeMusicProvider,onDismiss:()->Unit,onCreated:(String)->Unit) {
     val scope=rememberCoroutineScope()

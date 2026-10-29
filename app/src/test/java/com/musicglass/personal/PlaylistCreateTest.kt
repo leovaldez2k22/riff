@@ -78,6 +78,27 @@ class PlaylistCreateTest {
         assertTrue(message,message.startsWith("Road trip was made, but the song was not added"))
     }
 
+    // Feature 12, Save to YouTube Music: Encore's top songs, in order, in one new playlist.
+    @Test fun encoresTopSongsGoIntoOneNewPlaylistInOrderAndFailuresAreCounted()=runBlocking {
+        var adds=0
+        val w=world {call->when(call.endpoint) {
+            "playlist/create"->ProviderWorld.Reply("""{"responseContext":{},"playlistId":"PLfixtureNew00000000001"}""")
+            // The second song is refused; the others are added.
+            else->ProviderWorld.Reply(if(++adds==2) """{"responseContext":{},"status":"STATUS_FAILED"}""" else """{"responseContext":{},"status":"STATUS_SUCCEEDED"}""")
+        }}
+        val songs=(1..3).map {ProviderTrack("fxsong0000$it","Song $it","Artist")}
+        val heard=mutableListOf<Int>()
+        assertEquals(2,newPlaylistWithAll(w.provider,"Encore: This week",songs) {heard+=it}.getOrThrow())
+        assertEquals(listOf(1,2),heard)
+        assertEquals("one create, then one add per song",listOf("playlist/create")+List(3) {"browse/edit_playlist"},w.calls.map {it.endpoint})
+    }
+
+    @Test fun whenThePlaylistCannotBeMadeNoSongIsSent()=runBlocking {
+        val w=world {ProviderWorld.Reply("""{"error":{"code":400,"status":"INVALID_ARGUMENT"}}""")}
+        assertTrue(newPlaylistWithAll(w.provider,"Encore",listOf(song)).isFailure)
+        assertEquals(1,w.calls.size)
+    }
+
     @Test fun theCreateAnswerIsReadStrictly() {
         assertEquals(MutationOutcome.Acknowledged,createPlaylistOutcome(200,"""{"playlistId":"PLabc"}"""))
         assertEquals(MutationOutcome.Unknown,createPlaylistOutcome(200,"""{"playlistId":"bad id!"}"""))
