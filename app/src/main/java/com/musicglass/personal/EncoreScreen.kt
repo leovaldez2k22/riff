@@ -73,6 +73,8 @@ import kotlin.math.abs
     var anchor by rememberSaveable { mutableStateOf(today.toString()) }
     var sort by rememberSaveable { mutableStateOf(EncoreSort.Minutes) }
     var genresOn by remember { mutableStateOf(encoreGenresOn(context)) }
+    var goalHours by remember { mutableIntStateOf(encoreGoalHours(context)) }
+    LaunchedEffect(Unit) { withContext(process.runtime.dispatchers.io) { EncoreRecap.schedule(context) } }
     var genresFound by remember { mutableIntStateOf(0) }
     var summary by remember { mutableStateOf<EncoreSummary?>(null) }
     var extras by remember { mutableStateOf<Pair<List<EncoreItem>, List<EncoreItem>>?>(null) }
@@ -155,7 +157,7 @@ import kotlin.math.abs
                 Box(Modifier.pointerInput(period) { swipeSteps(::step) }) { ContentEmpty(string(R.string.encore_empty)) }
             }
             else -> {
-                item(key = "headline") { Box(Modifier.pointerInput(period) { swipeSteps(::step) }) { Headline(current) } }
+                item(key = "headline") { Box(Modifier.pointerInput(period) { swipeSteps(::step) }) { Headline(current, goalHours) } }
                 item(key = "chart") { EncoreCard { SectionTitle(string(R.string.encore_over_time)); EncoreBarChart(current.bars, range, ::open) } }
                 item(key = "peak") {
                     EncoreCard {
@@ -208,6 +210,8 @@ import kotlin.math.abs
                     detail = string(R.string.encore_forgotten_detail), menu = rowActions) { openItem(it, model, provider, playback, onNotice, scope) }
             }
         }
+        item(key = "goal_setting") { EncoreGoalSetting(goalHours) { uiHaptic(); goalHours = it; setEncoreGoalHours(context, it) } }
+        item(key = "recap_setting") { EncoreRecapSetting() }
         item(key = "genres_setting") {
             EncoreCard {
                 Row(Modifier.fillMaxWidth().clickable {
@@ -252,7 +256,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.swipeSte
 }
 
 /** Listening time counting up, the counts, and the change against the previous period. */
-@Composable private fun Headline(summary: EncoreSummary) {
+@Composable private fun Headline(summary: EncoreSummary, goalHours: Int = 0) {
     val motion = LocalMotionPolicy.current
     val shown = remember(summary.period, summary.listenedMs) { Animatable(if (motion.reduced) summary.listenedMs.toFloat() else 0f) }
     LaunchedEffect(summary.period, summary.listenedMs) {
@@ -265,6 +269,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.swipeSte
         Text(listOf(quantity(R.plurals.encore_n_plays, summary.plays), quantity(R.plurals.encore_n_songs, summary.songs),
             quantity(R.plurals.encore_n_artists, summary.artists), quantity(R.plurals.encore_n_albums, summary.albums)).joinToString(" · "),
             color = White, fontSize = RiffType.body)
+        if (goalHours > 0 && summary.period.range == EncoreRange.Week) EncoreGoalLine(summary.listenedMs, goalHours)
         summary.previousListenedMs?.let { before ->
             val change = summary.listenedMs - before
             if (abs(change) >= 60_000L) Text(string(if (change > 0) R.string.encore_change_up else R.string.encore_change_down,
@@ -371,8 +376,12 @@ private fun openItem(item: EncoreItem, model: ShellModel, provider: YouTubeMusic
     }
 }
 
-/** Feature 12.6: the Encore card at the top of Library: this week's time and the story ring. */
-@Composable internal fun EncoreLibraryCard(model: ShellModel, provider: YouTubeMusicProvider, process: AppContainer = AppContainer.get(LocalContext.current)) {
+/**
+ * Feature 12.6: the Encore card at the top of Library: this week's time and the story ring. As Home's Sunday row
+ * ([sunday]) it names the week that is ending and stays away until that week has some listening.
+ */
+@Composable internal fun EncoreLibraryCard(model: ShellModel, provider: YouTubeMusicProvider, sunday: Boolean = false,
+    process: AppContainer = AppContainer.get(LocalContext.current)) {
     val revision by process.history.revision.collectAsStateWithLifecycle()
     val accountKey = remember(provider.authRevision, provider.storageRevision) { provider.storageScopeKey() }
     var week by remember { mutableStateOf<Long?>(null) }
@@ -381,14 +390,16 @@ private fun openItem(item: EncoreItem, model: ShellModel, provider: YouTubeMusic
         week = withContext(process.runtime.dispatchers.io) {
             suspendCatching {
                 process.stateReady.await()
-                process.encore.quick(scopes, EncorePeriod.containing(EncoreRange.Week, LocalDate.now(), EncorePeriod.firstDayOfWeek(), null)).first
+                process.encore.quick(scopes, EncorePeriod.containing(EncoreRange.Week, if (sunday) encoreRecapDay(LocalDate.now()) else LocalDate.now(), EncorePeriod.firstDayOfWeek(), null)).first
             }.getOrNull()
         }
     }
+    if (sunday && (week ?: 0L) <= 0L) return
     Row(Modifier.fillMaxWidth().riffGlass(GlassRole.Card, RiffRadius.card, backdrop = LocalPageBackdrop.current).clip(RoundedCornerShape(RiffRadius.card))
-        .clickable { uiHaptic(); model.push(Route.Encore) }.padding(RiffSpace.block).testTag("library_encore"), verticalAlignment = Alignment.CenterVertically) {
+        .clickable { uiHaptic(); model.push(Route.Encore) }.padding(RiffSpace.block).testTag(if (sunday) "home_encore" else "library_encore"),
+        verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(string(R.string.encore), color = White, style = RiffText.rowTitle)
+            Text(string(if (sunday) R.string.encore_your_week else R.string.encore), color = White, style = RiffText.rowTitle)
             Text(week?.let { string(R.string.encore_this_week_value, encoreDuration(it)) } ?: string(R.string.encore_subtitle), color = Muted, fontSize = RiffType.detail)
         }
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Muted)

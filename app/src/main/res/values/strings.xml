@@ -1142,6 +1142,21 @@
     <string name="encore_milestone_artists">100 different artists</string>
     <string name="encore_play_top">Play your top %1$d</string>
     <string name="encore_on_this_day">On this day</string>
+    <string name="encore_your_week">Your week in Encore</string>
+    <!-- Feature 12, weekly recap -->
+    <string name="encore_recap">Weekly recap</string>
+    <string name="encore_recap_detail">A notification on Sunday evening when your week in Encore is ready.</string>
+    <string name="encore_recap_channel">Weekly recap</string>
+    <string name="encore_recap_title">Your week in Encore is ready</string>
+    <string name="encore_recap_text">%1$s of music this week.</string>
+    <string name="encore_recap_text_top">%1$s of music this week. Most played: %2$s.</string>
+    <!-- Feature 12, weekly goal -->
+    <string name="encore_goal">Weekly goal</string>
+    <string name="encore_goal_detail">Hours of music a week to aim for. A ring on each week shows how far it got.</string>
+    <string name="encore_goal_off">Off</string>
+    <string name="encore_goal_hours">%1$d h</string>
+    <string name="encore_goal_line">%1$s of your %2$d h goal</string>
+    <string name="encore_goal_reached">Goal reached: %1$d h this week</string>
     <!-- Feature 12, Save to YouTube Music -->
     <string name="encore_save_playlist">Save to YouTube Music</string>
     <string name="encore_save_playlist_detail">A new private playlist with these %1$d songs, in their order.</string>

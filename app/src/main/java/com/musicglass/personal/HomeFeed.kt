@@ -161,6 +161,10 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
             Spacer(Modifier.height(16.dp))
             HomeSpeedDial(speed, pinned.mapTo(HashSet()) { it.key() }, ::open)
         }
+        // Feature 12.6: on Sundays, the week in Encore; the row stays away until the week has some listening.
+        if (mood.isBlank() && encoreRecapToday(java.time.LocalDate.now())) item(key = "encore_week") {
+            Box(Modifier.padding(horizontal = RiffSpace.screenEdge)) { EncoreLibraryCard(model, provider, sunday = true) }
+        }
         if (recent.isNotEmpty() && musicShelves.none {it.title.contains("listen again",true)}) item { HomeRowShelf(string(R.string.recently_played), recent, ::open) }
         val shown=homeDiscoveryShelves(musicShelves)+if(mood.isBlank() && !loading && error==null && musicShelves.none {it.title.contains("forgotten fav",true)}) listOf(ProviderHomeSection(string(R.string.forgotten_favourites),emptyList())) else emptyList()
         orderedHomeShelves(shown).forEachIndexed {index,shelf->

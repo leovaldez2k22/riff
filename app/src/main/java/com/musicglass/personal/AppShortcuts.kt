@@ -16,6 +16,8 @@ internal enum class AppShortcut(val action: String) {
     Downloads("com.musicglass.personal.shortcut.DOWNLOADS"),
     ShuffleLiked("com.musicglass.personal.shortcut.SHUFFLE_LIKED"),
     Resume("com.musicglass.personal.shortcut.RESUME"),
+    /** Not published: the weekly recap notification opens Encore with it (Feature 12). */
+    Encore("com.musicglass.personal.shortcut.ENCORE"),
 }
 
 internal fun appShortcutOf(intent: Intent?): AppShortcut? = AppShortcut.entries.firstOrNull { it.action == intent?.action }

@@ -201,6 +201,7 @@ internal fun RiffApp() {
                     else playback.playCollection(page.tracks, 0, string(R.string.liked_songs), shuffle = true)
                 }, onFailure = { snackbar.showSnackbar(it.message ?: string(R.string.could_not_load_liked_songs)) })
             AppShortcut.Resume -> if (playback.state.queue.isNotEmpty()) playback.resume() else playback.restoreSavedQueue { if (it) playback.resume() }
+            AppShortcut.Encore -> model.push(Route.Encore)
         }
     }
     val resumeTitle = playback.state.title

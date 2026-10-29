@@ -116,6 +116,7 @@
         <service android:name=".OfflineDownloadService" android:exported="false" android:foregroundServiceType="dataSync" />
         <service android:name=".MoodPhotoRefreshJob" android:exported="false" android:permission="android.permission.BIND_JOB_SERVICE" />
         <service android:name=".OfflineDownloadJob" android:exported="false" android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service android:name=".EncoreRecapJob" android:exported="false" android:permission="android.permission.BIND_JOB_SERVICE" />
     <receiver android:name=".CompactRiffWidget" android:exported="false" android:label="@string/widget_compact_name"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_compact_info" /></receiver>
 <receiver android:name=".WideRiffWidget" android:exported="false" android:label="@string/widget_wide_name"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_wide_info" /></receiver>
 <receiver android:name=".ArtworkRiffWidget" android:exported="false" android:label="@string/widget_artwork_name"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_artwork_info" /></receiver>
