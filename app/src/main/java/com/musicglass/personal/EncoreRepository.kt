@@ -66,6 +66,10 @@ internal data class EncoreItem(val kind: String, val key: String, val title: Str
         ?.let { ProviderTrack(it, title, subtitle, artwork ?: providerArtworkUrl(it)) }
 }
 
+/** "Your history with this": what [EncoreRepository.history] finds for one song, album or artist. */
+internal data class EncoreHistory(val title: String, val subtitle: String, val artwork: String?, val firstDay: LocalDate, val plays: Int,
+    val listenedMs: Long, val bars: List<EncoreBar>, val rankThisYear: Int?)
+
 /** One bar of the listening chart. [opens] is the period a tap opens (a day, a month, a year), if any. */
 internal data class EncoreBar(val start: LocalDate, val hour: Int?, val listenedMs: Long, val opens: EncorePeriod?)
 
@@ -345,6 +349,34 @@ internal class EncoreRepository(private val db: LibraryStateDb, private val zone
             (scopes + since).toTypedArray()).use { c ->
             buildList { while (c.moveToNext()) add(EncoreItem(EncoreKind.SONG, c.getString(0), c.getString(1), c.getString(2), if (c.isNull(3)) null else c.getString(3), c.getInt(4), c.getLong(5))) }
         }
+    }
+
+    /**
+     * "Your history with this" (12.2 extras): when [key] was first heard, its plays and time in all, its listening by
+     * month (by year past two years), and its rank among its kind this year. Null when it was never played.
+     */
+    fun history(scopes: List<String>, kind: String, key: String, today: LocalDate): EncoreHistory? {
+        val args = (scopes + kind + key).toTypedArray()
+        val where = "${scopeIn(scopes)} AND kind=? AND key=?"
+        val d = db.readableDatabase
+        val head = d.rawQuery("SELECT MIN(day),MAX(title),MAX(subtitle),MAX(artwork),SUM(plays),SUM(listened_ms) FROM stats_daily WHERE $where", args).use { c ->
+            if (!c.moveToFirst() || c.isNull(0)) null
+            else EncoreHistory(c.getString(1), c.getString(2), if (c.isNull(3)) null else c.getString(3), LocalDate.parse(c.getString(0)), c.getInt(4), c.getLong(5), emptyList(), null)
+        } ?: return null
+        val months = d.rawQuery("SELECT substr(day,1,7),SUM(listened_ms) FROM stats_daily WHERE $where GROUP BY 1", args)
+            .use { c -> buildMap { while (c.moveToNext()) put(c.getString(0), c.getLong(1)) } }
+        val firstMonth = head.firstDay.withDayOfMonth(1); val lastMonth = maxOf(today, head.firstDay).withDayOfMonth(1)
+        val bars = if (java.time.temporal.ChronoUnit.MONTHS.between(firstMonth, lastMonth) < 24)
+            generateSequence(firstMonth) { it.plusMonths(1) }.takeWhile { !it.isAfter(lastMonth) }
+                .map { m -> EncoreBar(m, null, months[m.toString().take(7)] ?: 0L, EncorePeriod(EncoreRange.Month, m, m.plusMonths(1))) }.toList()
+        else (firstMonth.year..lastMonth.year).map { year -> LocalDate.of(year, 1, 1).let { y ->
+            EncoreBar(y, null, months.filterKeys { it.startsWith("$year-") }.values.sum(), EncorePeriod(EncoreRange.Year, y, y.plusYears(1))) } }
+        val year = today.withDayOfYear(1).toString(); val nextYear = today.withDayOfYear(1).plusYears(1).toString()
+        val mine = d.rawQuery("SELECT SUM(listened_ms) FROM stats_daily WHERE $where AND day>=? AND day<?", (scopes + kind + key + year + nextYear).toTypedArray())
+            .use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else 0L }
+        val rank = if (mine <= 0) null else d.rawQuery("SELECT COUNT(*) FROM (SELECT key FROM stats_daily WHERE ${scopeIn(scopes)} AND kind=? AND day>=? AND day<? " +
+            "GROUP BY key HAVING SUM(listened_ms)>CAST(? AS INTEGER))", (scopes + kind + year + nextYear + mine.toString()).toTypedArray()).use { c -> if (c.moveToFirst()) c.getInt(0) + 1 else null }
+        return head.copy(bars = bars, rankThisYear = rank)
     }
 
     /** Today's listening and top song, for the Library card. */

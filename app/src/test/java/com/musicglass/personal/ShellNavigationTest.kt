@@ -31,6 +31,16 @@ class ShellNavigationTest {
         listOf("collection\u001f$album", "collection\u001fbad id\u001fT", "collection\u001f$album\u001fT\u001fmore").forEach { assertNull(Route.decode(it)) }
     }
 
+    @Test fun anEncoreHistoryNeedsAKindEncoreKeepsAndAStatsKey() {
+        val song = Route.encoreDetail(EncoreKind.SONG, "yt:fixture0001", "Song")!!
+        val byName = Route.encoreDetail(EncoreKind.ALBUM, "name:album\u0000artist", "Album")!!
+        listOf(song, byName, Route.encoreDetail(EncoreKind.ARTIST, "id:$artist", "Artist")!!).forEach { assertEquals(it, Route.decode(Route.encode(it))) }
+        assertNull("genres have no history page", Route.encoreDetail("genre", "rock", "Rock"))
+        assertNull(Route.encoreDetail(EncoreKind.SONG, "", "T")); assertNull(Route.encoreDetail(EncoreKind.SONG, "yt:a\u001fb", "T"))
+        assertNull(Route.encoreDetail(EncoreKind.SONG, "yt:a\nb", "T")); assertNull(Route.encoreDetail(EncoreKind.SONG, "x".repeat(401), "T"))
+        assertNull(Route.decode("encore_detail\u001fsong\u001fyt:a"))
+    }
+
     // ---- the model
 
     @Test fun screensOpenAboveTheSelectedRootAndBackClosesThemInOrder() {

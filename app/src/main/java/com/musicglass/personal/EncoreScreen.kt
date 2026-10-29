@@ -78,6 +78,7 @@ import kotlin.math.abs
     var extras by remember { mutableStateOf<Pair<List<EncoreItem>, List<EncoreItem>>?>(null) }
     var story by remember { mutableStateOf<EncorePeriod?>(null) }
     var historyStart by remember { mutableStateOf<LocalDate?>(null) }
+    val rowActions = remember(provider, playback, onNotice) { EncoreRowActions(provider, playback, onNotice) }
     val range = EncoreRange.entries[rangeIndex]
     val period = remember(range, anchor, historyStart) { EncorePeriod.containing(range, LocalDate.parse(anchor), firstDay, historyStart) }
     LaunchedEffect(scopes, period, revision, genresOn, genresFound) {
@@ -166,7 +167,7 @@ import kotlin.math.abs
                 lists.forEach { (kind, title) ->
                     val items = current.top(kind, sort)
                     if (items.isNotEmpty()) item(key = "top:$kind") {
-                        TopList(string(title), items, compared = current.previousListenedMs != null, sort, kind) { item -> openItem(item, model, provider, playback, onNotice, scope) }
+                        TopList(string(title), items, compared = current.previousListenedMs != null, sort, kind, menu = rowActions) { item -> openItem(item, model, provider, playback, onNotice, scope) }
                     }
                 }
                 item(key = "habits") { Habits(current) }
@@ -188,13 +189,13 @@ import kotlin.math.abs
         extras?.first?.takeIf { it.isNotEmpty() }?.let { onThisDay ->
             item(key = "on_this_day") {
                 TopList(string(R.string.encore_on_this_day), onThisDay, compared = false, EncoreSort.Plays, EncoreKind.SONG,
-                    detail = string(R.string.encore_on_this_day_detail)) { openItem(it, model, provider, playback, onNotice, scope) }
+                    detail = string(R.string.encore_on_this_day_detail), menu = rowActions) { openItem(it, model, provider, playback, onNotice, scope) }
             }
         }
         extras?.second?.takeIf { it.size >= 3 }?.let { forgotten ->
             item(key = "forgotten") {
                 TopList(string(R.string.encore_forgotten), forgotten, compared = false, EncoreSort.Minutes, EncoreKind.SONG,
-                    detail = string(R.string.encore_forgotten_detail)) { openItem(it, model, provider, playback, onNotice, scope) }
+                    detail = string(R.string.encore_forgotten_detail), menu = rowActions) { openItem(it, model, provider, playback, onNotice, scope) }
             }
         }
         item(key = "genres_setting") {
@@ -220,6 +221,9 @@ import kotlin.math.abs
 
 private val Faded = White.copy(alpha = .25f)
 
+/** What a long press on an Encore row needs to play a song next. */
+private class EncoreRowActions(val provider: YouTubeMusicProvider, val playback: PlaybackGateway, val onNotice: (String) -> Unit)
+
 /** A horizontal swipe steps through periods: right for earlier, left for later. */
 private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.swipeSteps(step: (Boolean) -> Unit) {
     var travel = 0f
@@ -233,7 +237,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.swipeSte
         verticalArrangement = Arrangement.spacedBy(RiffSpace.item)) { content() }
 }
 
-@Composable private fun SectionTitle(text: String) {
+@Composable internal fun SectionTitle(text: String) {
     Text(text, color = White, style = RiffText.sectionHeading, modifier = Modifier.semantics { heading() })
 }
 
@@ -271,14 +275,18 @@ private val Positive = androidx.compose.ui.graphics.Color(0xFF5BD68B)
 /** A top list: five rows, "See all" for up to a hundred, each with its rank movement. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable private fun TopList(title: String, items: List<EncoreItem>, compared: Boolean, sort: EncoreSort, kind: String,
-    detail: String? = null, onOpen: (EncoreItem) -> Unit) {
+    detail: String? = null, menu: EncoreRowActions? = null, onOpen: (EncoreItem) -> Unit) {
     var all by rememberSaveable(title) { mutableStateOf(false) }
     EncoreCard {
         SectionTitle(title)
         detail?.let { Text(it, color = Muted, fontSize = RiffType.detail) }
         items.take(if (all) ENCORE_TOP_LIMIT else 5).forEachIndexed { index, item ->
+            var held by remember(item.key) { mutableStateOf(false) }
+            menu?.let { EncoreRowMenu(item, held, { held = false }, onOpen, it.provider, it.playback, it.onNotice) }
             Row(Modifier.fillMaxWidth().heightIn(min = RiffSpace.listRow).clip(RoundedCornerShape(RiffRadius.artwork))
-                .combinedClickable(onClick = { uiHaptic(); onOpen(item) }).testTag("encore_${kind}_$index"), verticalAlignment = Alignment.CenterVertically) {
+                .combinedClickable(onClick = { uiHaptic(); onOpen(item) }, onLongClick = menu?.let { { uiHaptic(HapticCue.Threshold); held = true } },
+                    onLongClickLabel = menu?.let { string(R.string.song_options) })
+                .testTag("encore_${kind}_$index"), verticalAlignment = Alignment.CenterVertically) {
                 Text((index + 1).toString(), color = Muted, fontSize = RiffEncore.rank, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.width(RiffEncore.rankArt / 2))
                 if (kind != ENCORE_GENRE_KIND) CatalogArtwork(item.artwork, item.key, modifier = Modifier.size(RiffEncore.rankArt)
@@ -317,7 +325,7 @@ private val Positive = androidx.compose.ui.graphics.Color(0xFF5BD68B)
     }
 }
 
-@Composable private fun HabitLine(label: String, value: String) {
+@Composable internal fun HabitLine(label: String, value: String) {
     Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { }, verticalAlignment = Alignment.CenterVertically) {
         Text(label, color = Muted, fontSize = RiffType.body, modifier = Modifier.weight(1f))
         Text(value, color = White, fontSize = RiffType.body, maxLines = 2, overflow = TextOverflow.Ellipsis,

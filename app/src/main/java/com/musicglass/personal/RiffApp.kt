@@ -281,7 +281,7 @@ internal fun RiffApp() {
         reduced = motion.reduced) { model.back() }
     val pagePreview = if (model.sheet.isEmpty() && model.route.isNotEmpty()) Modifier.pageBackPreview(backGesture) else Modifier
 
-    CompositionLocalProvider(LocalGlassBounds provides categoryBounds,LocalGlassChips provides categoryChips,
+    CompositionLocalProvider(LocalShellModel provides model,LocalGlassBounds provides categoryBounds,LocalGlassChips provides categoryChips,
         LocalFrostedBackdrop provides frostedBackdrop,LocalRiffBackdrop provides glassBackdrop,LocalPageBackdrop provides pageBackdrop,LocalGlassStyle provides glassStyle,LocalFrostedIntensity provides if(accessibility.solidControls) -1f else accessibility.frostedIntensity,
         LocalSongCrossfade provides SongCrossfadeState.active,
         androidx.compose.foundation.LocalOverscrollFactory provides StretchOverscrollFactory,LocalAccessibilitySettings provides accessibility,LocalStatusBarRequests provides statusBar,

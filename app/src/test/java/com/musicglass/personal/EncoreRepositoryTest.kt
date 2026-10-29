@@ -52,6 +52,29 @@ class EncoreRepositoryTest {
     private val repo get() = EncoreRepository(db, { ZoneOffset.UTC })
     private fun week(start: String) = EncorePeriod(EncoreRange.Week, LocalDate.parse(start), LocalDate.parse(start).plusWeeks(1))
 
+    @Test fun yourHistoryWithASongCountsAllOfItAndRanksItThisYear() {
+        play("2026-08-03", 9, "songAAAAAAA", "Queen", 10)
+        play("2026-10-01", 9, "songAAAAAAA", "Queen", 20); play("2026-10-02", 9, "songAAAAAAA", "Queen", 5)
+        play("2026-10-02", 10, "songBBBBBBB", "Queen", 40)
+        val today = LocalDate.parse("2026-10-29")
+        val a = repo.history(listOf("owner"), EncoreKind.SONG, "yt:songAAAAAAA", today)!!
+        assertEquals(LocalDate.parse("2026-08-03"), a.firstDay); assertEquals(3, a.plays); assertEquals(35 * 60_000L, a.listenedMs)
+        assertEquals("b has more time this year", 2, a.rankThisYear)
+        assertEquals("a bar for every month from the first play to now", listOf("2026-08-01", "2026-09-01", "2026-10-01"), a.bars.map { it.start.toString() })
+        assertEquals(listOf(10, 0, 25).map { it * 60_000L }, a.bars.map { it.listenedMs })
+        assertEquals(1, repo.history(listOf("owner"), EncoreKind.SONG, "yt:songBBBBBBB", today)!!.rankThisYear)
+        assertEquals("the artist, keyed by name", 4, repo.history(listOf("owner"), EncoreKind.ARTIST, "name:queen", today)!!.plays)
+        assertNull("never played", repo.history(listOf("owner"), EncoreKind.SONG, "yt:never", today))
+        assertNull("another account's plays are not this one's", repo.history(listOf("someone"), EncoreKind.SONG, "yt:songAAAAAAA", today))
+    }
+
+    @Test fun aLongHistoryIsDrawnByYear() {
+        play("2023-05-01", 9, "songAAAAAAA", "Queen", 10); play("2026-10-01", 9, "songAAAAAAA", "Queen", 10)
+        val a = repo.history(listOf("owner"), EncoreKind.SONG, "yt:songAAAAAAA", LocalDate.parse("2027-01-10"))!!
+        assertEquals((2023..2027).toList(), a.bars.map { it.start.year })
+        assertNull("nothing this year, so no rank", a.rankThisYear)
+    }
+
     @Test fun periodsFollowTheCalendarAndTheLocalesFirstDay() {
         val wednesday = LocalDate.parse("2026-10-28")
         assertEquals(LocalDate.parse("2026-10-26"), EncorePeriod.containing(EncoreRange.Week, wednesday, DayOfWeek.MONDAY, null).start)

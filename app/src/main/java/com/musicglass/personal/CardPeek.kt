@@ -180,9 +180,15 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
             held.artistId?.let { id -> SongActionItem("View artist") { peek.dismiss(); model.openCollection(id, playerArtistLabel(held.subtitle)) } }
             held.albumId?.let { id -> SongActionItem("View album") { peek.dismiss(); model.openCollection(id, held.album.ifBlank { string(R.string.album) }) } }
             SongActionItem("Share song") { peek.dismiss(); share("${held.title} · ${held.subtitle}\nhttps://music.youtube.com/watch?v=${track.videoId}") }
+            EncoreHistoryAction(EncoreKind.SONG, encoreSongKey(track.videoId), held.title) { peek.dismiss() }
         } else {
             SongActionItem("Open") { peek.openCard() }
             held.browseId?.let { id -> SongActionItem("Share") { peek.dismiss(); share("${held.title}\n${collectionLink(id)}") } }
+            // Encore keys an album by its browse id and an artist by their channel; a playlist has no history of its own.
+            held.browseId?.let { id ->
+                if (id.startsWith("UC")) EncoreHistoryAction(EncoreKind.ARTIST, encoreArtistKey(id), held.title) { peek.dismiss() }
+                else if (id.startsWith("MPRE")) EncoreHistoryAction(EncoreKind.ALBUM, id, held.title) { peek.dismiss() }
+            }
         }
         if (held.pinnable()) SongActionItem(if (held.key() in SpeedDialPins.get(context)) "Unpin from speed dial" else "Pin to speed dial") {
             peek.dismiss(); toggleSpeedDialPin(context, held, onNotice) }

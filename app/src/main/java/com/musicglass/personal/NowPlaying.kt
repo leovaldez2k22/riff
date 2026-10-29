@@ -435,6 +435,8 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 }
                 PlayerActionMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }, anchorBounds=moreAnchor) {
                     if(state.source=="YouTube Music") DownloadSongAction(providerTrack(),onNotice,onDismiss={moreExpanded=false})
+                    // Encore keys a play by its media id, so a file on the phone has a history too; live radio has none.
+                    if(!state.live) EncoreHistoryAction(EncoreKind.SONG,state.mediaId,state.title) {moreExpanded=false}
                     val options = if (state.source == "YouTube Music")
                         listOf("View credits", "Add to playlist", "Share song", "View album", "View artist", "Favorite", "Play next", "Add to queue", if(keptOnPhone) "Remove from Saved on this phone" else "Save on this phone", "Library shortcuts", "Sleep timer", "Playback speed", "Equalizer", "Stats for nerds", if(providerTrack().videoId in pins) "Unpin from speed dial" else "Pin to speed dial") + (if(hasQueue) listOf("Remove from queue") else emptyList()) + (if(state.live) emptyList() else listOf("Not interested"))
                         else listOf("Library shortcuts", "View credits", "Sleep timer", "Playback speed", "Equalizer", "Stats for nerds")

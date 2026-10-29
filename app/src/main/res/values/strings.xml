@@ -1142,6 +1142,14 @@
     <string name="encore_milestone_artists">100 different artists</string>
     <string name="encore_play_top">Play your top %1$d</string>
     <string name="encore_on_this_day">On this day</string>
+    <!-- Feature 12, "Your history with this" -->
+    <string name="encore_your_history">Your history with this</string>
+    <string name="encore_history_first">First played</string>
+    <string name="encore_history_plays">Plays</string>
+    <string name="encore_history_time">Time listened</string>
+    <string name="encore_history_rank">This year</string>
+    <string name="encore_history_rank_value">No. %1$d</string>
+    <string name="encore_history_none">Nothing yet. Encore starts counting this the first time you listen to it.</string>
     <string name="encore_on_this_day_detail">What you played a year ago today</string>
     <string name="encore_forgotten">Forgotten favourites</string>
     <string name="encore_forgotten_detail">Your top songs, not played in 60 days</string>

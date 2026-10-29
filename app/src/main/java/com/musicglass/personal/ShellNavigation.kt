@@ -32,6 +32,13 @@ internal sealed interface Route {
     /** Feature 12: Encore, the listening statistics page. */
     data object Encore : Route { override val wire = "encore" }
     data class Settings(val section: SettingsSection = SettingsSection.Main) : Route { override val wire get() = section.wire }
+    /** Feature 12, "Your history with this": a song, album or artist as Encore keys it. Made only through [encoreDetail]. */
+    class EncoreDetail internal constructor(val kind: String, val key: String, val title: String) : Route {
+        override val wire get() = "encore_detail"
+        override fun equals(other: Any?) = other is EncoreDetail && other.kind == kind && other.key == key && other.title == title
+        override fun hashCode() = (31 * kind.hashCode() + key.hashCode()) * 31 + title.hashCode()
+        override fun toString() = "EncoreDetail($kind)"
+    }
     /** An album, a playlist, a podcast show or an artist (an id beginning UC). Made only through [collection]. */
     class Collection internal constructor(val id: String, val title: String) : Route {
         override val wire get() = "collection"
@@ -68,6 +75,15 @@ internal sealed interface Route {
             if (shelfParams != null && !SHELF_PARAMS.matches(shelfParams)) return null
             return ArtistShelf(id, shelfParams, shownTitle(title).ifBlank { string(R.string.see_all) })
         }
+        /**
+         * Null unless [kind] is a song, album or artist and [key] a stats key: a media id, a browse id, or "id:" / "name:"
+         * (an album known by name carries a NUL between album and artist, the only control character allowed).
+         */
+        fun encoreDetail(kind: String?, key: String?, title: String?): EncoreDetail? {
+            if (kind == null || kind !in setOf(EncoreKind.SONG, EncoreKind.ALBUM, EncoreKind.ARTIST)) return null
+            val stats = key?.takeIf { it.isNotEmpty() && it.length <= 400 && it.none { c -> c == FIELD || (c < ' ' && c != '\u0000') } } ?: return null
+            return EncoreDetail(kind, stats, shownTitle(title).ifBlank { string(R.string.encore) })
+        }
         /** A route that carries no argument, by its saved name. */
         fun plain(wire: String): Route? = when (wire) {
             Account.wire -> Account; DeviceAudio.wire -> DeviceAudio; Downloads.wire -> Downloads; ListeningHistory.wire -> ListeningHistory; Encore.wire -> Encore
@@ -76,6 +92,7 @@ internal sealed interface Route {
         fun encode(route: Route): String = when (route) {
             is Collection -> listOf(route.wire, route.id, route.title).joinToString(FIELD.toString())
             is ArtistShelf -> listOf(route.wire, route.browseId, route.params.orEmpty(), route.title).joinToString(FIELD.toString())
+            is EncoreDetail -> listOf(route.wire, route.kind, route.key, route.title).joinToString(FIELD.toString())
             else -> route.wire
         }
         /** Null for anything that is not a route this build has, or whose arguments are not valid. */
@@ -84,6 +101,7 @@ internal sealed interface Route {
             return when (fields[0]) {
                 "collection" -> fields.takeIf { it.size == 3 }?.let { collection(it[1], it[2]) }
                 "artist_shelf" -> fields.takeIf { it.size == 4 }?.let { artistShelf(it[1], it[2], it[3]) }
+                "encore_detail" -> fields.takeIf { it.size == 4 }?.let { encoreDetail(it[1], it[2], it[3]) }
                 else -> fields.takeIf { it.size == 1 }?.let { plain(it[0]) }
             }
         }
@@ -213,6 +231,9 @@ internal object SongTaps {
     @Volatile internal var listener: ((String) -> Unit)? = null
     fun tapped(mediaId: String) { listener?.invoke(mediaId) }
 }
+
+/** The shell, for a menu item deep in a list or a popup to open a screen without the model passed down to it. */
+internal val LocalShellModel = androidx.compose.runtime.staticCompositionLocalOf<ShellModel?> { null }
 
 internal class ShellModel {
     private var root by mutableStateOf(RootTab.Home)

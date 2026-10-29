@@ -67,7 +67,8 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
             SongActionMenu(menu,{menu=false}) {
                 SongActionItem("Play next",onClick={ menu=false;onEnqueue(true)})
                 SongActionItem("Add to queue",onClick={ menu=false;onEnqueue(false)})
-                card.track()?.let {DownloadSongAction(it,onDismiss={menu=false});AddToPlaylistAction(it,{menu=false}) {playlistTrack=it}}
+                card.track()?.let {DownloadSongAction(it,onDismiss={menu=false});AddToPlaylistAction(it,{menu=false}) {playlistTrack=it}
+                    EncoreHistoryAction(EncoreKind.SONG,encoreSongKey(it.videoId),card.title) {menu=false}}
             }
         }
     }

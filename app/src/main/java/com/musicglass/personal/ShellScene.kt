@@ -109,6 +109,7 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
             }
             else -> if (route == "collection") CatalogDetailScreen(model,totalBottomPadding,provider,playback,onNotice)
             else if (screen.route is Route.ArtistShelf) ArtistShelfScreen(model,totalBottomPadding,screen.route,provider,playback,onNotice)
+            else if (screen.route is Route.EncoreDetail) EncoreDetailScreen(model,totalBottomPadding,screen.route,provider,playback,onNotice)
             else androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
                 when (tab) {
                     "Podcasts", "Radio" -> MediaExploreScreen(model, totalBottomPadding, tab, provider, playback, onNotice)
