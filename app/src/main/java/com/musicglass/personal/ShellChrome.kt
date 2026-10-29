@@ -32,7 +32,13 @@ import androidx.compose.material3.Text
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.input.key.*
 import androidx.compose.runtime.Composable
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -122,121 +128,165 @@ internal fun LiquidTabBar(model: ShellModel, compact: Boolean, height: androidx.
     val rightToLeft = LocalLayoutDirection.current == LayoutDirection.Rtl
     val density = LocalDensity.current.density
     val largeText = LocalDensity.current.fontScale >= 1.6f
-    var fingerX by remember { mutableStateOf<Float?>(null) }
+    val motion = LocalMotionPolicy.current
+    val still = motion.reduced || accessibility.solidControls
+    // Feature 1: the pill and its lens, moved by TabLensMotion (NavigationLens.kt) a frame at a time while anything moves;
+    // the draws read [tick], so a moving pill redraws without recomposing the bar.
+    val lens = remember { TabLensMotion() }
+    var tick by remember { mutableLongStateOf(0L) }
+    var lensShown by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val frames = remember { arrayOfNulls<Job>(1) }
+    fun animate() {
+        if (frames[0]?.isActive == true) return
+        frames[0] = scope.launch {
+            var last = withFrameNanos { it }
+            while (lens.moving) {
+                withFrameNanos { now -> lens.step(android.os.SystemClock.uptimeMillis(), (now - last) / 1e9f); last = now }
+                val shown = lens.frame().lift > .003f
+                if (shown != lensShown) lensShown = shown
+                tick++
+            }
+        }
+    }
+    val active = names.indexOf(model.tab).coerceAtLeast(0)
     BoxWithConstraints(Modifier.fillMaxWidth().height(height).pointerInput(compact, rightToLeft) {
         awaitEachGesture {
+            val width = size.width.toFloat()
+            val searchWidth = height.value * density
+            val gap = 8f * density
+            fun logical(x: Float) = if (rightToLeft) width - x else x
+            fun overSearch(x: Float) = TabHitTest.indexAt(x, width, searchWidth, gap, rightToLeft) == 4
             val down = awaitFirstDown(requireUnconsumed = false)
-            fingerX = down.position.x
+            lens.down(logical(down.position.x), down.uptimeMillis); animate()
             var releasedX = down.position.x
-            var lastHover=TabHitTest.indexAt(releasedX,size.width.toFloat(),height.value*density,8f*density,rightToLeft)
+            var lastHover = -1
             do {
                 val event = awaitPointerEvent(PointerEventPass.Main)
                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
                 releasedX = change.position.x
-                fingerX = releasedX
-                val nextHover=TabHitTest.indexAt(releasedX,size.width.toFloat(),height.value*density,8f*density,rightToLeft)
-                if(change.pressed && nextHover!=lastHover) {uiHaptic(HapticCue.Selection);lastHover=nextHover}
                 if (!change.pressed) break
+                lens.move(logical(releasedX), viewConfiguration.touchSlop)
+                if (lens.lifted) {
+                    // A tick each time the lens comes over another tab.
+                    val hover = if (overSearch(releasedX)) 4 else lens.hovered()
+                    if (lastHover >= 0 && hover != lastHover) uiHaptic(HapticCue.Selection)
+                    lastHover = hover
+                }
             } while (true)
-            val width = size.width.toFloat()
-            val searchWidth = height.value * density
-            val gap = 8f * density
-            val index = TabHitTest.indexAt(releasedX, width, searchWidth, gap,
-                rightToLeft)
-            val reset=model.selectFromTap(names[index], android.os.SystemClock.uptimeMillis())
-            uiHaptic(if(reset) HapticCue.Confirm else HapticCue.Selection)
-            fingerX = null
+            val index = when {
+                // Lifted, the tab under the lens is chosen; Search, when the finger is over it.
+                lens.lifted && overSearch(releasedX) -> lens.upOverSearch()
+                lens.lifted -> lens.up()
+                else -> { lens.cancel(); TabHitTest.indexAt(releasedX, width, searchWidth, gap, rightToLeft) }
+            }
+            animate()
+            val reset = model.selectFromTap(names[index], android.os.SystemClock.uptimeMillis())
+            uiHaptic(if (reset) HapticCue.Confirm else HapticCue.Selection)
         }
     }) {
-        val navTotalWidth=maxWidth
         val mainWidth = maxWidth - height - 8.dp
         val slot = mainWidth / 4
-        val hovered = fingerX?.let { px ->
-            TabHitTest.indexAt(px, maxWidth.value * density, height.value * density,
-                8f * density, rightToLeft)
+        val barWidth = maxWidth.value * density
+        val barHeight = height.value * density
+        SideEffect {
+            lens.layout(slot.value * density, barHeight, (mainWidth.value + height.value / 2f) * density + 8f * density,
+                barHeight, active, still)
+            if (lens.moving) animate()
         }
-        val active = hovered ?: names.indexOf(model.tab).coerceAtLeast(0)
-        val motion = LocalMotionPolicy.current
-        val targetWidth=if(active==4) height.value else slot.value
-        val logicalFinger=fingerX?.let {if(rightToLeft) maxWidth.value-it/density else it/density}
-        // The lens follows the finger inside the bar and goes to Search whole: following the finger across the gap, it
-        // sat half on each (phone checks 29 Oct, bug 8).
-        val searchCenter=mainWidth.value+8f+height.value/2f
-        val targetCenter=if(active==4) searchCenter
-            else logicalFinger?.coerceIn(slot.value/2f,mainWidth.value-slot.value/2f) ?: (slot.value*(active+.5f))
-        // Under the finger it keeps up (stiff and barely springy); let go, it settles at the calmer pace.
-        val center=animateFloatAsState(targetCenter,if(motion.reduced) androidx.compose.animation.core.snap() else androidx.compose.animation.core.spring(dampingRatio=if(fingerX!=null) .95f else .82f,stiffness=if(fingerX!=null) 3800f else 600f),label="liquid pill position")
-        val width=animateFloatAsState(targetWidth,GlassMotion.settle(motion),label="liquid pill width")
-        val pressState=animateFloatAsState(if(fingerX!=null) 1f else 0f,GlassMotion.settle(motion),label="liquid contact")
-        fun geometry():NavLens {
-            val cx=if(rightToLeft) maxWidth.value-center.value else center.value
-            return navigationLens(cx*density,width.value*density,height.value*density,pressState.value,
-                (targetCenter-center.value)*density,accessibility.glassIntensity,motion.reduced || accessibility.solidControls)
+        fun frame(): TabLensFrame {
+            tick
+            val f = lens.frame()
+            return if (rightToLeft) f.copy(centerX = barWidth - f.centerX, ghostX = barWidth - f.ghostX) else f
         }
-        // Feature 1: the tabs as drawn, for the drag lens to magnify.
-        val tabs=rememberGraphicsLayer()
-        val tabsBackdrop=remember(tabs) {RiffBackdrop(tabs)}
+        // Feature 1: the tabs as drawn, for the lens over them.
+        val tabs = rememberGraphicsLayer()
+        val tabsBackdrop = remember(tabs) { RiffBackdrop(tabs) }
         Row(Modifier.fillMaxSize().riffBackdropSource(tabsBackdrop), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Surface(shape = RoundedCornerShape(height / 2), color = Color.Transparent,
                 modifier = Modifier.width(mainWidth).height(height).testTag("navigation").riffGlass(GlassRole.Bar)) {
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                     names.take(4).forEach { name ->
-                        NavItem(name, names[active] == name, !largeText,
-                            Modifier.weight(1f).graphicsLayer {
-                                if(android.os.Build.VERSION.SDK_INT<33) {val lens=geometry();val itemCenter=slot.value*density*(names.indexOf(name)+.5f)
-                                    val physical=if(rightToLeft) navTotalWidth.value*density-itemCenter else itemCenter
-                                    val contact=(1f-kotlin.math.abs(physical-lens.centerX)/lens.radiusX.coerceAtLeast(1f)).coerceIn(0f,1f)
-                                    scaleX=1f+lens.gain*contact;scaleY=1f+lens.gain*contact}
-                            }) { uiHaptic(HapticCue.Selection); model.selectFromTap(name,android.os.SystemClock.uptimeMillis()) }
+                        // The selected tab stays lit under a moving lens: the choice is made when the finger lets go.
+                        NavItem(name, names[active] == name, !largeText, Modifier.weight(1f)) {
+                            uiHaptic(HapticCue.Selection); model.selectFromTap(name, android.os.SystemClock.uptimeMillis())
+                        }
                     }
                 }
             }
-            run {
-                Surface(shape = CircleShape, color = Color.Transparent,
-                    modifier = Modifier.size(height).testTag("nav_search").riffGlass(GlassRole.Button)) {
-                    NavItem("Search", active == 4, false, Modifier.fillMaxSize().graphicsLayer {
-                        if(android.os.Build.VERSION.SDK_INT<33) {val lens=geometry();val logical=mainWidth.value+8f+height.value/2f;val physical=(if(rightToLeft) navTotalWidth.value-logical else logical)*density
-                            val contact=(1f-kotlin.math.abs(physical-lens.centerX)/lens.radiusX.coerceAtLeast(1f)).coerceIn(0f,1f);scaleX=1f+lens.gain*contact;scaleY=1f+lens.gain*contact}
-                    }) {
-                        uiHaptic(HapticCue.Selection); model.selectFromTap("Search",android.os.SystemClock.uptimeMillis())
-                    }
+            Surface(shape = CircleShape, color = Color.Transparent,
+                modifier = Modifier.size(height).testTag("nav_search").riffGlass(GlassRole.Button)) {
+                NavItem("Search", active == 4, false, Modifier.fillMaxSize()) {
+                    uiHaptic(HapticCue.Selection); model.selectFromTap("Search", android.os.SystemClock.uptimeMillis())
                 }
             }
         }
-        LiquidSelector(::geometry,density,accessibility.solidControls,fingerX!=null)
-        // Feature 1, the drag lens: a glass pill over the tabs while a finger is down, magnifying what it passes over.
-        if(!accessibility.solidControls && !motion.reduced && pressState.value>.01f) DragLens(::geometry,tabsBackdrop) {pressState.value}
-
+        RestingPill(::frame, density, accessibility.solidControls)
+        if (lensShown && !still) TabLens(::frame, tabsBackdrop, barWidth, barHeight, density)
     }
 }
 
-@Composable private fun DragLens(geometry:()->NavLens,backdrop:RiffBackdrop,contact:()->Float) {
-    Box(Modifier.layout {measurable,_->
-        val lens=geometry()
-        val width=(lens.radiusX*2).toInt().coerceAtLeast(1);val height=(lens.radiusY*2).toInt().coerceAtLeast(1)
-        val placeable=measurable.measure(Constraints.fixed(width,height))
-        layout(width,height) {placeable.place(0,0)}
-    }.graphicsLayer {
-        val lens=geometry()
-        // Not lifted: the selector ring is drawn from the same geometry, and a lifted lens left the two apart (bug 8).
-        translationX=lens.centerX-lens.radiusX;translationY=lens.centerY-lens.radiusY
-    }.riffGlass(GlassRole.Lens,zoom={1f+.1f*contact()},backdrop=backdrop))
-}
-
-@Composable private fun LiquidSelector(geometry:()->NavLens,density:Float,solid:Boolean,pressed:Boolean) {
+/** The frosted pill in the selected tab; it fades as it lifts into the lens. */
+@Composable private fun RestingPill(frame: () -> TabLensFrame, density: Float, solid: Boolean) {
     Box(Modifier.fillMaxSize().drawWithCache {
         onDrawBehind {
-            val lens=geometry()
-            val left=lens.centerX-lens.radiusX;val top=lens.centerY-lens.radiusY
-            val dimensions=androidx.compose.ui.geometry.Size(lens.radiusX*2,lens.radiusY*2)
-            val origin=androidx.compose.ui.geometry.Offset(left,top)
-            val radius=androidx.compose.ui.geometry.CornerRadius(lens.radiusY)
-            drawRoundRect(Brush.verticalGradient(if(solid) listOf(Pink.copy(alpha=.10f),Pink.copy(alpha=.10f))
-                else if(pressed) listOf(White.copy(alpha=.11f),Pink.copy(alpha=.04f),Color.Transparent)
-                else listOf(Color.Transparent,Color.Transparent),startY=top,endY=top+dimensions.height),origin,dimensions,radius)
-            drawRoundRect(Brush.linearGradient(listOf(White.copy(alpha=.82f),Pink.copy(alpha=.56f),White.copy(alpha=.25f)),start=origin,end=origin+androidx.compose.ui.geometry.Offset(dimensions.width,dimensions.height)),origin,dimensions,radius,style=androidx.compose.ui.graphics.drawscope.Stroke(density))
+            val f = frame()
+            val rest = (1f - f.lift).coerceIn(0f, 1f)
+            if (rest <= 0f) return@onDrawBehind
+            val origin = Offset(f.centerX - f.width / 2f, size.height / 2f - f.height / 2f)
+            val dimensions = androidx.compose.ui.geometry.Size(f.width, f.height)
+            val radius = androidx.compose.ui.geometry.CornerRadius(f.height / 2f)
+            drawRoundRect(if (solid) Pink.copy(alpha = .10f) else White.copy(alpha = .12f * rest), origin, dimensions, radius)
+            drawRoundRect(Brush.verticalGradient(listOf(White.copy(alpha = .34f * rest), White.copy(alpha = .08f * rest)), startY = origin.y,
+                endY = origin.y + f.height), origin, dimensions, radius, style = androidx.compose.ui.graphics.drawscope.Stroke(density))
         }
     })
+}
+
+/**
+ * The lens: clear glass over the page and the tabs together, so where it stands out of the bar it bends the page and
+ * not empty space (bug 8); its bright rim; and the fainter rim trailing it.
+ */
+@Composable private fun TabLens(frame: () -> TabLensFrame, tabs: RiffBackdrop, barWidth: Float, barHeight: Float, density: Float) {
+    val page = LocalRiffBackdrop.current
+    val composite = rememberRiffBackdrop()
+    val bar = remember { arrayOf(Offset.Zero) }
+    // What stands out of the bar: a tenth of its height above and below is read.
+    val spill = barHeight * .1f
+    DisposableEffect(tabs) { tabs.readers++; onDispose { tabs.readers-- } }
+    Box(Modifier.fillMaxSize().onGloballyPositioned { bar[0] = it.positionInRoot() }.drawWithCache {
+        onDrawBehind {
+            val f = frame()
+            if (f.ghostAlpha <= .002f) return@onDrawBehind
+            val origin = Offset(f.ghostX - f.width / 2f, size.height / 2f - f.height / 2f)
+            val dimensions = androidx.compose.ui.geometry.Size(f.width, f.height)
+            drawRoundRect(Brush.linearGradient(listOf(White.copy(alpha = .9f * f.ghostAlpha), White.copy(alpha = .35f * f.ghostAlpha),
+                White.copy(alpha = .7f * f.ghostAlpha)), start = origin, end = origin + Offset(dimensions.width, dimensions.height)),
+                origin, dimensions, androidx.compose.ui.geometry.CornerRadius(f.height / 2f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(density))
+        }
+    })
+    Box(Modifier.layout { measurable, _ ->
+        val f = frame()
+        val placeable = measurable.measure(Constraints.fixed(f.width.toInt().coerceAtLeast(1), f.height.toInt().coerceAtLeast(1)))
+        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    }.graphicsLayer {
+        val f = frame()
+        translationX = f.centerX - f.width.toInt() / 2f; translationY = barHeight / 2f - f.height.toInt() / 2f
+        alpha = (3f * f.lift).coerceIn(0f, 1f)
+    }.drawWithContent {
+        // The page and the tabs as one backdrop, a little taller than the bar, from where both are now.
+        val origin = bar[0] - Offset(0f, spill)
+        composite.origin = origin
+        composite.layer.record(IntSize(barWidth.toInt().coerceAtLeast(1), (barHeight + 2 * spill).toInt())) {
+            page?.let { translate(it.origin.x - origin.x, it.origin.y - origin.y) { drawLayer(it.layer) } }
+            translate(tabs.origin.x - origin.x, tabs.origin.y - origin.y) { drawLayer(tabs.layer) }
+        }
+        drawContent()
+        drawRoundRect(Brush.linearGradient(listOf(White.copy(alpha = .85f), White.copy(alpha = .25f), White.copy(alpha = .6f)),
+            end = Offset(size.width, size.height)), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(1.4f * density))
+    }.riffGlass(GlassRole.Lens, backdrop = composite))
 }
 
 @Composable

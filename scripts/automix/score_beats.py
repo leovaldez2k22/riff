@@ -1,9 +1,9 @@
 """Score Riff's beat tracker against reference marks on an Automix test set (engine report 6.1).
 
-Usage: python scripts/automix/score_beats.py <set.json> <pcm folder> <marks.json> <report.md>
+Usage: python scripts/automix/score_beats.py <set.json> <pcm folder> <marks.json> <report.md> [estimate.json]
 
 Reads windows.json and riff-beats.json from the pcm folder (extract_windows.py, AutomixSetEvaluation) and the
-reference marks (mark_beats.py). Each song's head (first 30 s) and tail (last 45 s) is scored on its own:
+reference marks (mark_beats.py). [estimate.json] scores another tracker's rows instead (mark_windows.py). Each song's head (first 30 s) and tail (last 45 s) is scored on its own:
 - tempo Acc1: within 4 % of the reference tempo (60 / median gap between the reference beats in the window);
 - tempo Acc2: Acc1, also allowing x2, x1/2, x3, x1/3;
 - beat and downbeat F-measure: a mark matched one to one within 70 ms.
@@ -42,11 +42,11 @@ def tempo_match(reference_bpm, bpm, factors=(1.0,)):
     return any(abs(bpm - reference_bpm * f) <= 0.04 * reference_bpm * f for f in factors)
 
 
-def main(set_path, pcm, marks_path, report_path):
+def main(set_path, pcm, marks_path, report_path, estimate=None):
     songs = json.load(open(set_path, encoding="utf-8"))
     windows = {w["n"]: w for w in json.load(open(os.path.join(pcm, "windows.json"), encoding="utf-8"))}
     marks = {m["n"]: m for m in json.load(open(marks_path, encoding="utf-8"))}
-    riff = {(r["n"], r["part"]): r for r in json.load(open(os.path.join(pcm, "riff-beats.json"), encoding="utf-8"))}
+    riff = {(r["n"], r["part"]): r for r in json.load(open(estimate or os.path.join(pcm, "riff-beats.json"), encoding="utf-8"))}
     rows = []
     for n, song in enumerate(songs):
         w, m = windows[n], marks[n]
@@ -115,4 +115,4 @@ def yes(flag):
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:5])
+    main(*sys.argv[1:6])

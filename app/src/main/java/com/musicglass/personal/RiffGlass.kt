@@ -102,9 +102,9 @@ internal data class GlassSpec(val blur: Float, val rim: Float, val bend: Float, 
 internal fun glassSpec(role: GlassRole, style: GlassStyle): GlassSpec {
     val base = when (role) {
         GlassRole.Bar -> GlassSpec(2f, 20f, 36f, 1f, 1f, .45f, Color.White.copy(alpha = .06f), true)
-        // A clear magnifier with a lit rim and no bend: the lens is as tall as the bar, so any bend pulled in the empty
-        // space above and below it and curled and cut the icon and name under it (phone checks 29 Oct, bug 8).
-        GlassRole.Lens -> GlassSpec(0f, 14f, 0f, 0f, 0f, .45f, Color.Transparent, true)
+        // Clear, with a lit rim that bends and fringes what is under it, as in the owner's video (30 Oct). It reads the
+        // page and the tabs together, so the bend at its rim no longer pulls in empty space (bug 8 of 29 Oct).
+        GlassRole.Lens -> GlassSpec(0f, 14f, 12f, 0f, 1f, .6f, Color.Transparent, true)
         GlassRole.Button -> GlassSpec(2f, 14f, 28f, 1f, 1f, .45f, Color.White.copy(alpha = .06f), true)
         GlassRole.Card -> GlassSpec(8f, 12f, 20f, 0f, 0f, .30f, Color.White.copy(alpha = .08f), true)
         GlassRole.Menu -> GlassSpec(20f, 10f, 16f, 0f, 0f, .30f, Color.Black.copy(alpha = .25f), true)
