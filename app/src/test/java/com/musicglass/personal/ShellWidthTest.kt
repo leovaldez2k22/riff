@@ -3,7 +3,7 @@ package com.musicglass.personal
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** Feature 30: the rail and the pane by window size; Feature 6: the saved artwork motion. */
+/** Feature 30: the rail and the pane by window size. */
 class ShellWidthTest {
     @Test fun widthClassesFollowTheAdaptiveThresholds() {
         assertEquals(ShellWidth.Compact, shellWidth(411f, 891f))
@@ -15,11 +15,5 @@ class ShellWidthTest {
 
     @Test fun aPhoneOnItsSideKeepsTheBottomBar() {
         assertEquals(ShellWidth.Compact, shellWidth(891f, 411f))
-    }
-
-    @Test fun artworkMotionReadsWhatWasSavedAndDefaultsToOff() {
-        assertEquals(ArtworkMotion.Mesh, ArtworkMotion.of("mesh"))
-        assertEquals(ArtworkMotion.Off, ArtworkMotion.of(null))
-        assertEquals(ArtworkMotion.Off, ArtworkMotion.of("sparkle"))
     }
 }

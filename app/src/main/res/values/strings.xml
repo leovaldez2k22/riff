@@ -1191,11 +1191,4 @@
     <string name="car_artists">Artists</string>
     <string name="car_sign_in">Sign in on your phone to see your library</string>
     <string name="car_no_downloads">No downloaded songs yet</string>
-    <!-- Feature 6: artwork motion -->
-    <string name="artwork_motion">Artwork motion</string>
-    <string name="artwork_motion_detail">Moves the cover gently while the player is open. Stops under reduced motion and battery saver.</string>
-    <string name="artwork_motion_off">Off</string>
-    <string name="artwork_motion_drift">Drift</string>
-    <string name="artwork_motion_depth">Depth</string>
-    <string name="artwork_motion_mesh">Mesh</string>
 </resources>

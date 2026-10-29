@@ -21,7 +21,7 @@ internal fun playerBackground(color:Color=Color(0xFF283444)) = Brush.verticalGra
     0f to color.readableArtworkTone(), .48f to color.readableArtworkTone(), 1f to color.readableArtworkTone())
 
 @Composable
-internal fun PlayerArtwork(url: String?, modifier: Modifier = Modifier, blend: Float = 1f, motion: Modifier = Modifier) {
+internal fun PlayerArtwork(url: String?, modifier: Modifier = Modifier, blend: Float = 1f) {
     val fade = blend.coerceIn(0f, 1f)
     val context=LocalContext.current
     // A morph changes layout constraints every frame; keep its bitmap request dimensions stable.
@@ -36,7 +36,5 @@ internal fun PlayerArtwork(url: String?, modifier: Modifier = Modifier, blend: F
                     .76f to Color.White.copy(alpha = 1f - .60f * fade),
                     .92f to Color.White.copy(alpha = 1f - .96f * fade),
                     1f to Color.White.copy(alpha = 1f - fade)), blendMode = BlendMode.DstIn)
-            }
-            // Feature 6: the image moves under the fade, which stays where it is.
-            .then(motion))
+            })
 }

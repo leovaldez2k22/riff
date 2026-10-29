@@ -286,12 +286,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     val playerGlass = rememberRiffBackdrop()
     // Feature 34.2: the cover's own colours, blurred, under the whole panel; the video and live radio stay on black.
     Box(Modifier.fillMaxWidth().fillMaxHeight()) {
-    // Feature 6: the cover's motion, and the colours under it for Mesh.
-    val artworkStyle = activeArtworkMotion()
-    val artworkPhase = artworkPhase(artworkStyle)
-    val artworkTilt = deviceTilt(artworkStyle == ArtworkMotion.Depth)
-    if(!state.video && !state.live) PlayerBackdrop(state.artworkUrl, artworkColor.value, Modifier.matchParentSize(), glass = playerGlass,
-        meshPhase = if (artworkStyle == ArtworkMotion.Mesh) artworkPhase else null)
+    if(!state.video && !state.live) PlayerBackdrop(state.artworkUrl, artworkColor.value, Modifier.matchParentSize(), glass = playerGlass)
     Column(Modifier.fillMaxWidth().fillMaxHeight().preferredFrameRate(LocalUiRefreshRate.current)
         .drawBehind {if(state.video || state.live) drawRect(Color.Black)}
         .then(if(queueOpen) Modifier else Modifier.nestedScroll(swipeConnection))
@@ -350,8 +345,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     }, onDragCancel = { dragX = 0f })
                 }.doubleTapSeek(!state.live && renderer != 2 && itemId == state.mediaId, seekNudge, playback, state.durationMs)) {
                     if(renderer==2) InlineYouTubeVideo(playback,videoId,Modifier.fillMaxSize()) else if(renderer==1) NativeSongVideo(playback,Modifier.fillMaxSize()) else PlayerArtwork(itemArtwork ?: providerArtworkUrl(itemId.removePrefix("yt:")),
-                        Modifier.fillMaxSize().sharedBounds(rememberSharedContentState("queue-art"),queueVisibility),
-                        motion = Modifier.livingArtwork(artworkStyle, artworkPhase, artworkTilt))
+                        Modifier.fillMaxSize().sharedBounds(rememberSharedContentState("queue-art"),queueVisibility))
                     SeekNudgeOverlay(seekNudge)
                 }
             }

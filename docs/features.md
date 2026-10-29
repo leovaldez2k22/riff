@@ -19,7 +19,6 @@ This guide describes Riff 0.10.0 (version code 33), the final candidate of the e
 - **Cast:** the output pill under the player lists Chromecasts, Google speakers and TVs on the same Wi-Fi. Choosing one moves the song there at the same place; the notification, lock screen and the volume keys then control the speaker, and the phone keeps the queue. Stopping, or choosing the phone, brings the song back. Songs stored on the phone can't be cast and are skipped. Needs Google Play services.
 - **What's new:** after an update, a sheet shows the release's main features once, each with "Try it". A new install shows two tips instead (opening YouTube Music links in Riff, and Riff in Android Auto). Both are in Settings → About → What's new and tips.
 - **Large screens:** on tablets, unfolded foldables and wide windows the tabs move to a glass rail; on the widest the player stays open in a pane on the right, with lyrics and the queue inside it.
-- **Artwork motion** (Settings → Appearance): the cover drifts slowly, follows the phone's tilt, or the colours under it move. Off by default; still under reduced motion and battery saver.
 
 ## Accounts, privacy and data
 

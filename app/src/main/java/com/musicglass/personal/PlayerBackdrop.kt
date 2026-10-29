@@ -13,7 +13,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -52,8 +51,6 @@ private const val BACKDROP_BLUR_RADIUS = 6
 private const val BACKDROP_BLUR_PASSES = 3
 /** The blurred copy's opacity over the mesh. */
 private const val BACKDROP_BLUR_ALPHA = .6f
-/** Feature 6, Mesh: how much larger than the panel the moving colours are drawn. */
-private const val MESH_GROWTH = .3f
 /** How far down the panel below the seam the blurred copy takes to come in fully. */
 private const val BACKDROP_BLUR_FADE = .35f
 
@@ -158,9 +155,7 @@ internal fun rememberPlayerBackdrop(url: String?): PlayerBackdropImages? {
  * art faded into nothing.
  */
 @Composable
-internal fun PlayerBackdrop(url: String?, fallback: Color, modifier: Modifier = Modifier, glass: RiffBackdrop? = null,
-    /** Feature 6, Mesh: 0..1 around a slow circle; null keeps the colours still. Read while drawing, so it only redraws. */
-    meshPhase: androidx.compose.runtime.State<Float>? = null) {
+internal fun PlayerBackdrop(url: String?, fallback: Color, modifier: Modifier = Modifier, glass: RiffBackdrop? = null) {
     val images = rememberPlayerBackdrop(url)
     val motion = LocalMotionPolicy.current
     var shown by remember { mutableStateOf(images) }
@@ -177,31 +172,23 @@ internal fun PlayerBackdrop(url: String?, fallback: Color, modifier: Modifier = 
         val progress = arrival.value
         val incoming = shown
         val outgoing = leaving
-        val turn = meshPhase?.value
         val paint: DrawScope.() -> Unit = {
             drawRect(fallback.readableArtworkTone())
             // The new cover fades in over the old one; with no new cover the old one fades out.
-            outgoing?.let { drawPlayerBackdrop(it, if (incoming == null) 1f - progress else 1f, turn) }
-            incoming?.let { drawPlayerBackdrop(it, progress, turn) }
+            outgoing?.let { drawPlayerBackdrop(it, if (incoming == null) 1f - progress else 1f) }
+            incoming?.let { drawPlayerBackdrop(it, progress) }
         }
         paint()
         if (glass != null && glass.readers > 0) glass.layer.record(this, layoutDirection, size.toIntSize()) { paint() }
     }
 }
 
-private fun DrawScope.drawPlayerBackdrop(images: PlayerBackdropImages, alpha: Float, turn: Float? = null) {
+private fun DrawScope.drawPlayerBackdrop(images: PlayerBackdropImages, alpha: Float) {
     if (alpha <= 0f) return
     val seam = size.height * BACKDROP_SEAM
     val deck = IntSize(size.width.toInt(), (size.height - seam).toInt().coerceAtLeast(1))
     // The mesh fills the whole panel, so the art's faded lower edge melts into it.
-    if (turn == null) drawImage(images.mesh, dstSize = IntSize(size.width.toInt(), size.height.toInt()), alpha = alpha, filterQuality = FilterQuality.Low)
-    else {
-        // Mesh: the colours, drawn larger, travel round a slow circle, so they drift without an edge ever showing.
-        val angle = turn * 2f * kotlin.math.PI.toFloat()
-        val spare = Size(size.width * MESH_GROWTH, size.height * MESH_GROWTH)
-        drawImage(images.mesh, dstOffset = IntOffset((-spare.width / 2 * (1f + kotlin.math.cos(angle))).toInt(), (-spare.height / 2 * (1f + kotlin.math.sin(angle))).toInt()),
-            dstSize = IntSize((size.width + spare.width).toInt(), (size.height + spare.height).toInt()), alpha = alpha, filterQuality = FilterQuality.Low)
-    }
+    drawImage(images.mesh, dstSize = IntSize(size.width.toInt(), size.height.toInt()), alpha = alpha, filterQuality = FilterQuality.Low)
     // The blurred cover comes in gradually below the seam, so its top edge never draws a line across the page.
     drawContext.canvas.saveLayer(Rect(0f, seam, size.width, size.height), Paint())
     drawImage(images.blurred, dstOffset = IntOffset(0, seam.toInt()), dstSize = deck, alpha = BACKDROP_BLUR_ALPHA * alpha,
