@@ -342,7 +342,7 @@ class MusicPlaybackService : MediaLibraryService() {
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
                 if(customCommand.customAction==GET_NERD_STATS)
-                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS,nerdStatsBundle(player,nerdStats)))
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS,nerdStatsBundle(player,nerdStats,audio.lastBlend)))
                 if(customCommand.customAction==LOAD_MORE_QUEUE) {
                     queue.replenish(player,onDemand=true)
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))

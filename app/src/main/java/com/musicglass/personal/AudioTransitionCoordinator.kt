@@ -42,6 +42,12 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, TrackEnvelope?>?) = size > 24
     })
     private val crossfadePrefs = context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE)
+    /** Each song's analysis, kept on the phone so it is decoded once (engine report, stage A). */
+    private val analysisStore = AnalysisStore.get(context)
+    /** Songs whose artists Encore's genres call classical: they blend plainly. */
+    private val classical = java.util.Collections.synchronizedMap(object : LinkedHashMap<String, Boolean>(16, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?) = size > 64
+    })
     /**
      * Reads [item]'s [part] once. A streamed song's tail is read from the cache when all of it is there, so until then
      * its key is left unset and the silence watch asks again; [playerDurationMs] checks the cached file is that song.
@@ -50,12 +56,21 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         item ?: return
         val key = "${item.mediaId}:$part"
         // Feature 9's Path A reads the same tail, for where the sound ends.
-        val wanted = crossfadePrefs.getBoolean(SMART_CROSSFADE_KEY, false) || part == "tail" && boostPrefs.getBoolean(SKIP_END_SILENCE_KEY, false)
+        val smart = blendMode(crossfadePrefs) != BlendMode.Crossfade
+        val wanted = smart || part == "tail" && boostPrefs.getBoolean(SKIP_END_SILENCE_KEY, false)
         if (!wanted || envelopes.containsKey(key)) return
         envelopes[key] = null
         scope.launch(runtime.dispatchers.io) {
+            if (smart && item.mediaId !in classical) classical[item.mediaId] =
+                AppContainer.get(context).encoreGenres.cached(artistNames(item.mediaMetadata.artist?.toString())).values.any(::classicalGenres)
+            val known = playerDurationMs.takeIf { it > 0 }
+            // Read on an earlier play: a stream's tail stays known after the cache has let it go.
+            analysisStore.read(key)?.takeIf { known == null || kotlin.math.abs(it.durationMs - known) <= CACHED_LENGTH_SLACK_MS }?.let {
+                envelopes[key] = it
+                events.append("automix_analysis part=$part found=1 source=store"); return@launch
+            }
             val local = TrackAnalysis.localSource(context, item)
-            val cached = try { if (local == null && part == "tail") TrackAnalysis.cachedSource(context, item, playerDurationMs) else null }
+            val cached = try { if (local == null && known != null) (if (part == "tail") TrackAnalysis.cachedSource(context, item, known) else TrackAnalysis.cachedHead(context, item, known)) else null }
                 catch (e: kotlinx.coroutines.CancellationException) { throw e }
                 catch (e: Exception) {
                     // Left marked as read, so a stream whose cache cannot be copied is not tried every 2 s.
@@ -64,23 +79,23 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
             if (local == null && cached == null) {
                 // Not on the phone and not cached yet: a tail is asked for again. A song is often asked for before its
                 // stream is resolved, when it has no cache key yet, so the silence watch decides what is worth asking.
-                if (part == "tail") envelopes.remove(key)
+                envelopes.remove(key)
                 return@launch
             }
-            val known = playerDurationMs.takeIf { it > 0 }
             val began = runtime.clocks.monotonicMillis()
             // Why a cached tail was not used: it could not be decoded, or its end is not where the player's is.
             var refused = ""
             val envelope = when {
-                cached != null -> TrackAnalysis.envelope(context, cached, known)
+                cached != null -> TrackAnalysis.envelope(context, cached, known, head = part == "head")
                     .also { if (it == null) refused = " reason=decode" }
                     // A file whose end is not where the player's is would cut the song in the wrong place.
-                    ?.takeIf { (known != null && kotlin.math.abs(it.durationMs - known) <= CACHED_LENGTH_SLACK_MS && kotlin.math.abs(it.endMs - known) <= CACHED_LENGTH_SLACK_MS)
+                    ?.takeIf { (known != null && kotlin.math.abs(it.durationMs - known) <= CACHED_LENGTH_SLACK_MS && (part == "head" || kotlin.math.abs(it.endMs - known) <= CACHED_LENGTH_SLACK_MS))
                         .also { fits -> if (!fits) refused = " reason=length delta=${(it.endMs - (known ?: 0)) / 100 * 100}" } }
                 part == "tail" -> TrackAnalysis.envelope(context, local!!, -ANALYSIS_TAIL_MS, ANALYSIS_TAIL_MS)
                 else -> TrackAnalysis.envelope(context, local!!, 0, ANALYSIS_HEAD_MS)
             }
             envelopes[key] = envelope
+            envelope?.let { analysisStore.write(key, it) }
             val beats = envelope?.beats
             events.append("automix_analysis part=$part found=${if (envelope == null) 0 else 1} source=${if (cached != null) "cache" else "file"} ms=${runtime.clocks.monotonicMillis() - began}$refused" +
                 if (beats == null) "" else " bpm=${beats.bpm.toInt()} beat=${"%.2f".format(java.util.Locale.ROOT, beats.confidence)} downbeat=${"%.2f".format(java.util.Locale.ROOT, beats.downbeatConfidence)}")
@@ -94,9 +109,15 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
     private fun smartBlend(outgoing: MediaItem, incoming: MediaItem): SmartBlend? {
         val a = outgoing.mediaMetadata; val b = incoming.mediaMetadata
         if (albumInOrder(a.albumTitle?.toString(), a.trackNumber, b.albumTitle?.toString(), b.trackNumber)) return null
+        if (classical[outgoing.mediaId] == true || classical[incoming.mediaId] == true) return null
         val fadeMs = crossfadeSeconds(crossfadePrefs.getInt("seconds", 6)) * 1_000L
-        return SmartBlend(planSmartTransition(envelopes["${outgoing.mediaId}:tail"], envelopes["${incoming.mediaId}:head"], fadeMs))
+        val plan = planSmartTransition(envelopes["${outgoing.mediaId}:tail"], envelopes["${incoming.mediaId}:head"], fadeMs,
+            onBeat = blendMode(crossfadePrefs) == BlendMode.Automix)
+        lastBlend = plan?.let { AutomixNote(blendMode(crossfadePrefs), it.blendMs, it.onBeat) }
+        return SmartBlend(plan)
     }
+    /** The last blend planned, for the stats panel. */
+    @Volatile var lastBlend: AutomixNote? = null; private set
     private var tailEqualizer: EqualizerProcessor? = null
     private val equalizerPrefs = EqualizerSettings.prefs(context)
     private val equalizerListener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, _ -> updateEqualizer(prefs) }
@@ -152,7 +173,11 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
                 main.skipSilenceEnabled = boostPrefs.getBoolean(SKIP_ALL_SILENCE_KEY, false)
                 val item = main.currentMediaItem ?: continue
                 // A stream's tail, once the player has cached it to the end (about 50 s ahead of what is heard).
-                if (++ticks % CACHED_TAIL_EVERY == 0 && item.localConfiguration?.customCacheKey != null) analyse(item, "tail", main.duration)
+                if (++ticks % CACHED_TAIL_EVERY == 0 && item.localConfiguration?.customCacheKey != null) {
+                    analyse(item, "tail", main.duration)
+                    // Its start too, once it has played to the end, kept for the next time it comes up next.
+                    if (main.duration > 0 && main.duration - main.currentPosition < ANALYSIS_TAIL_MS) analyse(item, "head", main.duration)
+                }
                 noteMissingTail(main, item)
                 val quiet = silenceWatch.meter.quietMs
                 if (SongCrossfadeState.active != null) continue

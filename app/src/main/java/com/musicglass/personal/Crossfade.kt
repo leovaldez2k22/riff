@@ -1,6 +1,7 @@
 package com.musicglass.personal
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,8 +51,20 @@ internal class CrossfadeTailContinuity {
 
 internal const val CROSSFADE_PREFS = "crossfade"
 internal fun crossfadeSeconds(value: Int) = value.coerceIn(1, 12)
-/** Automix stage 1: Settings → Sound → Smart crossfade. Off by default. */
+/** Automix stage 1 before the choice below: the "Smart crossfade" switch. Still read, for settings saved then. */
 internal const val SMART_CROSSFADE_KEY = "smart"
+
+/**
+ * How songs blend once Crossfade is on (plan, Feature 20: Settings → Sound → Crossfade / Smart / Automix (beta)).
+ * Smart is stage 1, from each song's own end and start; Automix adds stage 2, the blend lined up on the beat.
+ */
+internal enum class BlendMode(val wire: String) { Crossfade("crossfade"), Smart("smart"), Automix("automix") }
+internal const val BLEND_MODE_KEY = "mode"
+
+/** The stored choice; before it existed the "Smart crossfade" switch was the choice between the first two. */
+internal fun blendMode(wire: String?, smart: Boolean): BlendMode =
+    BlendMode.entries.firstOrNull { it.wire == wire } ?: if (smart) BlendMode.Smart else BlendMode.Crossfade
+internal fun blendMode(prefs: SharedPreferences): BlendMode = blendMode(prefs.getString(BLEND_MODE_KEY, null), prefs.getBoolean(SMART_CROSSFADE_KEY, false))
 
 internal fun crossfadeSkipsItem(item:MediaItem):Boolean {
     val extras=item.mediaMetadata.extras
@@ -72,10 +85,10 @@ internal class CrossfadeSettings(context: Context) {
     var seconds by mutableIntStateOf(crossfadeSeconds(prefs.getInt("seconds", 6))); private set
     fun updateEnabled(value: Boolean) { enabled = value; prefs.edit { putBoolean("enabled", value) } }
     fun updateSeconds(value: Int) { seconds = crossfadeSeconds(value); prefs.edit { putInt("seconds", seconds) } }
-    var smart by mutableStateOf(prefs.getBoolean(SMART_CROSSFADE_KEY, false)); private set
-    fun updateSmart(value: Boolean) { smart = value; prefs.edit { putBoolean(SMART_CROSSFADE_KEY, value) } }
+    var mode by mutableStateOf(blendMode(prefs)); private set
+    fun updateMode(value: BlendMode) { mode = value; prefs.edit { putString(BLEND_MODE_KEY, value.wire) } }
     /** Reads the stored values again, after an import wrote them. */
-    fun reload() { enabled = prefs.getBoolean("enabled", false); seconds = crossfadeSeconds(prefs.getInt("seconds", 6)); smart = prefs.getBoolean(SMART_CROSSFADE_KEY, false) }
+    fun reload() { enabled = prefs.getBoolean("enabled", false); seconds = crossfadeSeconds(prefs.getInt("seconds", 6)); mode = blendMode(prefs) }
 }
 
 /** Equal-power curves keep the blend about as loud as either song: (outgoing, incoming). */
@@ -245,7 +258,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                 val nextIndex=main.nextMediaItemIndex
                 val skipNext=nextIndex<0 || crossfadeSkipsItem(main.getMediaItemAt(nextIndex))
                 // Automix stage 1: the analysed end and outro move the blend; without them it is the plain one, with the bass swap.
-                val blend=if(nextIndex>=0 && !skipNext && prefs.getBoolean(SMART_CROSSFADE_KEY,false)) smart(item,main.getMediaItemAt(nextIndex)) else null
+                val blend=if(nextIndex>=0 && !skipNext && blendMode(prefs)!=BlendMode.Crossfade) smart(item,main.getMediaItemAt(nextIndex)) else null
                 val plan=blend?.plan?.takeIf {main.duration>0 && it.endMs<=main.duration}
                 val fadeMs = plan?.blendMs ?: (crossfadeSeconds(prefs.getInt("seconds", 6)) * 1_000L)
                 val endMs = plan?.endMs ?: audibleEnd(item)?.takeIf {main.duration>0 && it<=main.duration} ?: main.duration

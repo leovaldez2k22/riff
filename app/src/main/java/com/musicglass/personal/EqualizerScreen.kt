@@ -75,9 +75,9 @@ import kotlin.math.roundToInt
                     EqReadout("≋", config.toneX, string(R.string.eq_tilt)); EqReadout("↗", config.toneY, string(R.string.eq_contour))
                 }
                 SettingsDivider()
-                EqChoiceRow(string(R.string.eq_broad), string(R.string.eq_broad_body), !config.focused, "equalizer_broad") { change(config.copy(focused = false)) }
+                SettingsChoiceRow(string(R.string.eq_broad), string(R.string.eq_broad_body), !config.focused, "equalizer_broad") { change(config.copy(focused = false)) }
                 SettingsDivider()
-                EqChoiceRow(string(R.string.eq_focused), string(R.string.eq_focused_body), config.focused, "equalizer_focused") { change(config.copy(focused = true)) }
+                SettingsChoiceRow(string(R.string.eq_focused), string(R.string.eq_focused_body), config.focused, "equalizer_focused") { change(config.copy(focused = true)) }
             } else EqCard(string(R.string.eq_bands)) {
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = RiffSpace.item), horizontalArrangement = Arrangement.spacedBy(RiffSpace.item)) {
                     (EQ_PRESETS.keys + if (config.preset == "Custom") listOf("Custom") else emptyList()).forEach { name ->
@@ -201,7 +201,8 @@ import kotlin.math.roundToInt
         modifier = Modifier.semantics { contentDescription = "$label ${eqStepLabel(value)}" })
 }
 
-@Composable private fun EqChoiceRow(title: String, body: String, chosen: Boolean, tag: String, onClick: () -> Unit) {
+/** One of a few choices, with a tick on the chosen one. Settings shares it. */
+@Composable internal fun SettingsChoiceRow(title: String, body: String, chosen: Boolean, tag: String, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = RiffSpace.touch).testTag(tag).clickable(role = Role.RadioButton, onClick = hapticClick(onClick))
         .padding(vertical = RiffSpace.item), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RiffSpace.rowGap)) {
         Column(Modifier.weight(1f)) {

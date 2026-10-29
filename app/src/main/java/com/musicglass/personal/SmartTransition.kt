@@ -98,7 +98,9 @@ internal data class SmartPlan(val startMs: Long, val endMs: Long, val incomingSt
  * Starts at the outro, or [fadeMs] before the audible end, whichever is later, and lasts 4 to 12 s. The incoming song
  * enters at its first sound, past a quiet intro of up to 8 s when it is music. Null when the end could not be read.
  */
-internal fun planSmartTransition(outgoing: TrackEnvelope?, incoming: TrackEnvelope?, fadeMs: Long, incomingIsMusic: Boolean = true): SmartPlan? {
+internal fun planSmartTransition(outgoing: TrackEnvelope?, incoming: TrackEnvelope?, fadeMs: Long, incomingIsMusic: Boolean = true,
+    /** Automix (beta): stage 2 may move the blend onto the beat. Smart keeps stage 1's timing. */
+    onBeat: Boolean = true): SmartPlan? {
     outgoing ?: return null
     val end = outgoing.audibleEndMs() ?: return null
     val outro = outgoing.outroStartMs()
@@ -109,6 +111,7 @@ internal fun planSmartTransition(outgoing: TrackEnvelope?, incoming: TrackEnvelo
     // A quiet intro is skipped to a moment before the song has built up; a long one is played as it is.
     val entry = if (built != null && built - firstSound in 1..SMART_MAX_INTRO_SKIP_MS) maxOf(firstSound, built - 1_000) else firstSound
     val plan = SmartPlan((end - blend).coerceAtLeast(0), end, entry.coerceAtLeast(0))
+    if (!onBeat) return plan
     return alignToBeats(plan, outgoing.beats, incoming?.takeIf { it.startMs < ENVELOPE_BLOCK_MS }?.beats) ?: plan
 }
 
@@ -150,6 +153,17 @@ internal fun bassSwapCuts(progress: Float, blendMs: Long): Pair<Float, Float> {
 
 /** A smart blend: [plan] when the outgoing song's end could be read, else only the bass swap on the plain timing. */
 internal class SmartBlend(val plan: SmartPlan?)
+
+/** The last smart blend planned, for the stats panel. */
+internal data class AutomixNote(val mode: BlendMode, val blendMs: Long, val onBeat: Boolean)
+
+/** Classical music blends plainly (plan, Feature 20): its quiet ends and long builds are the music, not padding. */
+internal fun classicalGenres(genres: List<String>): Boolean =
+    genres.any { it.contains("classical", ignoreCase = true) || it.equals("opera", ignoreCase = true) }
+
+/** The artist names in a song's artist line ("A, B & C"), as Encore keeps genres for each. */
+internal fun artistNames(line: String?): List<String> =
+    line.orEmpty().split(", ", " & ", " x ", " feat. ", " ft. ").map(String::trim).filter(String::isNotEmpty)
 
 /** Apple leaves an album played in order alone: consecutive tracks of the same album blend plainly. */
 internal fun albumInOrder(outgoingAlbum: String?, outgoingTrack: Int?, incomingAlbum: String?, incomingTrack: Int?): Boolean =

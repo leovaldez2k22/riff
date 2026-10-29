@@ -25,6 +25,9 @@ internal const val CACHED_HEAD_BYTES = 256L * 1024
 /** How many of a cached stream's last bytes hold its tail: the tail's share of the length, with a quarter more for a variable bitrate. */
 internal fun cachedTailBytes(length: Long, durationMs: Long): Long =
     (length.toDouble() * minOf(1.0, (ANALYSIS_TAIL_MS * 1.25 + 2_000) / durationMs)).toLong().coerceIn(1, length)
+/** How many of a cached stream's first bytes hold its head: as for the tail, at least the container's header. */
+internal fun cachedHeadBytes(length: Long, durationMs: Long): Long =
+    maxOf(CACHED_HEAD_BYTES, (length.toDouble() * minOf(1.0, (ANALYSIS_HEAD_MS * 1.25 + 2_000) / durationMs)).toLong()).coerceIn(1, length)
 /** Kept back from the start of a cached run, for a variable bitrate and the extractor landing on the cluster before. */
 internal const val CACHED_RUN_MARGIN_MS = 3_000L
 /** The shortest cached tail worth reading: less, and the end is left to Path B. */
@@ -69,6 +72,23 @@ internal object TrackAnalysis {
         return CachedTail(CachedBytes.copy(cache, key, state.length, minOf(state.length, CACHED_HEAD_BYTES), state.length - tailFrom), state.tailMs)
     }
 
+    /**
+     * A streamed [item]'s start in Riff's audio cache, for its head: when the cache knows its length (so it has played
+     * to the end) and holds an unbroken run from the start long enough for [ANALYSIS_HEAD_MS]. The analysis is kept
+     * (`AnalysisStore`), so the next time the song comes up next its start is known. Null otherwise; nothing is fetched.
+     */
+    fun cachedHead(context: Context, item: MediaItem, durationMs: Long): CachedTail? {
+        val key = item.localConfiguration?.customCacheKey ?: return null
+        val cache = MusicDiskCache.get(context)
+        val state = cachedState(cache, key, durationMs)
+        if (!(state.known && state.tail)) return null
+        val headBytes = cachedHeadBytes(state.length, durationMs)
+        if (!cache.isCached(key, 0, headBytes)) return null
+        val tailFrom = maxOf(state.runFrom, state.length - cachedTailBytes(state.length, durationMs), headBytes)
+        // The tail too, where a container keeps its index at the end.
+        return CachedTail(CachedBytes.copy(cache, key, state.length, headBytes, state.length - tailFrom), ANALYSIS_HEAD_MS)
+    }
+
     /** What the cache holds of a stream: whether it knows the length, and has the start and the tail. For the event log. */
     fun cachedState(context: Context, item: MediaItem, durationMs: Long): CachedState? =
         item.localConfiguration?.customCacheKey?.let { cachedState(MusicDiskCache.get(context), it, durationMs) }
@@ -94,8 +114,8 @@ internal object TrackAnalysis {
      * platform's reads a WebM file's clusters from the start, into the part that was never cached. [knownDurationMs]
      * stands in for a container that does not say its length.
      */
-    fun envelope(context: Context, cached: CachedTail, knownDurationMs: Long?): TrackEnvelope? = cached.source.use { bytes ->
-        envelope({ Media3Demuxer(MediaExtractorCompat(context).also { it.setDataSource(bytes) }) }, -cached.tailMs, cached.tailMs, knownDurationMs)
+    fun envelope(context: Context, cached: CachedTail, knownDurationMs: Long?, head: Boolean = false): TrackEnvelope? = cached.source.use { bytes ->
+        envelope({ Media3Demuxer(MediaExtractorCompat(context).also { it.setDataSource(bytes) }) }, if (head) 0 else -cached.tailMs, cached.tailMs, knownDurationMs)
     }
 
     private fun envelope(open: () -> Demuxer, fromMs: Long, lengthMs: Long, knownDurationMs: Long?): TrackEnvelope? {

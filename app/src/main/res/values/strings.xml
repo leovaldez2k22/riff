@@ -1066,8 +1066,15 @@
     <string name="skip_end_silence_detail">Moves on once a song has gone quiet for good near its end</string>
     <string name="skip_all_silence">Skip all silence</string>
     <string name="skip_all_silence_detail">Trims every gap longer than a moment, also inside songs</string>
-    <string name="smart_crossfade">Smart crossfade</string>
-    <string name="smart_crossfade_detail">Starts each blend where the song winds down and swaps the bass halfway. Reads the end of downloaded songs on this phone.</string>
+    <string name="smart_crossfade">Smart</string>
+    <string name="smart_crossfade_detail">Starts each blend where the song winds down and swaps the bass halfway. Reads songs downloaded or on this phone, and streams it has already played to the end.</string>
+    <string name="blend_plain">Crossfade</string>
+    <string name="blend_plain_detail">The same length of blend at the end of every song.</string>
+    <string name="nerd_blend_smart">Last smart blend</string>
+    <string name="nerd_blend_automix">Last Automix blend</string>
+    <string name="nerd_blend_on_beat">Last Automix blend, on the beat</string>
+    <string name="blend_automix">Automix (beta)</string>
+    <string name="blend_automix_detail">Smart, and lines the blend up on the beat where both songs have a steady one.</string>
     <string name="encore">Encore</string>
     <string name="encore_subtitle">What you came back to</string>
     <string name="encore_day">Day</string>

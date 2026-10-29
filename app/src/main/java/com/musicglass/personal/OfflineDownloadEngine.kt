@@ -204,6 +204,8 @@ internal object OfflineDownloadEngine {
                         if(audio==null) throw Superseded()
                         raw.delete()
                         advance("bytes" to audio.length(),"total" to audio.length(),"downloaded_at" to dependencies.clocks.wallTimeMillis())
+                        // Automix: the song's end and start, read once now rather than as it plays.
+                        try {analyseDownload(context,"yt:$id",audio)} catch(e:CancellationException) {throw e} catch(e:Exception) {}
                         break
                     } catch(e:CancellationException) {throw e} catch(e:Control) {throw e} catch(e:Stop) {throw e} catch(e:Exception) {
                         raw.delete();assembled.delete();if(dependencies.resolver==null) provider().invalidateStream(id)

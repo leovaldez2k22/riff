@@ -54,7 +54,7 @@ internal fun nerdDelivery(scheme: String?, mimeType: String?): String = when {
 }
 
 @UnstableApi
-internal fun nerdStatsBundle(player: ExoPlayer, collector: NerdStatsCollector): Bundle = Bundle().apply {
+internal fun nerdStatsBundle(player: ExoPlayer, collector: NerdStatsCollector, blend: AutomixNote? = null): Bundle = Bundle().apply {
     val item = player.currentMediaItem
     val extras = item?.mediaMetadata?.extras
     val format = player.audioFormat
@@ -74,6 +74,8 @@ internal fun nerdStatsBundle(player: ExoPlayer, collector: NerdStatsCollector): 
     putFloat("speed", player.playbackParameters.speed)
     putFloat("volume", player.volume)
     putInt("audioSession", player.audioSessionId.takeIf { it != C.AUDIO_SESSION_ID_UNSET } ?: 0)
+    // Automix: the last smart blend planned, the "Automix · …" line of the plan (Feature 34.3).
+    blend?.let { putString("blendMode", it.mode.wire); putLong("blendMs", it.blendMs); putBoolean("blendOnBeat", it.onBeat) }
 }
 
 internal data class NerdRow(@StringRes val label: Int, val value: String)
@@ -97,6 +99,11 @@ internal fun nerdStatsRows(stats: Bundle): List<NerdRow> = buildList {
     add(NerdRow(R.string.playback_speed, playbackSpeedLabel(stats.getFloat("speed", 1f))))
     add(NerdRow(R.string.nerd_volume, "${(stats.getFloat("volume", 1f) * 100).toInt()} %"))
     stats.getInt("audioSession").takeIf { it > 0 }?.let { add(NerdRow(R.string.nerd_audio_session, it.toString())) }
+    stats.getString("blendMode")?.let { mode ->
+        val label = when { stats.getBoolean("blendOnBeat") -> R.string.nerd_blend_on_beat; mode == BlendMode.Automix.wire -> R.string.nerd_blend_automix
+            else -> R.string.nerd_blend_smart }
+        add(NerdRow(label, "%.1f s".format(java.util.Locale.ROOT, stats.getLong("blendMs") / 1000.0)))
+    }
 }
 
 /** Plain text for the Copy button, one "label: value" a line. */

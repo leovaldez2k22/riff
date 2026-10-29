@@ -47,6 +47,15 @@ class NerdStatsTest {
         assertTrue(R.string.nerd_buffer in labels)
     }
 
+    @Test fun theLastSmartBlendIsShownByItsKind() {
+        fun row(mode: BlendMode, onBeat: Boolean) = nerdStatsRows(Bundle().apply {
+            putString("blendMode", mode.wire); putLong("blendMs", 7_640); putBoolean("blendOnBeat", onBeat) }).last()
+        assertEquals(NerdRow(R.string.nerd_blend_smart, "7.6 s"), row(BlendMode.Smart, false))
+        assertEquals(NerdRow(R.string.nerd_blend_automix, "7.6 s"), row(BlendMode.Automix, false))
+        assertEquals(R.string.nerd_blend_on_beat, row(BlendMode.Automix, true).label)
+        assertFalse("none planned yet", nerdStatsRows(Bundle()).any { it.label == R.string.nerd_blend_smart })
+    }
+
     @Test fun copiedTextIsOneLineARow() {
         val text = nerdStatsText(listOf(NerdRow(R.string.nerd_itag, "251"), NerdRow(R.string.nerd_dropouts, "0"))) { if (it == R.string.nerd_itag) "Format" else "Dropouts" }
         assertEquals("Format: 251\nDropouts: 0", text)

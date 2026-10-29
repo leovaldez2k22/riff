@@ -135,9 +135,13 @@ import kotlinx.coroutines.withContext
                         modifier=Modifier.fillMaxWidth().testTag("settings_crossfade_length"))
                 }
                 SettingsDivider()
-                // Automix stage 1: blends placed by each song's own end and start, with the bass swapped halfway.
-                SettingsToggleRow(string(R.string.smart_crossfade),crossfade.smart,hapticToggle(crossfade::updateSmart),
-                    Icons.Rounded.AutoAwesome,"settings_smart_crossfade",string(R.string.smart_crossfade_detail))
+                // Automix: how the blend is placed. Smart reads each song's own end and start and swaps the bass halfway;
+                // Automix (beta) also lines the blend up on the beat.
+                listOf(Triple(BlendMode.Crossfade,R.string.blend_plain,R.string.blend_plain_detail),
+                    Triple(BlendMode.Smart,R.string.smart_crossfade,R.string.smart_crossfade_detail),
+                    Triple(BlendMode.Automix,R.string.blend_automix,R.string.blend_automix_detail)).forEach {(mode,title,detail)->
+                    SettingsChoiceRow(string(title),string(detail),crossfade.mode==mode,"settings_blend_${mode.wire}") {crossfade.updateMode(mode)}
+                }
             }
         }}
         item {SettingsCompartment("look",string(R.string.settings_look_and_feel),Icons.Rounded.BlurOn,
