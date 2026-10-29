@@ -107,11 +107,11 @@ internal fun Modifier.frostedBackdropSource(backdrop:FrostedBackdrop):Modifier =
 @Composable internal fun GlassNotice(data:SnackbarData) {
     val shape=RoundedCornerShape(RiffRadius.card)
     Row(Modifier.padding(horizontal=RiffSpace.block).fillMaxWidth().riffGlass(GlassRole.Menu,RiffRadius.card)
-        .clip(shape).background(Color(0xFF171C27).copy(alpha=.35f)).heightIn(min=52.dp).padding(start=18.dp,end=6.dp),
+        .clip(shape).background(Color(0xFF171C27).copy(alpha=.35f)).heightIn(min=RiffSpace.touch).padding(start=RiffSpace.block,end=RiffSpace.tight),
         verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
-        Text(data.visuals.message,color=White,style=RiffText.body,modifier=Modifier.weight(1f).padding(vertical=14.dp))
+        Text(data.visuals.message,color=White,style=RiffText.body,modifier=Modifier.weight(1f).padding(vertical=RiffSpace.rowGap))
         data.visuals.actionLabel?.let {label->
             TextButton({data.performAction()}) {Text(label,color=Pink,style=RiffText.body)}
-        } ?: Spacer(Modifier.width(12.dp))
+        } ?: Spacer(Modifier.width(RiffSpace.rowGap))
     }
 }

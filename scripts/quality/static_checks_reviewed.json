@@ -49,7 +49,6 @@
     {"file": "CardPeek.kt", "contains": "spring(dampingRatio = .55f, stiffness = 700f)", "reason": "Card peek follows a long-press. Follows a finger (gesture): it must answer at once, so it keeps its own timing."},
     {"file": "CardPeek.kt", "contains": "spring(dampingRatio = .7f, stiffness = 500f)", "reason": "Card peek's release. Follows a finger (gesture): it must answer at once, so it keeps its own timing."},
     {"file": "LyricsShare.kt", "contains": "tween(holdMs - 90, delayMillis = 90", "reason": "The share hold fills over the 650 ms a finger must hold. Follows a finger (gesture): it must answer at once, so it keeps its own timing."},
-    {"file": "ShelfSkeleton.kt", "contains": "infiniteRepeatable(tween(900", "reason": "Loading shimmer: a continuous loop, not a transition."},
-    {"file": "ShellChrome.kt", "contains": "val center=animateFloatAsState(targetCenter", "reason": "The navigation lens follows the finger and springs on release. Follows a finger (gesture): it must answer at once, so it keeps its own timing."}
+    {"file": "ShelfSkeleton.kt", "contains": "infiniteRepeatable(tween(900", "reason": "Loading shimmer: a continuous loop, not a transition."}
   ]
 }

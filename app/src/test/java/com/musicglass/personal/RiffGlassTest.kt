@@ -12,7 +12,8 @@ class RiffGlassTest {
         val bar = glassSpec(GlassRole.Bar, GlassStyle())
         assertEquals(2f, bar.blur); assertEquals(20f, bar.rim); assertEquals(36f, bar.bend); assertEquals(1f, bar.dispersion)
         val lens = glassSpec(GlassRole.Lens, GlassStyle())
-        assertEquals(0f, lens.blur); assertEquals(56f, lens.bend); assertEquals(Color.Transparent, lens.tint)
+        // Phone checks 29 Oct (bug 8): the tab bar's lens magnifies without bending, so its labels no longer curl.
+        assertEquals(0f, lens.blur); assertEquals(0f, lens.bend); assertEquals(Color.Transparent, lens.tint)
         val menu = glassSpec(GlassRole.Menu, GlassStyle())
         assertEquals(20f, menu.blur); assertEquals(0f, menu.depth); assertEquals(.25f, menu.tint.alpha, .01f)
     }

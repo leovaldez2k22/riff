@@ -130,7 +130,10 @@ class LyricsShareTest {
         assertEquals(0, holds)
     }
 
-    /** Q18-037: the sung line grows a little from its middle; a line's look, chosen or not, must never cut that off. */
+    /**
+     * Q18-037: a line's look, chosen or not, must never cut the sung line's first letter. Since the phone checks of 29 Oct
+     * (bug 15) the line grows from its start, so the letter stays inside the line's edge rather than past it.
+     */
     @Test fun theSungLinesFirstLetterIsNeverCutChosenOrNot() {
         val chosen = mutableStateOf(false)
         compose.mainClock.autoAdvance = false
@@ -147,8 +150,11 @@ class LyricsShareTest {
             val left = compose.onNodeWithTag("line").fetchSemanticsNode().boundsInRoot.left.toInt()
             val view = compose.activity.findViewById<View>(android.R.id.content)
             val image = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) }
-            val outside = count(image, 0, left, 0, image.height) { r, g, b -> minOf(r, g, b) > 150 }
-            assertTrue("chosen=$isChosen: the C reaches left of the line's edge ($outside px)", outside > 0)
+            val white = { r: Int, g: Int, b: Int -> minOf(r, g, b) > 150 }
+            val outside = count(image, 0, left, 0, image.height, white)
+            assertEquals("chosen=$isChosen: nothing of the line crosses its start edge", 0, outside)
+            val first = count(image, left, left + 12, 0, image.height, white)
+            assertTrue("chosen=$isChosen: the C is drawn at the line's start ($first px)", first > 0)
         }
     }
 
