@@ -31,6 +31,14 @@ internal fun cleanSlate() {
     val device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
     check("Success" in device.executeShellCommand("pm clear $TARGET")) { "Could not clear $TARGET" }
     openTarget(device)
+    // Feature 29: a new install's first start opens the tips over Home, in a window of its own; it is closed as a
+    // person would, once, and later starts don't show it.
+    val until = System.currentTimeMillis() + 30_000
+    while (System.currentTimeMillis() < until) {
+        device.findObject(By.res("whats_new_close"))?.let { it.click(); break }
+        if (device.hasObject(By.text("Speed dial"))) break
+        Thread.sleep(250)
+    }
     check(device.wait(Until.hasObject(By.text("Speed dial")), 30_000)) { "The first start did not reach Home" }
     device.executeShellCommand("am force-stop $TARGET")
 }
