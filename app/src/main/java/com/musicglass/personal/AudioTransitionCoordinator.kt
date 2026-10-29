@@ -30,8 +30,8 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
     /** Feature 9: watches for the silence at the end of a song; the main player only. */
     private val silenceWatch = SilenceWatchProcessor()
     private var silenceMonitor: kotlinx.coroutines.Job? = null
-    /** The song the user sought near the end of: its silence is left alone. */
-    private var soughtKey: String? = null
+    /** Where the last seek landed, in which song: silence the user sought into is left alone. */
+    private var sought: Pair<String, Long>? = null
     /** Automix stage 1: analysed ends ("id:tail") and starts ("id:head") of songs on the phone; null when unreadable. */
     private val envelopes = java.util.Collections.synchronizedMap(object : LinkedHashMap<String, TrackEnvelope?>(16, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, TrackEnvelope?>?) = size > 24
@@ -40,7 +40,9 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
     private fun analyse(item: MediaItem?, part: String) {
         item ?: return
         val key = "${item.mediaId}:$part"
-        if (!crossfadePrefs.getBoolean(SMART_CROSSFADE_KEY, false) || envelopes.containsKey(key)) return
+        // Feature 9's Path A reads the same tail, for where the sound ends.
+        val wanted = crossfadePrefs.getBoolean(SMART_CROSSFADE_KEY, false) || part == "tail" && boostPrefs.getBoolean(SKIP_END_SILENCE_KEY, false)
+        if (!wanted || envelopes.containsKey(key)) return
         envelopes[key] = null
         scope.launch(runtime.dispatchers.io) {
             val source = TrackAnalysis.localSource(context, item) ?: return@launch
@@ -82,6 +84,9 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Unit>?) = size > 2048
     })
 
+    /** Path A: where [item]'s sound ends, when its tail has been read and the switch is on. */
+    private fun audibleEnd(item: MediaItem): Long? = if (!boostPrefs.getBoolean(SKIP_END_SILENCE_KEY, false)) null
+        else envelopes["${item.mediaId}:tail"]?.audibleEndMs()
     private fun silenceKey(main: Player) = "${main.currentMediaItemIndex}:${main.currentMediaItem?.mediaId}"
     private fun watchSilence(main: ExoPlayer) {
         analyseAround(main)
@@ -89,9 +94,7 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = analyseAround(main)
             override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) = analyseAround(main)
             override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
-                val duration = main.duration
-                if (reason == Player.DISCONTINUITY_REASON_SEEK && duration > 0 && duration - newPosition.positionMs <= minOf(duration / 4, SILENCE_WINDOW_MS))
-                    soughtKey = silenceKey(main)
+                if (reason == Player.DISCONTINUITY_REASON_SEEK) sought = silenceKey(main) to newPosition.positionMs
             }
         })
         silenceMonitor?.cancel()
@@ -102,9 +105,11 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
                 val item = main.currentMediaItem ?: continue
                 val quiet = silenceWatch.meter.quietMs
                 if (SongCrossfadeState.active != null) continue
+                val end = audibleEnd(item)
                 if (shouldSkipSilence(boostPrefs.getBoolean(SKIP_END_SILENCE_KEY, false), quiet, main.currentPosition, main.duration, main.isPlaying,
-                        main.hasNextMediaItem(), main.repeatMode == Player.REPEAT_MODE_ONE, crossfadeSkipsItem(item), soughtKey == silenceKey(main))) {
-                    events.append("silence_skip at=${main.currentPosition} quiet_ms=$quiet path=b")
+                        main.hasNextMediaItem(), main.repeatMode == Player.REPEAT_MODE_ONE, crossfadeSkipsItem(item),
+                        sought?.takeIf { it.first == silenceKey(main) }?.second, end)) {
+                    events.append("silence_skip at=${main.currentPosition} quiet_ms=$quiet path=${if (end == null) "b" else "a"}")
                     main.seekToNextMediaItem()
                 }
             }
@@ -188,7 +193,7 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
             tail to { if (tailEqualizer === tailEq) tailEqualizer = null; if (tailAudioEffects === effects) tailAudioEffects = null; if (tailNormalization?.first === tail) tailNormalization = null; effects.release() }
         }, sleepActive = sleepActive, tailItem = tailItem,
             onBlend = { SongCrossfadeState.active = it }, clock = runtime.clocks::monotonicMillis, wait = runtime.wait,
-            smart = ::smartBlend, bassSwap = { outgoing, incoming -> tailEqualizer?.equalizer?.bassCutDb = outgoing; equalizer.equalizer.bassCutDb = incoming }) { events.append(it) }
+            smart = ::smartBlend, audibleEnd = ::audibleEnd, bassSwap = { outgoing, incoming -> tailEqualizer?.equalizer?.bassCutDb = outgoing; equalizer.equalizer.bassCutDb = incoming }) { events.append(it) }
     }
     /** Called while the main player is being built, once it has an audio session. */
     fun attach(main: ExoPlayer) { audioEffects.attach(main.audioSessionId); crossfader?.start(main); watchSilence(main) }

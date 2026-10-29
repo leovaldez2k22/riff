@@ -178,6 +178,8 @@ internal class Crossfader(private val context: Context, private val scope: Corou
     private val wait:suspend (Long)->Unit={delay(it)},
     /** Automix stage 1: the smart blend from the outgoing song to the next, or null for the plain crossfade. */
     private val smart:(MediaItem,MediaItem)->SmartBlend?={_,_->null},
+    /** Feature 9, Path A: where the outgoing song's sound ends, so the plain blend finishes there and not in its silence. */
+    private val audibleEnd:(MediaItem)->Long?={null},
     /** Sets how far the outgoing (tail) and incoming (main) players' bass is cut. */
     private val bassSwap:(Float,Float)->Unit={_,_->},private val log: (String) -> Unit) {
     private val prefs = context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE)
@@ -246,7 +248,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                 val blend=if(nextIndex>=0 && !skipNext && prefs.getBoolean(SMART_CROSSFADE_KEY,false)) smart(item,main.getMediaItemAt(nextIndex)) else null
                 val plan=blend?.plan?.takeIf {main.duration>0 && it.endMs<=main.duration}
                 val fadeMs = plan?.blendMs ?: (crossfadeSeconds(prefs.getInt("seconds", 6)) * 1_000L)
-                val endMs = plan?.endMs ?: main.duration
+                val endMs = plan?.endMs ?: audibleEnd(item)?.takeIf {main.duration>0 && it<=main.duration} ?: main.duration
                 if (shouldPrepareCrossfade(fadeMs, main.currentPosition, endMs, main.isPlaying, main.hasNextMediaItem(),
                         main.repeatMode == Player.REPEAT_MODE_ONE, crossfadeSkipsItem(item) || skipNext, sleepActive())) {
                     handledKey = key

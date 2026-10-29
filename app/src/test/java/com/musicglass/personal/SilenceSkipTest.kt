@@ -53,7 +53,7 @@ class SilenceSkipTest {
 
     @Test fun skipsOnlyNearTheEndAfterTheQuietHasLasted() {
         fun skip(quiet: Long, position: Long, duration: Long = 240_000L) =
-            shouldSkipSilence(true, quiet, position, duration, playing = true, hasNext = true, repeatOne = false, skipItem = false, sought = false)
+            shouldSkipSilence(true, quiet, position, duration, playing = true, hasNext = true, repeatOne = false, skipItem = false, soughtToMs = null)
         assertTrue(skip(1_500, 230_000))
         assertFalse("not yet long enough", skip(1_000, 230_000))
         assertFalse("a pause in the middle", skip(5_000, 120_000))
@@ -64,16 +64,39 @@ class SilenceSkipTest {
     }
 
     @Test fun guards() {
-        fun skip(enabled: Boolean = true, hasNext: Boolean = true, repeatOne: Boolean = false, skipItem: Boolean = false, sought: Boolean = false, playing: Boolean = true) =
-            shouldSkipSilence(enabled, 3_000, 230_000, 240_000, playing, hasNext, repeatOne, skipItem, sought)
+        fun skip(enabled: Boolean = true, hasNext: Boolean = true, repeatOne: Boolean = false, skipItem: Boolean = false, soughtTo: Long? = null, playing: Boolean = true) =
+            shouldSkipSilence(enabled, 3_000, 230_000, 240_000, playing, hasNext, repeatOne, skipItem, soughtTo)
         assertTrue(skip())
         assertFalse(skip(enabled = false)); assertFalse("the last song", skip(hasNext = false)); assertFalse(skip(repeatOne = true))
-        assertFalse("podcast, live or video", skip(skipItem = true)); assertFalse("sought into the end", skip(sought = true))
-        assertFalse(skip(playing = false))
-        assertFalse("unknown length", shouldSkipSilence(true, 3_000, 230_000, -1, true, true, false, false, false))
+        assertFalse("podcast, live or video", skip(skipItem = true)); assertFalse(skip(playing = false))
+        assertFalse("unknown length", shouldSkipSilence(true, 3_000, 230_000, -1, true, true, false, false, null))
+    }
+
+    // Phone checks 29 Oct (item 1): scrubbing near the end to try the switch used to turn it off for that song.
+    @Test fun aSeekOnlyKeepsTheSilenceItLandedIn() {
+        fun skip(soughtTo: Long?) = shouldSkipSilence(true, 3_000, 230_000, 240_000, true, true, false, false, soughtTo)
+        assertTrue("landed in the music, before the quiet began at 227 s", skip(220_000))
+        assertFalse("landed in the silence", skip(227_000))
+    }
+
+    @Test fun pathASkipsWhereTheSoundEnds() {
+        fun skip(position: Long, end: Long = 245_100, soughtTo: Long? = null, quiet: Long = 0) =
+            shouldSkipSilence(true, quiet, position, 247_640, true, true, false, false, soughtTo, audibleEndMs = end)
+        // The owner's download owTWCbq_nSk: silent from 244.8 s of 247.6 s; the end is read 300 ms after the last sound.
+        assertFalse("still sounding", skip(245_000)); assertTrue("at once, without waiting for 1.5 s of quiet", skip(245_100))
+        assertFalse("under a second would be saved", skip(247_000, end = 246_800))
+        assertFalse("sought into the silence", skip(246_000, soughtTo = 245_500)); assertTrue(skip(246_000, soughtTo = 200_000))
+        // A known end decides alone: Path B's quiet run is not consulted.
+        assertFalse(skip(240_000, quiet = 5_000))
+    }
+
+    @Test fun theEnvelopeEndIsThreeHundredMillisecondsAfterTheLastSound() {
+        val loud = FloatArray(30) { if (it < 20) -12f else -90f }
+        assertEquals(1_000L + 2_000 + 300, TrackEnvelope(1_000, loud, loud, 10_000).audibleEndMs())
     }
 
     @Test fun theEventIsKept() {
         assertEquals("silence_skip at=230000 quiet_ms=1500 path=b", DiagnosticEvent.parse("silence_skip at=230000 quiet_ms=1500 path=b").text)
+        assertEquals("silence_skip at=245100 quiet_ms=0 path=a", DiagnosticEvent.parse("silence_skip at=245100 quiet_ms=0 path=a").text)
     }
 }
