@@ -58,11 +58,15 @@ internal fun MacrobenchmarkScope.plainFeed() {
 internal fun MacrobenchmarkScope.shown(tag: String): UiObject2 =
     checkNotNull(device.wait(Until.findObject(By.res(tag)), WAIT_MS)) { failed("\"$tag\" did not appear") }
 
-/** A tap on [tag]. A node redrawn between finding and clicking it (the player still sliding in) is found again. */
+/**
+ * A tap on [tag]. A node redrawn between finding and clicking it (the player still sliding in) is found again.
+ * The tap goes to the point where the node was found: on 29 Oct the player's Open queue row was redrawn three
+ * times in a row between finding and clicking it on the owner's phone, so the click used the node too late.
+ */
 internal fun MacrobenchmarkScope.tap(tag: String) {
-    for (attempt in 1..3) {
-        try { shown(tag).click(); break }
-        catch (stale: androidx.test.uiautomator.StaleObjectException) { if (attempt == 3) throw stale }
+    for (attempt in 1..5) {
+        try { val at = shown(tag).visibleCenter; device.click(at.x, at.y); break }
+        catch (stale: androidx.test.uiautomator.StaleObjectException) { if (attempt == 5) throw stale; android.os.SystemClock.sleep(200) }
     }
     device.waitForIdle()
 }
