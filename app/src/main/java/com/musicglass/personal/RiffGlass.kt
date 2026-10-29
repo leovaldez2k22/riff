@@ -102,7 +102,9 @@ internal data class GlassSpec(val blur: Float, val rim: Float, val bend: Float, 
 internal fun glassSpec(role: GlassRole, style: GlassStyle): GlassSpec {
     val base = when (role) {
         GlassRole.Bar -> GlassSpec(2f, 20f, 36f, 1f, 1f, .45f, Color.White.copy(alpha = .06f), true)
-        GlassRole.Lens -> GlassSpec(0f, 28f, 56f, 1f, 1f, .55f, Color.Transparent, true)
+        // A clear magnifier with a lit rim and no bend: the lens is as tall as the bar, so any bend pulled in the empty
+        // space above and below it and curled and cut the icon and name under it (phone checks 29 Oct, bug 8).
+        GlassRole.Lens -> GlassSpec(0f, 14f, 0f, 0f, 0f, .45f, Color.Transparent, true)
         GlassRole.Button -> GlassSpec(2f, 14f, 28f, 1f, 1f, .45f, Color.White.copy(alpha = .06f), true)
         GlassRole.Card -> GlassSpec(8f, 12f, 20f, 0f, 0f, .30f, Color.White.copy(alpha = .08f), true)
         GlassRole.Menu -> GlassSpec(20f, 10f, 16f, 0f, 0f, .30f, Color.Black.copy(alpha = .25f), true)

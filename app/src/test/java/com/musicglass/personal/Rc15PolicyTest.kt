@@ -47,9 +47,10 @@ class Rc15PolicyTest {
         assertEquals(radioChannels.size,radioChannels.map {it.handle.lowercase()}.toSet().size)
         assertEquals("radio",radioFeedKey("Featured"));assertTrue(channelsForRadio("Jazz & café").all {it.category=="Jazz & café"})
     }
-    @Test fun navigationLensExpandsInBothDirectionsAndRespectsReducedMotion() {
+    // Phone checks 29 Oct (bug 8): the lens widens under the finger but never stands out of the bar.
+    @Test fun navigationLensWidensWithinTheBarAndRespectsReducedMotion() {
         val lens=navigationLens(100f,80f,58f,1f,0f,1f,false)
-        assertTrue(lens.centerY-lens.radiusY<0f);assertTrue(lens.centerY+lens.radiusY>58f);assertTrue(lens.radiusX>40);assertTrue(lens.gain>0)
+        assertTrue(lens.centerY-lens.radiusY>=0f);assertTrue(lens.centerY+lens.radiusY<=58f);assertTrue(lens.radiusX>40);assertTrue(lens.gain>0)
         val reduced=navigationLens(100f,80f,58f,1f,80f,1f,true)
         assertEquals(0f,reduced.gain,0f);assertEquals(40f,reduced.radiusX,0f);assertEquals(29f,reduced.radiusY,0f)
         assertEquals(0f,navigationLens(100f,80f,58f,1f,0f,0f,false).gain,0f)

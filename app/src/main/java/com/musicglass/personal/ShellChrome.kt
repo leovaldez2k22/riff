@@ -159,9 +159,13 @@ internal fun LiquidTabBar(model: ShellModel, compact: Boolean, height: androidx.
         val motion = LocalMotionPolicy.current
         val targetWidth=if(active==4) height.value else slot.value
         val logicalFinger=fingerX?.let {if(rightToLeft) maxWidth.value-it/density else it/density}
-        val targetCenter=logicalFinger?.coerceIn(targetWidth/2f,maxWidth.value-targetWidth/2f)
-            ?:if(active==4) mainWidth.value+8f+height.value/2f else slot.value*(active+.5f)
-        val center=animateFloatAsState(targetCenter,if(motion.reduced) androidx.compose.animation.core.snap() else androidx.compose.animation.core.spring(dampingRatio=.82f,stiffness=if(fingerX!=null) 1200f else 600f),label="liquid pill position")
+        // The lens follows the finger inside the bar and goes to Search whole: following the finger across the gap, it
+        // sat half on each (phone checks 29 Oct, bug 8).
+        val searchCenter=mainWidth.value+8f+height.value/2f
+        val targetCenter=if(active==4) searchCenter
+            else logicalFinger?.coerceIn(slot.value/2f,mainWidth.value-slot.value/2f) ?: (slot.value*(active+.5f))
+        // Under the finger it keeps up (stiff and barely springy); let go, it settles at the calmer pace.
+        val center=animateFloatAsState(targetCenter,if(motion.reduced) androidx.compose.animation.core.snap() else androidx.compose.animation.core.spring(dampingRatio=if(fingerX!=null) .95f else .82f,stiffness=if(fingerX!=null) 3800f else 600f),label="liquid pill position")
         val width=animateFloatAsState(targetWidth,GlassMotion.settle(motion),label="liquid pill width")
         val pressState=animateFloatAsState(if(fingerX!=null) 1f else 0f,GlassMotion.settle(motion),label="liquid contact")
         fun geometry():NavLens {
@@ -214,8 +218,9 @@ internal fun LiquidTabBar(model: ShellModel, compact: Boolean, height: androidx.
         layout(width,height) {placeable.place(0,0)}
     }.graphicsLayer {
         val lens=geometry()
-        translationX=lens.centerX-lens.radiusX;translationY=lens.centerY-lens.radiusY-6f*density*contact()
-    }.riffGlass(GlassRole.Lens,zoom={1f+.2f*contact()},backdrop=backdrop))
+        // Not lifted: the selector ring is drawn from the same geometry, and a lifted lens left the two apart (bug 8).
+        translationX=lens.centerX-lens.radiusX;translationY=lens.centerY-lens.radiusY
+    }.riffGlass(GlassRole.Lens,zoom={1f+.1f*contact()},backdrop=backdrop))
 }
 
 @Composable private fun LiquidSelector(geometry:()->NavLens,density:Float,solid:Boolean,pressed:Boolean) {
