@@ -391,13 +391,11 @@ internal fun RiffApp() {
             }
             CardPeekLayer(cardPeek, model, provider, playback, onNotice = { scope.launch { snackbar.showSnackbar(it) } })
             RestoreOffer(onNotice = { scope.launch { snackbar.showSnackbar(it) } }, onRestored = { collections.refresh() })
-            // Feature 2: snack bars are Menu glass over the page; a dark tint keeps them readable over bright covers.
+            // Feature 2: snack bars are one panel of Menu glass over the page; a dark tint in the same shape keeps them
+            // readable over bright covers. Not Material's Snackbar: it pads its own container inside whatever it is
+            // given, which drew a dark box inside the glass (phone checks 29 Oct, bug 10).
             SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter)
-                .padding(WindowInsets.safeDrawing.asPaddingValues()).padding(top = 12.dp)) { data ->
-                androidx.compose.material3.Snackbar(data, Modifier.padding(horizontal = RiffSpace.block).riffGlass(GlassRole.Menu, RiffRadius.card),
-                    shape = RoundedCornerShape(RiffRadius.card), containerColor = Color(0xFF171C27).copy(alpha = .5f),
-                    contentColor = White, actionColor = Pink)
-            }
+                .padding(WindowInsets.safeDrawing.asPaddingValues()).padding(top = 12.dp)) { data -> GlassNotice(data) }
         }
         }
         }

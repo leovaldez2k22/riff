@@ -1,6 +1,7 @@
 package com.musicglass.personal
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -97,4 +98,20 @@ internal fun Modifier.frostedBackdropSource(backdrop:FrostedBackdrop):Modifier =
     AlertDialog(onDismissRequest=onDismissRequest,title=title,text=text,confirmButton=confirmButton,
         dismissButton=dismissButton,modifier=modifier.clip(RoundedCornerShape(28.dp)).frostedPopupBackground(RiffRadius.pill),containerColor=Color.Transparent,
         tonalElevation=0.dp,shape=RoundedCornerShape(28.dp),titleContentColor=White,textContentColor=White)
+}
+
+/**
+ * A notice at the top of the screen ("Liked on YouTube Music"): one panel of Menu glass with its words and action on
+ * it, and a dark tint in the same shape so it stays readable over a bright cover (phone checks 29 Oct, bug 10).
+ */
+@Composable internal fun GlassNotice(data:SnackbarData) {
+    val shape=RoundedCornerShape(RiffRadius.card)
+    Row(Modifier.padding(horizontal=RiffSpace.block).fillMaxWidth().riffGlass(GlassRole.Menu,RiffRadius.card)
+        .clip(shape).background(Color(0xFF171C27).copy(alpha=.35f)).heightIn(min=52.dp).padding(start=18.dp,end=6.dp),
+        verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+        Text(data.visuals.message,color=White,style=RiffText.body,modifier=Modifier.weight(1f).padding(vertical=14.dp))
+        data.visuals.actionLabel?.let {label->
+            TextButton({data.performAction()}) {Text(label,color=Pink,style=RiffText.body)}
+        } ?: Spacer(Modifier.width(12.dp))
+    }
 }

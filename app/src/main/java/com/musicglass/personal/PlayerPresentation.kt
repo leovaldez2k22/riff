@@ -427,7 +427,7 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                         y = titleBaseY + artworkClearance)
                         .width(miniTextWidth("title", miniWidth * .6f)).graphicsLayer {
                             alpha = movingAlpha * (1f - restyle)
-                            scaleX = 1f + (22f / miniTitle.value - 1f) * t; scaleY = scaleX
+                            scaleX = 1f + (RiffPlayer.title.value / miniTitle.value - 1f) * t; scaleY = scaleX
                             transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
                         }.testTag("morph_mini_title"))
                 if (measure.fontScale < 1.8f) Text(playerArtistLabel(state.artist), color = Muted,
@@ -437,12 +437,12 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                         y = artistBaseY + artworkClearance)
                         .width(miniTextWidth("artist", miniWidth * .6f)).graphicsLayer {
                             alpha = movingAlpha * (1f - restyle)
-                            scaleX = 1f + (13f / MINI_ARTIST_SIZE.value - 1f) * t; scaleY = scaleX
+                            scaleX = 1f + (RiffPlayer.artist.value / MINI_ARTIST_SIZE.value - 1f) * t; scaleY = scaleX
                             transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
                         })
                 // The player's title and artist, shrunk to the mini player's size, take over once moving.
                 Text(state.title, color = White, fontFamily = InterDisplayFamily, letterSpacing = RiffPlayer.titleTracking,
-                    fontSize = 22.sp,
+                    fontSize = RiffPlayer.title,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.offset(
@@ -450,18 +450,18 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
                         y = titleBaseY + artworkClearance)
                         .width(fullTextWidth("title")).graphicsLayer {
                             alpha = movingAlpha * restyle
-                            val start=miniTitle.value/22f
+                            val start=miniTitle.value/RiffPlayer.title.value
                             scaleX=start+(1f-start)*t;scaleY=scaleX
                             transformOrigin=androidx.compose.ui.graphics.TransformOrigin(0f,0f)
                         })
                 Text(playerArtistLabel(state.artist), color = Muted,
-                    fontSize = 13.sp, maxLines = 1,
+                    fontSize = RiffPlayer.artist, maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.offset(
                         x = miniArtistX + (fullArtistX - miniArtistX) * t,
                         y = artistBaseY + artworkClearance)
                         .width(fullTextWidth("artist")).graphicsLayer {
-                            scaleX=11f/13f+(2f/13f)*t;scaleY=scaleX
+                            scaleX=MINI_ARTIST_SIZE.value/RiffPlayer.artist.value*(1f-t)+t;scaleY=scaleX
                             transformOrigin=androidx.compose.ui.graphics.TransformOrigin(0f,0f)
                             alpha = if (measure.fontScale >= 1.8f && !miniElementBounds.containsKey("artist"))
                                 movingAlpha * t else movingAlpha * restyle

@@ -50,6 +50,16 @@ class GlassMotionTest {
         assertTrue(GlassMotion.settle<Float>(reduced) is SnapSpec<Float>)
     }
 
+    // Phone checks 29 Oct (item 18): the full-screen player opens and closes slower, and closing is not quicker by a quarter.
+    @Test fun thePlayerOpensAndClosesAtItsOwnSlowerPace() {
+        val open = GlassMotion.player<Float>(true, calm) as TweenSpec<Float>
+        val close = GlassMotion.player<Float>(false, calm) as TweenSpec<Float>
+        assertEquals(700, open.durationMillis); assertEquals(600, close.durationMillis)
+        assertEquals(GlassMotion.playerEasing, open.easing)
+        assertTrue(GlassMotion.player<Float>(true, MotionPolicy(reduced = true, scale = 1f)) is SnapSpec<Float>)
+        assertEquals(Spring.StiffnessLow, (GlassMotion.playerSettle<Float>(calm) as SpringSpec<Float>).stiffness, 1e-3f)
+    }
+
     @Test fun settlingIsSofterWithAHintOfGive() {
         val spec = GlassMotion.settle<Float>(calm) as SpringSpec<Float>
         assertEquals(.9f, spec.dampingRatio, 1e-6f)

@@ -37,10 +37,10 @@ internal class PlayerMorphController {
                     val target = if (command.open) 1f else 0f
                     if (command.policy.reduced) position.snapTo(target)
                     else if (command.direct) position.animateTo(target,
-                        GlassMotion.settle(command.policy),
+                        GlassMotion.playerSettle(command.policy),
                         initialVelocity = command.releaseVelocity ?: interruptedVelocity)
                     else position.animateTo(target,
-                        GlassMotion.timed(GlassMotion.playerMs, command.policy))
+                        GlassMotion.player(command.open, command.policy))
                 }
             }
         }

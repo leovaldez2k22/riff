@@ -95,9 +95,10 @@ internal object RiffGlassPopup {
 }
 
 internal object RiffPlayer {
-    val title = 26.sp
-    val titleTracking = (-.45).sp
-    val artist = 22.sp
+    /** Two steps smaller at the owner's request (phone checks 29 Oct, item 9): 26 and 22 sp read too big. */
+    val title = 20.sp
+    val titleTracking = (-.35).sp
+    val artist = 17.sp
     /** The like and more circles, and their icons. */
     val circle = 44.dp
     val circleIcon = 20.dp

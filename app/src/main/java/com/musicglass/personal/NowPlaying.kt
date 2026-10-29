@@ -419,7 +419,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     },onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))});likeBusy=false
                 } }
             }, enabled = state.source == "YouTube Music" && !likeBusy && !queueOpen, modifier = Modifier.size(RiffPlayer.circle)
-                .riffGlass(GlassRole.Button, backdrop = playerGlass).clip(CircleShape).background(White.copy(alpha = .10f))
+                // The owner's design (phone checks 29 Oct, item 4): the star and the three dots stand on their own.
                 .testTag("playback_favorite").semantics {
                     contentDescription = string(R.string.like_on_youtube_music); stateDescription = if(favorite) string(R.string.liked) else string(R.string.not_liked)
                 }) {
@@ -434,7 +434,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             Spacer(Modifier.width(RiffSpace.item))
             Box {
                 IconButton(onClick = { uiHaptic();  moreExpanded = true },
-                    enabled=!queueOpen,modifier = Modifier.size(RiffPlayer.circle).riffGlass(GlassRole.Button, backdrop = playerGlass).clip(CircleShape).background(White.copy(alpha = .10f))
+                    enabled=!queueOpen,modifier = Modifier.size(RiffPlayer.circle)
                         .testTag("player_more").onGloballyPositioned {if(!queueOpen) {val r=it.boundsInWindow();moreAnchor=androidx.compose.ui.unit.IntRect(r.topLeft.round(),r.bottomRight.round())}}) {
                     Icon(Icons.Rounded.MoreHoriz, contentDescription = string(R.string.more_song_options),
                         tint = White, modifier = Modifier.size(RiffPlayer.circleIcon))
@@ -508,7 +508,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                 playback::cycleRepeat, modifier = Modifier.testTag("playback_repeat"),
                 active = state.repeat != 0, diameter = RiffPlayer.toggle, iconSize = RiffPlayer.toggleIcon, toggle = true)
         }
-        AudioOutputControls(onLyrics = onLyrics, onQueue = onQueue, glass = playerGlass)
+        AudioOutputControls(onLyrics = onLyrics, onQueue = onQueue)
         if(state.sleepDeadlineMs>0) SleepTimerCountdown(state.sleepDeadlineMs) {uiHaptic();sleepTimerVisible=true}
         PlaybackProblem(state.notice, state.error, state.playback.failure, onFailureAction)
         }

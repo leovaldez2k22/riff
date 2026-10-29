@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
@@ -101,14 +102,16 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
             }
             }
             val liked=provider.songLikes[state.mediaId.removePrefix("yt:")]==true
-            IconButton(onLike,modifier=Modifier.riffGlass(GlassRole.Button,backdrop=glass).testTag("queue_like").semantics {stateDescription=if(liked) string(R.string.liked) else string(R.string.not_liked)}) {Icon(if(liked) Icons.Rounded.Star else Icons.Rounded.StarBorder,string(R.string.like_on_youtube_music),tint=White)}
-            IconButton(hapticClick(onMore),modifier=Modifier.riffGlass(GlassRole.Button,backdrop=glass).testTag("queue_more").onGloballyPositioned {val r=it.boundsInWindow();onMoreBounds(IntRect(r.topLeft.round(),r.bottomRight.round()))}) {Icon(Icons.Rounded.MoreHoriz,string(R.string.song_options),tint=White)}
-            IconButton(hapticClick(onClose),modifier=Modifier.riffGlass(GlassRole.Button,backdrop=glass).testTag("queue_back")) {Icon(Icons.Rounded.ExpandMore,string(R.string.close_queue),tint=White)}
+            IconButton(onLike,modifier=Modifier.testTag("queue_like").semantics {stateDescription=if(liked) string(R.string.liked) else string(R.string.not_liked)}) {Icon(if(liked) Icons.Rounded.Star else Icons.Rounded.StarBorder,string(R.string.like_on_youtube_music),tint=White)}
+            IconButton(hapticClick(onMore),modifier=Modifier.testTag("queue_more").onGloballyPositioned {val r=it.boundsInWindow();onMoreBounds(IntRect(r.topLeft.round(),r.bottomRight.round()))}) {Icon(Icons.Rounded.MoreHoriz,string(R.string.song_options),tint=White)}
+            IconButton(hapticClick(onClose),modifier=Modifier.testTag("queue_back")) {Icon(Icons.Rounded.ExpandMore,string(R.string.close_queue),tint=White)}
         }
         Row(Modifier.fillMaxWidth().heightIn(min=46.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            FilterChip(state.shuffle,hapticClick(playback::toggleShuffle),label={Icon(Icons.Rounded.Shuffle,string(R.string.shuffle),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f).riffGlass(GlassRole.Button,backdrop=glass),shape=RoundedCornerShape(50))
-            FilterChip(state.repeat!=0,hapticClick(playback::cycleRepeat),label={Icon(if(state.repeat==1) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,string(R.string.repeat),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f).riffGlass(GlassRole.Button,backdrop=glass),shape=RoundedCornerShape(50))
-            FilterChip(state.queueMessage !in setOf("Album order","Collection order"),{},enabled=false,label={Icon(Icons.Rounded.AllInclusive,string(R.string.youtube_music_recommendations),modifier=Modifier.size(18.dp))},modifier=Modifier.weight(1f).riffGlass(GlassRole.Button,backdrop=glass),shape=RoundedCornerShape(50))
+            // Glass pills of their own rather than Material chips with glass around them, which drew the chip's
+            // outline inside the glass (phone checks 29 Oct, bug 3).
+            QueueModeButton(state.shuffle,true,Icons.Rounded.Shuffle,string(R.string.shuffle),glass,hapticClick(playback::toggleShuffle))
+            QueueModeButton(state.repeat!=0,true,if(state.repeat==1) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,string(R.string.repeat),glass,hapticClick(playback::cycleRepeat))
+            QueueModeButton(state.queueMessage !in setOf("Album order","Collection order"),false,Icons.Rounded.AllInclusive,string(R.string.youtube_music_recommendations),glass) {}
         }
         Row(Modifier.fillMaxWidth().padding(top=6.dp,bottom=4.dp),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -176,5 +179,17 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
             if(visible.isNotEmpty() && !history && state.queueLoading) item {Text(string(R.string.finding_more_music),color=White.copy(alpha=.6f),fontSize=RiffType.body,modifier=Modifier.padding(RiffSpace.rowGap).testTag("queue_loading_more"))}
             if(visible.isEmpty()) item {Text(if(state.queueLoading) string(R.string.finding_more_music) else string(R.string.you_re_at_the_end_of_this),color=White.copy(alpha=.6f),fontSize=13.sp,modifier=Modifier.padding(12.dp))}
         }
+    }
+}
+
+/** A queue mode (shuffle, repeat, recommendations): one glass pill, pink while on, dimmed when it can't be changed. */
+@Composable private fun RowScope.QueueModeButton(on:Boolean,enabled:Boolean,icon:androidx.compose.ui.graphics.vector.ImageVector,
+    label:String,glass:RiffBackdrop?,onClick:()->Unit) {
+    val shape=RoundedCornerShape(50)
+    Box(Modifier.weight(1f).height(40.dp).riffGlass(GlassRole.Button,backdrop=glass).clip(shape)
+        .background(if(on) Pink.copy(alpha=.22f) else Color.Transparent)
+        .toggleable(on,enabled=enabled,role=androidx.compose.ui.semantics.Role.Switch) {onClick()}
+        .semantics {contentDescription=label},contentAlignment=Alignment.Center) {
+        Icon(icon,null,tint=(if(on) Pink else White).copy(alpha=if(enabled) 1f else .5f),modifier=Modifier.size(18.dp))
     }
 }

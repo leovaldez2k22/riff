@@ -65,6 +65,20 @@ internal object GlassMotion {
     const val screenMs = 420
     const val sheetMs = 450
     const val playerMs = 520
+    /**
+     * The full-screen player opening and closing, slower at the owner's request (phone checks 29 Oct, item 18). Closing
+     * is not a quarter quicker here, and [playerEasing] starts gently and lands softly, so nothing jumps.
+     */
+    const val playerOpenMs = 700
+    const val playerCloseMs = 600
+    val playerEasing = CubicBezierEasing(.32f, 0f, .12f, 1f)
+    fun <T> player(open: Boolean, policy: MotionPolicy): FiniteAnimationSpec<T> =
+        if (policy.reduced) snap() else tween(((if (open) playerOpenMs else playerCloseMs) * policy.scale).toInt().coerceAtLeast(1),
+            easing = playerEasing)
+    /** After a drag of the player is let go: a softer spring than [settle], to match the player's pace. */
+    fun <T> playerSettle(policy: MotionPolicy): FiniteAnimationSpec<T> =
+        if (policy.reduced) snap() else spring(dampingRatio = 1f,
+            stiffness = Spring.StiffnessLow / (policy.scale * policy.scale).coerceAtLeast(.01f))
     const val artworkMs = 520
     const val ambientMs = 1200
 
