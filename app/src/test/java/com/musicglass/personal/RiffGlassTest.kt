@@ -13,7 +13,7 @@ class RiffGlassTest {
         assertEquals(2f, bar.blur); assertEquals(20f, bar.rim); assertEquals(36f, bar.bend); assertEquals(1f, bar.dispersion)
         val lens = glassSpec(GlassRole.Lens, GlassStyle())
         // The owner's video (30 Oct): the tab bar's lens is clear and bends at its rim.
-        assertEquals(0f, lens.blur); assertEquals(12f, lens.bend); assertEquals(1f, lens.dispersion); assertEquals(Color.Transparent, lens.tint)
+        assertEquals(0f, lens.blur); assertEquals(12f, lens.bend); assertEquals(3f, lens.dispersion); assertEquals(Color.Transparent, lens.tint)
         val menu = glassSpec(GlassRole.Menu, GlassStyle())
         assertEquals(20f, menu.blur); assertEquals(0f, menu.depth); assertEquals(.25f, menu.tint.alpha, .01f)
     }

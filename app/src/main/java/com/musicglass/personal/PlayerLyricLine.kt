@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -27,15 +26,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.ResolvedTextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.delay
 
@@ -53,14 +57,12 @@ internal sealed interface PlayerLyricRow {
 
 internal const val PLAYER_LYRIC_POLL_MS = 250L
 
-/** How many characters of a word-synced line are sung at [atMs]: whole words that have ended, and a share of the one being sung. */
-internal fun playerLyricSung(parts: List<LyricPart>, atMs: Long): Int = parts.maxOfOrNull { part ->
-    when {
-        atMs >= part.endMs -> part.to
-        atMs < part.startMs -> 0
-        else -> part.from + ((part.to - part.from) * (atMs - part.startMs).toFloat() / (part.endMs - part.startMs).coerceAtLeast(1)).toInt()
-    }
-} ?: 0
+/**
+ * How far through [part] the sweep is at [atMs], 0 to 1. The line is lit by drawing, a pixel at a time, as the full
+ * lyrics are: a count of letters lit them one after another (owner, 30 Oct).
+ */
+internal fun playerLyricSweep(part: LyricPart, atMs: Long): Float =
+    ((atMs - part.startMs).toFloat() / (part.endMs - part.startMs).coerceAtLeast(1)).coerceIn(0f, 1f)
 
 /**
  * The row for [document] at [atMs]: the line being sung; between lines (and before the first) the last one sung
@@ -108,14 +110,13 @@ internal fun PlayerLyricLine(playback: PlaybackGateway, provider: YouTubeMusicPr
     }
     val row = if (visible) playerLyricRow(document, position + DEFAULT_LYRICS_OFFSET_MS) else null
     val motion = LocalMotionPolicy.current
-    // A word-synced line follows the music each frame while it is shown, but redraws only when a letter is lit.
+    // A word-synced line follows the music each frame while it is shown; only its drawing reads the time.
     val parts = (row as? PlayerLyricRow.Line)?.takeUnless { it.past }?.parts.orEmpty()
     var now by remember(state.mediaId) { mutableLongStateOf(position) }
     LaunchedEffect(visible, state.playing, parts) {
         now = playback.currentPositionMs()
         while (visible && state.playing && parts.isNotEmpty()) { withFrameMillis { }; now = playback.currentPositionMs() }
     }
-    val sung by remember(parts) { derivedStateOf { playerLyricSung(parts, now + DEFAULT_LYRICS_OFFSET_MS) } }
     AnimatedVisibility(row != null, modifier,
         enter = fadeIn(GlassMotion.timed(GlassMotion.selectionMs, motion)), exit = fadeOut(GlassMotion.exit(GlassMotion.selectionMs, motion))) {
         val shown = row ?: return@AnimatedVisibility
@@ -134,11 +135,7 @@ internal fun PlayerLyricLine(playback: PlaybackGateway, provider: YouTubeMusicPr
                     is PlayerLyricRow.Line -> if (current.parts.isEmpty() || current.past) Text(current.text,
                         color = White.copy(alpha = if (current.past) .55f else .92f),
                         fontSize = RiffPlayer.lyricLine, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    else Text(buildAnnotatedString {
-                            val lit = sung.coerceIn(0, current.text.length)
-                            withStyle(SpanStyle(color = White.copy(alpha = .92f))) { append(current.text.substring(0, lit)) }
-                            withStyle(SpanStyle(color = White.copy(alpha = .45f))) { append(current.text.substring(lit)) }
-                        }, fontSize = RiffPlayer.lyricLine, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    else SweptLyricLine(current.text, current.parts) { now + DEFAULT_LYRICS_OFFSET_MS }
                     is PlayerLyricRow.Gap -> Canvas(Modifier.width(RiffPlayer.lyricDot * (LYRIC_GAP_DOTS * 2 - 1)).heightIn(min = RiffPlayer.lyricDot)) {
                         val radius = RiffPlayer.lyricDot.toPx() / 2f
                         repeat(LYRIC_GAP_DOTS) { dot ->
@@ -151,4 +148,38 @@ internal fun PlayerLyricLine(playback: PlaybackGateway, provider: YouTubeMusicPr
             Text("›", color = White.copy(alpha = .55f), fontSize = RiffPlayer.lyricLine, modifier = Modifier.padding(start = RiffSpace.tight))
         }
     }
+}
+
+/** A word-synced line, dim, with each word lit across as it is sung and a short soft edge at the sweep. Settings' lyrics preview draws one too. */
+@Composable
+internal fun SweptLyricLine(text: String, parts: List<LyricPart>, size: androidx.compose.ui.unit.TextUnit = RiffPlayer.lyricLine, position: () -> Long) {
+    var layout by remember(text) { mutableStateOf<TextLayoutResult?>(null) }
+    val words = remember(layout, parts) {
+        val measured = layout ?: return@remember emptyList()
+        parts.filter { it.to <= text.length }.map { part ->
+            val path = measured.getPathForRange(part.from, part.to)
+            Triple(part, path, measured.getBidiRunDirection(part.from) == ResolvedTextDirection.Rtl)
+        }
+    }
+    Text(text, color = White.copy(alpha = .45f), fontSize = size, fontWeight = FontWeight.SemiBold,
+        maxLines = 1, overflow = TextOverflow.Ellipsis, onTextLayout = { layout = it },
+        modifier = Modifier.drawWithContent {
+            drawContent()
+            val measured = layout ?: return@drawWithContent
+            val at = position()
+            val soft = RiffLyrics.sweepEdge.toPx()
+            for ((part, path, rtl) in words) {
+                val fraction = playerLyricSweep(part, at)
+                if (fraction <= 0f) continue
+                val bounds = path.getBounds()
+                val lit = White.copy(alpha = .92f)
+                // Wholly sung, plain white; being sung, white up to the sweep and fading out over the soft edge.
+                val brush = if (fraction >= 1f) SolidColor(lit) else {
+                    val edge = if (rtl) bounds.right - bounds.width * fraction else bounds.left + bounds.width * fraction
+                    val colors = if (rtl) listOf(Color.Transparent, lit) else listOf(lit, Color.Transparent)
+                    Brush.horizontalGradient(colors, startX = edge - soft / 2f, endX = edge + soft / 2f)
+                }
+                clipPath(path) { drawText(measured, brush) }
+            }
+        })
 }

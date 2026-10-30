@@ -156,7 +156,6 @@ internal fun LiquidTabBar(model: ShellModel, compact: Boolean, height: androidx.
             val searchWidth = height.value * density
             val gap = 8f * density
             fun logical(x: Float) = if (rightToLeft) width - x else x
-            fun overSearch(x: Float) = TabHitTest.indexAt(x, width, searchWidth, gap, rightToLeft) == 4
             val down = awaitFirstDown(requireUnconsumed = false)
             lens.down(logical(down.position.x), down.uptimeMillis); animate()
             var releasedX = down.position.x
@@ -169,14 +168,13 @@ internal fun LiquidTabBar(model: ShellModel, compact: Boolean, height: androidx.
                 lens.move(logical(releasedX), viewConfiguration.touchSlop)
                 if (lens.lifted) {
                     // A tick each time the lens comes over another tab.
-                    val hover = if (overSearch(releasedX)) 4 else lens.hovered()
+                    val hover = lens.hovered()
                     if (lastHover >= 0 && hover != lastHover) uiHaptic(HapticCue.Selection)
                     lastHover = hover
                 }
             } while (true)
             val index = when {
-                // Lifted, the tab under the lens is chosen; Search, when the finger is over it.
-                lens.lifted && overSearch(releasedX) -> lens.upOverSearch()
+                // Lifted, the tab under the lens is chosen, Search included.
                 lens.lifted -> lens.up()
                 else -> { lens.cancel(); TabHitTest.indexAt(releasedX, width, searchWidth, gap, rightToLeft) }
             }
@@ -222,12 +220,12 @@ internal fun LiquidTabBar(model: ShellModel, compact: Boolean, height: androidx.
             }
         }
         RestingPill(::frame, density, accessibility.solidControls)
-        if (lensShown && !still) TabLens(::frame, tabsBackdrop, barWidth, barHeight, density)
+        if (lensShown && !still) TabLens(::frame, tabsBackdrop, LocalRiffBackdrop.current, barWidth, barHeight, density)
     }
 }
 
-/** The frosted pill in the selected tab; it fades as it lifts into the lens. */
-@Composable private fun RestingPill(frame: () -> TabLensFrame, density: Float, solid: Boolean) {
+/** The frosted pill in the selected tab; it fades as it lifts into the lens. Glass segmented controls draw it too. */
+@Composable internal fun RestingPill(frame: () -> TabLensFrame, density: Float, solid: Boolean) {
     Box(Modifier.fillMaxSize().drawWithCache {
         onDrawBehind {
             val f = frame()
@@ -244,15 +242,14 @@ internal fun LiquidTabBar(model: ShellModel, compact: Boolean, height: androidx.
 }
 
 /**
- * The lens: clear glass over the page and the tabs together, so where it stands out of the bar it bends the page and
- * not empty space (bug 8); its bright rim; and the fainter rim trailing it.
+ * The lens: clear glass over the [page] and the tabs together, so where it stands out of the bar it bends the page and
+ * not empty space (bug 8); its bright rim; and the fainter rim trailing it. Glass segmented controls use it too.
  */
-@Composable private fun TabLens(frame: () -> TabLensFrame, tabs: RiffBackdrop, barWidth: Float, barHeight: Float, density: Float) {
-    val page = LocalRiffBackdrop.current
+@Composable internal fun TabLens(frame: () -> TabLensFrame, tabs: RiffBackdrop, page: RiffBackdrop?, barWidth: Float, barHeight: Float, density: Float) {
     val composite = rememberRiffBackdrop()
     val bar = remember { arrayOf(Offset.Zero) }
-    // What stands out of the bar: a tenth of its height above and below is read.
-    val spill = barHeight * .1f
+    // Read above and below the bar: what the lens stands out of it, and the page its rim bends in from outside.
+    val spill = barHeight * .3f
     DisposableEffect(tabs) { tabs.readers++; onDispose { tabs.readers-- } }
     Box(Modifier.fillMaxSize().onGloballyPositioned { bar[0] = it.positionInRoot() }.drawWithCache {
         onDrawBehind {
@@ -266,10 +263,12 @@ internal fun LiquidTabBar(model: ShellModel, compact: Boolean, height: androidx.
                 style = androidx.compose.ui.graphics.drawscope.Stroke(density))
         }
     })
-    Box(Modifier.layout { measurable, _ ->
+    Box(Modifier.layout { measurable, constraints ->
         val f = frame()
         val placeable = measurable.measure(Constraints.fixed(f.width.toInt().coerceAtLeast(1), f.height.toInt().coerceAtLeast(1)))
-        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+        // Reported at the bar's size and placed at its corner: a child taller than its slot is centred on it by
+        // Compose, which lifted the lens by half of what it stands out, so it grew upward only (phone check 30 Oct).
+        layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(0, 0) }
     }.graphicsLayer {
         val f = frame()
         translationX = f.centerX - f.width.toInt() / 2f; translationY = barHeight / 2f - f.height.toInt() / 2f

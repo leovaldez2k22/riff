@@ -222,7 +222,7 @@ class UpdateNoticeTest {
         val manifest = File("src/main/AndroidManifest.xml").readText()
         assertFalse("REQUEST_INSTALL_PACKAGES" in manifest)
         // The release page opens through the Q15 check, which allows HTTPS on the listed hosts only.
-        val shell = File("src/main/java/com/musicglass/personal/RiffApp.kt").readText() + File("src/main/java/com/musicglass/personal/SettingsScreen.kt").readText()
+        val shell = File("src/main/java/com/musicglass/personal/RiffApp.kt").readText() + File("src/main/java/com/musicglass/personal/SettingsSections.kt").readText()
         assertEquals(2, Regex("""openWebPage\(context, ?\w+\.page, ?updates\.pageHosts\)""").findAll(shell).count())
     }
 }

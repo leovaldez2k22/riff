@@ -110,8 +110,7 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         val a = outgoing.mediaMetadata; val b = incoming.mediaMetadata
         if (albumInOrder(a.albumTitle?.toString(), a.trackNumber, b.albumTitle?.toString(), b.trackNumber)) return null
         if (classical[outgoing.mediaId] == true || classical[incoming.mediaId] == true) return null
-        val fadeMs = crossfadeSeconds(crossfadePrefs.getInt("seconds", 6)) * 1_000L
-        val plan = planSmartTransition(envelopes["${outgoing.mediaId}:tail"], envelopes["${incoming.mediaId}:head"], fadeMs,
+        val plan = planSmartTransition(envelopes["${outgoing.mediaId}:tail"], envelopes["${incoming.mediaId}:head"],
             onBeat = blendMode(crossfadePrefs) == BlendMode.Automix)
         lastBlend = plan?.let { AutomixNote(blendMode(crossfadePrefs), it.blendMs, it.onBeat) }
         return SmartBlend(plan)

@@ -216,6 +216,44 @@ internal object RiffGrid {
     val cell = 150.dp
 }
 
+/** The settings pages (owner, 30 Oct): the opening page's tiles and the sections' bento of glass tiles. */
+internal object RiffSettings {
+    /** The least height of a tile; a tall one is two of these and the gap. */
+    val tile = 78.dp
+    val tilePad = 14.dp
+    val tileGap = 10.dp
+    val hairline = .6.dp
+    /** A row's icon in a settings list. */
+    val rowIcon = 21.dp
+    /** The round badge an icon sits in, and the icon. */
+    val badge = 34.dp
+    val badgeIcon = 19.dp
+    /** The quick switches across the top of the opening page. */
+    val quick = 70.dp
+    val quickIcon = 22.dp
+    val search = 44.dp
+    val avatar = 46.dp
+    /** The pictures inside the big tiles: the blend, the booster's dial, the glass sample, the storage ring. */
+    val wave = 76.dp
+    val waveStroke = 2.5.dp
+    val beatTick = 7.dp
+    val stripe = 16.dp
+    val glassPill = 58.dp
+    val dial = 96.dp
+    val dialStroke = 9.dp
+    val glassSample = 118.dp
+    val ring = 104.dp
+    val eqBar = 5.dp
+    val eqHeight = 44.dp
+    val lyricLine = 20.sp
+    val lyricOther = 15.sp
+    val lyricDot = 8.dp
+    /** How far a tile rises as it comes in. */
+    val enterRise = 18.dp
+    val title = 16.sp
+    val big = 26.sp
+}
+
 internal object RiffRadius {
     val artwork = 12.dp
     val card = 14.dp

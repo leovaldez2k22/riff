@@ -11,6 +11,9 @@ class TabLensMotionTest {
     private val slot = 258f
     private val bar = 192f
     private var now = 0L
+    /** The rest pill's width: the same gap at its sides as above and below. */
+    private val rest = slot - (1f - .833f) * bar
+    private val search = 4 * slot + 8f + bar / 2f
 
     private fun motion(selected: Int = 0, reduced: Boolean = false) = TabLensMotion().apply {
         now = 0L
@@ -25,7 +28,7 @@ class TabLensMotionTest {
     @Test fun atRestThePillIsFrostedAndFitsItsTab() {
         val f = motion(1).frame()
         assertEquals(slot * 1.5f, f.centerX, .01f)
-        assertEquals(160f, f.height, 1f); assertEquals(slot - .05f * bar, f.width, 1f)
+        assertEquals(160f, f.height, 1f); assertEquals(rest, f.width, 1f)
         assertEquals(0f, f.lift, 0f); assertEquals(0f, f.ghostAlpha, 0f)
     }
 
@@ -42,7 +45,7 @@ class TabLensMotionTest {
         assertEquals(1f, settled.lift, .01f)
         assertEquals(1.36f * 160f, settled.height, 2f)
         assertTrue("out of the top and the bottom of the bar", settled.height > bar * 1.1f)
-        assertEquals(1.33f * (slot - .05f * bar), settled.width, 2f)
+        assertEquals(1.33f * (rest), settled.width, 2f)
     }
 
     @Test fun aHeldFingerLiftsItWithoutMoving() {
@@ -79,7 +82,7 @@ class TabLensMotionTest {
         m.run(300) { i -> m.move(slot / 2f - 10f * i, 8f) }
         val pushed = m.frame()
         assertEquals(slot / 2f, pushed.centerX, .5f)
-        val lifted = 1.33f * (slot - .05f * bar)
+        val lifted = 1.33f * (rest)
         assertTrue("narrower", pushed.width < lifted * .97f)
         assertTrue("taller", pushed.height > 1.36f * 160f * 1.02f)
         m.run(500) { m.move(slot / 2f + 10f, 8f) }
@@ -93,7 +96,7 @@ class TabLensMotionTest {
         // Three tabs a second.
         val frames = m.run(500) { i -> m.move(slot / 2f + 10f + 3f * slot * .016f * (i + 1), 8f) }
         val fast = frames.last()
-        val lifted = 1.33f * (slot - .05f * bar)
+        val lifted = 1.33f * (rest)
         assertEquals("about 12 % wider", 1.12f, fast.width / lifted, .03f)
         assertTrue("a little flatter", fast.height < 1.36f * 160f)
         assertTrue("the ghost behind", fast.ghostX < fast.centerX - 30f && fast.ghostX > fast.centerX - 80f)
@@ -126,6 +129,41 @@ class TabLensMotionTest {
         assertFalse(m.lifted); m.cancel()
         m.select(3); m.run(16)
         assertEquals(3.5f * slot, m.frame().centerX, 0f); assertEquals(0f, m.frame().lift, 0f)
+    }
+
+    @Test fun theLensTravelsOnToSearchAndChoosesIt() {
+        val m = motion()
+        m.down(slot / 2f, now); m.move(slot / 2f + 10f, 8f)
+        m.run(600) { i -> m.move(slot / 2f + 10f + 40f * i, 8f) }
+        assertEquals("held at Search's centre", search, m.frame().centerX, 1f)
+        assertEquals(4, m.hovered())
+        assertEquals(4, m.up())
+        m.run(800)
+        assertEquals(search, m.frame().centerX, 1f); assertEquals(0f, m.frame().lift, .01f)
+    }
+
+    @Test fun theRestingPillHasTheSameGapAllRound() {
+        val f = motion(2).frame()
+        assertEquals((slot - f.width) / 2f, (bar - f.height) / 2f, .5f)
+    }
+
+    @Test fun aSegmentedControlHasNoSearchAndStopsAtItsLastSegment() {
+        // Encore's Day / Week / Month / Year / All time (owner, 30 Oct): the tab bar's pill, five equal segments.
+        val m = TabLensMotion(5, search = false).apply { now = 0L; layout(slot, bar, 0f, 0f, 1, false) }
+        assertEquals(1.5f * slot, m.frame().centerX, .01f); assertEquals(rest, m.frame().width, 1f)
+        m.down(1.5f * slot, now); m.move(1.5f * slot + 10f, 8f)
+        m.run(800) { i -> m.move(1.5f * slot + 10f + 40f * i, 8f) }
+        assertEquals("held at the last segment's centre", 4.5f * slot, m.frame().centerX, 1f)
+        assertEquals(4, m.up())
+        m.run(800)
+        assertEquals(4.5f * slot, m.frame().centerX, 1f); assertEquals(rest, m.frame().width, 1f)
+    }
+
+    @Test fun withALongPressAHeldFingerDoesNotLift() {
+        val m = TabLensMotion(5, search = false, liftOnHold = false).apply { now = 0L; layout(slot, bar, 0f, 0f, 0, false) }
+        m.down(slot / 2f, now); m.run(600)
+        assertFalse(m.lifted)
+        m.move(slot / 2f + 20f, 8f); assertTrue("a drag still lifts it", m.lifted)
     }
 
     @Test fun searchGetsARoundPill() {

@@ -29,22 +29,21 @@ class SmartTransitionTest {
 
     @Test fun planStartsAtTheOutroAndEndsWithTheSound() {
         val tail = envelope(155_000, 200_000, -10f to 300, -18f to 80, -70f to 70)
-        val plan = planSmartTransition(tail, null, fadeMs = 6_000)!!
-        // The outro (8.3 s) is longer than the setting: the later start, 6 s before the end, wins.
-        assertEquals(193_300L, plan.endMs); assertEquals(187_300L, plan.startMs); assertEquals(6_000L, plan.blendMs)
+        val plan = planSmartTransition(tail, null)!!
+        // The blend is the song's own outro, 8.3 s, whatever the crossfade slider says.
+        assertEquals(193_300L, plan.endMs); assertEquals(185_000L, plan.startMs); assertEquals(8_300L, plan.blendMs)
         val shortOutro = envelope(155_000, 200_000, -10f to 330, -18f to 50, -70f to 70)
-        assertEquals("a 5 s outro sets a shorter blend", 5_300L, planSmartTransition(shortOutro, null, 8_000)!!.blendMs)
+        assertEquals("a 5 s outro sets a shorter blend", 5_300L, planSmartTransition(shortOutro, null)!!.blendMs)
         assertEquals(0L, plan.incomingStartMs)
     }
 
     @Test fun aShortOutroUsesTheSettingAndBlendsStayInBounds() {
         val abrupt = envelope(155_000, 200_000, -10f to 440, -70f to 10)
         // An abrupt end has no outro to blend over: the shortest blend.
-        assertEquals(SMART_MIN_BLEND_MS, planSmartTransition(abrupt, null, 6_000)!!.blendMs)
-        // A long, slow outro: the setting caps the blend.
+        assertEquals(SMART_MIN_BLEND_MS, planSmartTransition(abrupt, null)!!.blendMs)
+        // A long, slow outro: 12 s at most.
         val long = envelope(155_000, 200_000, -10f to 300, -16f to 140, -70f to 10)
-        assertEquals(6_000L, planSmartTransition(long, null, 6_000)!!.blendMs)
-        assertEquals(SMART_MAX_BLEND_MS, planSmartTransition(long, null, 14_000)!!.blendMs)
+        assertEquals(SMART_MAX_BLEND_MS, planSmartTransition(long, null)!!.blendMs)
     }
 
     @Test fun theIncomingSongSkipsAShortQuietIntroOnly() {

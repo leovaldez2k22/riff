@@ -8,6 +8,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -65,7 +68,16 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
         AnimatedContent(targetState = model.screen,
             transitionSpec = {
                 if (motion.reduced) EnterTransition.None togetherWith ExitTransition.None
-                else {
+                else if (initialState.route is Route.Settings && targetState.route is Route.Settings && initialState.tab == targetState.tab) {
+                    // Between Settings' pages (owner, 30 Oct): the page opened grows out of the one behind it, which
+                    // grows past the eye and fades; back, the other way round.
+                    val deeper = targetState.depth >= initialState.depth
+                    (fadeIn(GlassMotion.timed(GlassMotion.screenMs, motion)) +
+                        scaleIn(GlassMotion.timed(GlassMotion.screenMs, motion), initialScale = if (deeper) .9f else 1.05f) +
+                        slideInVertically(GlassMotion.timed(GlassMotion.screenMs, motion)) { if (deeper) it / 24 else -it / 40 }) togetherWith
+                        (fadeOut(GlassMotion.exit(GlassMotion.screenMs, motion)) +
+                            scaleOut(GlassMotion.exit(GlassMotion.screenMs, motion), targetScale = if (deeper) 1.05f else .92f))
+                } else {
                     // Deeper slides in from the end, back slides the other way; a change of root only fades.
                     val direction = when {
                         initialState.tab != targetState.tab -> 0
@@ -96,6 +108,9 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
             Route.DeviceAudio -> OnDeviceScreen(model, totalBottomPadding, playback)
             Route.Downloads -> DownloadsScreen(model,totalBottomPadding,playback,onNotice)
             Route.Settings(SettingsSection.Main) -> SettingsScreen(model,totalBottomPadding,provider,collections,onNotice)
+            Route.Settings(SettingsSection.Sound), Route.Settings(SettingsSection.Look), Route.Settings(SettingsSection.Lyrics),
+            Route.Settings(SettingsSection.Downloads), Route.Settings(SettingsSection.Library), Route.Settings(SettingsSection.About),
+            Route.Settings(SettingsSection.Moods) -> SettingsSectionScreen(model, (Route.plain(route) as Route.Settings).section, totalBottomPadding, onNotice)
             Route.ListeningHistory -> ListeningHistoryScreen(model,totalBottomPadding,provider,playback,onNotice,onCleared=collections::refresh)
             Route.Encore -> EncoreScreen(model,totalBottomPadding,provider,playback,onNotice)
             Route.Settings(SettingsSection.NotInterested) -> NotInterestedScreen(model,totalBottomPadding,onNotice)

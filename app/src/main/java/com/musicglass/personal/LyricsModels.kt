@@ -25,7 +25,12 @@ internal data class LyricLine(val startMs: Long, val endMs: Long, val text: Stri
     /** Feature 25: the line in Latin letters, as the source gave it (TTML spans with role x-roman). */
     val romanized: String? = null) {
     /** The line is current until both its main text and its background vocal have ended. */
-    val untilMs: Long get() = maxOf(endMs, backing?.endMs ?: endMs)
+    /**
+     * When the singing of this line, its background vocal included, is over: its end, or its last word's end when a
+     * held word runs on past it, so the word keeps its glow and no instrumental break starts under it (owner, 30 Oct).
+     */
+    val untilMs: Long get() = maxOf(endMs, backing?.endMs ?: endMs, parts.maxOfOrNull { it.endMs } ?: endMs,
+        backing?.parts?.maxOfOrNull { it.endMs } ?: endMs)
 }
 internal data class LyricsDocument(val source: String, val sourceUrl: String,
     val lines: List<LyricLine>, val instrumental: Boolean = false) {
@@ -433,8 +438,10 @@ internal fun withInstrumentalGaps(lines: List<LyricLine>): List<LyricLine> {
     lines.forEachIndexed { index, line ->
         val next = lines.getOrNull(index + 1)
         if (line.text.isBlank() && line.backing == null) {
-            // LRC's bare timestamp: a break when it lasts, otherwise nothing worth showing.
-            if (next != null && next.startMs - line.startMs >= MIN_LYRIC_GAP_MS) out += line.copy(endMs = next.startMs, gap = true)
+            // LRC's bare timestamp: a break when it lasts, otherwise nothing worth showing. It waits for the line
+            // before it to be sung out, a held last word included.
+            val start = maxOf(line.startMs, lines.getOrNull(index - 1)?.takeIf { !it.gap }?.untilMs ?: line.startMs)
+            if (next != null && next.startMs - start >= MIN_LYRIC_GAP_MS) out += line.copy(startMs = start, endMs = next.startMs, gap = true)
             return@forEachIndexed
         }
         out += line

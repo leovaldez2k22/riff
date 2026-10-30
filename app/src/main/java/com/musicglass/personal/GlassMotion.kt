@@ -98,6 +98,16 @@ internal object GlassMotion {
         if (policy.reduced) snap() else spring(
             dampingRatio = .9f,
             stiffness = Spring.StiffnessMediumLow / (policy.scale * policy.scale).coerceAtLeast(.01f))
+
+    /** A settings icon as its switch turns on or off: a quick springy pop, a little past and back (owner, 30 Oct). */
+    fun <T> pop(policy: MotionPolicy): FiniteAnimationSpec<T> =
+        if (policy.reduced) snap() else spring(
+            dampingRatio = .42f,
+            stiffness = Spring.StiffnessMedium / (policy.scale * policy.scale).coerceAtLeast(.01f))
+    /** Settings tiles come in one after another, this far apart. */
+    const val staggerMs = 35
+    /** And no tile waits longer than this, however far down the page. */
+    const val staggerMaxMs = 280
 }
 
 /** Settings → Appearance → Motion. Quick restores the pace Riff had before Feature 35. */

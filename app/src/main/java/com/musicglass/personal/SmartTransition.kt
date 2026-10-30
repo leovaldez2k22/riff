@@ -17,8 +17,11 @@ internal const val AUDIBLE_DBFS = SILENCE_DBFS.toFloat()
 /** The outro starts where the level falls, for good, under 60 % of the song's body; the intro ends at 80 %. */
 private val OUTRO_BELOW_DB = (20 * log10(.6)).toFloat()
 private val INTRO_REACHES_DB = (20 * log10(.8)).toFloat()
-internal const val SMART_MIN_BLEND_MS = 4_000L
+/** The shortest blend: still room for the 1 s bass swap with a second either side (owner, 30 Oct: 3 s, was 4 s). */
+internal const val SMART_MIN_BLEND_MS = 3_000L
 internal const val SMART_MAX_BLEND_MS = 12_000L
+/** A song whose outro can't be told from its body: the plain crossfade's default length. */
+internal const val SMART_FALLBACK_BLEND_MS = 6_000L
 /** The most of a quiet intro the incoming song may skip. */
 internal const val SMART_MAX_INTRO_SKIP_MS = 8_000L
 /** How deep the bass swap cuts, and how long each side takes to cross. */
@@ -94,17 +97,18 @@ internal data class SmartPlan(val startMs: Long, val endMs: Long, val incomingSt
 }
 
 /**
- * The blend for [outgoing]'s analysed end and [incoming]'s analysed start, with [fadeMs] the crossfade setting.
- * Starts at the outro, or [fadeMs] before the audible end, whichever is later, and lasts 4 to 12 s. The incoming song
+ * The blend for [outgoing]'s analysed end and [incoming]'s analysed start, set by the song alone: it starts at the
+ * outro, or [fallbackMs] before the audible end when there is none, and lasts 3 to 12 s. The crossfade slider is
+ * for the plain crossfade only (owner, phone check 30 Oct: with the slider at 3 s, every smart blend came out 4 s). The incoming song
  * enters at its first sound, past a quiet intro of up to 8 s when it is music. Null when the end could not be read.
  */
-internal fun planSmartTransition(outgoing: TrackEnvelope?, incoming: TrackEnvelope?, fadeMs: Long, incomingIsMusic: Boolean = true,
+internal fun planSmartTransition(outgoing: TrackEnvelope?, incoming: TrackEnvelope?, fallbackMs: Long = SMART_FALLBACK_BLEND_MS, incomingIsMusic: Boolean = true,
     /** Automix (beta): stage 2 may move the blend onto the beat. Smart keeps stage 1's timing. */
     onBeat: Boolean = true): SmartPlan? {
     outgoing ?: return null
     val end = outgoing.audibleEndMs() ?: return null
     val outro = outgoing.outroStartMs()
-    val start = maxOf(outro ?: (end - fadeMs), end - fadeMs)
+    val start = outro ?: (end - fallbackMs)
     val blend = (end - start).coerceIn(SMART_MIN_BLEND_MS, SMART_MAX_BLEND_MS)
     val firstSound = incoming?.takeIf { it.startMs < ENVELOPE_BLOCK_MS }?.audibleStartMs() ?: 0L
     val built = incoming?.takeIf { incomingIsMusic && it.startMs < ENVELOPE_BLOCK_MS }?.introEndMs()

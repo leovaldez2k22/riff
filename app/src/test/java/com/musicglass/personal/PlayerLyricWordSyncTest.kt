@@ -8,16 +8,17 @@ class PlayerLyricWordSyncTest {
     // "Hello world": "Hello" sung from 1.0 to 2.0 s, "world" from 2.0 to 3.0 s.
     private val parts = listOf(LyricPart(1_000, 2_000, 0, 5), LyricPart(2_000, 3_000, 6, 11))
 
-    @Test fun nothingIsLitBeforeTheFirstWord() = assertEquals(0, playerLyricSung(parts, 500))
+    @Test fun nothingIsLitBeforeAWordStarts() = assertEquals(0f, playerLyricSweep(parts[0], 500), 0f)
 
-    @Test fun theWordBeingSungFillsAndEndedWordsStayLit() {
-        assertEquals(2, playerLyricSung(parts, 1_400))
-        assertEquals(4, playerLyricSung(parts, 1_999)); assertEquals(6, playerLyricSung(parts, 2_000)) // "world" has begun, so the space before it is lit too
-        assertEquals(8, playerLyricSung(parts, 2_400))
-        assertEquals(11, playerLyricSung(parts, 9_000))
+    @Test fun theSweepMovesSmoothlyAcrossTheWordBeingSungAndStaysAfter() {
+        // Owner, 30 Oct: smooth, as in the full lyrics, not a letter at a time.
+        assertEquals(.4f, playerLyricSweep(parts[0], 1_400), .001f)
+        assertEquals(.401f, playerLyricSweep(parts[0], 1_401), .001f)
+        assertEquals(1f, playerLyricSweep(parts[0], 2_000), 0f)
+        assertEquals(.4f, playerLyricSweep(parts[1], 2_400), .001f)
+        assertEquals(0f, playerLyricSweep(parts[1], 1_999), 0f)
+        assertEquals(1f, playerLyricSweep(parts[1], 9_000), 0f)
     }
-
-    @Test fun lineSyncedLyricsLightNothing() = assertEquals(0, playerLyricSung(emptyList(), 5_000))
 
     @Test fun theRowCarriesTheWordTimingsOfTheLineBeingSung() {
         val doc = LyricsDocument("test", "", listOf(LyricLine(1_000, 3_000, "Hello world", parts, knownEnd = true)))

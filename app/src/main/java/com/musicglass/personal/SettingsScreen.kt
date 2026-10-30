@@ -28,7 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
@@ -47,252 +48,160 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * Settings' opening page (owner, 30 Oct): the account, four quick switches, a search over the sections, Moods, and a
+ * tile for each section saying what is set inside; a tile opens its section's page of glass tiles.
+ */
 @Composable internal fun SettingsScreen(model:ShellModel,bottom:Dp,provider:YouTubeMusicProvider,
     collections:LocalCollections,onNotice:(String)->Unit) {
     val preferences=LocalAccessibilitySettings.current
     val context=androidx.compose.ui.platform.LocalContext.current
     val audio=remember(context) {AudioBoostSettings(context)}
-    var boostLevel by remember(audio) {mutableFloatStateOf(audio.percent.toFloat())}
     val crossfade=remember(context) {CrossfadeSettings.get(context)}
-    var crossfadeLength by remember(crossfade) {mutableFloatStateOf(crossfade.seconds.toFloat())}
     val dataSaver=remember(context) {DataSaverSettings(context)}
-    val equalizerOn=remember(context) {EqualizerSettings.read(EqualizerSettings.prefs(context)).enabled}
-    val scope=rememberCoroutineScope()
     val store=remember(context) {OfflineMusicStore.get(context)}
     val storeRevision by store.revision.collectAsStateWithLifecycle()
     val smartDownloads=remember(storeRevision) {store.smartEnabled}
     val hidden=remember(context) {NotInterestedStore.get(context)}
-    val updates=remember(context) {AppContainer.get(context).updates}
-    // F5: the settings sit in compartments, one open at a time; a closed one says in a line what is set inside.
-    var open by rememberSaveable {mutableStateOf<String?>(null)}
-    fun toggle(id:String) {open=if(open==id) null else id}
+    val moods=remember(context) {MoodStore.get(context)}
+    val equalizerOn=remember(context) {EqualizerSettings.read(EqualizerSettings.prefs(context)).enabled}
+    var query by rememberSaveable {mutableStateOf("")}
+    val mood=activeMood(builtInMoods+moods.kept,currentMoodValues(crossfade,audio,dataSaver))
+    val automix=crossfade.enabled && crossfade.mode==BlendMode.Automix
+    val tiles=listOf(
+        SettingsTile(SettingsSection.Sound,"sound",R.string.settings_sound,Icons.Rounded.GraphicEq,Pink,R.string.settings_keywords_sound,
+            listOf(if(!crossfade.enabled) string(R.string.summary_no_crossfade) else when(crossfade.mode) {
+                BlendMode.Crossfade->string(R.string.summary_crossfade_x,crossfade.seconds); BlendMode.Smart->string(R.string.smart_crossfade)
+                else->string(R.string.blend_automix_short)},
+                if(audio.enabled) string(R.string.summary_boost_x,audio.percent) else string(if(equalizerOn) R.string.settings_eq_on else R.string.summary_no_boost)).joinToString(" · ")),
+        SettingsTile(SettingsSection.Look,"look",R.string.settings_look_and_feel,Icons.Rounded.Opacity,Lavender,R.string.settings_keywords_look,
+            string(R.string.summary_glass_x,(preferences.glassIntensity*100).toInt())),
+        SettingsTile(SettingsSection.Lyrics,"lyrics",R.string.settings_lyrics,Icons.Rounded.Lyrics,Mint,R.string.settings_keywords_lyrics,
+            string(if(preferences.playerLyricLine) R.string.summary_lyric_line_on else R.string.summary_lyric_line_off)),
+        SettingsTile(SettingsSection.Downloads,"downloads",R.string.settings_downloads_and_data,Icons.Rounded.DownloadDone,Sky,R.string.settings_keywords_downloads,
+            string(if(dataSaver.enabled) R.string.summary_data_saver_on else if(smartDownloads) R.string.summary_smart_downloads_on else R.string.summary_data_saver_off)),
+        SettingsTile(SettingsSection.Library,"library",R.string.settings_library_and_privacy,Icons.Rounded.Lock,Coral,R.string.settings_keywords_library,
+            hidden.entries.size.takeIf {it>0}?.let {string(R.string.summary_x_not_interested,it)} ?: string(R.string.summary_x_widgets,riffWidgetPresets.size)),
+        SettingsTile(SettingsSection.About,"about",R.string.about,Icons.Rounded.Info,Stone,R.string.settings_keywords_about,
+            BuildConfig.VERSION_NAME))
+    fun matches(tile:SettingsTile)=query.isBlank() || listOf(string(tile.title),tile.summary,string(tile.keywords)).any {it.contains(query.trim(),ignoreCase=true)}
     ScreenList(model,bottom) {
         item {BackHeading(string(R.string.back),model::back);ScreenTitle(string(R.string.settings))}
+        item {AccountCard(model,provider,Modifier.bentoEnter(0))}
+        item {BentoHeading(string(R.string.settings_quick))}
         item {
-            Surface(Modifier.fillMaxWidth().padding(vertical=RiffSpace.item).testTag("settings_account")
-                .clickable(onClick=hapticClick {model.push(Route.Account)}),shape=RoundedCornerShape(24.dp),
-                color=White.copy(alpha=.06f)) {
-                Row(Modifier.padding(RiffSpace.block),verticalAlignment=Alignment.CenterVertically) {
-                    val image=provider.accountProfile?.artworkUrl
-                    if(image!=null) AsyncImage(image,null,contentScale=ContentScale.Crop,
-                        modifier=Modifier.size(48.dp).clip(CircleShape))
-                    else Icon(Icons.Rounded.AccountCircle,null,tint=Muted,modifier=Modifier.size(48.dp))
-                    Column(Modifier.weight(1f).padding(horizontal=14.dp)) {
-                        Text(provider.accountProfile?.name ?: if(provider.signedIn) string(R.string.your_account) else "YouTube Music",
-                            color=White,fontSize=17.sp,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
-                        Text(if(provider.signedIn) string(R.string.manage_account) else string(R.string.sign_in),color=Muted,fontSize=RiffType.detail)
+            Row(Modifier.fillMaxWidth().bentoEnter(1),horizontalArrangement=Arrangement.spacedBy(RiffSpace.item)) {
+                QuickTile(string(R.string.quick_automix),Icons.Rounded.Shuffle,automix,"settings_quick_automix",Modifier.weight(1f)) {on->
+                    if(on) {crossfade.updateMode(BlendMode.Automix);crossfade.updateEnabled(true)} else crossfade.updateEnabled(false)}
+                QuickTile(string(R.string.quick_boost),Icons.AutoMirrored.Rounded.VolumeUp,audio.enabled,"settings_quick_boost",Modifier.weight(1f),audio::updateEnabled)
+                QuickTile(string(R.string.quick_saver),Icons.Rounded.DataSaverOn,dataSaver.enabled,"settings_quick_saver",Modifier.weight(1f),dataSaver::updateEnabled)
+                QuickTile(string(R.string.quick_haptics),Icons.Rounded.Vibration,preferences.hapticFeedback,"settings_quick_haptics",Modifier.weight(1f),preferences::updateHapticFeedback)
+            }
+        }
+        item {SettingsSearch(query,{query=it},Modifier.bentoEnter(2))}
+        item {
+            BentoTile(Modifier.fillMaxWidth().bentoEnter(3),lit=true,tint=Lavender,tag="settings_group_moods",
+                onClick={model.push(Route.Settings(SettingsSection.Moods))}) {
+                Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(RiffSpace.rowGap)) {
+                    SettingIcon(Icons.Rounded.AutoAwesome,true,tint=Lavender)
+                    Column(Modifier.weight(1f)) {
+                        BentoTitle(string(R.string.settings_moods))
+                        BentoHelp(mood?.let {string(R.string.mood_on_x,moodName(it))} ?: string(R.string.moods_detail))
                     }
                     Icon(Icons.Rounded.ChevronRight,null,tint=Muted)
                 }
             }
         }
-        item {SettingsCompartment("sound",string(R.string.settings_sound),Icons.AutoMirrored.Rounded.VolumeUp,
-            listOf(if(audio.enabled) string(R.string.summary_boost_x,boostLevel.toInt()) else string(R.string.summary_no_boost),
-                if(crossfade.enabled) string(R.string.summary_crossfade_x,crossfadeLength.roundToInt()) else string(R.string.summary_no_crossfade)).joinToString(" · "),
-            open=="sound",{toggle("sound")}) {
-            SettingsToggleRow(string(R.string.volume_booster),audio.enabled,hapticToggle(audio::updateEnabled),
-                Icons.AutoMirrored.Rounded.VolumeUp,"settings_volume_boost", string(R.string.amplify_riff_playback_up_to_300))
-            if(audio.enabled) {
-                SettingsDivider()
-                Column(Modifier.padding(vertical=RiffSpace.item)) {
-                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                        Text(string(R.string.boost_level),color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
-                        Text("${boostLevel.toInt()}%",color=White,fontSize=13.sp)
-                    }
-                    CapsuleSlider(boostLevel,{boostLevel=it},valueRange=100f..300f,
-                        onValueChangeFinished={audio.updatePercent(boostLevel.toInt())},
-                        haptics=SliderHaptics.Boost,label=string(R.string.boost_level),spokenValue=quantity(R.plurals.n_percent,boostLevel.toInt()),
-                        modifier=Modifier.fillMaxWidth().testTag("settings_boost_level"))
+        tiles.chunked(2).forEachIndexed {row,pair->
+            item {
+                Box(Modifier.bentoEnter(4+row)) {
+                    BentoPair({m->SectionTile(pair[0],matches(pair[0]),query.isNotBlank(),m) {model.push(Route.Settings(pair[0].section))}},
+                        {m->SectionTile(pair[1],matches(pair[1]),query.isNotBlank(),m) {model.push(Route.Settings(pair[1].section))}})
                 }
             }
-            SettingsDivider()
-            SettingsToggleRow(string(R.string.normalize_volume),audio.normalize,hapticToggle(audio::updateNormalize),
-                Icons.Rounded.GraphicEq,"settings_normalize_volume",string(R.string.turns_down_louder_songs_from_youtube_music))
-            SettingsDivider()
-            SettingsToggleRow(string(R.string.skip_end_silence),audio.skipEndSilence,hapticToggle(audio::updateSkipEndSilence),
-                Icons.Rounded.SkipNext,"settings_skip_end_silence",string(R.string.skip_end_silence_detail))
-            SettingsDivider()
-            SettingsToggleRow(string(R.string.skip_all_silence),audio.skipAllSilence,hapticToggle(audio::updateSkipAllSilence),
-                Icons.Rounded.ContentCut,"settings_skip_all_silence",string(R.string.skip_all_silence_detail))
-            SettingsDivider()
-            // Feature 10: Riff's own equalizer has a screen of its own.
-            SettingsLinkRow(string(R.string.equalizer),string(if(equalizerOn) R.string.on else R.string.off),Icons.Rounded.Equalizer,"settings_equalizer") {
-                model.push(Route.Settings(SettingsSection.Equalizer))
-            }
-            SettingsDivider()
-            SettingsToggleRow(string(R.string.crossfade),crossfade.enabled,hapticToggle(crossfade::updateEnabled),
-                Icons.Rounded.Shuffle,"settings_crossfade",string(R.string.blend_the_end_of_each_song_into))
-            if(crossfade.enabled) {
-                SettingsDivider()
-                Column(Modifier.padding(vertical=RiffSpace.item)) {
-                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                        Text(string(R.string.crossfade_length),color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
-                        Text("${crossfadeLength.roundToInt()} s",color=White,fontSize=13.sp)
-                    }
-                    CapsuleSlider(crossfadeLength,{crossfadeLength=it},valueRange=1f..12f,steps=10,
-                        onValueChangeFinished={crossfade.updateSeconds(crossfadeLength.roundToInt())},
-                        haptics=SliderHaptics.Seconds,label=string(R.string.crossfade_length),spokenValue=quantity(R.plurals.n_seconds,crossfadeLength.roundToInt()),
-                        modifier=Modifier.fillMaxWidth().testTag("settings_crossfade_length"))
-                }
-                SettingsDivider()
-                // Automix: how the blend is placed. Smart reads each song's own end and start and swaps the bass halfway;
-                // Automix (beta) also lines the blend up on the beat.
-                listOf(Triple(BlendMode.Crossfade,R.string.blend_plain,R.string.blend_plain_detail),
-                    Triple(BlendMode.Smart,R.string.smart_crossfade,R.string.smart_crossfade_detail),
-                    Triple(BlendMode.Automix,R.string.blend_automix,R.string.blend_automix_detail)).forEach {(mode,title,detail)->
-                    SettingsChoiceRow(string(title),string(detail),crossfade.mode==mode,"settings_blend_${mode.wire}") {crossfade.updateMode(mode)}
-                }
-            }
-        }}
-        item {SettingsCompartment("look",string(R.string.settings_look_and_feel),Icons.Rounded.BlurOn,
-            listOf(string(if(preferences.frostedGlass) R.string.summary_frosted_glass_on else R.string.summary_frosted_glass_off),
-                string(R.string.summary_glass_x,(preferences.glassIntensity*100).toInt())).joinToString(" · "),
-            open=="look",{toggle("look")}) {
-            SettingsToggleRow(string(R.string.frosted_glass),preferences.frostedGlass,
-                hapticToggle(preferences::updateFrostedGlass),Icons.Rounded.BlurOn,"settings_frosted_glass")
-            SettingsDivider()
-            Column(Modifier.padding(vertical=RiffSpace.item)) {
-                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                    Text(string(R.string.glass_intensity),color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
-                    Text("${(preferences.glassIntensity*100).toInt()}%",color=Muted,fontSize=13.sp)
-                }
-                CapsuleSlider(preferences.glassIntensity,preferences::updateGlassIntensity,valueRange=0f..1.5f,
-                    haptics=SliderHaptics.Intensity,label=string(R.string.glass_intensity),spokenValue=quantity(R.plurals.n_percent,(preferences.glassIntensity*100).toInt()),
-                    modifier=Modifier.fillMaxWidth().testTag("settings_glass_intensity"))
-            }
-            SettingsDivider()
-            Column(Modifier.padding(vertical=RiffSpace.item)) {
-                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                    Text(string(R.string.frosted_glass_intensity),color=White,fontSize=15.sp,modifier=Modifier.weight(1f))
-                    Text("${(preferences.frostedIntensity*100).toInt()}%",color=Muted,fontSize=13.sp)
-                }
-                CapsuleSlider(preferences.frostedIntensity,preferences::updateFrostedIntensity,valueRange=0f..1.5f,
-                    haptics=SliderHaptics.Intensity,label=string(R.string.frosted_glass_intensity),spokenValue=quantity(R.plurals.n_percent,(preferences.frostedIntensity*100).toInt()),
-                    modifier=Modifier.fillMaxWidth().testTag("settings_frosted_intensity"))
-            }
-            SettingsDivider()
-            SettingsToggleRow(string(R.string.calm_transitions),preferences.motionPace==MotionPace.Calm,
-                hapticToggle { calm -> preferences.updateMotionPace(if(calm) MotionPace.Calm else MotionPace.Quick) },
-                Icons.Rounded.SlowMotionVideo,"settings_calm_transitions",subtitle=string(R.string.calm_transitions_detail))
-            SettingsDivider()
-            SettingsToggleRow(string(R.string.blur_other_lyric_lines),preferences.lyricsBlur,
-                hapticToggle(preferences::updateLyricsBlur),Icons.Rounded.BlurOn,"settings_lyrics_blur",
-                subtitle=string(R.string.blur_other_lyric_lines_detail))
-            SettingsDivider()
-            SettingsToggleRow(string(R.string.player_lyric_line),preferences.playerLyricLine,
-                hapticToggle(preferences::updatePlayerLyricLine),Icons.Rounded.Subtitles,"settings_player_lyric_line")
-            SettingsDivider()
-            SettingsToggleRow(string(R.string.show_stats_for_nerds),preferences.playerStats,
-                hapticToggle(preferences::updatePlayerStats),Icons.Rounded.Analytics,"settings_player_stats",
-                subtitle=string(R.string.show_stats_for_nerds_detail))
-            SettingsDivider()
-            SettingsToggleRow(string(R.string.reduce_motion),preferences.reduceMotion,
-                hapticToggle(preferences::updateReduceMotion),Icons.Rounded.MotionPhotosOff,"settings_reduce_motion")
-            SettingsDivider()
-            SettingsToggleRow(string(R.string.high_contrast_controls),preferences.solidControls,
-                hapticToggle(preferences::updateSolidControls),Icons.Rounded.Contrast,"settings_solid_controls")
-            SettingsDivider()
-            SettingsToggleRow(string(R.string.haptic_feedback),preferences.hapticFeedback,
-                hapticToggle(preferences::updateHapticFeedback),Icons.Rounded.Vibration,"settings_haptics")
-        }}
-        item {SettingsCompartment("downloads",string(R.string.settings_downloads_and_data),Icons.Rounded.DownloadDone,
-            listOf(string(if(smartDownloads) R.string.summary_smart_downloads_on else R.string.summary_smart_downloads_off),
-                string(if(dataSaver.enabled) R.string.summary_data_saver_on else R.string.summary_data_saver_off)).joinToString(" · "),
-            open=="downloads",{toggle("downloads")}) {
-            SettingsToggleRow(string(R.string.data_saver),dataSaver.enabled,hapticToggle(dataSaver::updateEnabled),
-                Icons.Rounded.DataSaverOn,"settings_data_saver",
-                string(R.string.lower_bitrate_audio_and_up_to_360p))
-            SettingsDivider()
-            SongQualityRow(dataSaver)
-            SettingsDivider()
-            // Feature 13: Android opens these links in Riff only once allowed here (Riff cannot verify YouTube's domains).
-            SettingsLinkRow(string(R.string.open_links_in_riff),null,Icons.Rounded.Link,"settings_open_links") {
-                runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS,
-                    android.net.Uri.parse("package:${context.packageName}"))) }
-            }
-            Text(string(R.string.open_links_in_riff_detail),color=Muted,fontSize=RiffType.detail,modifier=Modifier.padding(bottom=RiffSpace.item))
-            SettingsDivider()
-            DownloadSettings(model,onNotice)
-        }}
-        item {SettingsCompartment("library",string(R.string.settings_library_and_privacy),Icons.Rounded.Lock,
-            listOfNotNull(string(R.string.privacy_and_data),hidden.entries.size.takeIf {it>0}?.let {string(R.string.summary_x_not_interested,it)}).joinToString(" · "),
-            open=="library",{toggle("library")}) {
-            SettingsLinkRow(string(R.string.privacy_and_data),null,Icons.Rounded.Lock,"settings_privacy_data") {model.push(Route.Settings(SettingsSection.PrivacyData))}
-            SettingsDivider()
-            SettingsLinkRow(string(R.string.not_interested),hidden.entries.size.takeIf {it>0}?.toString(),Icons.Rounded.Block,"settings_not_interested") {
-                model.push(Route.Settings(SettingsSection.NotInterested))
-            }
-        }}
-        item {SettingsCompartment("widgets",string(R.string.widgets),Icons.Rounded.Widgets,
-            string(R.string.summary_x_widgets,riffWidgetPresets.size),open=="widgets",{toggle("widgets")}) {WidgetSettings(onNotice)}}
-        item {SettingsCompartment("about",string(R.string.about),Icons.Rounded.Info,
-            listOfNotNull(string(R.string.summary_updates).takeIf {updates.configured},string(R.string.diagnostics)).joinToString(" · "),
-            open=="about",{toggle("about")}) {
-            // Q12A: shown only in a build that has a release feed. Off sends nothing, the manual check included.
-            if(updates.configured) {
-                SettingsToggleRow(string(R.string.check_for_updates),updates.enabled,hapticToggle(updates::updateEnabled),
-                    Icons.Rounded.SystemUpdate,"settings_check_updates",string(R.string.check_for_updates_detail,updates.feedHost.orEmpty()))
-                if(updates.enabled) {
-                    SettingsDivider()
-                    val newer=updates.available
-                    SettingsLinkRow(newer?.let {string(R.string.riff_version_is_available,it.version.toString())} ?: string(R.string.check_for_updates_now),
-                        icon=Icons.Rounded.Update,tag="settings_update_row") {
-                        if(newer!=null) openWebPage(context,newer.page,updates.pageHosts)
-                        else scope.launch {updateResultText(updates.checkNow())?.let(onNotice)}
-                    }
-                }
-                SettingsDivider()
-            }
-            // Feature 29: the release's sheet again, or the tips when this release has none.
-            SettingsLinkRow(string(R.string.whats_new_and_tips),icon=Icons.Rounded.NewReleases,tag="settings_whats_new") {
-                whatsNewShowing=if(loadWhatsNew(context)?.cards.isNullOrEmpty()) WhatsNewShow.Tips else WhatsNewShow.Release
-            }
-            SettingsDivider()
-            // Q15A: last exits, errors, Share diagnostics report and Copy playback diagnostics are on their own screen.
-            SettingsLinkRow(string(R.string.diagnostics),icon=Icons.Rounded.BugReport,tag="settings_diagnostics") {
-                model.push(Route.Settings(SettingsSection.Diagnostics))
-            }
-        }}
+        }
         item {Text(androidx.compose.ui.res.stringResource(R.string.about_build_identity, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildIdentity.current().shortId),color=Muted,fontSize=RiffType.detail,
-            modifier=Modifier.fillMaxWidth().padding(vertical=20.dp),textAlign=androidx.compose.ui.text.style.TextAlign.Center)}
+            modifier=Modifier.fillMaxWidth().padding(vertical=RiffSpace.screenEdge),textAlign=androidx.compose.ui.text.style.TextAlign.Center)}
     }
 }
 
-/**
- * F5: one settings compartment. The header names it and, while closed, sums up what is set inside; a tap opens or
- * closes it. Frosted like Riff's other glass: a light sheen over a faint fill, a thin edge that turns pink when open.
- */
-@Composable internal fun SettingsCompartment(id:String,title:String,icon:ImageVector,summary:String,open:Boolean,
-    onToggle:()->Unit,content:@Composable ColumnScope.()->Unit) {
+/** One of the opening page's section tiles: its icon in its colour, its name, and what is set inside. */
+private class SettingsTile(val section:SettingsSection,val id:String,val title:Int,val icon:ImageVector,val tint:Color,val keywords:Int,val summary:String)
+
+@Composable private fun SectionTile(tile:SettingsTile,match:Boolean,searching:Boolean,modifier:Modifier,onOpen:()->Unit) {
     val motion=LocalMotionPolicy.current
-    val edge by animateColorAsState(if(open) Pink.copy(alpha=.5f) else White.copy(alpha=.12f),
-        GlassMotion.timed(GlassMotion.selectionMs,motion),label="compartment edge")
-    val turn by animateFloatAsState(if(open) 180f else 0f,GlassMotion.timed(GlassMotion.screenMs,motion),label="compartment chevron")
-    val openText=string(R.string.settings_group_open);val closedText=string(R.string.settings_group_closed)
-    val shape=RoundedCornerShape(24.dp)
-    // Feature 2: glass over the screen's artwork-coloured background, keeping a little of the old light from the top left.
-    Column(Modifier.fillMaxWidth().padding(vertical=RiffSpace.tight).riffGlass(GlassRole.Card,RiffRadius.hero,backdrop=LocalPageBackdrop.current).clip(shape)
-        .background(Brush.linearGradient(listOf(White.copy(alpha=.05f),Color.Transparent)))
-        .border(.6.dp,edge,shape)) {
-        Row(Modifier.fillMaxWidth().heightIn(min=64.dp).testTag("settings_group_$id")
-            .clickable(role=Role.Button,onClick=hapticClick(onToggle))
-            .semantics {heading();stateDescription=if(open) openText else closedText}
-            .padding(horizontal=RiffSpace.block,vertical=RiffSpace.rowGap),
-            verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(RiffSpace.rowGap)) {
-            Box(Modifier.size(36.dp).clip(CircleShape).background(Pink.copy(alpha=.14f)).border(.6.dp,Pink.copy(alpha=.35f),CircleShape),
-                contentAlignment=Alignment.Center) {Icon(icon,null,tint=Pink,modifier=Modifier.size(19.dp))}
-            Column(Modifier.weight(1f)) {
-                Text(title,color=White,fontSize=RiffType.message,fontWeight=FontWeight.SemiBold)
-                AnimatedVisibility(!open,enter=fadeIn(GlassMotion.timed(GlassMotion.selectionMs,motion)),
-                    exit=fadeOut(GlassMotion.exit(GlassMotion.selectionMs,motion))) {
-                    Text(summary,color=Muted,fontSize=RiffType.detail,maxLines=1,overflow=TextOverflow.Ellipsis,modifier=Modifier.padding(top=2.dp))
-                }
-            }
-            Icon(Icons.Rounded.ExpandMore,null,tint=if(open) Pink else Muted,modifier=Modifier.rotate(turn))
+    // While searching, the sections that match stand out and the rest fall back.
+    val shown by animateFloatAsState(if(match) 1f else .25f,GlassMotion.timed(GlassMotion.selectionMs,motion),label="section match")
+    BentoTile(modifier.graphicsLayer {alpha=shown},lit=searching && match,tint=tile.tint,onClick=onOpen,tag="settings_group_${tile.id}") {
+        Box(Modifier.size(RiffSettings.badge).clip(CircleShape).background(tile.tint.copy(alpha=.18f)),contentAlignment=Alignment.Center) {
+            Icon(tile.icon,null,tint=tile.tint,modifier=Modifier.size(RiffSettings.badgeIcon))
         }
-        AnimatedVisibility(open,enter=expandVertically(GlassMotion.timed(GlassMotion.screenMs,motion))+fadeIn(GlassMotion.timed(GlassMotion.screenMs,motion)),
-            exit=shrinkVertically(GlassMotion.exit(GlassMotion.screenMs,motion))+fadeOut(GlassMotion.exit(GlassMotion.selectionMs,motion))) {
-            Column(Modifier.padding(start=RiffSpace.block,end=RiffSpace.block,bottom=RiffSpace.item)) {SettingsDivider();content()}
+        Spacer(Modifier.weight(1f).heightIn(min=RiffSpace.item))
+        BentoTitle(string(tile.title))
+        BentoHelp(tile.summary)
+    }
+}
+
+/** A quick switch: solid pink while on, its icon popping as it turns. */
+@Composable private fun QuickTile(label:String,icon:ImageVector,on:Boolean,tag:String,modifier:Modifier,onChange:(Boolean)->Unit) {
+    val motion=LocalMotionPolicy.current
+    val fill by animateColorAsState(if(on) Pink else White.copy(alpha=.06f),GlassMotion.timed(GlassMotion.selectionMs,motion),label="quick fill")
+    val ink by animateColorAsState(if(on) PinkInk else White,GlassMotion.timed(GlassMotion.selectionMs,motion),label="quick ink")
+    val shape=RoundedCornerShape(RiffRadius.hero)
+    Column(modifier.heightIn(min=RiffSettings.quick).riffGlass(GlassRole.Card,RiffRadius.hero,backdrop=LocalPageBackdrop.current).clip(shape)
+        .background(fill).border(RiffSettings.hairline,if(on) Pink else White.copy(alpha=.12f),shape)
+        .toggleable(on,role=Role.Switch,onValueChange=hapticToggle(onChange)).testTag(tag).padding(vertical=RiffSpace.item),
+        horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
+        QuickIcon(icon,on,ink)
+        Text(label,color=ink,fontSize=RiffType.detail,fontWeight=FontWeight.SemiBold,maxLines=1,modifier=Modifier.padding(top=RiffSpace.tight))
+    }
+}
+
+/** The quick switch's icon pops past full size and tips as it turns on, dips as it turns off. */
+@Composable private fun QuickIcon(icon:ImageVector,on:Boolean,ink:Color) {
+    val motion=LocalMotionPolicy.current
+    val scale=remember {androidx.compose.animation.core.Animatable(1f)}
+    var settled by remember {mutableStateOf(false)}
+    LaunchedEffect(on) {
+        if(!settled) {settled=true;return@LaunchedEffect}
+        if(motion.reduced) return@LaunchedEffect
+        scale.animateTo(if(on) 1.35f else .75f,GlassMotion.timed(GlassMotion.pressMs,motion))
+        scale.animateTo(1f,GlassMotion.pop(motion))
+    }
+    Icon(icon,null,tint=ink,modifier=Modifier.size(RiffSettings.quickIcon).graphicsLayer {scaleX=scale.value;scaleY=scale.value;rotationZ=(scale.value-1f)*-40f})
+}
+
+/** Search over the sections: their names, what is set in them, and the words for what is inside. */
+@Composable private fun SettingsSearch(query:String,onQuery:(String)->Unit,modifier:Modifier) {
+    val shape=RoundedCornerShape(RiffRadius.pill)
+    Row(modifier.fillMaxWidth().height(RiffSettings.search).riffGlass(GlassRole.Card,RiffRadius.pill,backdrop=LocalPageBackdrop.current).clip(shape)
+        .border(RiffSettings.hairline,White.copy(alpha=.12f),shape).padding(horizontal=RiffSpace.block),verticalAlignment=Alignment.CenterVertically,
+        horizontalArrangement=Arrangement.spacedBy(RiffSpace.item)) {
+        Icon(Icons.Rounded.Search,null,tint=Muted,modifier=Modifier.size(RiffSettings.badgeIcon))
+        Box(Modifier.weight(1f)) {
+            if(query.isEmpty()) Text(string(R.string.settings_search),color=Muted,fontSize=RiffType.body)
+            androidx.compose.foundation.text.BasicTextField(query,onQuery,singleLine=true,
+                textStyle=androidx.compose.ui.text.TextStyle(color=White,fontSize=RiffType.body),
+                cursorBrush=androidx.compose.ui.graphics.SolidColor(Pink),
+                modifier=Modifier.fillMaxWidth().testTag("settings_search").semantics {contentDescription=string(R.string.settings_search)})
+        }
+        if(query.isNotEmpty()) IconButton({onQuery("")},Modifier.size(RiffSpace.touch)) {Icon(Icons.Rounded.Close,string(R.string.settings_search_clear),tint=Muted)}
+    }
+}
+
+/** The account at the top of Settings. */
+@Composable private fun AccountCard(model:ShellModel,provider:YouTubeMusicProvider,modifier:Modifier) {
+    BentoTile(modifier.fillMaxWidth(),lit=true,onClick={model.push(Route.Account)},tag="settings_account") {
+        Row(verticalAlignment=Alignment.CenterVertically) {
+            val image=provider.accountProfile?.artworkUrl
+            if(image!=null) AsyncImage(image,null,contentScale=ContentScale.Crop,modifier=Modifier.size(RiffSettings.avatar).clip(CircleShape))
+            else Icon(Icons.Rounded.AccountCircle,null,tint=Pink,modifier=Modifier.size(RiffSettings.avatar))
+            Column(Modifier.weight(1f).padding(horizontal=RiffSpace.rowGap)) {
+                Text(provider.accountProfile?.name ?: if(provider.signedIn) string(R.string.your_account) else "YouTube Music",
+                    color=White,fontSize=RiffSettings.title,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
+                Text(if(provider.signedIn) string(R.string.manage_account) else string(R.string.sign_in),color=Muted,fontSize=RiffType.detail)
+            }
+            Icon(Icons.Rounded.ChevronRight,null,tint=Muted)
         }
     }
 }
@@ -308,25 +217,6 @@ import kotlinx.coroutines.withContext
         }
     }
 }
-/** Q18-099: High, Medium or Low for streamed songs; Data saver wins while it is on, and the row says so. */
-@Composable private fun SongQualityRow(dataSaver:DataSaverSettings) {
-    Column(Modifier.fillMaxWidth().padding(vertical=RiffSpace.item).testTag("settings_song_quality")) {
-        Text(string(R.string.song_quality),color=White,fontSize=RiffType.rowTitle)
-        // Feature 17: one choice for Wi-Fi (any unmetered network) and one for mobile data.
-        for (metered in listOf(false, true)) {
-            Text(string(if (metered) R.string.on_mobile_data else R.string.on_wifi),color=Muted,fontSize=RiffType.detail,modifier=Modifier.padding(top=RiffSpace.item))
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(top=RiffSpace.tight),horizontalArrangement=Arrangement.spacedBy(RiffSpace.item)) {
-                SongQuality.entries.forEach {choice->
-                    val chosen=if(metered) dataSaver.meteredQuality else dataSaver.unmeteredQuality
-                    FilterChip(chosen==choice,{ uiHaptic(HapticCue.Selection); dataSaver.updateNetworkQuality(metered,choice)},{Text(songQualityLabel(choice))},
-                        modifier=Modifier.testTag(if(metered) "settings_song_quality_mobile_${choice.key}" else "settings_song_quality_${choice.key}"))
-                }
-            }
-        }
-        Text(string(if(dataSaver.enabled) R.string.song_quality_data_saver_on else R.string.song_quality_note),
-            color=Muted,fontSize=RiffType.detail,modifier=Modifier.padding(top=RiffSpace.tight).testTag("settings_song_quality_note"))
-    }
-}
 internal fun songQualityLabel(choice:SongQuality) = string(when(choice) {
     SongQuality.High -> R.string.song_quality_high; SongQuality.Medium -> R.string.song_quality_medium; SongQuality.Low -> R.string.song_quality_low })
 @Composable internal fun SettingsDivider() {HorizontalDivider(color=White.copy(alpha=.08f))}
@@ -335,7 +225,7 @@ internal fun songQualityLabel(choice:SongQuality) = string(when(choice) {
     Row(Modifier.fillMaxWidth().heightIn(min=58.dp).testTag(tag)
         .toggleable(checked,role=Role.Switch,onValueChange=onChange).padding(vertical=RiffSpace.item),
         verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(RiffSpace.rowGap)) {
-        Icon(icon,null,tint=Muted,modifier=Modifier.size(21.dp))
+        SettingIcon(icon,checked,badge=false)
         Column(Modifier.weight(1f)) {
             Text(title,color=White,style=RiffText.settingsRow)
             if(subtitle!=null) Text(subtitle,color=White.copy(alpha=.55f),style=RiffText.settingsHelp,modifier=Modifier.padding(top=3.dp))
@@ -353,7 +243,7 @@ internal fun songQualityLabel(choice:SongQuality) = string(when(choice) {
     }
 }
 
-@Composable private fun WidgetSettings(onNotice:(String)->Unit) {
+@Composable internal fun WidgetSettings(onNotice:(String)->Unit) {
     val context=androidx.compose.ui.platform.LocalContext.current
     val manager=remember(context) {android.appwidget.AppWidgetManager.getInstance(context)}
     riffWidgetPresets.forEach {preset->

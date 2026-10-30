@@ -136,9 +136,13 @@ class UiRegressionInstrumentation {
 
     private fun scrollToDataSaver() = scrollTo("settings_data_saver","downloads")
 
-    // F5: settings sit in compartments; open the one holding the row (if it is not open yet) before scrolling to it.
+    // Settings' rows sit on their sections' pages (owner, 30 Oct); go back to the opening page if another section is
+    // open, then open the one holding the row before scrolling to it.
     private fun scrollTo(tag:String,group:String) {
         if(compose.onAllNodesWithTag(tag,useUnmergedTree=true).fetchSemanticsNodes().isEmpty()) {
+            if(compose.onAllNodesWithTag("settings_group_$group").fetchSemanticsNodes().isEmpty()) {
+                compose.onNodeWithTag("back").performClick();settle()
+            }
             scrollTo("settings_group_$group")
             compose.onNodeWithTag("settings_group_$group").performSemanticsAction(SemanticsActions.OnClick) {it()};settle()
         }

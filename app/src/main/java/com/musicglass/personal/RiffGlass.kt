@@ -93,7 +93,9 @@ internal val LocalGlassStyle = staticCompositionLocalOf { GlassStyle() }
 
 /** One piece of glass, in dp (and fractions): its blur, the rim that bends, how far it bends, and its light. */
 internal data class GlassSpec(val blur: Float, val rim: Float, val bend: Float, val depth: Float, val dispersion: Float,
-    val highlight: Float, val tint: Color, val lens: Boolean)
+    val highlight: Float, val tint: Color, val lens: Boolean,
+    /** The rim reads from outside the glass, as a magnifier's edge does, rather than from inside it. */
+    val outward: Boolean = false)
 
 /**
  * The starting values of the plan's table, then the settings: the glass intensity scales the bend; frosted glass
@@ -104,7 +106,10 @@ internal fun glassSpec(role: GlassRole, style: GlassStyle): GlassSpec {
         GlassRole.Bar -> GlassSpec(2f, 20f, 36f, 1f, 1f, .45f, Color.White.copy(alpha = .06f), true)
         // Clear, with a lit rim that bends and fringes what is under it, as in the owner's video (30 Oct). It reads the
         // page and the tabs together, so the bend at its rim no longer pulls in empty space (bug 8 of 29 Oct).
-        GlassRole.Lens -> GlassSpec(0f, 14f, 12f, 0f, 1f, .6f, Color.Transparent, true)
+        // Its rim reads outward: bending inward hid the few dp of page it stands out of the bar, so its top and bottom
+        // showed no refraction (owner, phone check 30 Oct).
+        // A strong colour fringe all round, which the owner reads as its refraction (phone check 30 Oct).
+        GlassRole.Lens -> GlassSpec(0f, 14f, 12f, 0f, 3f, .6f, Color.Transparent, true, outward = true)
         GlassRole.Button -> GlassSpec(2f, 14f, 28f, 1f, 1f, .45f, Color.White.copy(alpha = .06f), true)
         GlassRole.Card -> GlassSpec(8f, 12f, 20f, 0f, 0f, .30f, Color.White.copy(alpha = .08f), true)
         GlassRole.Menu -> GlassSpec(20f, 10f, 16f, 0f, 0f, .30f, Color.Black.copy(alpha = .25f), true)
@@ -208,7 +213,8 @@ internal class GlassPiece {
         if (backdrop == null) drawPath(path, Color(0xFF171C27).copy(alpha = .9f))
         else {
             val blur = spec.blur * density
-            val reach = glassReach(blur)
+            // A rim that reads outward reads as far out as it bends.
+            val reach = glassReach(blur) + if (spec.outward) ceil(spec.bend * density) else 0f
             val area = IntSize(ceil(size.width + 2 * reach).toInt(), ceil(size.height + 2 * reach).toInt())
             layer.renderEffect = glassEffect(piece, spec, blur, reach, size.width, size.height, radius, density, zoom())
             piece.area = area; piece.reach = reach; piece.density = Density(density, fontScale)
@@ -229,7 +235,7 @@ internal fun glassEffect(piece: GlassPiece, spec: GlassSpec, blur: Float, reach:
     if (!spec.lens || Build.VERSION.SDK_INT < 33) return blurEffect?.asComposeRenderEffect()
     val lens = (piece.lens as? GlassLens) ?: GlassLens().also { piece.lens = it }
     val bent = lens.effect(width, height, reach, radius, spec.rim * density, spec.bend * density, spec.depth, spec.dispersion,
-        spec.highlight, zoom)
+        spec.highlight, zoom, spec.outward)
     return (if (blurEffect != null) RenderEffect.createChainEffect(bent, blurEffect) else bent).asComposeRenderEffect()
 }
 
@@ -238,7 +244,7 @@ internal fun glassEffect(piece: GlassPiece, spec: GlassSpec, blur: Float, reach:
 private class GlassLens {
     private val shader = RuntimeShader(GLASS_SHADER)
     fun effect(width: Float, height: Float, reach: Float, radius: Float, rim: Float, bend: Float, depth: Float,
-        dispersion: Float, highlight: Float, zoom: Float): RenderEffect {
+        dispersion: Float, highlight: Float, zoom: Float, outward: Boolean): RenderEffect {
         shader.setFloatUniform("size", width, height)
         shader.setFloatUniform("reach", reach)
         shader.setFloatUniform("radius", radius)
@@ -248,13 +254,14 @@ private class GlassLens {
         shader.setFloatUniform("dispersion", dispersion)
         shader.setFloatUniform("highlight", highlight)
         shader.setFloatUniform("zoom", zoom.coerceAtLeast(.5f))
+        shader.setFloatUniform("direction", if (outward) -1f else 1f)
         return RenderEffect.createRuntimeShaderEffect(shader, "page")
     }
 }
 
 /*
  * page: the backdrop around the glass, [reach] px of margin on each side. Inside the rim the sample moves toward the
- * centre along the shape's normal (bent by [depth] toward the centre, so it reads as a convex lens), by a quarter-circle
+ * centre along the shape's normal (away from it, for a rim that reads outward: [direction] -1) (bent by [depth] toward the centre, so it reads as a convex lens), by a quarter-circle
  * profile: little in the middle of the rim, most at the edge. The rim stops at half the short side, the bend at 0.6
  * of the rim. The colour fringe samples red further and blue nearer, most at the corners. A light from the top left
  * brightens the rim.
@@ -270,6 +277,7 @@ private const val GLASS_SHADER = """
     uniform float dispersion;
     uniform float highlight;
     uniform float zoom;
+    uniform float direction;
 
     float box(float2 p, float2 b, float r) {
         float2 q = abs(p) - b + float2(r);
@@ -294,7 +302,7 @@ private const val GLASS_SHADER = """
         float2 g = float2(box(p + float2(e, 0.0), b, r) - box(p - float2(e, 0.0), b, r),
                           box(p + float2(0.0, e), b, r) - box(p - float2(0.0, e), b, r));
         float2 n = normalize(normalize(g + float2(0.00001)) + depth * normalize(p + float2(0.00001)));
-        float2 shift = -n * amount;
+        float2 shift = -n * amount * direction;
         float corner = clamp(abs(p.x * p.y) / max(b.x * b.y, 1.0), 0.0, 1.0);
         float k = dispersion * (0.12 + 0.30 * corner);
         half4 c = page.eval(base + shift);

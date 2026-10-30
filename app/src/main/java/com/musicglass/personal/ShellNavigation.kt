@@ -16,7 +16,12 @@ internal enum class RootTab {
 
 internal enum class SettingsSection(val wire: String) {
     Main("settings"), PrivacyData("privacy_data"), NotInterested("not_interested"), EarlierData("earlier_data"),
-    Diagnostics("diagnostics"), Equalizer("equalizer"), GlassGallery("glass_gallery")
+    Diagnostics("diagnostics"), Equalizer("equalizer"), GlassGallery("glass_gallery"),
+    // Settings' sections, each a page of glass tiles opened from the opening page (owner, 30 Oct).
+    Sound("settings_sound"), Look("settings_look"), Lyrics("settings_lyrics"), Downloads("settings_downloads"),
+    Library("settings_library"), About("settings_about"), Moods("settings_moods");
+    /** One of the opening page's sections, as opposed to a screen of its own. */
+    val tile get() = this in setOf(Sound, Look, Lyrics, Downloads, Library, About, Moods)
 }
 
 /**

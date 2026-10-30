@@ -41,6 +41,23 @@ class LyricGapsTest {
         assertTrue("a blank line under 4 s is dropped, not shown as dots", withInstrumentalGaps(short).none { it.gap || it.text.isBlank() })
     }
 
+    @Test fun aHeldLastWordIsSungOutBeforeTheDots() {
+        // Owner, 30 Oct: the line ends at 2.0 s but its held last word runs to 2.4 s. The line stays lit, and the
+        // break starts when the word ends, not under it.
+        val held = LyricLine(0, 2_000, "so long", listOf(LyricPart(0, 500, 0, 2), LyricPart(600, 2_400, 3, 7)), knownEnd = true)
+        val shown = withInstrumentalGaps(listOf(held, sung(9_000, 10_000)))
+        assertEquals(2_400L to 9_000L, shown[1].startMs to shown[1].endMs)
+        assertEquals(0, activeLyricLine(shown, 2_300))
+        val row = playerLyricRow(LyricsDocument("test", "", listOf(held, sung(9_000, 10_000))), 2_300)
+        assertTrue("still the line, no dots yet", row is PlayerLyricRow.Line && !row.past)
+    }
+
+    @Test fun anLrcBreakMarkWaitsForTheHeldWordBeforeIt() {
+        val held = LyricLine(0, 2_000, "so long", listOf(LyricPart(600, 3_000, 3, 7)), knownEnd = false)
+        val shown = withInstrumentalGaps(listOf(held, sung(2_000, 9_000, text = "", knownEnd = false), sung(9_000, 11_000, knownEnd = false)))
+        assertEquals(3_000L to 9_000L, shown[1].startMs to shown[1].endMs)
+    }
+
     @Test fun untimedLyricsAreLeftAlone() {
         val plain = listOf(LyricLine(-1, -1, "one"), LyricLine(-1, -1, "two"))
         assertEquals(plain, withInstrumentalGaps(plain))

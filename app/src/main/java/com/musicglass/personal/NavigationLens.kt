@@ -2,7 +2,6 @@ package com.musicglass.personal
 
 import kotlin.math.abs
 import kotlin.math.exp
-import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /*
@@ -12,10 +11,10 @@ import kotlin.math.sqrt
  * - a drag (or a held finger) lifts it into a clear lens: in about 0.1 s, with a slight bounce, 1.33 times wider and
  *   1.36 times taller, so it stands 7 % of the bar's height out of the top and the bottom;
  * - lifted, it keeps the offset from where it was taken (it moves a fifth of the way to the finger as it lifts) and
- *   follows the finger one to one, never snapping, between the first and last tabs' centres;
+ *   follows the finger one to one, never snapping, from the first tab's centre to the Search button's;
  * - moving, it widens with speed (about 12 % at three tabs a second) and flattens a little, and a fainter copy of its
  *   rim trails behind it, as far as a quick spring lags;
- * - pushed past an end it stays at the end tab's centre and squashes, narrower and taller, and springs back as the
+ * - pushed past an end it stays at that end's centre and squashes, narrower and taller, and springs back as the
  *   finger comes away;
  * - the selected tab does not change while it moves; let go, the tab under the lens is chosen at once, the lens
  *   glides into it without overshooting (about 0.2 s) and only then shrinks back to the frosted pill (about 0.1 s).
@@ -41,7 +40,11 @@ internal class LensSpring(var value: Float, var velocity: Float = 0f) {
     fun snap(to: Float) { value = to; velocity = 0f }
 }
 
-internal class TabLensMotion(private val tabs: Int = 4) {
+/**
+ * [tabs] equal tabs and, with [search], the round Search button after them (the tab bar); without it, a segmented
+ * control of [tabs] choices. [liftOnHold] off leaves a held finger to the caller (Encore's long press).
+ */
+internal class TabLensMotion(private val tabs: Int = 4, private val search: Boolean = true, private val liftOnHold: Boolean = true) {
     // The bar, set by the caller each layout.
     private var slot = 1f; private var barHeight = 1f; private var searchCenter = 0f; private var searchSize = 0f
     private var selected = 0
@@ -50,7 +53,7 @@ internal class TabLensMotion(private val tabs: Int = 4) {
     private val ghost = LensSpring(0f); private val catchUp = LensSpring(0f)
     private var placed = false; private var reduced = false
     private var pressed = false; private var downX = 0f; private var fingerX = 0f; private var downAt = 0L
-    private var grabOffset = 0f; private var lastCenter = 0f; private var speed = 0f
+    private var grabOffset = 0f; private var previousCenter = 0f; private var speed = 0f
     private var releasedAt = -1L; private var target = 0f
     var lifted = false; private set
     /** True while anything still moves: the caller asks for frames only then. */
@@ -68,10 +71,13 @@ internal class TabLensMotion(private val tabs: Int = 4) {
         if (!lifted) { target = tabCenter(index); moving = true }
     }
 
-    fun tabCenter(index: Int) = if (index >= tabs) searchCenter else slot * (index + .5f)
+    fun tabCenter(index: Int) = if (search && index >= tabs) searchCenter else slot * (index + .5f)
     private val firstCenter get() = slot * .5f
-    private val lastTabCenter get() = slot * (tabs - .5f)
-    private fun restWidthFor(index: Int) = if (index >= tabs) searchSize * REST_HEIGHT else slot - REST_SIDE * barHeight
+    private val lastCenter get() = if (search) searchCenter.coerceAtLeast(firstCenter) else tabCenter(tabs - 1)
+    // The same gap all round: a tab's width less the gap above and below on each side (owner, phone check 30 Oct).
+    private fun restWidthFor(index: Int) = if (search && index >= tabs) searchSize * REST_HEIGHT else slot - (1f - REST_HEIGHT) * barHeight
+    /** The tab, or Search, whose centre is nearest [x]. */
+    private fun nearest(x: Float) = (0 until if (search) tabs + 1 else tabs).minBy { abs(tabCenter(it) - x) }
 
     fun down(x: Float, nowMs: Long) {
         pressed = true; downX = x; fingerX = x; downAt = nowMs; releasedAt = -1L; moving = true
@@ -85,17 +91,14 @@ internal class TabLensMotion(private val tabs: Int = 4) {
     /** A gesture taken by something else, or a tap: nothing lifted, and the pill stays where it is. */
     fun cancel() { pressed = false; if (lifted) release() }
 
-    /** The finger came up after a lift: the tab nearest the lens, which the caller selects. */
+    /** The finger came up after a lift: the tab nearest the lens ([tabs] for Search), which the caller selects. */
     fun up(): Int {
         pressed = false
-        val index = ((center.value - firstCenter) / slot).roundToInt().coerceIn(0, tabs - 1)
+        val index = nearest(center.value)
         selected = index
         release()
         return index
     }
-
-    /** The finger came up over Search after a lift. */
-    fun upOverSearch(): Int { pressed = false; selected = tabs; release(); return tabs }
 
     private fun release() {
         lifted = false; releasedAt = nowMs; target = tabCenter(selected)
@@ -108,12 +111,12 @@ internal class TabLensMotion(private val tabs: Int = 4) {
         if (reduced) return
         lifted = true
         val pill = center.value
-        // Taken inside the pill, it keeps that offset after a fifth of a step toward the finger; taken elsewhere, the
-        // lens comes to the finger.
-        grabOffset = if (abs(fingerX - pill) <= restWidth.value / 2f) (fingerX - pill) * (1f - LIFT_TOWARD) else 0f
-        val wanted = (fingerX - grabOffset).coerceIn(firstCenter, lastTabCenter)
+        // Taken inside the pill's tab, it keeps that offset after a fifth of a step toward the finger; taken elsewhere,
+        // the lens comes to the finger.
+        grabOffset = if (abs(fingerX - pill) <= slot / 2f) (fingerX - pill) * (1f - LIFT_TOWARD) else 0f
+        val wanted = (fingerX - grabOffset).coerceIn(firstCenter, lastCenter)
         catchUp.snap(pill - wanted)
-        lastCenter = pill
+        previousCenter = pill
         moving = true
     }
 
@@ -122,7 +125,7 @@ internal class TabLensMotion(private val tabs: Int = 4) {
     fun step(nowMs: Long, seconds: Float) {
         this.nowMs = nowMs
         val dt = seconds.coerceIn(0f, .05f)
-        if (pressed && !lifted && nowMs - downAt >= HOLD_MS) liftUnderFinger()
+        if (liftOnHold && pressed && !lifted && nowMs - downAt >= HOLD_MS) liftUnderFinger()
         if (reduced) {
             center.snap(target); restWidth.snap(restWidthFor(selected)); lift.snap(0f); stretch.snap(0f); squash.snap(0f)
             ghost.snap(target); moving = pressed; return
@@ -130,7 +133,7 @@ internal class TabLensMotion(private val tabs: Int = 4) {
         restWidth.step(restWidthFor(selected), dt, SETTLE_STIFFNESS, 1f)
         if (lifted) {
             val raw = fingerX - grabOffset
-            val held = raw.coerceIn(firstCenter, lastTabCenter)
+            val held = raw.coerceIn(firstCenter, lastCenter)
             catchUp.step(0f, dt, CATCH_STIFFNESS, CATCH_DAMPING)
             center.snap(held + catchUp.value)
             val over = abs(raw - held)
@@ -144,9 +147,9 @@ internal class TabLensMotion(private val tabs: Int = 4) {
             val shrink = releasedAt < 0L || home || nowMs - releasedAt >= HOME_WAIT_MS
             lift.step(if (shrink) 0f else 1f, dt, LIFT_STIFFNESS, if (shrink) SHRINK_DAMPING else LIFT_DAMPING)
         }
-        val measured = if (dt > 0f) (center.value - lastCenter) / dt else 0f
+        val measured = if (dt > 0f) (center.value - previousCenter) / dt else 0f
         speed = if (lifted) measured else center.velocity
-        lastCenter = center.value
+        previousCenter = center.value
         stretch.step((STRETCH_PER_TAB_SECOND * abs(speed) / slot).coerceAtMost(STRETCH_MAX), dt, STRETCH_STIFFNESS, STRETCH_DAMPING)
         ghost.step(center.value, dt, GHOST_STIFFNESS, 1f)
         moving = pressed || lifted || abs(center.value - target) > .5f || abs(center.velocity) > 1f || abs(lift.value) > .002f ||
@@ -165,13 +168,12 @@ internal class TabLensMotion(private val tabs: Int = 4) {
         return TabLensFrame(center.value, width, height, l, ghost.value, (GHOST_ALPHA * trail.coerceIn(0f, 1f) * l.coerceIn(0f, 1f)))
     }
 
-    /** The tab nearest the lens now, for the tick as it crosses into another. */
-    fun hovered(): Int = ((center.value - firstCenter) / slot).roundToInt().coerceIn(0, tabs - 1)
+    /** The tab nearest the lens now ([tabs] for Search), for the tick as it crosses into another. */
+    fun hovered(): Int = nearest(center.value)
 
     companion object {
-        /** The frosted pill: 0.83 of the bar's height (160 of 192 px), a tab wide less 0.05 of the bar's height. */
+        /** The frosted pill: 0.83 of the bar's height (160 of 192 px), with the same gap at its sides. */
         const val REST_HEIGHT = .833f
-        const val REST_SIDE = .05f
         /** Lifted: 1.33 times wider and 1.36 times taller (255 to 339 px, 160 to 218 px). */
         const val LIFT_WIDER = .33f
         const val LIFT_TALLER = .36f
