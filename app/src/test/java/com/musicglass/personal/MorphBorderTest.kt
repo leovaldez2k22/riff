@@ -1,16 +1,18 @@
 package com.musicglass.personal
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Q18-068: the morph's border takes over from the mini player's in one frame, so it must start exactly as bright. */
+/**
+ * Q18-068, since the glass: the mini player's glass keeps drawing its rim under the morph, so the morph adds none at
+ * the start (a second rim was a bright outline) and none once it is the player.
+ */
 class MorphBorderTest {
-    @Test fun theMorphBorderStartsAsTheMiniPlayersAndFadesOut() {
-        for (solid in listOf(false, true)) {
-            assertEquals("solid controls $solid", miniBorderAlpha(solid), morphBorderAlpha(0f, solid), 1e-6f)
-            assertEquals(miniBorderAlpha(solid), morphBorderAlpha(.002f, solid), .005f)
-            assertEquals(0f, morphBorderAlpha(1f, solid), 1e-6f)
-        }
-        assertEquals(.72f, miniBorderAlpha(true), 0f); assertEquals(.42f, miniBorderAlpha(false), 0f)
+    @Test fun theMorphAddsNoBorderAtEitherEnd() {
+        assertEquals(0f, morphBorderAlpha(0f), 1e-6f)
+        assertTrue("faint just after the start", morphBorderAlpha(.002f) < .002f)
+        assertEquals(0f, morphBorderAlpha(1f), 1e-6f)
+        assertEquals(.10f, morphBorderAlpha(.5f), 1e-6f)
     }
 }

@@ -128,7 +128,9 @@ class PlayerFixesDeviceTest {
         var miniBounds: Rect? by mutableStateOf(null)
         val elements = mutableStateMapOf<String, Rect>()
         compose.setContent {
-            CompositionLocalProvider(LocalAccessibilitySettings provides accessibility, LocalMotionPolicy provides MotionPolicy(false, 1f)) {
+            // As the app does: solid controls make the mini player's glass solid (glassQuality).
+            CompositionLocalProvider(LocalAccessibilitySettings provides accessibility, LocalMotionPolicy provides MotionPolicy(false, 1f),
+                LocalGlassStyle provides GlassStyle(quality = if (solid) GlassQuality.Solid else GlassQuality.Full)) {
                 RiffTheme {
                     Box(Modifier.fillMaxSize().background(Color(0xFF1B2A22)).testTag("stage")) {
                         ChromeBar(model, false, gateway, Modifier.align(Alignment.BottomCenter), bottomInset = 24f,

@@ -232,11 +232,13 @@ internal const val MORPH_SHOWN = .001f
  */
 internal fun morphCopyAlpha(p: Float): Float = (if (p > MORPH_SHOWN) 1f else 0f) * (1f - morphHandoff(p))
 
-/** The mini player's border alpha; the morph's border starts from it (Q18-068: with solid controls it is brighter). */
-internal fun miniBorderAlpha(solidControls: Boolean) = if (solidControls) .72f else .42f
-
-/** The morph's border at [p]: the mini player's own at first, fading out as the surface becomes the player. */
-internal fun morphBorderAlpha(p: Float, solidControls: Boolean) = (miniBorderAlpha(solidControls) * (1f - p) + .10f * p) * (1f - p)
+/**
+ * The morph's border at [p]: none at first, a faint edge while it grows, none once it is the player. Since the glass
+ * (Feature 1) the mini player's rim is drawn by its glass, which stays under the morph (its graphics layer fades only
+ * the contents), so a border of the morph's own at the start doubled that rim: the 0.20.0 device lane saw 5,500 pixels
+ * of bright outline the moment the mini player was slid up (Q18-055, Q18-068 again).
+ */
+internal fun morphBorderAlpha(p: Float) = .10f * p * (1f - p) * 4f
 
 /** How much of the real mini player shows at [p]: all of it at rest, none once its copies are drawn. */
 internal fun miniPlayerAlpha(p: Float): Float = if (p > MORPH_SHOWN) 0f else 1f
@@ -321,9 +323,10 @@ internal fun PlayerMorphHost(progress: () -> Float, model: ShellModel, compact: 
         val shape = RoundedCornerShape(32.dp * (1f - g))
         Box(Modifier.offset(x = x, y = y).width(w).height(h)
             .clip(shape)
-            .background(if (solidControls) Color(0xFF11131A) else Color.Black.copy(alpha = p))
-            // As deep as the mini player's own border, which it replaces in the same frame (Q18-055).
-            .border(1.dp, White.copy(alpha = morphBorderAlpha(p, solidControls)), shape)) {
+            // With solid controls the mini player's glass under it is this same fill: drawn opaque from the start it
+            // covered the inner half of that glass's rim, so it comes in only after the hand-over.
+            .background(if (solidControls) Color(0xFF11131A).copy(alpha = motionRamp(p, .02f, .1f)) else Color.Black.copy(alpha = p))
+            .border(1.dp, White.copy(alpha = morphBorderAlpha(p)), shape)) {
             if (p > .001f) {
                 Box(Modifier.wrapContentSize(Alignment.TopStart, unbounded = true)
                     .requiredWidth(fullWidth).requiredHeight(fullHeight - fullY)
