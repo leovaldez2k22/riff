@@ -27,9 +27,11 @@ commits.
 - **The owner's concern:** the app felt laggy in Riff Debug. The benchmarks and the owner's own check in Riff Preview
   must settle this before publishing.
 
-## Open questions for the owner (ask; do not decide)
+## Open questions for the owner (asked again on 31 October)
 
-1. **Reduce the beat model's load on the phone?** The owner said "don't add the changes yet". The four proposals:
+1. **Reduce the beat model's load on the phone?** Deferred on 31 Oct: the owner is not sure yet how demanding Automix
+   really is and wants to test it first, possibly after 0.20.0 is final. Don't make these changes until they ask. The
+   four proposals:
    1. Run the model only in Automix mode. Smart and Crossfade don't use the beat grid.
    2. Stop analysing at download time (`analyseDownload` runs it on every download, back to back). Analyse just ahead
       of playback instead: the current song's end and the next song's start. Optionally, analyse a batch of downloads
@@ -38,8 +40,9 @@ commits.
    4. Run on one thread (`OrtBeatLogits`: `setIntraOpNumThreads(2)`) at background priority.
    - Each window takes 3–7 s of CPU on the owner's phone today.
    - Earlier on 30 Oct, heavy model runs pushed the phone to thermal status 3, which cut the glass to plain frost.
-2. **"What's new" for 0.20.0.** Every 0.20.0 install is a fresh install (new key), so users get the two first-run tips,
-   never the release's "What's new" sheet. Should fresh installs of 0.20.0 show it too? The owner hasn't answered.
+2. **"What's new" for 0.20.0.** Answered on 31 Oct: yes. Every 0.20.0 install is a fresh install (new key), so a fresh
+   install of version code 34 now shows the release's cards with the two tips after them (`NEW_KEY_RELEASE` in
+   `WhatsNew.kt`). Other fresh installs still get the tips alone.
 
 ## Done
 
@@ -65,7 +68,7 @@ Lanes so far:
 ## Still to do, in order
 
 1. Set up the laptop (next section).
-2. Ask the owner the open questions. Make whichever changes they choose. Commit.
+2. ~~Ask the owner the open questions.~~ Done 31 Oct (see above); the "What's new" change is committed.
 3. Look into `playerAndQueueActions`; fix the journey or the app.
 4. PR lane: `python scripts/quality/verify.py --lane pr`.
 5. Clear Riff Debug (approved), then the device lane:

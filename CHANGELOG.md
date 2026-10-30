@@ -4,7 +4,7 @@ Newest first. Release candidates before 0.9.0-rc16 were recorded only in the REA
 
 ## Unreleased (branch `feat/next-features`)
 
-The features planned in `docs/feasibility-glass-font-lyrics-artwork-2026-10-27.md`; its implementation log records what each one differs from the plan and what is still to check on a phone. The "What's new" sheet (`res/raw/whats_new.json`) is written for version code 34, so it first shows when the release is numbered.
+The features planned in `docs/feasibility-glass-font-lyrics-artwork-2026-10-27.md`; its implementation log records what each one differs from the plan and what is still to check on a phone. The "What's new" sheet (`res/raw/whats_new.json`) is written for version code 34, so it first shows when the release is numbered. Since 0.20.0's new signing key makes every install a fresh one, a fresh install of it shows the release's cards too, with the tips after them.
 
 - Look: Liquid Glass written in Riff, on the shell and every control (Features 1, 2); Inter tuned as Riff's type (3); a dark fade at the screen's edges (11); calmer, slightly slower transitions (35); the player redesigned (34); status bar icons that follow the cover (33); loading, empty and offline states (28); predictive back (22); a side rail and a player pane on wide screens (30).
 - Listening: Encore, statistics for day, week, month, year and lifetime with charts, stories and genres (12); an equalizer (10); skipping the silence at a song's end (9); smart crossfade that blends where songs wind down and, when both have a beat, on the downbeat (20, stages 1 and 2); playback speed (15); a sleep timer by songs or time (18); song quality per network (17); stats for nerds (16).

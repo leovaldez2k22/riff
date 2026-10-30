@@ -35,20 +35,26 @@ import kotlinx.serialization.json.jsonPrimitive
 /*
  * Feature 29: after an update, the release's main features once, from res/raw/whats_new.json (written for each
  * release beside the changelog). A fresh install gets the first-run tips instead. Both are in Settings → About.
+ * 0.20.0 is the exception: its new signing key makes every install a fresh one, so the owner asked (31 Oct) that a
+ * fresh install of it shows the release's cards too, with the tips after them.
  */
 
 internal data class WhatsNewCard(val title: String, val body: String, val action: String = "")
 internal data class WhatsNewRelease(val version: Int, val cards: List<WhatsNewCard>)
 
-internal enum class WhatsNewShow { None, Release, Tips }
+internal enum class WhatsNewShow { None, Release, Tips, ReleaseAndTips }
+
+/** The version code whose installs are all fresh (0.20.0, signed with a new key): they get [WhatsNewShow.ReleaseAndTips]. */
+internal const val NEW_KEY_RELEASE = 34
 
 /**
  * What to show at start. [lastSeen] is the version code Riff last started as (0: never recorded), [current] this one,
  * [release] the version the sheet's content was written for. An update shows the sheet once, and only when its
- * content is newer than what was seen; a fresh install shows the tips.
+ * content is newer than what was seen; a fresh install shows the tips, and of [NEW_KEY_RELEASE] the release's cards too.
  */
 internal fun whatsNewDue(lastSeen: Int, current: Int, freshInstall: Boolean, release: Int): WhatsNewShow = when {
     lastSeen >= current -> WhatsNewShow.None
+    lastSeen == 0 && freshInstall && current == NEW_KEY_RELEASE && release == current -> WhatsNewShow.ReleaseAndTips
     lastSeen == 0 && freshInstall -> WhatsNewShow.Tips
     release > lastSeen && release <= current -> WhatsNewShow.Release
     else -> WhatsNewShow.None
@@ -100,9 +106,11 @@ internal fun WhatsNewSheet(model: ShellModel) {
     val show = whatsNewShowing
     if (show == WhatsNewShow.None) return
     val cards = remember(show) {
-        if (show == WhatsNewShow.Release) loadWhatsNew(context)?.cards.orEmpty()
-        else listOf(WhatsNewCard(string(R.string.tip_links_title), string(R.string.tip_links_body), "links"),
-            WhatsNewCard(string(R.string.tip_car_title), string(R.string.tip_car_body)))
+        val release = if (show == WhatsNewShow.Tips) emptyList() else loadWhatsNew(context)?.cards.orEmpty()
+        val tips = if (show == WhatsNewShow.Release) emptyList()
+            else listOf(WhatsNewCard(string(R.string.tip_links_title), string(R.string.tip_links_body), "links"),
+                WhatsNewCard(string(R.string.tip_car_title), string(R.string.tip_car_body)))
+        release + tips
     }
     val close = { whatsNewShowing = WhatsNewShow.None }
     ModalBottomSheet(onDismissRequest = close, containerColor = Raised, scrimColor = Color.Black.copy(alpha = .55f)) {
@@ -110,7 +118,7 @@ internal fun WhatsNewSheet(model: ShellModel) {
             .padding(bottom = RiffSpace.block * 2).testTag("whats_new")
             // The sheet is a window of its own, outside RiffApp's semantics, so its tags are named here for UI Automator.
             .semantics { testTagsAsResourceId = true }, verticalArrangement = Arrangement.spacedBy(RiffSpace.item)) {
-            Text(string(if (show == WhatsNewShow.Release) R.string.whats_new else R.string.tips), color = White, style = RiffText.sectionHeading)
+            Text(string(if (show == WhatsNewShow.Tips) R.string.tips else R.string.whats_new), color = White, style = RiffText.sectionHeading)
             cards.forEach { card ->
                 Column(Modifier.fillMaxWidth().riffGlass(GlassRole.Menu, RiffRadius.card).padding(RiffSpace.block),
                     verticalArrangement = Arrangement.spacedBy(RiffSpace.tight)) {

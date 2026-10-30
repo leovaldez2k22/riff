@@ -17,8 +17,14 @@ class WhatsNewTest {
     @Test fun anUpdateFromBeforeTheSheetExistedStillShowsIt() =
         assertEquals(WhatsNewShow.Release, whatsNewDue(lastSeen = 0, current = 34, freshInstall = false, release = 34))
 
-    @Test fun aNewInstallGetsTheTipsInstead() =
-        assertEquals(WhatsNewShow.Tips, whatsNewDue(lastSeen = 0, current = 34, freshInstall = true, release = 34))
+    @Test fun aNewInstallGetsTheTipsInstead() {
+        assertEquals(WhatsNewShow.Tips, whatsNewDue(lastSeen = 0, current = 35, freshInstall = true, release = 35))
+        assertEquals(WhatsNewShow.Tips, whatsNewDue(lastSeen = 0, current = 35, freshInstall = true, release = 34))
+    }
+
+    // 0.20.0's new signing key makes every install of it fresh, so those get the release's cards with the tips.
+    @Test fun aNewInstallOfTheNewKeyReleaseGetsItsCardsAndTheTips() =
+        assertEquals(WhatsNewShow.ReleaseAndTips, whatsNewDue(lastSeen = 0, current = NEW_KEY_RELEASE, freshInstall = true, release = NEW_KEY_RELEASE))
 
     @Test fun anUpdateWithoutNewContentShowsNothing() {
         assertEquals(WhatsNewShow.None, whatsNewDue(lastSeen = 34, current = 35, freshInstall = false, release = 34))
