@@ -11,7 +11,7 @@ Releases 0.9.0-rc4 to 0.10.0 were signed with the earlier key (certificate SHA-2
 | | |
 |---|---|
 | File | `.toolchain/signing/musicglass-release.p12` (ignored by git) |
-| Password file | `.toolchain/signing/password.txt` (ignored by git), 48 random bytes in Base64, until the backup below is made; then `password.dpapi` (Windows DPAPI, readable only by this Windows user on this PC) and the plaintext deleted. |
+| Password file | `.toolchain/signing/password.dpapi` (ignored by git): 48 random bytes in Base64 under Windows DPAPI, readable only by this Windows user on this PC. The plaintext was deleted on 2026-10-30 after the backup was made and the DPAPI copy was checked against the keystore. |
 | Keystore type | PKCS12 |
 | Alias | `musicglass-release` |
 | Algorithm | 3072-bit RSA, `SHA384withRSA` |
@@ -42,9 +42,9 @@ Both copies are the same encrypted archive (7-Zip, or WinRAR (RAR5) when 7-Zip i
 
 | # | Where | Status |
 |---|---|---|
-| 1 | Google Drive, uploaded through the browser | ☐ the 0.20.0 key (the earlier key's ☑ 2026-10-03) |
-| 2 | Gmail: an email to yourself with the archive attached | ☐ the 0.20.0 key (the earlier key's ☑ 2026-10-03) |
-| — | **Archive passphrase:** in your password manager, plus written on paper kept at home. **Never** in the same place as the archive. | ☐ the 0.20.0 key |
+| 1 | Google Drive, uploaded through the browser | ☑ 2026-10-30, the 0.20.0 key (the owner's word; the earlier key's ☑ 2026-10-03) |
+| 2 | Gmail: an email to yourself with the archive attached | ☑ 2026-10-30, the 0.20.0 key (the owner's word; the earlier key's ☑ 2026-10-03) |
+| — | **Archive passphrase:** in your password manager, plus written on paper kept at home. **Never** in the same place as the archive. | ☑ 2026-10-30, the 0.20.0 key (the owner's word) |
 
 Make the archive and its restore drill with `scripts/backup-signing-key.ps1 -Destination $HOME\Documents\riff-key-backup`, upload that file to both places, then delete the local copy. A file left only on this PC is not a backup.
 
@@ -61,7 +61,7 @@ Repeat after making a backup, and about once a year:
 
 | Date | Backup | Result |
 |---|---|---|
-| — | **The 0.20.0 key has no backup yet.** Make one now (`scripts/backup-signing-key.ps1`) and upload it to both places. | Pending |
+| 2026-10-30 | `riff-signing-key-20261030.rar` (WinRAR RAR5), made and checked by the script on the owner's terminal | Passed, as the owner reported; the archive then uploaded and the local copy removed |
 | 2026-10-03 (earlier key) | `riff-signing-key-20261003.7z` (3,759 bytes, SHA-256 `8ebda4a8efb276bcd096450d9573c594563f05414556a688f85cabf939d96fac`), made by the script | Passed: extracted, keystore opened with its password, certificate matched; file names hidden without the passphrase |
 
 ## If the key is missing
