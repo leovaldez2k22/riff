@@ -68,7 +68,8 @@ if (-not (Test-Path -LiteralPath $keystore)) {
     }
     New-Item -ItemType Directory -Force -Path $signingDir | Out-Null
     $random = New-Object byte[] 48
-    [System.Security.Cryptography.RandomNumberGenerator]::Fill($random)
+    # Not RandomNumberGenerator::Fill: Windows PowerShell 5.1 (.NET Framework) has no such method, so the bytes stayed zero.
+    (New-Object System.Security.Cryptography.RNGCryptoServiceProvider).GetBytes($random)
     $password = [Convert]::ToBase64String($random)
     [System.IO.File]::WriteAllText($passwordFile, $password)
     $env:MUSIC_GLASS_STORE_PASSWORD = $password
