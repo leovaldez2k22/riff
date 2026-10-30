@@ -31,6 +31,11 @@
         android:theme="@android:style/Theme.Material.NoActionBar"
         tools:ignore="MissingIntentFilterForMediaSearch"
         android:usesCleartextTraffic="false">
+        <!-- Automix stage 4 (in the release from 0.20.0): ONNX Runtime 1.31.1 starts its own telemetry (an HTTP client for Microsoft's usage events)
+             from this provider. Riff sends nothing of the kind, so the provider is removed; OrtBeatLogits also turns the
+             runtime's telemetry off. -->
+        <provider android:name="ai.onnxruntime.TelemetryInitializer"
+            android:authorities="${applicationId}.onnxruntime_telemetry_initializer" tools:node="remove" />
         <!-- Feature 14: Android Auto lists Riff as a media app. Its voice search reaches the media session
              (CarLibrary.queueFor reads the query), so no activity takes MEDIA_PLAY_FROM_SEARCH: asking the phone's
              Assistant to play in Riff is not built. -->

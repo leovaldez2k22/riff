@@ -130,7 +130,7 @@ a tier.
 | 2,000 entry queue prepared, p95 | 2 s | 4 s | 10 runs, IO and main phases apart | `ActionBenchmark.queueOfTwoThousand` |
 | Complete local bundle to first audio, p95 | 500 ms | 800 ms | 20 starts | `ActionBenchmark.firstAudioLocalBundle` |
 | Controlled online first audio, p95 | 3 s | 5 s | 20 starts, 100 ms latency, 5 Mbit/s | `ActionBenchmark.firstAudioOnline` |
-| Standard release APK | 40 MiB | 40 MiB | every release build | `check_performance.py apk` |
+| Standard release APK | 64 MiB (40 MiB until 0.20.0, which carries ONNX Runtime and the beat model) | 64 MiB | every release build | `check_performance.py apk` |
 | App-owned network on the main thread | none | none | warmed journey | `MainThreadAudit` |
 | Avoidable disk access on the main thread, warmed journey | none | none | warmed journey | `MainThreadAudit` |
 | Retained memory growth | max(10%, 20 MiB) | same | short run here; the soaks are the real test | `MemoryCheck`, and the soaks |

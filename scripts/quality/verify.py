@@ -12,7 +12,7 @@
 Lanes
   pr         Script tests, static checks, JVM and Compose tests, release lint, an unsigned shrunk release with
              its build identity, the release content check (merged manifest, components, permissions, leftovers),
-             the 40 MiB ceiling and Baseline Profile, and the solver seam in the R8 output. Installs nothing.
+             the 64 MiB ceiling and Baseline Profile, and the solver seam in the R8 output. Installs nothing.
   emulator   The fixture suite (FIXTURE_CLASSES) on an emulator with its network turned off: a debug app and its
              test APK built together, their identities compared before anything is installed, then a strict read
              of the instrumentation output. Never a physical device.

@@ -1,5 +1,7 @@
 package com.musicglass.personal
 
+import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.semantics.semantics
 import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -105,7 +107,9 @@ internal fun WhatsNewSheet(model: ShellModel) {
     val close = { whatsNewShowing = WhatsNewShow.None }
     ModalBottomSheet(onDismissRequest = close, containerColor = Raised, scrimColor = Color.Black.copy(alpha = .55f)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = RiffSpace.screenEdge)
-            .padding(bottom = RiffSpace.block * 2).testTag("whats_new"), verticalArrangement = Arrangement.spacedBy(RiffSpace.item)) {
+            .padding(bottom = RiffSpace.block * 2).testTag("whats_new")
+            // The sheet is a window of its own, outside RiffApp's semantics, so its tags are named here for UI Automator.
+            .semantics { testTagsAsResourceId = true }, verticalArrangement = Arrangement.spacedBy(RiffSpace.item)) {
             Text(string(if (show == WhatsNewShow.Release) R.string.whats_new else R.string.tips), color = White, style = RiffText.sectionHeading)
             cards.forEach { card ->
                 Column(Modifier.fillMaxWidth().riffGlass(GlassRole.Menu, RiffRadius.card).padding(RiffSpace.block),

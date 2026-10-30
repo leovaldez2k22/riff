@@ -16,6 +16,6 @@
 # which R8 does not read. Without this the release build had no RiffCastOptions, and Cast could not start.
 -keep class com.musicglass.personal.RiffCastOptions { <init>(); }
 
-# Automix stage 4: ONNX Runtime is compiled against but only packaged in debug builds (BeatModel.kt looks for it at
-# run time), so a release build has none of its classes.
--dontwarn ai.onnxruntime.**
+# Automix stage 4: ONNX Runtime's native code creates and reads its Java classes (OnnxTensor, OrtSession, the
+# exceptions) by name through JNI, which R8 cannot see; its own rules keep only the telemetry classes.
+-keep class ai.onnxruntime.** { *; }

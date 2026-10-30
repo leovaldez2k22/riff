@@ -18,8 +18,8 @@ import kotlin.math.sqrt
  * (docs/automix-stage4-groundwork-2026-10-30.md). It is run as the PC ran it for those measurements: the window
  * resampled to 22,050 Hz, Beat This!'s log-mel, chunks of 1,500 frames with 6 frames of border, and its "minimal"
  * peak picking, with no DBN. The int8 model ships in the APK (owner's decision 1) and runs on ONNX Runtime as
- * published (decision 2), for now in debug builds only: a release build has no runtime, finds no model, and keeps
- * stage 2's tracker.
+ * published (decision 2): first in debug builds only, in the release too from 0.20.0 (the owner, 30 Oct). Where the
+ * runtime cannot load (a 32-bit phone, Riff Lite) there is no model and stage 2's tracker is used.
  */
 
 internal const val MODEL_RATE = 22_050
@@ -220,7 +220,7 @@ internal fun gridFromLogits(beat: FloatArray, downbeat: FloatArray, startMs: Lon
 private fun sigmoid(x: Float) = (1 / (1 + exp(-x.toDouble()))).toFloat()
 
 /**
- * The model on the phone, when this build has ONNX Runtime and the model file (debug builds, for now). Loaded once,
+ * The model on the phone, when this build has ONNX Runtime and the model file (every build but Riff Lite on a 32-bit phone). Loaded once,
  * on first use, off the main thread; null when either is missing or the runtime cannot load (a 32-bit phone).
  */
 internal object BeatModel {

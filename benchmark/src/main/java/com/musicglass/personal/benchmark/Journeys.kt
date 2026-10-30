@@ -38,7 +38,9 @@ internal fun cleanSlate() {
     val until = System.currentTimeMillis() + 30_000
     while (System.currentTimeMillis() < until) {
         device.findObject(By.res("restore_offer_not_now"))?.let { it.click(); Thread.sleep(500); continue }
-        device.findObject(By.res("whats_new_close"))?.let { it.click(); break }
+        // From version code 34 a cleared install counts as an update (it was installed before), so the release's
+        // "What's new" opens instead of the tips; its Not now is below the fold, so the sheet is closed with Back.
+        if (device.hasObject(By.res("whats_new"))) { device.pressBack(); Thread.sleep(500); continue }
         if (device.hasObject(By.text("Speed dial"))) break
         Thread.sleep(250)
     }

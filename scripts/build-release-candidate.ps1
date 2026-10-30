@@ -40,7 +40,8 @@ $mapping = Join-Path $project 'app\build\outputs\mapping\release\mapping.txt'
 $releaseMapping = Join-Path $releaseDir "riff-$versionName-mapping.txt"
 # Size budget (plan W4): the shrunk arm64 APK is ~26 MiB. A jump past this usually means R8 or
 # the ABI filter was switched off, or a large dependency was added.
-$maxApkBytes = 40MB
+# 0.20.0: ONNX Runtime (34 MiB on arm64, stored uncompressed) and the 4.7 MB beat model put the APK near 50 MiB.
+$maxApkBytes = 64MB
 $dependencyGraph = Join-Path $releaseDir 'dependencies.txt'
 
 foreach ($tool in @($gradle, $keytool, $apksigner)) {

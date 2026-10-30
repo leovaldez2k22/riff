@@ -19,7 +19,7 @@ import zipfile
 from pathlib import Path
 
 MIB = 1024 * 1024
-APK_LIMIT_BYTES = 40 * MIB
+APK_LIMIT_BYTES = 64 * MIB  # 0.20.0: ONNX Runtime and the beat model (about +38 MiB) are in the release
 # Things only the benchmark build types hold (app/src/benchmarkFeed).
 FEED_MARKERS = ("BenchmarkFeed", "benchmark-feed", "benchmark_network_security_config")
 FEED_CLASSES = ("BenchmarkFeed", "ToneServer")
@@ -176,7 +176,7 @@ def check_apk(apk, profile=None):
     """The facts about a release APK that Q14 budgets, as (name, ok, detail) rows."""
     apk = Path(apk)
     size = apk.stat().st_size
-    rows = [("size at most 40 MiB", size <= APK_LIMIT_BYTES, f"{size} bytes = {size / MIB:.2f} MiB")]
+    rows = [("size at most 64 MiB", size <= APK_LIMIT_BYTES, f"{size} bytes = {size / MIB:.2f} MiB")]
     with zipfile.ZipFile(apk) as archive:
         names = set(archive.namelist())
         packaged = {name: archive.getinfo(name).file_size for name in ("assets/dexopt/baseline.prof", "assets/dexopt/baseline.profm") if name in names}

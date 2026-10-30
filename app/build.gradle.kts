@@ -232,11 +232,9 @@ dependencies {
     implementation(libs.ktor.content.negotiation)
     implementation(libs.ktor.serialization.json)
     debugImplementation(libs.compose.tooling)
-    // Automix stage 4 (owner, 30 Oct): ONNX Runtime as published, in debug builds only for now; the release keeps
-    // stage 2's own tracker until a reduced build of the runtime is made. Main code only compiles against it and
-    // looks for it at run time (BeatModel.kt).
-    compileOnly(libs.onnxruntime.android)
-    debugImplementation(libs.onnxruntime.android)
+    // Automix stage 4: ONNX Runtime as published. Debug only at first; on 30 Oct the owner asked for it and the model
+    // in the release too (0.20.0), without waiting for a reduced build of the runtime: about +34 MB on arm64.
+    implementation(libs.onnxruntime.android)
     // Q14: installs the Baseline Profile packaged with a release; the profile comes from :benchmark.
     implementation(libs.profileinstaller)
     baselineProfile(project(":benchmark"))

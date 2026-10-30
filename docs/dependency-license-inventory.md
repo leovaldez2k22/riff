@@ -56,6 +56,7 @@ own extractor behind the `MediaExtractor` API. It needs nothing beyond `media3-e
 | QuickJS for Kotlin (`quickjs-kt`) | 1.0.14 | Apache-2.0; [upstream](https://github.com/dokar3/quickjs-kt) |
 | Guava (transitive) | 33.3.1-android | Apache-2.0; [upstream](https://github.com/google/guava) |
 | SLF4J API (transitive) | 2.0.18 | MIT; [license](https://www.slf4j.org/license.html) |
+| ONNX Runtime for Android (`com.microsoft.onnxruntime:onnxruntime-android`), native code for arm64 | 1.31.1 | MIT; [upstream](https://github.com/microsoft/onnxruntime), `licenses/ONNXRUNTIME-MIT.txt`; in the release from 0.20.0 |
 | Tests only, never in the APK: JUnit, Robolectric, AndroidX Test, Macrobenchmark | 4.13.2, 4.17, 1.5.0, 1.5.0 | EPL-1.0 (JUnit); Apache-2.0 (the rest) |
 
 The build obtains dependencies from Google Maven, Maven Central and JitPack, checked against `gradle/verification-metadata.xml`.
@@ -98,6 +99,7 @@ this source and the hashed AAR rests on JitPack building the tag.
 | Inter 4.1 variable (`res/font/inter_variable.ttf`, axes `opsz` 14–32 and `wght`) | The Inter Project Authors, SIL OFL-1.1; `licenses/INTER-OFL.txt`. `InterVariable.ttf` taken unchanged from `Inter-4.1.zip` of the official release (github.com/rsms/inter/releases/tag/v4.1, downloaded 28 October 2026). SHA-256: zip `9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e`, font `4989b125924991b90d05b2d16e0e388c48f7d5bb8b30539bbf9c755278d0ccaf`. The zip's `LICENSE.txt` matches `licenses/INTER-OFL.txt`. |
 | 20 fallback covers (`res/drawable-nodpi/cover_fallback_01..20.webp`) | Generated for Riff on 2 October 2026 with an image-generation tool; prompts and process in [licenses/placeholder-art.md](../licenses/placeholder-art.md) |
 | Launcher icon, liked-songs art, widget backgrounds and controls (`res/drawable/*.xml`) | Vector drawings in this repository; history in Git |
+| Beat This! `small0`, int8 ONNX (`assets/automix/beat-this-small0-int8.onnx`, 4.7 MB, SHA-256 starting `0e8b1cf3`) | CPJKU (JKU Linz), MIT, `licenses/BEAT-THIS-MIT.txt`; exported and quantized on this PC from the published `small0` checkpoint ([stage 4 groundwork](automix-stage4-groundwork-2026-10-30.md)). In the release from 0.20.0. |
 | Icons in screens | Material icons from `androidx.compose.material:material-icons-extended`, Apache-2.0 |
 
 Not in the APK: the generated test audio (`app/src/androidTest/assets/quality/audio`, made by `scripts/quality/generate_audio_fixtures.py`, test APK only), the fixture provider answers (`scripts/quality/generate_provider_fixtures.py`), the design reference images (`references/`), and the rc20 screenshots (`docs/images/`). Home mood photographs are fetched at run time from Openverse and Wikimedia Commons with their creator and license (CC0, public domain, CC BY, CC BY-SA) and are not bundled.

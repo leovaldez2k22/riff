@@ -175,7 +175,7 @@ class ApkTest(Files):
             self.assertEqual(["benchmark fixture feed absent"], self.failed(perf.check_apk(self.apk(entries))))
 
     def test_an_apk_over_forty_mebibytes_fails(self):
-        self.assertEqual(["size at most 40 MiB"], self.failed(perf.check_apk(self.apk(self.good(), pad=perf.APK_LIMIT_BYTES))))
+        self.assertEqual(["size at most 64 MiB"], self.failed(perf.check_apk(self.apk(self.good(), pad=perf.APK_LIMIT_BYTES))))
 
     def test_the_committed_profile_must_cover_the_journeys(self):
         path = Path(self.dir.name) / "baseline-prof.txt"

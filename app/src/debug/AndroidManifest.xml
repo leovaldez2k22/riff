@@ -3,11 +3,6 @@
     <!-- Q18C1: "Riff Debug" in a side-by-side build (riffSideBySide), to tell it apart from Riff and Riff Preview. -->
     <application android:label="${riffDebugLabel}" tools:replace="android:label"
         android:networkSecurityConfig="@xml/fixture_network_security_config">
-        <!-- Automix stage 4: ONNX Runtime 1.31.1 starts its own telemetry (an HTTP client for Microsoft's usage events)
-             from this provider. Riff sends nothing of the kind, so the provider is removed; OrtBeatLogits also turns the
-             runtime's telemetry off. -->
-        <provider android:name="ai.onnxruntime.TelemetryInitializer"
-            android:authorities="${applicationId}.onnxruntime_telemetry_initializer" tools:node="remove" />
         <activity android:name=".FeatureTestActivity" android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />
         <activity android:name=".FeaturePreviewActivity" android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />
     </application>
