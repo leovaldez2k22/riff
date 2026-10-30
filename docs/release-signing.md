@@ -38,7 +38,7 @@ To check an APK yourself:
 
 The keystore and its password must always be backed up **together**. Neither is any use without the other.
 
-Both copies are the same encrypted archive (7-Zip AES-256 with encrypted file names), holding `musicglass-release.p12` and `password.txt`. Without the passphrase it is unreadable, so it can live in cloud storage. Two different providers mean one lost account doesn't lose the key.
+Both copies are the same encrypted archive (7-Zip, or WinRAR (RAR5) when 7-Zip is not installed: AES-256 with encrypted file names), holding `musicglass-release.p12` and `password.txt`. Without the passphrase it is unreadable, so it can live in cloud storage. Two different providers mean one lost account doesn't lose the key.
 
 | # | Where | Status |
 |---|---|---|

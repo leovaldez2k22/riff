@@ -3,7 +3,7 @@
 Backs up the Riff release signing key to an encrypted archive and checks that the backup restores.
 
 .DESCRIPTION
-Run it yourself in a terminal: 7-Zip asks for the archive passphrase directly and doesn't echo it.
+Run it yourself in a terminal: it asks for the archive passphrase directly and doesn't echo it.
 Use a passphrase that differs from the keystore password, and keep it in your password manager.
 See docs/release-signing.md.
 
@@ -21,15 +21,21 @@ param(
 $ErrorActionPreference = 'Stop'
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $signingDir = Join-Path $project '.toolchain\signing'
+# 7-Zip (a .7z) or, when it isn't installed, WinRAR (a RAR5 .rar). Both are AES-256 with the file names encrypted.
 $sevenZip = 'C:\Program Files\7-Zip\7z.exe'
+$rar = 'C:\Program Files\WinRAR\Rar.exe'
+$useRar = -not (Test-Path -LiteralPath $sevenZip) -and (Test-Path -LiteralPath $rar)
+$archiver = if ($useRar) { $rar } else { $sevenZip }
 $keytool = if ($env:JAVA_HOME -and (Test-Path -LiteralPath (Join-Path $env:JAVA_HOME 'bin\keytool.exe'))) {
     Join-Path $env:JAVA_HOME 'bin\keytool.exe'
 } elseif (Get-Command keytool.exe -ErrorAction SilentlyContinue) {
     (Get-Command keytool.exe).Source
+} elseif ($bundled = Get-ChildItem -LiteralPath (Join-Path $project '.toolchain') -Directory -Filter 'jdk-*' -ErrorAction SilentlyContinue | Select-Object -First 1) {
+    Join-Path $bundled.FullName 'bin\keytool.exe'
 } else {
     'C:\Program Files\Java\jdk-20\bin\keytool.exe'
 }
-foreach ($tool in @($sevenZip, $keytool)) {
+foreach ($tool in @($archiver, $keytool)) {
     if (-not (Test-Path -LiteralPath $tool)) { throw "Required tool missing: $tool" }
 }
 
@@ -82,8 +88,11 @@ function Test-Archive([string]$path, [string]$passphrase) {
     try {
         if (-not $passphrase) { $passphrase = Read-Passphrase }
         Write-Host 'Restore drill: extracting to a temporary folder...'
-        & $sevenZip x $path "-o$tmp" "-p$passphrase" -y -bso0 -bsp0
-        if ($LASTEXITCODE -ne 0) { throw '7-Zip could not extract the archive (wrong passphrase or damaged file).' }
+        $extractor = if ([IO.Path]::GetExtension($path) -ieq '.rar') { $rar } else { $sevenZip }
+        if (-not (Test-Path -LiteralPath $extractor)) { throw "Required tool missing: $extractor" }
+        if ($extractor -eq $rar) { & $rar x "-p$passphrase" -y -idq $path "$tmp\" }
+        else { & $sevenZip x $path "-o$tmp" "-p$passphrase" -y -bso0 -bsp0 }
+        if ($LASTEXITCODE -ne 0) { throw 'The archive could not be extracted the archive (wrong passphrase or damaged file).' }
         Test-KeyFolder $tmp
     } finally {
         Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
@@ -93,7 +102,7 @@ function Test-Archive([string]$path, [string]$passphrase) {
 
 if ($VerifyDir) { Test-KeyFolder (Resolve-Path $VerifyDir).Path; return }
 if ($VerifyOnly) {
-    if (-not $Archive) { throw 'Pass -Archive <path to .7z> with -VerifyOnly.' }
+    if (-not $Archive) { throw 'Pass -Archive <path to .7z or .rar> with -VerifyOnly.' }
     Test-Archive $Archive; return
 }
 
@@ -107,7 +116,7 @@ if ($env:OneDrive -and $dest.StartsWith($env:OneDrive, [StringComparison]::Ordin
     Write-Warning "Destination is on this PC ($([IO.Path]::GetPathRoot($dest))). It is not a backup until you upload it somewhere else (see docs/release-signing.md)."
 }
 
-$archivePath = Join-Path $dest ("riff-signing-key-" + (Get-Date -Format 'yyyyMMdd') + '.7z')
+$archivePath = Join-Path $dest ("riff-signing-key-" + (Get-Date -Format 'yyyyMMdd') + $(if ($useRar) { '.rar' } else { '.7z' }))
 # An empty file is what an interrupted run leaves behind; anything else is a real backup.
 if ((Test-Path -LiteralPath $archivePath) -and (Get-Item -LiteralPath $archivePath).Length -eq 0) { Remove-Item -LiteralPath $archivePath }
 if (Test-Path -LiteralPath $archivePath) { throw "Already exists, not overwriting: $archivePath" }
@@ -132,11 +141,13 @@ try {
     Write-Host 'Choose a NEW passphrase for the archive (not the keystore password).'
     $passphrase = Read-Passphrase -Confirm
     Write-Host "Creating $archivePath"
-    # -mhe=on also encrypts file names. The passphrase is passed only to this local 7-Zip process.
-    & $sevenZip a -t7z -mhe=on -mx=9 "-p$passphrase" $archivePath (Join-Path $source 'musicglass-release.p12') (Join-Path $source 'password.txt') -bso0 -bsp0
+    # 7-Zip's -mhe=on and RAR's -hp also encrypt file names. The passphrase goes only to this local process.
+    $files = (Join-Path $source 'musicglass-release.p12'), (Join-Path $source 'password.txt')
+    if ($useRar) { & $rar a -ma5 -m5 -ep1 "-hp$passphrase" -idq $archivePath @files }
+    else { & $sevenZip a -t7z -mhe=on -mx=9 "-p$passphrase" $archivePath @files -bso0 -bsp0 }
     if ($LASTEXITCODE -ne 0) {
         Remove-Item -LiteralPath $archivePath -ErrorAction SilentlyContinue
-        throw '7-Zip failed to create the archive.'
+        throw 'The archive could not be created.'
     }
 } finally {
     if ($stage) {
