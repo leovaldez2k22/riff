@@ -87,7 +87,7 @@ import kotlin.math.sin
                 BentoBeside(
                     tall = { m -> BoostTile(audio, boostLevel, m) },
                     top = { m -> BentoLink(string(R.string.equalizer), Icons.Rounded.Equalizer, "settings_equalizer", m,
-                        value = string(if (equalizerOn) R.string.on else R.string.off)) { model.push(Route.Settings(SettingsSection.Equalizer)) } },
+                        value = string(if (equalizerOn) R.string.on else R.string.off), stacked = true) { model.push(Route.Settings(SettingsSection.Equalizer)) } },
                     bottom = { m -> BentoToggle(string(R.string.normalize_volume), audio.normalize, audio::updateNormalize,
                         Icons.Rounded.Compress, "settings_normalize_volume", m) })
             },

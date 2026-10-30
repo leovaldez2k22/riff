@@ -170,7 +170,20 @@ internal fun LazyListScope.bentoRows(vararg rows: @Composable () -> Unit) =
 
 /** A tile that opens a page or does something: its icon, its name, what it is set to, and an arrow. */
 @Composable internal fun BentoLink(title: String, icon: ImageVector, tag: String, modifier: Modifier = Modifier,
-    value: String? = null, tint: Color = Pink, onClick: () -> Unit) {
+    value: String? = null, tint: Color = Pink, stacked: Boolean = false, onClick: () -> Unit) {
+    // Stacked, for a half-width tile: the name under the icon, as on a switch tile, so it has the tile's whole width
+    // (beside the icon and the arrow, "Equalizer" broke in the middle on the owner's phone, 30 Oct).
+    if (stacked) return BentoTile(modifier, onClick = onClick, tag = tag) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            SettingIcon(icon, true, tint = tint)
+            Spacer(Modifier.weight(1f))
+            Icon(Icons.Rounded.ChevronRight, null, tint = Muted)
+        }
+        // A fixed gap, not a stretching one: in BentoBeside's column a stretching gap took the tile under it too.
+        Spacer(Modifier.height(RiffSettings.tileGap))
+        BentoTitle(title)
+        if (value != null) BentoHelp(value)
+    }
     BentoTile(modifier, onClick = onClick, tag = tag) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RiffSpace.rowGap)) {
             SettingIcon(icon, true, tint = tint)

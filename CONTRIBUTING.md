@@ -4,7 +4,7 @@ Bug reports, focused fixes, and feature suggestions are welcome. This is a perso
 
 ## Report a problem
 
-Check existing issues, then use the [bug report form](https://github.com/leovaldez2k21/riff/issues/new/choose). Include the app version, Android version, phone model, reproduction steps, and expected versus actual behavior. For playback, include whether Data saver was enabled and whether changing songs or restarting helped. Settings → About → Copy playback diagnostics can help; inspect logs and screenshots before posting them publicly.
+Check existing issues, then use the [bug report form](https://github.com/leovaldez2k22/riff/issues/new/choose). Include the app version, Android version, phone model, reproduction steps, and expected versus actual behavior. For playback, include whether Data saver was enabled and whether changing songs or restarting helped. Settings → About → Copy playback diagnostics can help; inspect logs and screenshots before posting them publicly.
 
 Do not post account cookies, credentials, signing keys, signed stream URLs, or personal account exports. Report security problems privately as described in [SECURITY](SECURITY.md).
 

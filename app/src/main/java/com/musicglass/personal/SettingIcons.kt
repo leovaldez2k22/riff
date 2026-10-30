@@ -15,7 +15,7 @@ import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DataSaverOff
 import androidx.compose.material.icons.rounded.DataSaverOn
 import androidx.compose.material.icons.rounded.DataUsage
-import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.HistoryToggleOff
 import androidx.compose.material.icons.rounded.HorizontalRule
@@ -61,7 +61,8 @@ internal fun offIconFor(on: ImageVector): ImageVector? = when (on) {
     Icons.AutoMirrored.Rounded.VolumeUp -> Icons.AutoMirrored.Rounded.VolumeDown
     Icons.Rounded.DataSaverOn -> Icons.Rounded.DataSaverOff
     Icons.Rounded.Vibration -> Icons.Rounded.PhoneAndroid
-    Icons.Rounded.Compress -> Icons.Rounded.Equalizer
+    // Not the equalizer's own icon: the Equalizer tile sits right above Normalize volume.
+    Icons.Rounded.Compress -> Icons.Rounded.GraphicEq
     Icons.Rounded.SkipNext -> Icons.Rounded.PlayArrow
     Icons.Rounded.ContentCut -> Icons.Rounded.HorizontalRule
     Icons.Rounded.BlurOn -> Icons.Rounded.BlurOff

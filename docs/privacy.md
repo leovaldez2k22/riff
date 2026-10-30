@@ -95,4 +95,4 @@ There is no install permission, no location, contacts, camera or account-list ac
 
 ## Contact
 
-For app questions, use [GitHub Issues](https://github.com/leovaldez2k21/riff/issues/new/choose) once the repository is public; for security concerns, follow [SECURITY](../SECURITY.md).
+For app questions, use [GitHub Issues](https://github.com/leovaldez2k22/riff/issues/new/choose) once the repository is public; for security concerns, follow [SECURITY](../SECURITY.md).
