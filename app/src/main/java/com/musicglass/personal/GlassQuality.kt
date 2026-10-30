@@ -23,6 +23,17 @@ private const val THERMAL_CHECK_MS = 10_000L
  * Feature 1, step 10: the glass the phone can afford, from the settings, power saver and the thermal forecast. A
  * phone about to throttle (headroom 1.0) and Android 12 draw the frost; power saver or 0.9 drops the colour fringe.
  */
+/**
+ * Why the phone has turned the glass down, for Look and feel (owner, 30 Oct: the glass looked gone and the frosted
+ * switch dead while the phone was hot); null when only the settings decide it, as with high contrast or Android 12.
+ */
+internal fun glassCutNote(sdk: Int, solid: Boolean, quality: GlassQuality): Int? = when {
+    solid || sdk < 33 -> null
+    quality == GlassQuality.Frost -> R.string.glass_cut_hot
+    quality == GlassQuality.Reduced -> R.string.glass_cut_warm
+    else -> null
+}
+
 @Composable internal fun rememberGlassStyle(settings: AccessibilitySettings): GlassStyle {
     val context = LocalContext.current
     val power = remember(context) { context.getSystemService(PowerManager::class.java) }

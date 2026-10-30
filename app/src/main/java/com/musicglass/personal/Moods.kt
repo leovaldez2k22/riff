@@ -9,7 +9,8 @@ import androidx.core.content.edit
 /*
  * Moods (owner, 30 Oct): one tap sets several of the sound settings at once. Four come with Riff and the listener can
  * keep what is set now as another. A mood is on while everything it sets is still so, worked out each time rather
- * than remembered, so changing one setting by hand simply leaves it.
+ * than remembered, so changing one setting by hand simply leaves it. Two moods can both hold (Night is Focus with Data
+ * saver off), so the one last tapped is remembered and wins while it holds (phone check 30 Oct: Night ticked Focus).
  */
 
 /** What a mood sets. [boost] null is the booster off; [dataSaver] null leaves Data saver as it is. */
@@ -31,8 +32,11 @@ internal fun moodMatches(mood: MoodValues, now: MoodValues): Boolean =
         (!mood.blend || mood.mode != BlendMode.Crossfade || mood.seconds == now.seconds) &&
         mood.boost == now.boost && mood.normalize == now.normalize && (mood.dataSaver == null || mood.dataSaver == now.dataSaver)
 
-/** The first mood whose settings are all in place, or null. */
-internal fun activeMood(moods: List<Mood>, now: MoodValues): Mood? = moods.firstOrNull { moodMatches(it.values, now) }
+/** The mood that is on: [chosen] (the one last tapped) while its settings hold, else the one setting the most, or null. */
+internal fun activeMood(moods: List<Mood>, now: MoodValues, chosen: String? = null): Mood? {
+    val holding = moods.filter { moodMatches(it.values, now) }
+    return holding.firstOrNull { it.id == chosen } ?: holding.maxByOrNull { if (it.values.dataSaver == null) 0 else 1 }
+}
 
 /** A kept mood as one line: its name and values, tab separated (a name has no tab or line break in it). */
 internal fun encodeMood(mood: Mood): String = with(mood.values) {
@@ -51,6 +55,8 @@ internal fun decodeMood(line: String): Mood? {
 internal class MoodStore private constructor(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("moods", Context.MODE_PRIVATE)
     var kept by mutableStateOf(read()); private set
+    /** The mood last tapped, so of two that both hold the tapped one is ticked. */
+    var chosen by mutableStateOf(prefs.getString("chosen", null)); private set
 
     private fun read() = prefs.getString("kept", "").orEmpty().lines().mapNotNull(::decodeMood)
     private fun write(moods: List<Mood>) { kept = moods; prefs.edit { putString("kept", moods.joinToString("\n", transform = ::encodeMood)) } }
@@ -63,6 +69,8 @@ internal class MoodStore private constructor(context: Context) {
     }
 
     fun remove(id: String) = write(kept.filterNot { it.id == id })
+
+    fun choose(id: String) { chosen = id; prefs.edit { putString("chosen", id) } }
 
     companion object {
         const val MAX_KEPT_MOODS = 8

@@ -16,6 +16,14 @@ class MoodsTest {
         assertNull("the booster changed by hand", activeMood(builtInMoods, party.copy(boost = 200)))
     }
 
+    @Test fun ofTwoMoodsThatBothHoldTheTappedOneIsOn() {
+        val night = builtInMoods.first { it.id == "night" }.values
+        assertEquals("night", activeMood(builtInMoods, night, chosen = "night")?.id)
+        assertEquals("focus", activeMood(builtInMoods, night, chosen = "focus")?.id)
+        assertEquals("the one setting more, when none was tapped", "night", activeMood(builtInMoods, night)?.id)
+        assertEquals("a tapped mood no longer holding gives way", "focus", activeMood(builtInMoods, night.copy(dataSaver = true), chosen = "night")?.id)
+    }
+
     @Test fun theLengthCountsOnlyForThePlainCrossfade() {
         assertTrue(moodMatches(party, party.copy(seconds = 11)))
         assertFalse(moodMatches(commute, commute.copy(seconds = 4)))

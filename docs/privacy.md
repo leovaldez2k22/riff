@@ -78,6 +78,8 @@ Providers can observe ordinary connection information such as IP address, time a
 
 Internet access is needed for online content; downloaded songs play offline.
 
+**Beat model (debug builds only, for now).** Automix's beat model runs on the phone, on ONNX Runtime; nothing about a song leaves the phone for it. ONNX Runtime 1.31.1 for Android comes with its own telemetry (a starting provider and an HTTP client for Microsoft's usage events). Riff removes that provider from its manifest and turns the runtime's telemetry off, so it sends nothing. Release builds carry neither the runtime nor the model yet.
+
 ## Permissions
 
 | Permission | Use |

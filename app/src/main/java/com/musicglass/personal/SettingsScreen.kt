@@ -66,7 +66,7 @@ import kotlinx.coroutines.withContext
     val moods=remember(context) {MoodStore.get(context)}
     val equalizerOn=remember(context) {EqualizerSettings.read(EqualizerSettings.prefs(context)).enabled}
     var query by rememberSaveable {mutableStateOf("")}
-    val mood=activeMood(builtInMoods+moods.kept,currentMoodValues(crossfade,audio,dataSaver))
+    val mood=activeMood(builtInMoods+moods.kept,currentMoodValues(crossfade,audio,dataSaver),moods.chosen)
     val automix=crossfade.enabled && crossfade.mode==BlendMode.Automix
     val tiles=listOf(
         SettingsTile(SettingsSection.Sound,"sound",R.string.settings_sound,Icons.Rounded.GraphicEq,Pink,R.string.settings_keywords_sound,
@@ -91,7 +91,7 @@ import kotlinx.coroutines.withContext
         item {BentoHeading(string(R.string.settings_quick))}
         item {
             Row(Modifier.fillMaxWidth().bentoEnter(1),horizontalArrangement=Arrangement.spacedBy(RiffSpace.item)) {
-                QuickTile(string(R.string.quick_automix),Icons.Rounded.Shuffle,automix,"settings_quick_automix",Modifier.weight(1f)) {on->
+                QuickTile(string(R.string.quick_automix),Icons.Rounded.ShuffleOn,automix,"settings_quick_automix",Modifier.weight(1f)) {on->
                     if(on) {crossfade.updateMode(BlendMode.Automix);crossfade.updateEnabled(true)} else crossfade.updateEnabled(false)}
                 QuickTile(string(R.string.quick_boost),Icons.AutoMirrored.Rounded.VolumeUp,audio.enabled,"settings_quick_boost",Modifier.weight(1f),audio::updateEnabled)
                 QuickTile(string(R.string.quick_saver),Icons.Rounded.DataSaverOn,dataSaver.enabled,"settings_quick_saver",Modifier.weight(1f),dataSaver::updateEnabled)
@@ -168,7 +168,7 @@ private class SettingsTile(val section:SettingsSection,val id:String,val title:I
         scale.animateTo(if(on) 1.35f else .75f,GlassMotion.timed(GlassMotion.pressMs,motion))
         scale.animateTo(1f,GlassMotion.pop(motion))
     }
-    Icon(icon,null,tint=ink,modifier=Modifier.size(RiffSettings.quickIcon).graphicsLayer {scaleX=scale.value;scaleY=scale.value;rotationZ=(scale.value-1f)*-40f})
+    SwitchIcon(icon,on,ink,Modifier.size(RiffSettings.quickIcon).graphicsLayer {scaleX=scale.value;scaleY=scale.value;rotationZ=(scale.value-1f)*-40f})
 }
 
 /** Search over the sections: their names, what is set in them, and the words for what is inside. */

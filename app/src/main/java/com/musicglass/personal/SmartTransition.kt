@@ -58,7 +58,9 @@ internal class TrackEnvelope(val startMs: Long, val loudnessDb: FloatArray, val 
 }
 
 /** Builds a [TrackEnvelope] from 16-bit PCM, fed in pieces as it is decoded. */
-internal class EnvelopeBuilder(private val sampleRate: Int, private val channels: Int, private val startMs: Long) {
+internal class EnvelopeBuilder(private val sampleRate: Int, private val channels: Int, private val startMs: Long,
+    /** Automix stage 4: when there is one, the beats are the model's, from the window kept here as one channel. */
+    private val model: BeatLogits? = null) {
     private val blockFrames = (sampleRate * ENVELOPE_BLOCK_MS / 1_000).coerceAtLeast(1)
     // Two one-pole low-passes at 150 Hz: a gentle split, enough to tell where the kick and bass are.
     private val lowCoefficient = (1 - exp(-2 * PI * 150 / sampleRate)).toFloat()
@@ -66,6 +68,7 @@ internal class EnvelopeBuilder(private val sampleRate: Int, private val channels
     private var frames = 0; private var sum = 0.0; private var lowSum = 0.0
     private val loudness = ArrayList<Float>(); private val low = ArrayList<Float>()
     private val onsets = OnsetBuilder(sampleRate, channels, startMs)
+    private var window = FloatArray(if (model != null) sampleRate * 8 else 0); private var windowSize = 0
 
     fun add(samples: ShortArray, count: Int = samples.size) {
         onsets.add(samples, count)
@@ -74,6 +77,7 @@ internal class EnvelopeBuilder(private val sampleRate: Int, private val channels
             var mono = 0f
             for (c in 0 until channels) mono += samples[i + c] / 32768f
             mono /= channels; i += channels
+            if (model != null) { if (windowSize == window.size) window = window.copyOf(windowSize * 2); window[windowSize++] = mono }
             low1 += (mono - low1) * lowCoefficient; low2 += (low1 - low2) * lowCoefficient
             sum += mono * mono; lowSum += low2 * low2
             if (++frames == blockFrames) {
@@ -83,7 +87,12 @@ internal class EnvelopeBuilder(private val sampleRate: Int, private val channels
         }
     }
     private fun db(power: Double) = if (power <= 1e-12) -120f else (10 * log10(power)).toFloat()
-    fun build(durationMs: Long) = TrackEnvelope(startMs, loudness.toFloatArray(), low.toFloatArray(), durationMs, onsets.beats())
+    fun build(durationMs: Long) = TrackEnvelope(startMs, loudness.toFloatArray(), low.toFloatArray(), durationMs, beats())
+
+    /** The model's beats when there is a model and it found a pulse, else stage 2's. */
+    private fun beats(): BeatGrid? = model?.let { m ->
+        try { modelBeats(window.copyOf(windowSize), sampleRate, startMs, m) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
+    } ?: onsets.beats()
 }
 
 /**

@@ -64,20 +64,20 @@ internal fun moodSummary(values: MoodValues): String = listOfNotNull(
     val store = remember(context) { MoodStore.get(context) }
     val now = currentMoodValues(crossfade, audio, dataSaver)
     val moods = builtInMoods + store.kept
-    val on = activeMood(moods, now)
+    val on = activeMood(moods, now, store.chosen)
     SettingsPage(model, bottom, string(R.string.settings_moods)) {
         item { BentoHelp(string(R.string.moods_detail)) }
         val rows = moods.chunked(2).map { pair -> @Composable {
             BentoPair(
                 { m -> MoodTile(pair[0], pair[0] == on, m, onRemove = { store.remove(pair[0].id) }) {
-                    applyMood(pair[0].values, crossfade, audio, dataSaver); uiHaptic(HapticCue.Confirm) } },
+                    applyMood(pair[0].values, crossfade, audio, dataSaver); store.choose(pair[0].id); uiHaptic(HapticCue.Confirm) } },
                 { m -> if (pair.size > 1) MoodTile(pair[1], pair[1] == on, m, onRemove = { store.remove(pair[1].id) }) {
-                    applyMood(pair[1].values, crossfade, audio, dataSaver); uiHaptic(HapticCue.Confirm) } else Spacer(m) })
+                    applyMood(pair[1].values, crossfade, audio, dataSaver); store.choose(pair[1].id); uiHaptic(HapticCue.Confirm) } else Spacer(m) })
         } }
         bentoRows(*rows.toTypedArray(), {
             BentoLink(string(R.string.mood_keep), Icons.Rounded.AddCircleOutline, "settings_mood_keep", Modifier.fillMaxWidth(),
                 value = if (on == null) moodSummary(now) else string(R.string.mood_already_x, moodName(on)), tint = Lavender) {
-                if (on == null) store.keep(now, string(R.string.mood_yours_x, store.kept.size + 1))
+                if (on == null) store.choose(store.keep(now, string(R.string.mood_yours_x, store.kept.size + 1)).id)
             }
         })
     }

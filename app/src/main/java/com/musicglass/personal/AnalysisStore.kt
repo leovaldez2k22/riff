@@ -17,14 +17,17 @@ import java.security.MessageDigest
  * sent anywhere. Raise [ANALYSIS_VERSION] when the analysis changes, and the old files are read as missing.
  */
 internal const val ANALYSIS_VERSION = 1
+/** Automix stage 4: a build with the beat model keeps its analyses apart, so stage 2's beats are not read as the model's. */
+internal const val ANALYSIS_VERSION_MODEL = 2
 /** The most parts kept; past it the least recently used go. About 12 MB. */
 internal const val ANALYSIS_KEEP = 3_000
 
-internal class AnalysisStore(private val dir: File, private val keep: Int = ANALYSIS_KEEP) {
+internal class AnalysisStore(private val dir: File, private val keep: Int = ANALYSIS_KEEP, private val version: Int = ANALYSIS_VERSION) {
     companion object {
         @Volatile private var instance: AnalysisStore? = null
         fun get(context: Context) = instance ?: synchronized(this) {
-            instance ?: AnalysisStore(File(context.applicationContext.noBackupFilesDir, "automix-analysis")).also { instance = it }
+            instance ?: AnalysisStore(File(context.applicationContext.noBackupFilesDir, "automix-analysis"),
+                version = if (BeatModel.present(context)) ANALYSIS_VERSION_MODEL else ANALYSIS_VERSION).also { instance = it }
         }
     }
 
@@ -37,7 +40,7 @@ internal class AnalysisStore(private val dir: File, private val keep: Int = ANAL
     fun read(key: String): TrackEnvelope? {
         val f = file(key)
         val bytes = try { f.readBytes() } catch (_: IOException) { return null }
-        val envelope = decodeEnvelope(bytes, key) ?: run { f.delete(); return null }
+        val envelope = decodeEnvelope(bytes, key, version) ?: run { f.delete(); return null }
         // Used: it goes to the back of the line for pruning.
         f.setLastModified(System.currentTimeMillis())
         return envelope
@@ -48,7 +51,7 @@ internal class AnalysisStore(private val dir: File, private val keep: Int = ANAL
             dir.mkdirs()
             val f = file(key)
             val part = File(dir, f.name + ".part")
-            part.writeBytes(encodeEnvelope(envelope, key))
+            part.writeBytes(encodeEnvelope(envelope, key, version))
             if (!part.renameTo(f)) { f.delete(); if (!part.renameTo(f)) part.delete() }
             prune()
         } catch (_: IOException) { } // Not kept: the song is analysed again next time.
@@ -83,9 +86,9 @@ internal fun analyseDownload(context: Context, mediaId: String, audio: File) {
 
 private const val MAGIC = 0x52414E31 // "RAN1"
 
-internal fun encodeEnvelope(e: TrackEnvelope, key: String): ByteArray = ByteArrayOutputStream().also { bytes ->
+internal fun encodeEnvelope(e: TrackEnvelope, key: String, version: Int = ANALYSIS_VERSION): ByteArray = ByteArrayOutputStream().also { bytes ->
     DataOutputStream(bytes).use { out ->
-        out.writeInt(MAGIC); out.writeInt(ANALYSIS_VERSION); out.writeUTF(key)
+        out.writeInt(MAGIC); out.writeInt(version); out.writeUTF(key)
         out.writeLong(e.startMs); out.writeLong(e.durationMs)
         out.writeInt(e.loudnessDb.size); e.loudnessDb.forEach(out::writeFloat); e.lowDb.forEach(out::writeFloat)
         val beats = e.beats
@@ -99,9 +102,9 @@ internal fun encodeEnvelope(e: TrackEnvelope, key: String): ByteArray = ByteArra
 }.toByteArray()
 
 /** Null for a file of another analysis version, another key (a hash clash), or one cut short. */
-internal fun decodeEnvelope(bytes: ByteArray, key: String): TrackEnvelope? = try {
+internal fun decodeEnvelope(bytes: ByteArray, key: String, version: Int = ANALYSIS_VERSION): TrackEnvelope? = try {
     DataInputStream(ByteArrayInputStream(bytes)).use { input ->
-        if (input.readInt() != MAGIC || input.readInt() != ANALYSIS_VERSION || input.readUTF() != key) return null
+        if (input.readInt() != MAGIC || input.readInt() != version || input.readUTF() != key) return null
         val start = input.readLong(); val duration = input.readLong()
         val n = input.readInt().takeIf { it in 0..100_000 } ?: return null
         val loudness = FloatArray(n) { input.readFloat() }; val low = FloatArray(n) { input.readFloat() }

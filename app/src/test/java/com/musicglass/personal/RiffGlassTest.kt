@@ -3,6 +3,7 @@ package com.musicglass.personal
 import androidx.compose.ui.graphics.Color
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -42,6 +43,12 @@ class RiffGlassTest {
         assertEquals("warm, not throttling", GlassQuality.Reduced, glassQuality(36, solid = false, powerSave = false, thermalHeadroom = .95f))
         assertEquals(GlassQuality.Reduced, glassQuality(36, solid = false, powerSave = true, thermalHeadroom = .3f))
         assertEquals(GlassQuality.Full, glassQuality(36, solid = false, powerSave = false, thermalHeadroom = .3f))
+        // Look and feel says when the phone, not a setting, turned the glass down (owner, 30 Oct).
+        assertEquals(R.string.glass_cut_hot, glassCutNote(36, solid = false, GlassQuality.Frost))
+        assertEquals(R.string.glass_cut_warm, glassCutNote(36, solid = false, GlassQuality.Reduced))
+        assertNull("high contrast is a setting", glassCutNote(36, solid = true, GlassQuality.Solid))
+        assertNull("Android 12 always frosts", glassCutNote(31, solid = false, GlassQuality.Frost))
+        assertNull(glassCutNote(36, solid = false, GlassQuality.Full))
     }
 
     @Test fun theGlassReadsFarEnoughForItsBlur() {

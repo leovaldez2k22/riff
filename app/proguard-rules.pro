@@ -15,3 +15,7 @@
 # Feature 19: Play services finds the Cast options by the class name in the manifest's OPTIONS_PROVIDER_CLASS_NAME,
 # which R8 does not read. Without this the release build had no RiffCastOptions, and Cast could not start.
 -keep class com.musicglass.personal.RiffCastOptions { <init>(); }
+
+# Automix stage 4: ONNX Runtime is compiled against but only packaged in debug builds (BeatModel.kt looks for it at
+# run time), so a release build has none of its classes.
+-dontwarn ai.onnxruntime.**

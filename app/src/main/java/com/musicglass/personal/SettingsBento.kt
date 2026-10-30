@@ -149,8 +149,8 @@ internal fun LazyListScope.bentoRows(vararg rows: @Composable () -> Unit) =
         GlassMotion.timed(GlassMotion.selectionMs, motion), label = "setting badge")
     val spin = Modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value; rotationZ = turn.value }
     if (badge) Box(spin.size(RiffSettings.badge).clip(CircleShape).background(back), contentAlignment = Alignment.Center) {
-        Icon(icon, null, tint = colour, modifier = Modifier.size(RiffSettings.badgeIcon))
-    } else Icon(icon, null, tint = colour, modifier = spin.size(RiffSettings.rowIcon))
+        SwitchIcon(icon, on, colour, Modifier.size(RiffSettings.badgeIcon))
+    } else SwitchIcon(icon, on, colour, spin.size(RiffSettings.rowIcon))
 }
 
 /** A switch as a tile: its icon and the switch across the top, its name and a line of help under them. */

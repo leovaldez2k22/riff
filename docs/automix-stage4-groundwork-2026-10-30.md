@@ -93,3 +93,7 @@ code and has to ship inside the APK. This is logged in the plan.
 All of these are local and gitignored: `artifacts/automix/small0-beats.json` and `small0-report.md` (PyTorch); and
 in `artifacts/automix/onnx/`, `small0.onnx`, `small0-int8.onnx`, `small0-onnx.json` (export check and timings), and
 the beats and reports for both ONNX models.
+
+## Answered (30 Oct)
+
+The owner chose the model inside the APK, and ONNX Runtime as published (A) in the debug build for now, with the reduced build (B) later on request. Built the same day; the phone's times and the stalls seen are in the plan's row "Automix, stage 4".

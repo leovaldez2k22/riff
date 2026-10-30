@@ -1283,4 +1283,6 @@
     <string name="mood_already_x">That\'s %1$s already</string>
     <string name="mood_yours_x">Your mood %1$d</string>
     <string name="mood_remove_x">Remove %1$s</string>
+    <string name="glass_cut_hot">Your phone is hot, so the glass is plain frost for now. It comes back by itself once the phone cools.</string>
+    <string name="glass_cut_warm">Your phone is warm or saving power, so the glass has no colour fringe for now.</string>
 </resources>

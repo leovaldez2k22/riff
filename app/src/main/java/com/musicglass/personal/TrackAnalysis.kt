@@ -107,7 +107,7 @@ internal object TrackAnalysis {
 
     /** The envelope of [lengthMs] from [fromMs] (negative: that far before the end), or null when it cannot be read. */
     fun envelope(context: Context, source: Uri, fromMs: Long, lengthMs: Long): TrackEnvelope? =
-        envelope({ PlatformDemuxer(MediaExtractor().also { it.setDataSource(context, source, null) }) }, fromMs, lengthMs, null)
+        envelope({ PlatformDemuxer(MediaExtractor().also { it.setDataSource(context, source, null) }) }, fromMs, lengthMs, null, BeatModel.get(context))
 
     /**
      * A cached stream's tail. Read with Media3's extractor, which goes to the tail by the container's index; the
@@ -115,10 +115,11 @@ internal object TrackAnalysis {
      * stands in for a container that does not say its length.
      */
     fun envelope(context: Context, cached: CachedTail, knownDurationMs: Long?, head: Boolean = false): TrackEnvelope? = cached.source.use { bytes ->
-        envelope({ Media3Demuxer(MediaExtractorCompat(context).also { it.setDataSource(bytes) }) }, if (head) 0 else -cached.tailMs, cached.tailMs, knownDurationMs)
+        envelope({ Media3Demuxer(MediaExtractorCompat(context).also { it.setDataSource(bytes) }) }, if (head) 0 else -cached.tailMs, cached.tailMs, knownDurationMs,
+            BeatModel.get(context))
     }
 
-    private fun envelope(open: () -> Demuxer, fromMs: Long, lengthMs: Long, knownDurationMs: Long?): TrackEnvelope? {
+    private fun envelope(open: () -> Demuxer, fromMs: Long, lengthMs: Long, knownDurationMs: Long?, model: BeatLogits?): TrackEnvelope? {
         var extractor: Demuxer? = null
         var codec: MediaCodec? = null
         try {
@@ -147,7 +148,7 @@ internal object TrackAnalysis {
                 if (info.size > 0 && atMs >= startMs) {
                     val output = decoder.outputFormat
                     if (output.containsKey(MediaFormat.KEY_PCM_ENCODING) && output.getInteger(MediaFormat.KEY_PCM_ENCODING) != AudioFormat.ENCODING_PCM_16BIT) return null
-                    val b = builder ?: EnvelopeBuilder(output.getInteger(MediaFormat.KEY_SAMPLE_RATE), output.getInteger(MediaFormat.KEY_CHANNEL_COUNT), atMs).also { builder = it }
+                    val b = builder ?: EnvelopeBuilder(output.getInteger(MediaFormat.KEY_SAMPLE_RATE), output.getInteger(MediaFormat.KEY_CHANNEL_COUNT), atMs, model).also { builder = it }
                     val shorts = decoder.getOutputBuffer(out)!!.apply { position(info.offset); limit(info.offset + info.size) }.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
                     if (samples.size < shorts.remaining()) samples = ShortArray(shorts.remaining())
                     val count = shorts.remaining(); shorts.get(samples, 0, count); b.add(samples, count)

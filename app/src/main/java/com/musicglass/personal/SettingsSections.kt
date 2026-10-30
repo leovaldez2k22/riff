@@ -18,7 +18,6 @@ import androidx.compose.material.icons.rounded.DataSaverOn
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.NewReleases
-import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -190,7 +189,7 @@ internal val PinkInk = Color(0xFF4B1528)
             {
                 // Q12A: shown only in a build that has a release feed. Off sends nothing, the manual check included.
                 val toggle: @Composable (Modifier) -> Unit = { m -> BentoToggle(string(R.string.check_for_updates), updates.enabled, updates::updateEnabled,
-                    Icons.Rounded.SystemUpdate, "settings_check_updates", m, string(R.string.check_for_updates_detail, updates.feedHost.orEmpty())) }
+                    Icons.Rounded.Update, "settings_check_updates", m, string(R.string.check_for_updates_detail, updates.feedHost.orEmpty())) }
                 if (updates.configured && !updates.enabled) toggle(Modifier.fillMaxWidth())
                 else if (updates.configured) BentoPair(toggle,
                     { m ->

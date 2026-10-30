@@ -21,18 +21,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Analytics
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.ContentCut
 import androidx.compose.material.icons.rounded.Equalizer
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material.icons.rounded.Opacity
-import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.ShuffleOn
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SlowMotionVideo
+import androidx.compose.material.icons.rounded.Thermostat
 import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.Text
@@ -88,7 +89,7 @@ import kotlin.math.sin
                     top = { m -> BentoLink(string(R.string.equalizer), Icons.Rounded.Equalizer, "settings_equalizer", m,
                         value = string(if (equalizerOn) R.string.on else R.string.off)) { model.push(Route.Settings(SettingsSection.Equalizer)) } },
                     bottom = { m -> BentoToggle(string(R.string.normalize_volume), audio.normalize, audio::updateNormalize,
-                        Icons.Rounded.GraphicEq, "settings_normalize_volume", m) })
+                        Icons.Rounded.Compress, "settings_normalize_volume", m) })
             },
             {
                 AnimatedVisibility(audio.enabled, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
@@ -127,7 +128,7 @@ import kotlin.math.sin
     BentoTile(Modifier.fillMaxWidth(), lit = crossfade.enabled, tint = Lavender) {
         Row(Modifier.fillMaxWidth().toggleable(crossfade.enabled, role = Role.Switch, onValueChange = hapticToggle(crossfade::updateEnabled))
             .testTag("settings_crossfade"), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RiffSpace.rowGap)) {
-            SettingIcon(Icons.Rounded.Shuffle, crossfade.enabled, tint = Lavender)
+            SettingIcon(Icons.Rounded.ShuffleOn, crossfade.enabled, tint = Lavender)
             Column(Modifier.weight(1f)) {
                 BentoTitle(string(R.string.blend_between_songs))
                 BentoHelp(when {
@@ -219,11 +220,27 @@ import kotlin.math.sin
 }
 
 /** Look and feel: a piece of real glass at the top that follows the sliders, then the switches. */
+/** The phone has turned the glass down for heat or power saver: said here, so the glass switches do not look broken. */
+@Composable private fun GlassCutTile(text: String) {
+    BentoTile(Modifier.fillMaxWidth(), lit = true, tint = Coral, tag = "settings_glass_cut") {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RiffSpace.rowGap)) {
+            SettingIcon(Icons.Rounded.Thermostat, on = true, tint = Coral)
+            Column(Modifier.weight(1f)) { BentoHelp(text) }
+        }
+    }
+}
+
 @Composable internal fun LookSection(model: ShellModel, bottom: androidx.compose.ui.unit.Dp) {
     val preferences = LocalAccessibilitySettings.current
     SettingsPage(model, bottom, string(R.string.settings_look_and_feel)) {
         bentoRows(
-            { GlassSampleTile() },
+            {
+                val note = glassCutNote(android.os.Build.VERSION.SDK_INT, preferences.solidControls, LocalGlassStyle.current.quality)
+                Column(verticalArrangement = Arrangement.spacedBy(RiffSettings.tileGap)) {
+                    GlassSampleTile()
+                    if (note != null) GlassCutTile(string(note))
+                }
+            },
             {
                 BentoSlider(string(R.string.glass_intensity), "${(preferences.glassIntensity * 100).toInt()}%", Icons.Rounded.Opacity) {
                     CapsuleSlider(preferences.glassIntensity, preferences::updateGlassIntensity, valueRange = 0f..1.5f,

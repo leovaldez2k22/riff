@@ -144,6 +144,9 @@ android {
         compose = true
         buildConfig = true
     }
+    // Automix stage 4: ONNX Runtime's 32-bit copies (about 40 MB) are left out; the owner's phone is 64-bit ARM and
+    // the lane's emulator x86_64. On a 32-bit phone BeatModel.kt finds no runtime and stage 2's tracker is used.
+    packaging { jniLibs.excludes += listOf("lib/armeabi-v7a/libonnxruntime*.so", "lib/x86/libonnxruntime*.so") }
     // Compose UI tests run on the JVM with Robolectric (plan W7.2).
     testOptions {
         unitTests {
@@ -229,6 +232,11 @@ dependencies {
     implementation(libs.ktor.content.negotiation)
     implementation(libs.ktor.serialization.json)
     debugImplementation(libs.compose.tooling)
+    // Automix stage 4 (owner, 30 Oct): ONNX Runtime as published, in debug builds only for now; the release keeps
+    // stage 2's own tracker until a reduced build of the runtime is made. Main code only compiles against it and
+    // looks for it at run time (BeatModel.kt).
+    compileOnly(libs.onnxruntime.android)
+    debugImplementation(libs.onnxruntime.android)
     // Q14: installs the Baseline Profile packaged with a release; the profile comes from :benchmark.
     implementation(libs.profileinstaller)
     baselineProfile(project(":benchmark"))
