@@ -122,7 +122,7 @@ internal class EncoreGenres(private val db: LibraryStateDb, private val http: Ca
         val url = MUSICBRAINZ.toHttpUrl().newBuilder().addQueryParameter("query", "artist:\"${name.replace("\"", "")}\"")
             .addQueryParameter("fmt", "json").addQueryParameter("limit", "3").build()
         val request = Request.Builder().url(url)
-            .header("User-Agent", "Riff/${BuildConfig.VERSION_NAME} ( https://github.com/leovaldez2k21/riff )").build()
+            .header("User-Agent", "Riff/${BuildConfig.VERSION_NAME} ( https://github.com/leovaldez2k22/riff )").build()
         return try {
             http.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return null

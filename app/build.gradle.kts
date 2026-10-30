@@ -19,8 +19,8 @@ android {
         applicationId = "com.musicglass.personal"
         minSdk = 31
         targetSdk = 36
-        versionCode = 33
-        versionName = "0.10.0"
+        versionCode = 34
+        versionName = "0.20.0"
         buildConfigField("boolean", "LITE", "false")
         // Q12A: the public release feed the update check asks, and the hosts a release page may be on. No feed
         // (the default until releases are published) means the check does not exist in the build and sends

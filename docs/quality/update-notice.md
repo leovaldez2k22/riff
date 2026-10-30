@@ -21,6 +21,8 @@ riffUpdatePages=github.com
 
 `riffUpdatePages` is the comma-separated list of hosts a release page may be on. Then check UPD01 against the real feed: a release tagged one version above the installed build must produce the notice, and the About row must open its page.
 
+**Turned on for 0.20.0 (30 October 2026):** the repository `github.com/leovaldez2k22/riff` is public, the owner chose to publish 0.20.0 there and to have Riff check it, so `gradle.properties` now holds `riffUpdateFeed=https://api.github.com/repos/leovaldez2k22/riff/releases?per_page=10` and `riffUpdatePages=github.com`.
+
 ## What it does
 
 | | |
