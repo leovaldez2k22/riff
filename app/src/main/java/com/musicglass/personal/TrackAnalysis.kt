@@ -19,6 +19,16 @@ import java.nio.ByteOrder
 /** How much of a song's end and start Automix reads. */
 internal const val ANALYSIS_TAIL_MS = 45_000L
 internal const val ANALYSIS_HEAD_MS = 30_000L
+/**
+ * Research report 31 Oct, 1.7: a song on the phone (a download or a file) has its last 64 s read, 32 bars at 120 BPM, so
+ * a phrase can be seen whole. A stream's cached tail stays at [ANALYSIS_TAIL_MS]. About 40 % more decoding and beat
+ * model time, on these songs only.
+ */
+internal const val ANALYSIS_LOCAL_TAIL_MS = 64_000L
+
+/** A tail kept from before 1.7: a song on the phone whose stored tail is the old 45 s one is read again. */
+internal fun shortLocalTail(tail: TrackEnvelope): Boolean =
+    tail.durationMs - tail.startMs < ANALYSIS_LOCAL_TAIL_MS - 2_000 && tail.startMs > 0
 /** The start of a cached stream that must be there: the container's header and index sit in it. */
 internal const val CACHED_HEAD_BYTES = 256L * 1024
 

@@ -17,7 +17,7 @@ For people building or changing it:
 - [Contributing](../CONTRIBUTING.md), [release signing](release-signing.md), [0.20.0 handover](handover-0.20.0.md) (the release in progress, moved to another laptop on 30 October 2026)
 - [Dependency license inventory](dependency-license-inventory.md) and its [CSV](dependency-license-audit.csv); [third-party notices](../NOTICE.md); [asset provenance](../licenses/placeholder-art.md)
 - The plan the current work follows: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md)
-- The plan for the next features (from 28 October 2026): [feasibility and implementation plan](feasibility-glass-font-lyrics-artwork-2026-10-27.md), covering 33 features (Liquid Glass, Encore statistics, equalizer, Android Auto, Cast and more), with its Automix design in the [AutoMix engine report](automix-engine-report-2026-10-28.md) and the measurements for its stage 4 model in [Automix stage 4 groundwork](automix-stage4-groundwork-2026-10-30.md)
+- The plan for the next features (from 28 October 2026): [feasibility and implementation plan](feasibility-glass-font-lyrics-artwork-2026-10-27.md), covering 33 features (Liquid Glass, Encore statistics, equalizer, Android Auto, Cast and more), with its Automix design in the [AutoMix engine report](automix-engine-report-2026-10-28.md) and the measurements for its stage 4 model in [Automix stage 4 groundwork](automix-stage4-groundwork-2026-10-30.md), and the [AutoMix research report of 31 October](Riff-AutoMix-Research-Report-2026-10-31.pdf) (state of the art and a three-phase roadmap; its Phase 1 is built)
 
 Quality documents (`quality/`):
 

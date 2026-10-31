@@ -95,6 +95,39 @@ Lanes so far:
    groups and its second lines would change what menus offer, so they were not copied. SF Pro is not bundled; Inter.
    Bottom sheets (What's new, Cast picker) were left as they are. Not yet seen on the phone.
 
+## Automix research report: the seven quick fixes (31 October)
+
+The owner added `docs/Riff-AutoMix-Research-Report-2026-10-31.pdf` and asked for its Phase 1 (section 7.1), all seven
+items. All are in code with unit tests (`AutomixPhaseOneTest`); none is heard or measured on the phone yet, and none of
+the report's "done when" measures (the 50-song set, the 30-pair listening test) has been run.
+
+1. **Bass hole and sag** (`deckLevel`, `aboveBassSection`): each player plays at the louder of its body (the
+   equal-power fade) and its bass (the swap, in amplitude); a low shelf and a new high shelf at 150 Hz cut the other
+   part down. The low end stays within 3 dB through the swap (it fell about 10 dB before).
+2. **Phrase-anchored start** (`phrasePhase`): the four-bar phase is scored from bar-to-bar changes of the bass and
+   the level, with the outro's start and the last downbeat as anchors; failing a clear phase, counted back from the
+   outro. Differs from the report: no chroma or novelty (Riff computes neither yet), so the weights are 0.6 bass and
+   0.4 level; only four-bar phrases. Needs downbeat confidence 0.5; below it, the nearest downbeat as before.
+3. **Swap on the downbeat** (`swapOnDownbeat`): on the outgoing song's downbeat nearest the blend's middle, one beat
+   long; hard when both songs' downbeat confidence is 0.7 or more. Automix only; Smart keeps 1 s at the midpoint.
+4. **Lyrics as a vocal prior** (`vocalSpans`, `avoidVocals`): more than one beat of both singing moves the start to
+   another downbeat, then later (shorter). Lyrics come from a download's own, or those the lyrics panel loaded in
+   this session (`LyricsRepository.heard`); nothing is fetched for Automix, so the next song's lyrics are often
+   unknown. Lyrics that don't fit the sound by 1 s are ignored. Smart and Automix both.
+5. **Echo-out** (`echoOut`, `EchoProcessor` on the tail player): folded tempo gap over 8 %, both grids sure. One-beat
+   delay, feedback 0.55, 200 Hz high-pass and 6 kHz low-pass in the loop; the send rises over the bar before the cut,
+   the song stops at the cut and the next one starts on its downbeat there; 3 s of ring. The stage works in song time
+   from Media3's `positionOffsetUs`, so the cut is sample-placed. Differs from the report: the cut is the phrase
+   downbeat nearest where stage 1's blend would cross (not the last one), avoiding a sung line.
+6. **Predictive loudness trim** (`loudnessTrim`): from both envelopes plus normalization gains, −3 to +1.5 dB,
+   smoothed a second either way. A player's volume can't pass 1, so at full volume only the downward trim applies.
+7. **64 s tail for songs on the phone** (`ANALYSIS_LOCAL_TAIL_MS`): streams keep 45 s. Stored 45 s tails of local
+   songs are read again once. This is about 40 % more decoding and beat-model time on those songs, which touches the
+   owner's open question on the model's load: measure it in the benchmark lane with the rest.
+
+The event log has one `automix_plan` line per blend (on beat, phrase, swap, echo, vocal beats, trim range) for the
+owner's listening checks.
+
 ## Still to do, in order
 
 1. Set up the laptop (next section).

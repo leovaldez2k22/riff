@@ -64,12 +64,18 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
             if (smart && item.mediaId !in classical) classical[item.mediaId] =
                 AppContainer.get(context).encoreGenres.cached(artistNames(item.mediaMetadata.artist?.toString())).values.any(::classicalGenres)
             val known = playerDurationMs.takeIf { it > 0 }
-            // Read on an earlier play: a stream's tail stays known after the cache has let it go.
-            analysisStore.read(key)?.takeIf { known == null || kotlin.math.abs(it.durationMs - known) <= CACHED_LENGTH_SLACK_MS }?.let {
+            val onPhone = TrackAnalysis.localSource(context, item) != null
+            // Read on an earlier play: a stream's tail stays known after the cache has let it go. A song on the phone
+            // whose tail was read before the longer window (report 1.7) is read again.
+            analysisStore.read(key)?.takeIf { known == null || kotlin.math.abs(it.durationMs - known) <= CACHED_LENGTH_SLACK_MS }
+                ?.takeIf { part == "head" || !onPhone || !shortLocalTail(it) }?.let {
                 envelopes[key] = it
                 events.append("automix_analysis part=$part found=1 source=store"); return@launch
             }
             val local = TrackAnalysis.localSource(context, item)
+            // Report 1.4: a download keeps its lyrics; read here, off the player's thread, once.
+            if (smart && item.mediaId !in vocals && item.mediaId.startsWith("yt:")) OfflineMusicStore.get(context).let { store ->
+                store.lyrics(store.currentScope, item.mediaId.removePrefix("yt:"))?.let(::spansOf)?.let { vocals[item.mediaId] = it } }
             val cached = try { if (local == null && known != null) (if (part == "tail") TrackAnalysis.cachedSource(context, item, known) else TrackAnalysis.cachedHead(context, item, known)) else null }
                 catch (e: kotlinx.coroutines.CancellationException) { throw e }
                 catch (e: Exception) {
@@ -91,7 +97,7 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
                     // A file whose end is not where the player's is would cut the song in the wrong place.
                     ?.takeIf { (known != null && kotlin.math.abs(it.durationMs - known) <= CACHED_LENGTH_SLACK_MS && (part == "head" || kotlin.math.abs(it.endMs - known) <= CACHED_LENGTH_SLACK_MS))
                         .also { fits -> if (!fits) refused = " reason=length delta=${(it.endMs - (known ?: 0)) / 100 * 100}" } }
-                part == "tail" -> TrackAnalysis.envelope(context, local!!, -ANALYSIS_TAIL_MS, ANALYSIS_TAIL_MS)
+                part == "tail" -> TrackAnalysis.envelope(context, local!!, -ANALYSIS_LOCAL_TAIL_MS, ANALYSIS_LOCAL_TAIL_MS)
                 else -> TrackAnalysis.envelope(context, local!!, 0, ANALYSIS_HEAD_MS)
             }
             envelopes[key] = envelope
@@ -111,13 +117,37 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         if (albumInOrder(a.albumTitle?.toString(), a.trackNumber, b.albumTitle?.toString(), b.trackNumber)) return null
         if (classical[outgoing.mediaId] == true || classical[incoming.mediaId] == true) return null
         val plan = planSmartTransition(envelopes["${outgoing.mediaId}:tail"], envelopes["${incoming.mediaId}:head"],
-            onBeat = blendMode(crossfadePrefs) == BlendMode.Automix)
+            onBeat = blendMode(crossfadePrefs) == BlendMode.Automix, outgoingVocals = vocalsOf(outgoing), incomingVocals = vocalsOf(incoming),
+            outgoingGainDb = gainDb(normalizationFor(outgoing)), incomingGainDb = gainDb(normalizationFor(incoming)))
         lastBlend = plan?.let { AutomixNote(blendMode(crossfadePrefs), it.blendMs, it.onBeat) }
+        plan?.let { notePlan(outgoing, it) }
         return SmartBlend(plan)
+    }
+    private fun gainDb(gain: Float) = if (gain > 0f) (20 * kotlin.math.log10(gain)) else 0f
+    /** Research report 31 Oct, 1.4: where each song is sung, from its synced lyrics; null when it has none. */
+    private val vocals = java.util.Collections.synchronizedMap(object : LinkedHashMap<String, List<LongRange>>(16, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<LongRange>>?) = size > 64
+    })
+    /** A download's own lyrics (read with its analysis), or those the lyrics panel loaded in this session. Nothing is fetched. */
+    private fun vocalsOf(item: MediaItem): List<LongRange>? = vocals[item.mediaId]
+        ?: LyricsRepository.heard(item.mediaId)?.let { spansOf(it) }?.also { vocals[item.mediaId] = it }
+    private fun spansOf(document: LyricsDocument): List<LongRange>? = document.takeIf { it.timed }?.let { vocalSpans(it.lines) }?.takeIf { it.isNotEmpty() }
+    /** The plan last written to the event log, so each blend's says once what it chose. */
+    private var notedPlan: String? = null
+    private fun notePlan(outgoing: MediaItem, plan: SmartPlan) {
+        val line = "automix_plan blend_ms=${plan.blendMs} on_beat=${if (plan.onBeat) 1 else 0} phrase=${if (plan.phrase) 1 else 0}" +
+            " swap=${plan.swap?.let { if (it.lengthMs == 0L) "hard" else "beat" } ?: "mid"} echo=${if (plan.echo != null) 1 else 0}" +
+            (plan.vocalBeats?.let { " vocal_beats=${"%.1f".format(java.util.Locale.ROOT, it)}" } ?: "") +
+            (plan.trimDb?.let { trim -> " trim_db=${"%.1f".format(java.util.Locale.ROOT, trim.minOrNull() ?: 0f)}..${"%.1f".format(java.util.Locale.ROOT, trim.maxOrNull() ?: 0f)}" } ?: "")
+        val key = "${outgoing.mediaId} $line"
+        if (key == notedPlan) return
+        notedPlan = key; events.append(line)
     }
     /** The last blend planned, for the stats panel. */
     @Volatile var lastBlend: AutomixNote? = null; private set
     private var tailEqualizer: EqualizerProcessor? = null
+    /** Report 1.5: the tail player's echo-out stage. */
+    private var tailEcho: EchoProcessor? = null
     private val equalizerPrefs = EqualizerSettings.prefs(context)
     private val equalizerListener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, _ -> updateEqualizer(prefs) }
     private var crossfader: Crossfader? = null
@@ -249,7 +279,8 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
             // Match the main player's frequent position updates for muted synchronization.
             val processor = VolumeBoostProcessor()
             val tailEq = EqualizerProcessor().also { it.equalizer.config = equalizer.equalizer.config; tailEqualizer = it }
-            val tail = ExoPlayer.Builder(context, riffAudioRenderers(context, processor, tailEq)).setMediaSourceFactory(mediaFactory).setLoadControl(riffLoadControl())
+            val tailEcho = EchoProcessor().also { this.tailEcho = it }
+            val tail = ExoPlayer.Builder(context, riffAudioRenderers(context, processor, tailEq, tailEcho)).setMediaSourceFactory(mediaFactory).setLoadControl(riffLoadControl())
                 .experimentalSetDynamicSchedulingEnabled(false).build()
             tail.setAudioAttributes(audioAttributes, false)
             tail.trackSelectionParameters = tail.trackSelectionParameters.buildUpon().setAudioOffloadPreferences(pcmOnly).build()
@@ -265,10 +296,13 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
                     if (gain != 1f) events.append("normalize_outgoing gain_db=${normalizationDecibels(gain)}")
                 }
             })
-            tail to { if (tailEqualizer === tailEq) tailEqualizer = null; if (tailAudioEffects === effects) tailAudioEffects = null; if (tailNormalization?.first === tail) tailNormalization = null; effects.release() }
+            tail to { if (tailEqualizer === tailEq) tailEqualizer = null; if (this.tailEcho === tailEcho) this.tailEcho = null; if (tailAudioEffects === effects) tailAudioEffects = null; if (tailNormalization?.first === tail) tailNormalization = null; effects.release() }
         }, sleepActive = sleepActive, tailItem = tailItem,
             onBlend = { SongCrossfadeState.active = it }, clock = runtime.clocks::monotonicMillis, wait = runtime.wait,
-            smart = ::smartBlend, audibleEnd = ::audibleEnd, bassSwap = { outgoing, incoming -> tailEqualizer?.equalizer?.bassCutDb = outgoing; equalizer.equalizer.bassCutDb = incoming }) { events.append(it) }
+            smart = ::smartBlend, audibleEnd = ::audibleEnd, shelves = { outgoing, incoming ->
+                tailEqualizer?.equalizer?.let { it.bassCutDb = outgoing.lowCutDb; it.aboveBassCutDb = outgoing.aboveCutDb }
+                equalizer.equalizer.let { it.bassCutDb = incoming.lowCutDb; it.aboveBassCutDb = incoming.aboveCutDb } },
+            echo = { cue -> tailEcho?.echo?.cue = cue }) { events.append(it) }
     }
     /** Called while the main player is being built, once it has an audio session. */
     fun attach(main: ExoPlayer) { audioEffects.attach(main.audioSessionId); crossfader?.start(main); watchSilence(main) }

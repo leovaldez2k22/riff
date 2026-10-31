@@ -84,6 +84,8 @@ private operator fun List<Double>.component4() = this[3]
 
 /** Automix's bass swap: a low shelf at 150 Hz, steep enough to take a song's low end out. Flat at 0 dB. */
 internal fun bassSwapSection(cutDb: Float) = EqSection(EqShape.LowShelf, 150f, .7f, cutDb.coerceIn(-30f, 0f))
+/** Its counterpart (research report 31 Oct, 1.1): a high shelf at the same corner, so a song's body can fade while its bass holds. */
+internal fun aboveBassSection(cutDb: Float) = EqSection(EqShape.HighShelf, 150f, .7f, cutDb.coerceIn(-30f, 0f))
 
 /** 64 frequencies from 20 Hz to 20 kHz, evenly spaced on a log scale: the curve preview and the pre-amp read these. */
 internal val eqProbeFrequencies: FloatArray = FloatArray(64) { (20.0 * 1_000.0.pow(it / 63.0)).toFloat() }

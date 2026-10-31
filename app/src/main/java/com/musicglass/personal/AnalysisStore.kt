@@ -76,10 +76,10 @@ internal fun analyseDownload(context: Context, mediaId: String, audio: File) {
     if (!smart && !silence) return
     if (context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true) return
     val store = AnalysisStore.get(context)
-    for ((part, from, length) in listOf(Triple("tail", -ANALYSIS_TAIL_MS, ANALYSIS_TAIL_MS), Triple("head", 0L, ANALYSIS_HEAD_MS))) {
+    for ((part, from, length) in listOf(Triple("tail", -ANALYSIS_LOCAL_TAIL_MS, ANALYSIS_LOCAL_TAIL_MS), Triple("head", 0L, ANALYSIS_HEAD_MS))) {
         if (part == "head" && !smart) continue
         val key = "$mediaId:$part"
-        if (store.read(key) != null) continue
+        if (store.read(key)?.takeIf { part == "head" || !shortLocalTail(it) } != null) continue
         TrackAnalysis.envelope(context, Uri.fromFile(audio), from, length)?.let { store.write(key, it) }
     }
 }

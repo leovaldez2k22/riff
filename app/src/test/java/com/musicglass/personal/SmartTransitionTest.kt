@@ -61,11 +61,11 @@ class SmartTransitionTest {
     }
 
     @Test fun theBassSwapsAtTheMidpoint() {
-        assertEquals(0f to BASS_SWAP_CUT_DB, bassSwapCuts(0f, 8_000))
-        assertEquals(0f to BASS_SWAP_CUT_DB, bassSwapCuts(.4f, 8_000))
-        val (out, inc) = bassSwapCuts(.5f, 8_000); assertEquals(BASS_SWAP_CUT_DB / 2, out, .01f); assertEquals(BASS_SWAP_CUT_DB / 2, inc, .01f)
-        assertEquals(BASS_SWAP_CUT_DB to 0f, bassSwapCuts(.6f, 8_000))
-        assertEquals(BASS_SWAP_CUT_DB to 0f, bassSwapCuts(1f, 8_000))
+        // The plain smart blend's swap: 1 s around the midpoint of an 8 s blend from 100 s.
+        val swap = BassSwap(104_000, BASS_SWAP_MS)
+        assertEquals(0f, bassShare(100_000, swap)); assertEquals(0f, bassShare(103_400, swap))
+        assertEquals(.5f, bassShare(104_000, swap), .01f)
+        assertEquals(1f, bassShare(104_600, swap)); assertEquals(1f, bassShare(108_000, swap))
     }
 
     @Test fun anAlbumInOrderIsLeftAlone() {
@@ -100,9 +100,11 @@ class SmartTransitionTest {
 
     @Test fun aSureBlendStartsOnADownbeatAndEntersOnOne() {
         val plan = SmartPlan(190_300, 198_000, 1_200)
-        val aligned = alignToBeats(plan, grid(160_000, 80), grid(150, 60))!!
+        val aligned = alignToBeats(plan, grid(160_000, 80), grid(150, 60), phase = 0)!!
         assertTrue(aligned.onBeat)
         assertEquals("the phrase line nearest the stage 1 start", 192_000L, aligned.startMs)
+        assertEquals("another phase, another line", 190_000L, alignToBeats(plan, grid(160_000, 80), grid(150, 60), phase = 3)!!.startMs)
+        assertEquals("no phrase known: the nearest downbeat", 190_000L, alignToBeats(plan, grid(160_000, 80), grid(150, 60))!!.startMs)
         assertEquals(198_000L, aligned.endMs)
         assertEquals("the first downbeat after the entry", 2_150L, aligned.incomingStartMs)
     }

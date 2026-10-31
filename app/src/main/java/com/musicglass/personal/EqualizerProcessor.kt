@@ -27,10 +27,12 @@ internal class PcmEqualizer {
     @Volatile var config: EqualizerConfig = EqualizerConfig()
     /** Automix's bass swap: how far the low end is turned down during a blend, 0 the rest of the time. */
     @Volatile var bassCutDb: Float = 0f
+    /** Automix's smart blend: how far everything above the bass is turned down while the bass holds, 0 the rest of the time. */
+    @Volatile var aboveBassCutDb: Float = 0f
     private var sampleRate = 0
     private var channels = 0
-    /** Per section, the bass swap's last: its current gain and width, gliding toward the config's. */
-    private val count = EqLayout.SECTIONS + 1
+    /** Per section, the bass swap's and its counterpart's last: its current gain and width, gliding toward the config's. */
+    private val count = EqLayout.SECTIONS + 2
     private val gain = FloatArray(count)
     private val width = FloatArray(count) { 1f }
     private var preamp = 1f
@@ -51,7 +53,7 @@ internal class PcmEqualizer {
 
     /** Jumps to the current settings at once: at a seek or a new stream, where there is nothing to glide from. */
     fun reset() {
-        val shaping = eqSections(config); val sections = shaping + bassSwapSection(bassCutDb)
+        val shaping = eqSections(config); val sections = shaping + bassSwapSection(bassCutDb) + aboveBassSection(aboveBassCutDb)
         sections.forEachIndexed { i, s -> gain[i] = s.gainDb; width[i] = s.q }
         preamp = dbToGain(if (config.enabled) preampFor(shaping, sampleRate.coerceAtLeast(8_000)) else 0f)
         balanceGains(if (config.enabled && channels == 2) config.balance else 0f).let { (l, r) -> left = l; right = r }
@@ -61,13 +63,13 @@ internal class PcmEqualizer {
     }
 
     /** True when nothing would change a sample: the pass-through case. */
-    private fun idle(): Boolean = !config.enabled && bassCutDb == 0f && gain.all { it == 0f } && preamp == 1f && left == 1f && right == 1f
+    private fun idle(): Boolean = !config.enabled && bassCutDb == 0f && aboveBassCutDb == 0f && gain.all { it == 0f } && preamp == 1f && left == 1f && right == 1f
 
     fun process(input: ByteBuffer, output: ByteBuffer) {
         require(sampleRate > 0 && channels > 0 && input.remaining() % (2 * channels) == 0)
         input.order(ByteOrder.LITTLE_ENDIAN); output.order(ByteOrder.LITTLE_ENDIAN)
         if (idle()) { output.put(input); return }
-        val shaping = eqSections(config); val sections = shaping + bassSwapSection(bassCutDb)
+        val shaping = eqSections(config); val sections = shaping + bassSwapSection(bassCutDb) + aboveBassSection(aboveBassCutDb)
         val targetPreamp = dbToGain(if (config.enabled) preampFor(shaping, sampleRate) else 0f)
         val (targetLeft, targetRight) = balanceGains(if (config.enabled && channels == 2) config.balance else 0f)
         val glide = (1 - exp(-EQ_UPDATE_FRAMES / (EQ_SMOOTH_S * sampleRate))).toFloat()

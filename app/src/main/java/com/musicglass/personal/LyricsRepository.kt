@@ -47,6 +47,13 @@ internal class LyricsRepository(private val directory: File,
         fun get(context: Context): LyricsRepository = shared ?: synchronized(this) {
             shared ?: LyricsRepository(context.applicationContext).also { shared = it }
         }
+        /** Automix (research report 31 Oct, 1.4): the line-timed lyrics loaded for each song lately, by media id. */
+        private val recent = object : LinkedHashMap<String, LyricsDocument>(16, .75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, LyricsDocument>?) = size > 32
+        }
+        /** [mediaId]'s timed lyrics, when they were loaded in this process; never fetches. */
+        fun heard(mediaId: String): LyricsDocument? = synchronized(recent) { recent[mediaId] }
+        private fun hear(mediaId: String, doc: LyricsDocument) { if (doc.timed) synchronized(recent) { recent[mediaId] = doc } }
     }
     private val client = OkHttpClient.Builder().connectTimeout(5,TimeUnit.SECONDS)
         .readTimeout(8,TimeUnit.SECONDS).callTimeout(10,TimeUnit.SECONDS).build()
@@ -68,6 +75,7 @@ internal class LyricsRepository(private val directory: File,
             entry.job = scope.launch {
                 try {
                     lyrics(track,force,youtube).collect { doc ->
+                        hear(track.mediaId, doc)
                         entry.state.update {current -> if(current.generation==generation) LyricsLoadState(doc,loading=true,generation=generation) else current}
                     }
                     entry.state.update {current -> if(current.generation==generation) current.copy(loading=false) else current}
