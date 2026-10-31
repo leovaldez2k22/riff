@@ -116,8 +116,8 @@ Lanes so far:
   - **GitHub, 31 Oct night (owner's OK):** `feat/next-features` and `main` pushed (main fast-forwarded 5262220..0712a03),
     tag `v0.20.0` on 0712a03, and a **draft** release "Riff 0.20.0" with `riff-0.20.0.apk` (SHA-256 `bdab6ef0…`),
     `riff-0.20.0-source.zip` (`dc83c1c9…`) and `SHA256SUMS.txt`. **No Preview APK, at the owner's request.** The body
-    is the release notes with links pinned to the tag. **The owner presses Publish.** Then: README's Availability
-    (it still says nothing was published, which was already wrong: 0.10.0 was published on GitHub on 24 October).
+    is the release notes with links pinned to the tag. **Published by the owner on 31 Oct (17:57 UTC); now Latest.** README's Availability updated
+    (it had said nothing was published, which was already wrong: 0.10.0 was published on GitHub on 24 October).
   - The final candidate was rebuilt at **0712a03** (PASS_LOCAL, certificate `e45ac43b…`, 45.1 MiB) after the notes
     were corrected; it supersedes the 9922536 build below.
   - **The release candidate to publish: built at 9922536 (the release-notes commit), PASS_LOCAL, clean.**
