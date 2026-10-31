@@ -72,6 +72,7 @@ Lanes so far:
   - Passing: every action at or under 82 ms p95 (budget 150), a 2,000-entry queue 374 ms, first audio 398 ms local
     and 371 ms online.
   - Not measured by the lane: the beat model's CPU and thermal cost with Automix on (step 6 still asks for it).
+  - **The owner's call (31 Oct): accepted as is; move on.** Riff Preview's lag check (step 8) still decides.
 - **Benchmark lane:** stopped by the owner after 4 tests on 18593cc.
   - Passed: `queueOfTwoThousand`, `firstAudioLocalBundle`, `firstAudioUnthrottled`.
   - **Failed, then fixed (31 Oct):** `playerAndQueueActions` with `"player_queue_bottom" did not appear`. Seen in
