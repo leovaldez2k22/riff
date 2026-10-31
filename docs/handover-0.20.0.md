@@ -65,6 +65,22 @@ Lanes so far:
 - **A signed 0.20.0 was built at 8e87588** (`artifacts/release/riff-0.20.0.apk`, 10.3 MiB). It is stale: it has no
   slide-up fix and no model. Rebuild.
 
+## Bugs the owner found on 31 October
+
+1. **The Lyrics timing dialog's glass does not follow the lyrics** under it; "still", so the 29 Oct fix (bug 11, the
+   app window's pre-draw listener in `frostedPopupBackground`) did not cover it. Not fixed: on paper the dialog reads
+   the live page, so it needs the phone to see what goes stale. Suspect HWUI's layer caching of the blurred node
+   when the lyrics' own layer was already synced by the app window.
+2. **Volume spikes in Automix: the outgoing song jumps.** Fixed in code, not yet heard on the phone: the handover
+   from the main player's copy to the tail's was one step (`main.volume = 0f; tail.volume = base`), and each write
+   lands on its own player's thread, so both copies could play for a moment (+6 dB), likelier under the beat model's
+   CPU load. Now six linear steps over about 0.1 s (`handoffLevels` in `Crossfade.kt`). Ask the owner to listen.
+3. **Every pop-out in the owner's reference look.** Done: `RiffMenu` tokens in `DesignTokens.kt`; the shared
+   frosted background, `SongActionMenu`/`SongActionItem`, `PlayerActionMenu` and `FrostedAlertDialog`; every plain
+   `AlertDialog` moved onto `FrostedAlertDialog`. Content unchanged: the reference's Like/Dislike/Share row, its
+   groups and its second lines would change what menus offer, so they were not copied. SF Pro is not bundled; Inter.
+   Bottom sheets (What's new, Cast picker) were left as they are. Not yet seen on the phone.
+
 ## Still to do, in order
 
 1. Set up the laptop (next section).

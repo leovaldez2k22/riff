@@ -112,7 +112,7 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
     val currentPhoto=photos[mood]
     if(photoCredits && currentPhoto!=null) {
         val context=androidx.compose.ui.platform.LocalContext.current
-        androidx.compose.material3.AlertDialog(onDismissRequest={photoCredits=false},title={Text(string(R.string.background_photo))},text={Column {
+        FrostedAlertDialog(onDismissRequest={photoCredits=false},title={Text(string(R.string.background_photo))},text={Column {
             Text(currentPhoto.author);Text(currentPhoto.license)
             androidx.compose.material3.TextButton({openWebPage(context,currentPhoto.page)}) {Text(string(R.string.view_original_photo))}
             if(httpsAddress(currentPhoto.licenseUrl)!=null) androidx.compose.material3.TextButton({openWebPage(context,currentPhoto.licenseUrl)}) {Text(string(R.string.view_licence))}

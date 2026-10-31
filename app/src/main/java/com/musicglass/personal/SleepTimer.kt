@@ -62,7 +62,7 @@ internal fun sleepMinutesRemaining(deadline:Long,now:Long):Long=((deadline-now).
     fun set(minutes:Int) {playback.setSleepTimer(minutes);uiHaptic(HapticCue.Confirm);onDismiss()}
     fun setSongs(songs:Int) {playback.setSleepTimerSongs(songs);uiHaptic(HapticCue.Confirm);onDismiss()}
     val context=androidx.compose.ui.platform.LocalContext.current
-    AlertDialog(onDismissRequest=onDismiss,title={Text(string(R.string.sleep_timer))},text={Column(Modifier.testTag("sleep_timer")) {
+    FrostedAlertDialog(onDismissRequest=onDismiss,title={Text(string(R.string.sleep_timer))},text={Column(Modifier.testTag("sleep_timer")) {
         if(playback.state.sleepDeadlineMs>0) Text(string(R.string.x_minutes_remaining, sleepMinutesRemaining(playback.state.sleepDeadlineMs,sleepTimerNow(playback.state.sleepDeadlineMs))))
         LazyColumn(Modifier.heightIn(max=250.dp)) {
             // Feature 18: counted in songs; the one playing now is the first.

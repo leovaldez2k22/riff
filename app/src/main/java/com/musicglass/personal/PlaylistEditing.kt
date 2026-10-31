@@ -83,7 +83,7 @@ internal suspend fun addTrackToPlaylist(reader:ProviderCatalogReader,mutations:P
         loading=true;error=null
         provider.editablePlaylists().fold(onSuccess={pages=it},onFailure={error=it.message});loading=false
     }
-    AlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.add_to_playlists))},
+    FrostedAlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.add_to_playlists))},
         text={Column(Modifier.testTag("playlist_picker")) {
             Text(track.title,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             if(loading || busy) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -148,7 +148,7 @@ internal suspend fun newPlaylistWithAll(mutations:ProviderMutations,name:String,
     val scope=rememberCoroutineScope()
     var name by remember {mutableStateOf(suggested.take(PLAYLIST_TITLE_LIMIT))};var busy by remember {mutableStateOf(false)}
     var done by remember {mutableStateOf(0)};var error by remember {mutableStateOf<String?>(null)}
-    AlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.encore_save_playlist))},
+    FrostedAlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.encore_save_playlist))},
         text={Column(Modifier.testTag("encore_save_dialog")) {
             OutlinedTextField(name,{name=it.take(PLAYLIST_TITLE_LIMIT)},enabled=!busy,singleLine=true,
                 label={Text(string(R.string.playlist_name))},modifier=Modifier.fillMaxWidth().testTag("encore_save_name"))
@@ -172,7 +172,7 @@ internal suspend fun newPlaylistWithAll(mutations:ProviderMutations,name:String,
 @Composable internal fun NewPlaylistDialog(provider:YouTubeMusicProvider,onDismiss:()->Unit,onCreated:(String)->Unit) {
     val scope=rememberCoroutineScope()
     var name by remember {mutableStateOf("")};var busy by remember {mutableStateOf(false)};var error by remember {mutableStateOf<String?>(null)}
-    AlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.new_playlist))},
+    FrostedAlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.new_playlist))},
         text={Column(Modifier.testTag("new_playlist_dialog")) {
             OutlinedTextField(name,{name=it.take(PLAYLIST_TITLE_LIMIT)},enabled=!busy,singleLine=true,
                 label={Text(string(R.string.playlist_name))},modifier=Modifier.fillMaxWidth().testTag("new_playlist_name"))
@@ -194,7 +194,7 @@ internal suspend fun newPlaylistWithAll(mutations:ProviderMutations,name:String,
 @Composable internal fun RenamePlaylistDialog(provider:YouTubeMusicProvider,id:String,current:String,onDismiss:()->Unit,onRenamed:(String)->Unit) {
     val scope=rememberCoroutineScope()
     var name by remember {mutableStateOf(current)};var busy by remember {mutableStateOf(false)};var error by remember {mutableStateOf<String?>(null)}
-    AlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.rename_playlist))},
+    FrostedAlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.rename_playlist))},
         text={Column(Modifier.testTag("rename_playlist_dialog")) {
             OutlinedTextField(name,{name=it.take(PLAYLIST_TITLE_LIMIT)},enabled=!busy,singleLine=true,
                 label={Text(string(R.string.playlist_name))},modifier=Modifier.fillMaxWidth().testTag("rename_playlist_name"))
@@ -215,7 +215,7 @@ internal suspend fun newPlaylistWithAll(mutations:ProviderMutations,name:String,
 @Composable internal fun DeletePlaylistDialog(provider:YouTubeMusicProvider,id:String,title:String,onDismiss:()->Unit,onDeleted:()->Unit) {
     val scope=rememberCoroutineScope()
     var busy by remember {mutableStateOf(false)};var error by remember {mutableStateOf<String?>(null)}
-    AlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.delete_x_q,title))},
+    FrostedAlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.delete_x_q,title))},
         text={Column(Modifier.testTag("delete_playlist_dialog")) {
             Text(string(R.string.delete_playlist_body))
             if(busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top=RiffSpace.item))

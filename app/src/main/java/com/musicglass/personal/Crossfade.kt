@@ -49,6 +49,20 @@ internal class CrossfadeTailContinuity {
     }
 }
 
+/**
+ * The handover from the main player's copy of the outgoing song to the tail's. Each volume reaches its AudioTrack on its
+ * own player's thread, so a swap in one step could leave both copies audible for a moment, the song 6 dB louder, when
+ * the tail's landed first (owner, 31 Oct: the previous song jumped in volume during Automix, whose beat model loads the
+ * CPU). In [HANDOFF_STEPS] linear steps the two always add up to the level, and a late write is off by one step at most.
+ */
+internal const val HANDOFF_STEPS = 6
+internal const val HANDOFF_STEP_MS = 16L
+/** (main, tail) after [step] of [HANDOFF_STEPS]: the same audio on both, so the gains sum linearly to [base]. */
+internal fun handoffLevels(step: Int, base: Float): Pair<Float, Float> {
+    val x = step.coerceIn(0, HANDOFF_STEPS).toFloat() / HANDOFF_STEPS
+    return base * (1 - x) to base * x
+}
+
 internal const val CROSSFADE_PREFS = "crossfade"
 internal fun crossfadeSeconds(value: Int) = value.coerceIn(1, 12)
 /** Automix stage 1 before the choice below: the "Smart crossfade" switch. Still read, for settings saved then. */
@@ -393,8 +407,13 @@ internal class Crossfader(private val context: Context, private val scope: Corou
             if(held==null) {log("crossfade_skipped reason=level_owned");return}
             grant=held
             val base=held.base
-            main.volume = 0f
-            tail.volume = base
+            for(step in 1..HANDOFF_STEPS) {
+                val (mainLevel,tailLevel)=handoffLevels(step,base)
+                // Down first: a write that lands late leaves a dip, never the two copies together.
+                main.volume = mainLevel
+                tail.volume = tailLevel
+                if(step<HANDOFF_STEPS) wait(HANDOFF_STEP_MS)
+            }
             val visual=SongCrossfade(songPresentation(item),incomingId,overlap)
             visualBlend=visual;onBlend(visual)
             expectedTransition="${main.nextMediaItemIndex}:${main.getMediaItemAt(main.nextMediaItemIndex).mediaId}"

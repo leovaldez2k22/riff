@@ -60,9 +60,9 @@ internal fun <T> collectionView(rows:List<T>,query:String,sort:CollectionSort,ti
                     }
                     val enabled=supplied && !busy
                     DropdownMenuItem(text={Column {
-                        Text(option.label,color=if(enabled) White else Muted,maxLines=1,overflow=TextOverflow.Ellipsis)
-                        if(!supplied) Text(if(option==CollectionSort.TopVoted) string(R.string.voting_not_available_for_this_playlist) else string(R.string.dates_not_supplied_for_this_collection),fontSize=11.sp,color=Muted)
-                    }},enabled=enabled,onClick={uiHaptic(HapticCue.Selection);onSort(option);expanded=false},trailingIcon={if(sort==option) Icon(Icons.Rounded.Check,null,tint=Pink)},modifier=Modifier.testTag("collection_sort_${option.name.lowercase()}"))
+                        Text(option.label,color=if(enabled) White else Muted,style=RiffMenu.text,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        if(!supplied) Text(if(option==CollectionSort.TopVoted) string(R.string.voting_not_available_for_this_playlist) else string(R.string.dates_not_supplied_for_this_collection),style=RiffMenu.detail,color=Muted)
+                    }},enabled=enabled,onClick={uiHaptic(HapticCue.Selection);onSort(option);expanded=false},trailingIcon={if(sort==option) Icon(Icons.Rounded.Check,null,tint=Pink)},contentPadding=PaddingValues(horizontal=RiffMenu.edge),modifier=Modifier.heightIn(min=RiffMenu.row).testTag("collection_sort_${option.name.lowercase()}"))
                 }
             }
         }

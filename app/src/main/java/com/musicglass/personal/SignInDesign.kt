@@ -342,7 +342,7 @@ internal val LocalSignInBackdrop = staticCompositionLocalOf<RiffBackdrop?> { nul
                 Icon(Icons.Rounded.MoreVert, string(R.string.signin_account_options, account.name), tint = Muted)
             }
             SongActionMenu(menu, { menu = false }) {
-                DropdownMenuItem(text = { Text(string(R.string.signin_remove_from_phone)) },
+                DropdownMenuItem(text = { Text(string(R.string.signin_remove_from_phone), style = RiffMenu.text) },
                     onClick = { uiHaptic(); menu = false; onRemove() }, modifier = Modifier.testTag("signin_account_remove"))
             }
         }

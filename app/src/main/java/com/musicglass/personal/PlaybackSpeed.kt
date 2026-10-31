@@ -49,7 +49,7 @@ internal class PlaybackSpeeds(private val context: Context) {
 internal fun PlaybackSpeedDialog(playback: PlaybackGateway, onDismiss: () -> Unit) {
     var speed by remember { mutableFloatStateOf(playback.state.speed) }
     fun choose(value: Float) { speed = playbackSpeedStep(value); playback.setPlaybackSpeed(speed) }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(string(R.string.playback_speed)) }, text = {
+    FrostedAlertDialog(onDismissRequest = onDismiss, title = { Text(string(R.string.playback_speed)) }, text = {
         Column(Modifier.testTag("playback_speed")) {
             Text(playbackSpeedLabel(speed), modifier = Modifier.testTag("playback_speed_value"))
             CapsuleSlider(speed, { choose(it) }, valueRange = SPEED_MIN..SPEED_MAX, steps = ((SPEED_MAX - SPEED_MIN) / SPEED_STEP).toInt() - 1,

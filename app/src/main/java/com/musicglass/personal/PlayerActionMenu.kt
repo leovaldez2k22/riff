@@ -45,7 +45,7 @@ private class UnfoldShape(val progress: Float, val anchor: androidx.compose.ui.g
         val y = anchor.y.coerceIn(radius, (size.height - radius).coerceAtLeast(radius))
         val rect = Rect((x-radius)*(1-p), (y-radius)*(1-p),
             (x+radius)*(1-p)+size.width*p, (y+radius)*(1-p)+size.height*p)
-        val corner = radius*(1-p)+with(density) {18.dp.toPx()}*p
+        val corner = radius*(1-p)+with(density) {RiffMenu.corner.toPx()}*p
         return Outline.Rounded(RoundRect(rect, CornerRadius(corner)))
     }
 }
@@ -84,7 +84,7 @@ private class UnfoldShape(val progress: Float, val anchor: androidx.compose.ui.g
     if (expanded || visible) {
         Popup(popupPositionProvider=positioner, onDismissRequest=onDismissRequest,
             properties=PopupProperties(focusable=true)) {
-            Box(Modifier.width(with(density) {(window.width-2*margin).toDp()}.coerceIn(1.dp,290.dp))
+            Box(Modifier.width(with(density) {(window.width-2*margin).toDp()}.coerceIn(1.dp,RiffMenu.maxWidth))
                 .heightIn(max=with(density) {(window.height-top-bottom-2*margin).coerceAtLeast(1).toDp()})
                 .testTag("player_action_menu").semantics {this.paneTitle=paneTitle;testTagsAsResourceId=true}
                 .graphicsLayer {

@@ -116,7 +116,7 @@ internal fun NerdStatsDialog(playback: PlaybackGateway, onNotice: (String) -> Un
     LaunchedEffect(Unit) {
         while (true) { rows = playback.nerdStats()?.let(::nerdStatsRows) ?: emptyList(); delay(NERD_STATS_REFRESH_MS) }
     }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(string(R.string.stats_for_nerds)) }, text = {
+    FrostedAlertDialog(onDismissRequest = onDismiss, title = { Text(string(R.string.stats_for_nerds)) }, text = {
         Column(Modifier.testTag("nerd_stats")) {
             val shown = rows
             when {

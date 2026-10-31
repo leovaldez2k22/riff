@@ -91,7 +91,34 @@ internal object RiffGlassControl {
 
 /** Feature 2: popups' corner when the caller doesn't give one (the song menus'). */
 internal object RiffGlassPopup {
-    val corner = 18.dp
+    val corner = RiffMenu.corner
+}
+
+/**
+ * Every pop-out (menus and dialogs) after the owner's reference picture (31 Oct): one panel of neutral grey glass with
+ * large corners and a hairline rim, rows led by their icon, regular type, hairlines between groups only. The look only:
+ * what each menu offers is unchanged. The reference is set in SF Pro, which Riff does not bundle; Inter is the nearest.
+ */
+internal object RiffMenu {
+    val corner = 28.dp
+    val minWidth = 230.dp
+    val maxWidth = 290.dp
+    val row = 48.dp
+    /** The row's icon, and from the panel's edge to it and from it to the words. */
+    val icon = 24.dp
+    val edge = 20.dp
+    val iconGap = 16.dp
+    /** Hairlines between groups stop this far from the panel's sides. */
+    val dividerInset = 16.dp
+    val dividerColor = Color.White.copy(alpha = .12f)
+    val text = TextStyle(fontFamily = InterFamily, fontSize = 17.sp, lineHeight = 22.sp, letterSpacing = (-.3).sp)
+    /** A line under a row's words (a sort option it cannot offer, say). */
+    val detail = TextStyle(fontFamily = InterFamily, fontSize = 14.sp, lineHeight = 18.sp, letterSpacing = (-.15).sp)
+    val title = TextStyle(fontFamily = InterDisplayFamily, fontSize = 20.sp, lineHeight = 25.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-.35).sp)
+    /** The glass's tint, a neutral grey rather than the app's blue-black, and its rim. */
+    val tint = Color(0xFF2A2C31)
+    val tintAlpha = .72f
+    val rim = Color.White.copy(alpha = .10f)
 }
 
 internal object RiffPlayer {

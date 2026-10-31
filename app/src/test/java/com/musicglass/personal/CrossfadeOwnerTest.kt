@@ -178,4 +178,19 @@ class CrossfadeOwnerTest {
             assertTrue(starts(duration = fade * 2 + 10_000, fade = fade))
         }
     }
+
+    // Owner, 31 Oct: the outgoing song jumped in volume as the tail took it over. Both copies play the same audio, so
+    // at every step they add up to the level, and a write landing a step late (main still at its last level while the
+    // tail has its new one) is off by one step at most, never the doubling a one-step swap allowed.
+    @Test fun theHandoverBetweenTheTwoCopiesNeverDoublesTheSong() {
+        val base = .8f
+        assertEquals(base to 0f, handoffLevels(0, base))
+        assertEquals(0f to base, handoffLevels(HANDOFF_STEPS, base))
+        for (step in 1..HANDOFF_STEPS) {
+            val (main, tail) = handoffLevels(step, base)
+            assertEquals(base, main + tail, 1e-6f)
+            val (lateMain, _) = handoffLevels(step - 1, base)
+            assertTrue(lateMain + tail <= base * (1f + 1f / HANDOFF_STEPS) + 1e-6f)
+        }
+    }
 }

@@ -510,7 +510,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         }
     }
     }
-    if (creditsVisible) AlertDialog(onDismissRequest = { creditsVisible = false },
+    if (creditsVisible) FrostedAlertDialog(onDismissRequest = { creditsVisible = false },
         title = { Text(string(R.string.credits), color = White) },
         text = {
             Text(string(R.string.x_x_full_contributor_credits_are_unavailable, state.title, state.artist),
@@ -518,8 +518,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         },
         confirmButton = { TextButton(onClick = { uiHaptic();  creditsVisible = false }) {
             Text(string(R.string.done), color = Pink)
-        } },
-        containerColor = Raised)
+        } })
 }
 
 private fun collectionsCanSave(collections: LocalCollections) = collections.canSave

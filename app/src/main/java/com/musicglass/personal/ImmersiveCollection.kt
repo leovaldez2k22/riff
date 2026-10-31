@@ -38,7 +38,7 @@ import kotlinx.coroutines.launch
     playlistTrack?.let {PlaylistPicker(it,{playlistTrack=null},onNotice)}
     var removing by remember {mutableStateOf<ProviderHomeCard?>(null)}
     var removeBusy by remember {mutableStateOf(false)}
-    removing?.let {card->AlertDialog(onDismissRequest={if(!removeBusy) removing=null},title={Text(string(R.string.remove_from_playlist))},text={Text(card.title)},
+    removing?.let {card->FrostedAlertDialog(onDismissRequest={if(!removeBusy) removing=null},title={Text(string(R.string.remove_from_playlist))},text={Text(card.title)},
         confirmButton={TextButton(enabled=!removeBusy,onClick={removeBusy=true;scope.launch {provider.removePlaylistSong(collectionId,card).fold(onSuccess={uiHaptic(HapticCue.Confirm);removing=null;provider.refreshLibraryIndex()
             // Feature 26: YouTube adds a song back at the end; the notice says so.
             val videoId=card.videoId

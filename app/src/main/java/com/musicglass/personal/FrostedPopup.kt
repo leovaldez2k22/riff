@@ -8,9 +8,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
@@ -22,6 +24,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlin.math.ceil
 
 /** Popup windows sample the app layer underneath them; their own text stays sharp. */
@@ -83,10 +86,14 @@ internal fun Modifier.frostedBackdropSource(backdrop:FrostedBackdrop):Modifier =
                 }
                 read[0]?.invoke()
                 translate(-reach,-reach) {drawLayer(blurred)}
-            } else drawRect(Color(0xFF171C27).copy(alpha=.92f)) // Q18-046: nothing to blur, so the words beneath would show through.
-            // A translucent tint keeps controls readable over bright covers, including at zero blur.
-            drawRect(Color(0xFF171C27).copy(alpha=.64f))
-            drawRect(Brush.linearGradient(listOf(White.copy(alpha=.06f+.10f*intensity.coerceIn(0f,1.5f)),Color.Transparent)))
+            } else drawRect(RiffMenu.tint.copy(alpha=.94f)) // Q18-046: nothing to blur, so the words beneath would show through.
+            // A translucent tint keeps controls readable over bright covers, including at zero blur. Neutral grey, after
+            // the owner's reference for every pop-out (31 Oct).
+            drawRect(RiffMenu.tint.copy(alpha=RiffMenu.tintAlpha))
+            drawRect(Brush.linearGradient(listOf(White.copy(alpha=.04f+.08f*intensity.coerceIn(0f,1.5f)),Color.Transparent)))
+            val rim=1.dp.toPx()
+            val corner=(cornerRadius.toPx()-rim/2).coerceAtLeast(0f)
+            drawRoundRect(RiffMenu.rim,Offset(rim/2,rim/2),androidx.compose.ui.geometry.Size(size.width-rim,size.height-rim),CornerRadius(corner),style=Stroke(rim))
         }
         drawContent()
     }
@@ -95,9 +102,11 @@ internal fun Modifier.frostedBackdropSource(backdrop:FrostedBackdrop):Modifier =
 @Composable internal fun FrostedAlertDialog(onDismissRequest:()->Unit,title:@Composable ()->Unit,
     text:@Composable ()->Unit,confirmButton:@Composable ()->Unit,dismissButton:(@Composable ()->Unit)?=null,
     modifier:Modifier=Modifier) {
-    AlertDialog(onDismissRequest=onDismissRequest,title=title,text=text,confirmButton=confirmButton,
-        dismissButton=dismissButton,modifier=modifier.clip(RoundedCornerShape(28.dp)).frostedPopupBackground(RiffRadius.pill),containerColor=Color.Transparent,
-        tonalElevation=0.dp,shape=RoundedCornerShape(28.dp),titleContentColor=White,textContentColor=White)
+    // The pop-out look (RiffMenu): the menus' panel and type, so a dialog and a menu read as one family.
+    AlertDialog(onDismissRequest=onDismissRequest,title={ProvideTextStyle(RiffMenu.title,title)},
+        text={ProvideTextStyle(RiffMenu.text.copy(fontSize=16.sp,lineHeight=22.sp),text)},confirmButton=confirmButton,
+        dismissButton=dismissButton,modifier=modifier.clip(RoundedCornerShape(RiffMenu.corner)).frostedPopupBackground(RiffMenu.corner),containerColor=Color.Transparent,
+        tonalElevation=0.dp,shape=RoundedCornerShape(RiffMenu.corner),titleContentColor=White,textContentColor=White.copy(alpha=.85f))
 }
 
 /**

@@ -293,7 +293,7 @@ private data class DownloadListing(val entries:List<DownloadDisplay>,val used:Lo
         }
     }
     val details=entries.firstOrNull {it.song.track.videoId==detailsId}
-    if(details!=null) AlertDialog(onDismissRequest={detailsId=null},title={Text(details.song.track.title,color=White)},text={
+    if(details!=null) FrostedAlertDialog(onDismissRequest={detailsId=null},title={Text(details.song.track.title,color=White)},text={
         val song=details.song
         Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
             Text(playerArtistLabel(song.track.artist),color=Muted)
@@ -304,7 +304,7 @@ private data class DownloadListing(val entries:List<DownloadDisplay>,val used:Lo
             Text(string(R.string.lyrics_x, assetStatus(song.lyricsState)),color=Muted,fontSize=13.sp)
             if(song.error.isNotBlank()) Text(song.error,color=Pink,fontSize=13.sp)
         }
-    },confirmButton={TextButton({uiHaptic();detailsId=null}) {Text(string(R.string.done),color=Pink)}},containerColor=Raised)
+    },confirmButton={TextButton({uiHaptic();detailsId=null}) {Text(string(R.string.done),color=Pink)}})
 }
 /**
  * A row's phase line. It is a polite live region whose spoken text is the phase alone, so TalkBack hears each phase

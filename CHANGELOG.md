@@ -12,6 +12,7 @@ The features planned in `docs/feasibility-glass-font-lyrics-artwork-2026-10-27.m
 - Settings: redesigned around an opening page of quick switches and a glass page per section; Moods (Party, Focus, Commute, Night, and your own); switch icons that change between off and on; a note in Look and feel when the phone's heat has cut the glass back.
 - Automix: the Crossfade / Smart / Automix choice; an on-device beat model (Beat This! small, int8 ONNX, on the standard ONNX Runtime) for the beat grid (20, stage 4), which makes the APK about 50 MB.
 - Elsewhere: Android Auto (14); Cast to Chromecasts and Google speakers, which brings Google Play services (19); YouTube Music links (13); search suggestions and a top result (24); artist "See all" (8); a scrolling title (7); Undo for queue and playlist removals (26); lock-screen Shuffle and Like (23); app shortcuts and a play/pause tile (27); a "What's new" sheet and first-run tips (29).
+- Fixes from the owner's checks on 31 Oct: every pop-out (song and player menus, sort menus, and every dialog, such as Lyrics timing, Sleep timer, Playback speed and the playlist dialogs) takes one look after the owner's reference: neutral grey glass with large corners and a hairline rim, rows led by their icon, regular Inter type. What each one offers is unchanged. In smart and Automix blends, the outgoing song no longer jumps in volume as the second player takes it over.
 
 ## 0.10.0 (code 33), final candidate, prepared, not published
 
