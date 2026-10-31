@@ -160,6 +160,16 @@ class DownloadReconcileTest {
         assertFalse(store.markDamaged(scope,"reconcile99"));assertFalse(store.markDamaged(scope,"../../etc"))
     }
 
+    @Test fun aReadPastTheEndOfADownloadMarksItDamagedLikeAnEarlyEnd() {
+        // 31 Oct: a seek into a file cut short fails as an out-of-range read, not as an early end.
+        assertTrue(downloadUnreadable("ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE", endedEarly = false))
+        assertTrue(downloadUnreadable("ERROR_CODE_IO_UNSPECIFIED", endedEarly = true))
+        assertTrue(downloadUnreadable("ERROR_CODE_PARSING_CONTAINER_MALFORMED", endedEarly = false))
+        assertTrue(downloadUnreadable("ERROR_CODE_IO_FILE_NOT_FOUND", endedEarly = false))
+        assertFalse("a decoder failure is not the file's fault", downloadUnreadable("ERROR_CODE_DECODING_FAILED", endedEarly = false))
+        assertFalse(downloadUnreadable("ERROR_CODE_IO_UNSPECIFIED", endedEarly = false))
+    }
+
     // ---- who may write a row
 
     @Test fun onlyTheTransferThatHoldsARowWritesIt() {

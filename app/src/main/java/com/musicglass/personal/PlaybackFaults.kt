@@ -33,9 +33,9 @@ internal class PlaybackFaults(private val scope: CoroutineScope, private val run
             queue.streamFor(item)?.profileId ?: item.mediaMetadata.extras?.getString("profileId"))
     }
     /**
-     * A download failed to play. If its files are gone, do not match their marker, the container could not be
-     * read, or the file ended before its own index said it would, the download is marked as needing a new download,
-     * so the next attempt does not open the same file again.
+     * A download failed to play. If its files are gone, do not match their marker, or could not be read
+     * ([downloadUnreadable]), the download is marked as needing a new download, so the next attempt does not open the
+     * same file again.
      */
     private fun noteDownloadFault(item: MediaItem, errorCodeName: String, endedEarly: Boolean) {
         val named = item.localConfiguration?.uri?.takeIf { it.scheme == "file" }?.path?.let { File(it).parentFile }
@@ -45,9 +45,16 @@ internal class PlaybackFaults(private val scope: CoroutineScope, private val run
             // Only this account's own download folder; a file from anywhere else is not a download.
             if (named != null && !runCatching { named.canonicalFile == dir.canonicalFile }.getOrDefault(false)) return@launch
             val problem = BundleValidator.problem(dir)
-            val unreadable = endedEarly || errorCodeName.contains("PARSING_CONTAINER") || errorCodeName.contains("FILE_NOT_FOUND")
-            if (problem == null && !unreadable) return@launch
+            if (problem == null && !downloadUnreadable(errorCodeName, endedEarly)) return@launch
             events.append("download_invalid reason=${problem?.wire ?: "unreadable"}"); offline.markDamaged(owner, id)
         }
     }
 }
+
+/**
+ * A download's own file failed in a way that only a damaged file explains: it ended before its index said
+ * ([endedEarly]), its container could not be read, it is gone, or a read went past its end. The last is how a seek
+ * into a file cut short fails (31 Oct): playing through to the cut ends early instead.
+ */
+internal fun downloadUnreadable(errorCodeName: String, endedEarly: Boolean): Boolean =
+    endedEarly || listOf("PARSING_CONTAINER", "FILE_NOT_FOUND", "READ_POSITION_OUT_OF_RANGE").any(errorCodeName::contains)

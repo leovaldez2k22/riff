@@ -231,7 +231,14 @@ class DownloadLifecycleDeviceTest {
         assertNull("It passes every check made before playing",BundleValidator.problem(dir(7)))
 
         play(7)
-        device.await("the download failure",30_000) {state().playback.failure?.kind==PlaybackFailureKind.DownloadInvalid}
+        // The file's index is at its front, so the first half plays and the damage is found only when the missing half
+        // is read. Waiting for playback to get there needed seconds of audio clock, which a slow emulator late in the
+        // lane did not always give (31 Oct, API 31, once in a lane and once in two reruns). So once the good half
+        // plays, it seeks into the missing half, which has to be read at once.
+        device.await("the good half to play",20_000) {current()=="yt:${id(7)}" && playing()}
+        device.onMain {device.controller.seekTo(device.controller.duration*3/4)}
+        try {device.await("the download failure",30_000) {state().playback.failure?.kind==PlaybackFailureKind.DownloadInvalid}}
+        catch(e:AssertionError) {throw AssertionError("${e.message}; at ${position()} ms, playing ${playing()}",e)}
         val now=state()
         assertEquals(PlaybackStatus.Failed,now.playback.status)
         assertEquals("Download incomplete or unavailable",now.error)
