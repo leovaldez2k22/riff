@@ -3,7 +3,7 @@
 Written when the owner moved the release work to another laptop, mid-way through. A new Claude session should read this
 first, then `CLAUDE.md`. The branch is `feat/next-features`, at the commit that added this file, and it is pushed to
 `origin`. `main` was last fast-forwarded to the branch at 5262220 (the README refresh). It is behind by the 0.20.0
-commits.
+commits. On 31 October the new laptop added 13 commits after 63f6dbf (the pushed handover); none of them is pushed yet.
 
 ## What the owner decided (all on 30 October)
 
@@ -137,6 +137,9 @@ owner's listening checks.
 1. Set up the laptop (next section).
 2. ~~Ask the owner the open questions.~~ Done 31 Oct (see above); the "What's new" change is committed.
 3. Look into `playerAndQueueActions`; fix the journey or the app.
+   - New on 31 Oct, for the owner on the phone: listen to Automix (the seven fixes and the volume handover above);
+     look at the pop-outs; watch a widget's progress through a song, signed in; play a song signed in (see
+     "Seen, not looked into").
 4. PR lane: `python scripts/quality/verify.py --lane pr`.
 5. Clear Riff Debug (approved), then the device lane:
    `python scripts/quality/verify.py --lane device --allow-install --serial 10BE1D18C0000E5 --tier R`.
@@ -167,6 +170,37 @@ owner's listening checks.
     - `gh release create v0.20.0 --draft` with the notes, the APK and the source archive (`scripts/package-source.ps1`).
     - The owner clicks Publish.
 
+## Also done on 31 October (afternoon)
+
+All passed the PR lane and are committed; the phone checks are noted for each.
+
+- **Glass defaults** (e266fdd): glass at 125 % and frosted glass at 25 % on a phone where they were never set
+  (`GLASS_INTENSITY_DEFAULT`, `FROSTED_INTENSITY_DEFAULT`); a choice made in Settings is kept.
+- **Widgets in the glass design** (1424fd1, ff6b0ef), the seven existing ones redesigned, none added (owner):
+  - A widget cannot blur what is under it, so the glass is the cover, shrunk and grown back and darkened
+    (`glassBackdrop`), under a sheen and a hairline rim, clipped by `clipToOutline`.
+  - Compact and Wide are pills with a round cover; Artwork is the cover with a glass bar; Player and Large have Like,
+    Previous, Play, Next and Shuffle; Large shows elapsed and total time and the next two songs (a tap plays one);
+    Circle is a round cover in a progress ring; Encore has the last seven days as bars.
+  - Like and Shuffle use the lock screen's actions (`pressMediaButton`); Like writes to the owner's YouTube Music
+    account like the lock screen's does. It is unseen, keeping its place, when the song cannot be liked.
+  - Progress: sent at seeks and song changes, and every 10 s while playing with the screen on, as partial updates
+    without the cover. A live station has no length, so its bar stays empty (its replay window was showing as full).
+  - Seen on the phone: all six player widgets, their clipping and blur, the cover and Pause following a station, and
+    Pause from a widget. Not seen: the bar and elapsed time moving through a song, Like and Shuffle, and Encore (not
+    placed). Off-screen renders cannot show the clip (corners look square there); the launcher does.
+- **Radio starts again** (0b8c083). A tap on a station did nothing. The live manifest's n challenge took 56–58 s:
+  the library's `processNParameter` tries its old solver before EJS, and on YouTube's player `11a45ffb` (no faraday
+  config on GitHub) that ran about 56 s, against a 60 s deadline. Songs were fine: `processFormats` goes to EJS
+  directly. The challenge is now sent as a format's address (`hlsChallengeFormat`) through `processFormats`, with
+  `processNParameter` as the fallback. Measured on the phone: solved in 2.1 s, playing about 7 s after the tap.
+  `manifest_challenge_solved ms=` in the event log records the time. The owner's own Riff keeps the bug until 0.20.0.
+  - How it was found: the solver's own log (`solver_events`) passes only known steps; a temporary `Log.w` of every
+    library message showed the 56 s gap after "GitHub preprocessed-player missing config". This vivo drops `Log.d`.
+- **Seen, not looked into:** in Riff Debug (signed out) Dancing Queen failed every stream lookup
+  (`ERROR_CODE_IO_UNSPECIFIED`, `IllegalStateException`) and the service stopped. Check a song signed in before
+  release; if it fails there too, it blocks.
+
 ## Setting up the new laptop
 
 - **Windows only.** `.toolchain` holds Windows builds of the JDK (21.0.12.1), the Android SDK and Gradle. Every shell
@@ -195,6 +229,8 @@ owner's listening checks.
     Preview. Never anything over the owner's Riff.
   - Check every APK's package with aapt2 first.
   - Rebuild the debug APK fresh before installing it. The lanes do not refresh `app-debug.apk`.
+  - A plain `assembleDebug` has the package `com.musicglass.personal`, the owner's own app: it must never be
+    installed. Seen 31 Oct; the aapt2 check caught it.
 - **Run lanes with the machine alone.** A second Gradle build or an emulator beside the PR lane makes timing tests fail.
 - **Ask the owner first** for downloads, anything that publishes or pushes beyond the agreed release, writes to their
   YouTube Music account, and changes to the phone's system settings. Never enter the owner's passwords.
@@ -205,6 +241,7 @@ owner's listening checks.
 
 ## Phone state when work stopped
 
-- Riff Debug (0.20.0-debug, built from 47ca757) is installed and signed in to the owner's account. Its test APK and
-  the benchmark apps are installed too. The owner's own Riff (signed with the old key) is untouched.
+- Riff Debug (0.20.0-debug, built from ff6b0ef's code on 31 Oct) is installed and signed out (it was reinstalled with
+  this laptop's key). Its six player widgets are on the launcher's pages. The benchmark apps are installed too. The
+  owner's own Riff (signed with the old key) is untouched.
 - Thermal status 1–2 during the benchmarks.
