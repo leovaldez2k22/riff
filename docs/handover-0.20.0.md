@@ -203,7 +203,7 @@ owner's listening checks.
 9. Emulator lane on API 31, 33 and 36. Packaging lane.
    - The upgrade check against 0.10.0 is expected to fail, since the key is new. Record that, and don't uninstall to
      get past it.
-10. Release notes:
+10. Release notes: **written 31 Oct evening** (`docs/release-notes-0.20.0.md`; the changelog's Unreleased section is now 0.20.0). README's Availability waits for publishing.
     - Write `docs/release-notes-0.20.0.md` from the changelog's Unreleased section, then turn that section into 0.20.0.
     - Say: uninstall first (new key, after a backup); Cast and Android Auto are untested; the APK is about 50 MB; the
       Automix beat model; the update check; signing in is recommended, since signed-out songs sometimes stop
