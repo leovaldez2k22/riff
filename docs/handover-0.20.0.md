@@ -138,8 +138,8 @@ owner's listening checks.
 2. ~~Ask the owner the open questions.~~ Done 31 Oct (see above); the "What's new" change is committed.
 3. Look into `playerAndQueueActions`; fix the journey or the app.
    - New on 31 Oct, for the owner on the phone: listen to Automix (the seven fixes and the volume handover above);
-     look at the pop-outs; watch a widget's progress through a song, signed in; play a song signed in (see
-     "Seen, not looked into").
+     look at the pop-outs; watch a widget's progress through a song, signed in; songs play signed in (checked);
+     signed out they don't (see "Signed-out songs don't play").
 4. PR lane: `python scripts/quality/verify.py --lane pr`.
 5. Clear Riff Debug (approved), then the device lane:
    `python scripts/quality/verify.py --lane device --allow-install --serial 10BE1D18C0000E5 --tier R`.
@@ -197,9 +197,13 @@ All passed the PR lane and are committed; the phone checks are noted for each.
   `manifest_challenge_solved ms=` in the event log records the time. The owner's own Riff keeps the bug until 0.20.0.
   - How it was found: the solver's own log (`solver_events`) passes only known steps; a temporary `Log.w` of every
     library message showed the 56 s gap after "GitHub preprocessed-player missing config". This vivo drops `Log.d`.
-- **Seen, not looked into:** in Riff Debug (signed out) Dancing Queen failed every stream lookup
-  (`ERROR_CODE_IO_UNSPECIFIED`, `IllegalStateException`) and the service stopped. Check a song signed in before
-  release; if it fails there too, it blocks.
+- **Signed-out songs don't play (found 31 Oct, deferred by the owner):** signed out, every song resolves
+  (`transport=DIRECT po_token=false`, cipher done by EJS in about 1.5 s) and then googlevideo answers 403 on the
+  audio (`http_rejected code=403 kind=segment`); after the retries and the other clients, `recovery_stop`. Signed in,
+  songs play (checked on Riff Debug: "You Right", no 403); the owner's own Riff plays too. Signed-out playback worked
+  on 22 Oct (case map, Q19B B7) and nothing changed on 31 Oct touches song resolution, so likely a YouTube change
+  (signed-out clients wanting a proof-of-origin token; also new player `11a45ffb`). Fix it or say so in the release
+  notes.
 
 ## Setting up the new laptop
 
@@ -241,7 +245,7 @@ All passed the PR lane and are committed; the phone checks are noted for each.
 
 ## Phone state when work stopped
 
-- Riff Debug (0.20.0-debug, built from ff6b0ef's code on 31 Oct) is installed and signed out (it was reinstalled with
-  this laptop's key). Its six player widgets are on the launcher's pages. The benchmark apps are installed too. The
+- Riff Debug (0.20.0-debug, built from ff6b0ef's code on 31 Oct) is installed and signed in to the owner's account
+  again (31 Oct). Its six player widgets are on the launcher's pages. The benchmark apps are installed too. The
   owner's own Riff (signed with the old key) is untouched.
 - Thermal status 1–2 during the benchmarks.
