@@ -67,10 +67,13 @@ Lanes so far:
 
 ## Bugs the owner found on 31 October
 
-1. **The Lyrics timing dialog's glass does not follow the lyrics** under it; "still", so the 29 Oct fix (bug 11, the
-   app window's pre-draw listener in `frostedPopupBackground`) did not cover it. Not fixed: on paper the dialog reads
-   the live page, so it needs the phone to see what goes stale. Suspect HWUI's layer caching of the blurred node
-   when the lyrics' own layer was already synced by the app window.
+1. **The Lyrics timing dialog's glass did not follow the lyrics.** Fixed and seen on the phone (31 Oct): with
+   a probe drawn on the dialog, inside a dialog Compose's `LocalView` is the app's own view, so
+   `frostedPopupBackground` took the dialog for part of the app window and never listened to the app's frames (the
+   29 Oct fix, bug 11, had the same check). Now it always listens, and each app frame moves a state its drawing reads,
+   so the dialog draws again with the page. Paused with nothing changing, it stays still (17 to 18 draws in 5 s).
+   Riff Debug is now signed with this laptop's debug key: the owner chose to uninstall the old one (its sign-in and
+   data went with it) rather than copy the old laptop's key.
 2. **Volume spikes in Automix: the outgoing song jumps.** Fixed in code, not yet heard on the phone: the handover
    from the main player's copy to the tail's was one step (`main.volume = 0f; tail.volume = base`), and each write
    lands on its own player's thread, so both copies could play for a moment (+6 dB), likelier under the beat model's
