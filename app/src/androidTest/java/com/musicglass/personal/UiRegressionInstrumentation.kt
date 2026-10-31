@@ -189,7 +189,7 @@ class UiRegressionInstrumentation {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val prefs=context.getSharedPreferences("accessibility_display",android.content.Context.MODE_PRIVATE)
         val original=prefs.getFloat("frosted_intensity",FROSTED_INTENSITY_DEFAULT)
-        val glass=prefs.getFloat("glass_intensity",1f)
+        val glass=prefs.getFloat("glass_intensity",GLASS_INTENSITY_DEFAULT)
         val offline=context.getSharedPreferences("offline_settings",android.content.Context.MODE_PRIVATE)
         val budget=offline.getLong("budget_bytes",4L*1073741824)
         try {
@@ -199,7 +199,7 @@ class UiRegressionInstrumentation {
             compose.onNodeWithTag("settings_frosted_intensity").performSemanticsAction(SemanticsActions.SetProgress) {it(.35f)}
             settle()
             assertEquals(.35f,prefs.getFloat("frosted_intensity",1f),.02f)
-            assertEquals(glass,prefs.getFloat("glass_intensity",1f),.001f)
+            assertEquals(glass,prefs.getFloat("glass_intensity",GLASS_INTENSITY_DEFAULT),.001f)
             compose.onNodeWithTag("settings_frosted_intensity").performSemanticsAction(SemanticsActions.SetProgress) {it(original)}
             scrollTo("settings_download_budget","downloads")
             compose.onNodeWithTag("settings_download_budget").performSemanticsAction(SemanticsActions.SetProgress) {it(downloadBudgets.lastIndex.toFloat())}

@@ -48,7 +48,7 @@ internal class AccessibilitySettings(context: Context) {
 
     var frostedGlass by mutableStateOf(prefs.getBoolean("frosted_glass",FROSTED_GLASS_DEFAULT))
         private set
-    var glassIntensity by mutableStateOf(prefs.getFloat("glass_intensity",1f).coerceIn(0f,1.5f))
+    var glassIntensity by mutableStateOf(prefs.getFloat("glass_intensity",GLASS_INTENSITY_DEFAULT).coerceIn(0f,1.5f))
         private set
     var frostedIntensity by mutableStateOf(prefs.getFloat("frosted_intensity",FROSTED_INTENSITY_DEFAULT).coerceIn(0f,1.5f))
         private set
@@ -67,7 +67,7 @@ internal class AccessibilitySettings(context: Context) {
         playerStats = prefs.getBoolean("player_stats", false)
         lyricsRoman = lyricsRomanModeFrom(prefs.getString("lyrics_roman", null))
         frostedGlass = prefs.getBoolean("frosted_glass", FROSTED_GLASS_DEFAULT)
-        glassIntensity = prefs.getFloat("glass_intensity", 1f).coerceIn(0f, 1.5f)
+        glassIntensity = prefs.getFloat("glass_intensity", GLASS_INTENSITY_DEFAULT).coerceIn(0f, 1.5f)
         frostedIntensity = prefs.getFloat("frosted_intensity", FROSTED_INTENSITY_DEFAULT).coerceIn(0f, 1.5f)
     }
 
@@ -90,6 +90,8 @@ internal val LocalAccessibilitySettings = compositionLocalOf<AccessibilitySettin
  * Q18-049, owner's decision 20 Oct 2026: liquid glass is meant to show what is beneath it, so frosted glass is the
  * default (it blurs the words under the bars) and its frost bends at the rim like liquid glass, at 20 % so the bend
  * shows through the blur. A choice the owner made in Settings is kept; only a phone where it was never set takes these.
+ * Owner, 31 Oct 2026: the glass at 125 % and the frost at 25 % by default.
  */
 internal const val FROSTED_GLASS_DEFAULT = true
-internal const val FROSTED_INTENSITY_DEFAULT = .2f
+internal const val FROSTED_INTENSITY_DEFAULT = .25f
+internal const val GLASS_INTENSITY_DEFAULT = 1.25f
