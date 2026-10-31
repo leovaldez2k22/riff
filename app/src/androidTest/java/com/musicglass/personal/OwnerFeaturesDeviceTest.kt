@@ -24,7 +24,7 @@ import org.junit.Test
 /**
  * C7 (final-stretch plan, 20 October 2026): the owner's features of 20 October on a device, drawn and stored by the
  * real code. F6 the player's clock in hours; F7 speed-dial pins kept across a new store (as after a restart) and drawn
- * first with their badge; F8 frosted glass by default at 20 %; F9 the backup writing, reading and removing its files
+ * first with their badge; F8 frosted glass by default at 25 % (31 Oct; was 20 %); F9 the backup writing, reading and removing its files
  * in Documents through MediaStore. No provider request, no network, nothing played. Every setting and file a test
  * changes is put back or removed. F10 (Not interested to YouTube Music) has no device part: it is covered by the JVM
  * tests against recorded endpoints and live in B7.
@@ -118,13 +118,13 @@ class OwnerFeaturesDeviceTest {
         }
     }
 
-    @Test fun aNewInstallHasFrostedGlassAt20PercentAndAChoiceIsKept() {
+    @Test fun aNewInstallHasFrostedGlassAtTheDefaultAndAChoiceIsKept() {
         val prefs = app.getSharedPreferences("accessibility_display", Context.MODE_PRIVATE)
         val saved = prefs.all.filterKeys { it == "frosted_glass" || it == "frosted_intensity" }
         try {
             prefs.edit().remove("frosted_glass").remove("frosted_intensity").commit()
             val fresh = AccessibilitySettings(app)
-            assertTrue(fresh.frostedGlass); assertEquals(.2f, fresh.frostedIntensity, 1e-6f)
+            assertTrue(fresh.frostedGlass); assertEquals(FROSTED_INTENSITY_DEFAULT, fresh.frostedIntensity, 1e-6f)
             fresh.updateFrostedIntensity(.6f); fresh.updateFrostedGlass(false)
             Thread.sleep(200)
             val reopened = AccessibilitySettings(app)

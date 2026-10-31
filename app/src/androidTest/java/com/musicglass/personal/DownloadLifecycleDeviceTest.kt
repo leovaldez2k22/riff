@@ -12,6 +12,7 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -114,7 +115,8 @@ class DownloadLifecycleDeviceTest {
     // ---- DLD03: what the engine leaves plays, seeks and plays again with nothing asked of the provider
 
     @Test fun aDownloadRebuiltOnTheDevicePlaysSeeksAndPlaysAgainWithoutTheProvider() {
-        assertFalse("The emulator's network is off",device.process.runtime.networkConditions().validated)
+        // Offline only, like RecoveryDeviceTest: on a phone with its network on, it is skipped, not failed.
+        assumeTrue("The network must be off",!device.process.runtime.networkConditions().validated)
         assertTrue(download(1,2))
         for(n in 1..2) {
             val song=row(n)
@@ -191,6 +193,8 @@ class DownloadLifecycleDeviceTest {
     // ---- a finished download that has gone bad on the device
 
     @Test fun aFinishedDownloadThatIsNotAudioIsNeverGivenToTheDecoder() {
+        // Online, the refused song is fetched instead of waiting for a connection, so this is offline only.
+        assumeTrue("The network must be off",!device.process.runtime.networkConditions().validated)
         assertTrue(download(6))
         // Replaced behind the app's back by something of the same kind of length that is not a download.
         val audio=File(dir(6),"audio.media")
