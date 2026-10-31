@@ -139,7 +139,7 @@ owner's listening checks.
 3. Look into `playerAndQueueActions`; fix the journey or the app.
    - New on 31 Oct, for the owner on the phone: listen to Automix (the seven fixes and the volume handover above);
      look at the pop-outs; watch a widget's progress through a song, signed in; songs play signed in (checked);
-     signed out they should now too (see "Signed-out songs don't play"): check it.
+     signed out they mostly do (see "Signed-out songs don't play").
 4. PR lane: `python scripts/quality/verify.py --lane pr`.
 5. Clear Riff Debug (approved), then the device lane:
    `python scripts/quality/verify.py --lane device --allow-install --serial 10BE1D18C0000E5 --tier R`.
@@ -197,7 +197,7 @@ All passed the PR lane and are committed; the phone checks are noted for each.
   `manifest_challenge_solved ms=` in the event log records the time. The owner's own Riff keeps the bug until 0.20.0.
   - How it was found: the solver's own log (`solver_events`) passes only known steps; a temporary `Log.w` of every
     library message showed the 56 s gap after "GitHub preprocessed-player missing config". This vivo drops `Log.d`.
-- **Signed-out songs don't play (found 31 Oct; fixed the same evening, not yet checked on the phone):**
+- **Signed-out songs don't play (found 31 Oct; mostly fixed the same evening):**
   - **Cause:** signed out, the library's first client (VISIONOS) now answers with SABR only, as do WEB and MWEB (which
     carry a PO token), and TVHTML5_SIMPLY offers bounded ranges only. Riff asked songs for direct audio, so after about
     30 s it took WEB_KIDS with no PO token, whose direct address googlevideo refuses with 403 after the first bytes.
@@ -212,8 +212,17 @@ All passed the PR lane and are committed; the phone checks are noted for each.
     and accepts SABR when signed out. Its default songs (Numb, Blinding Lights) are unavailable on this network
     (YouTube places it in the US).
   - **The emulator:** the API 36 one crashes (exit 139) soon after boot, with or without a window. Use riff-glass-33.
-  - **Still to do:** play a song signed out on the phone, and note the start time. Cast refuses SABR, so signed-out
-    songs can't be cast.
+  - **On the phone (31 Oct evening, Riff Debug signed out with the owner's OK):** in India, YouTube Music still gives a
+    signed-out direct address with a PO token in it (`WEB_REMIX__po`, itag 251), so SABR was not needed there.
+    - 5 of 6 runs of the continuity harness passed: Rick Astley twice, Numb once, Blinding Lights twice. Each had 41 s
+      continuous, a seek and background playback, and started in 14–17 s; signed in, a song starts in 8.5 s.
+    - One Blinding Lights run failed. The direct address got 403 at about 20 s, twice. Recovery then went to SABR, and
+      every SABR request got its first chunk and then `ATTESTATION_REQUIRED`. Which client that was isn't known: the
+      event log hides profiles, and the temporary logging caught only passing runs.
+    - A first three-song run also stopped at once with "Track unavailable" for one song; which one isn't known.
+    - So signed-out playback mostly works but isn't reliable. The release notes should say signing in is recommended.
+    - Riff Debug is signed out now; the owner signs it back in.
+  - Cast refuses SABR, so a signed-out song that falls back to SABR can't be cast.
 
 ## Setting up the new laptop
 
@@ -255,7 +264,7 @@ All passed the PR lane and are committed; the phone checks are noted for each.
 
 ## Phone state when work stopped
 
-- Riff Debug (0.20.0-debug, built from ff6b0ef's code on 31 Oct) is installed and signed in to the owner's account
-  again (31 Oct). Its six player widgets are on the launcher's pages. The benchmark apps are installed too. The
+- Riff Debug (0.20.0-debug, built from d829bba's code on 31 Oct) is installed and **signed out** (for the
+  signed-out check, with the owner's OK); the owner signs it back in. Its six player widgets are on the launcher's pages. The benchmark apps are installed too. The
   owner's own Riff (signed with the old key) is untouched.
 - Thermal status 1–2 during the benchmarks.
