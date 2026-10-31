@@ -58,6 +58,16 @@ class MusicPlaybackService : MediaLibraryService() {
         session?.setMediaButtonPreferences(mediaButtons(state))
     }
     private fun isLive(item:MediaItem?)=item?.mediaMetadata?.extras?.getBoolean("live")==true
+    /** The home widgets show what the lock screen's buttons show: whether the song is liked, and shuffle. */
+    private fun publishWidgets(player:Player,seeked:Boolean=false)=RiffWidgets.publish(this,player,mediaButtonState?.takeIf {it.likeable}?.liked,seeked)
+    /** Moves the widgets' progress on while playing with the screen on; stopped when playing stops. */
+    private var widgetTicker:kotlinx.coroutines.Job?=null
+    private fun tickWidgets(player:Player) {
+        if(!player.isPlaying) {widgetTicker?.cancel();widgetTicker=null;return}
+        if(widgetTicker!=null) return
+        val power=getSystemService(android.os.PowerManager::class.java)
+        widgetTicker=serviceScope.launch {while(true) {delay(WIDGET_TICK_MS);if(power.isInteractive) RiffWidgets.tick(this@MusicPlaybackService,player)}}
+    }
     private fun pressMediaButton(player:Player,action:String):Int {
         if(action==TOGGLE_SHUFFLE) {player.shuffleModeEnabled=!player.shuffleModeEnabled;return SessionResult.RESULT_SUCCESS}
         val id=buttonVideoId.value
@@ -191,7 +201,7 @@ class MusicPlaybackService : MediaLibraryService() {
         // The provider is made here, not inside the snapshot below: making it writes state, which a read-only snapshot
         // refuses. That happened when a car or a test started the service before the app had made the provider.
         val likes=provider
-        serviceScope.launch {androidx.compose.runtime.snapshotFlow {likes.songLikes[buttonVideoId.value]}.collect {refreshMediaButtons()}}
+        serviceScope.launch {androidx.compose.runtime.snapshotFlow {likes.songLikes[buttonVideoId.value]}.collect {refreshMediaButtons();mainPlayer?.let {publishWidgets(it)}}}
         val mediaFactory = sources
         audio.start()
         val renderers = audio.renderers()
@@ -215,7 +225,7 @@ class MusicPlaybackService : MediaLibraryService() {
             repeatMode = Player.REPEAT_MODE_OFF
             addListener(object : Player.Listener {
                 override fun onAudioSessionIdChanged(audioSessionId: Int) = audio.audioSessionChanged(audioSessionId)
-                override fun onEvents(player: Player,events: Player.Events) {refreshMediaButtons();audio.update();persistence.save(player);publishState();RiffWidgets.publish(this@MusicPlaybackService,player);sources.lookUpNext(player)}
+                override fun onEvents(player: Player,events: Player.Events) {refreshMediaButtons();audio.update();persistence.save(player);publishState();publishWidgets(player,events.contains(Player.EVENT_POSITION_DISCONTINUITY));tickWidgets(player);sources.lookUpNext(player)}
                 override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
                     if(reason==Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) order.edited()
                 }
@@ -447,6 +457,10 @@ class MusicPlaybackService : MediaLibraryService() {
                 "toggle"->if(toggleShouldPause(player.isPlaying,player.playWhenReady,player.playbackState==Player.STATE_IDLE,player.playbackState==Player.STATE_ENDED)) player.pause() else retryPlayback(player)
                 "previous"->{player.previousOrRestart();if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
                 "next"->{player.seekToNextMediaItem();if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
+                "like"->pressMediaButton(player,TOGGLE_LIKE)
+                "shuffle"->pressMediaButton(player,TOGGLE_SHUFFLE)
+                // Large's Up next rows: the song one or two on, in the order it will play.
+                "queue"->player.indexAhead(intent.getIntExtra("ahead",1).coerceIn(1,2))?.let {player.seekTo(it,0);if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
             }
         }
         return result

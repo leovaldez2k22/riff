@@ -1,6 +1,7 @@
 package com.musicglass.personal
 
 import android.content.Context
+import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
@@ -97,11 +98,13 @@ class JourneyDecisionsTest {
         val playing = widget(4, RiffWidgets.WidgetState("Fixture Song", "Fixture Artist", null, playing = true, next = "Fixture Next", available = true))
         assertEquals("Fixture Song", playing.findViewById<TextView>(R.id.widget_title).text.toString())
         assertEquals("Fixture Artist", playing.findViewById<TextView>(R.id.widget_artist).text.toString())
-        assertEquals("Up next: Fixture Next", playing.findViewById<TextView>(R.id.widget_up_next).text.toString())
+        assertEquals("Fixture Next", playing.findViewById<TextView>(R.id.widget_up_next_1).text.toString())
+        assertEquals(View.VISIBLE, playing.findViewById<View>(R.id.widget_up_next).visibility)
+        assertEquals("Only one song left is shown as one", View.GONE, playing.findViewById<View>(R.id.widget_up_next_2).visibility)
         assertEquals(R.drawable.widget_pause, shadowOf(playing.findViewById<ImageView>(R.id.widget_toggle).drawable).createdFromResId)
         val paused = widget(4, RiffWidgets.WidgetState("Fixture Song", "Fixture Artist", null, playing = false, next = "", available = true))
         assertEquals(R.drawable.widget_toggle, shadowOf(paused.findViewById<ImageView>(R.id.widget_toggle).drawable).createdFromResId)
-        assertEquals("No next song is not written as one", "", paused.findViewById<TextView>(R.id.widget_up_next).text.toString())
+        assertEquals("No next song is not written as one", View.GONE, paused.findViewById<View>(R.id.widget_up_next).visibility)
     }
     @Test fun everyWidgetsPlayButtonIsNamedForWhatATapDoesNow() {
         // Q18-032: it was "Play or pause" in every state.
@@ -120,8 +123,36 @@ class JourneyDecisionsTest {
             assertEquals(R.drawable.widget_toggle, shadowOf(idle.findViewById<ImageView>(R.id.widget_toggle).drawable).createdFromResId)
         }
     }
-    @Test fun aWidgetAcceptsOnlyTheThreeTransportCommands() {
-        assertTrue(listOf("toggle", "previous", "next").all(::widgetCommandAllowed))
+    @Test fun likeAndShuffleShowWhatTheyWillDoAndLikeHidesWhenItCannot() {
+        val liked = widget(3, RiffWidgets.WidgetState("Fixture Song", "Fixture Artist", available = true, liked = true, shuffle = true))
+        assertEquals(R.drawable.widget_heart_filled, shadowOf(liked.findViewById<ImageView>(R.id.widget_like).drawable).createdFromResId)
+        assertEquals("Liked", liked.findViewById<ImageView>(R.id.widget_like).contentDescription.toString())
+        assertEquals(R.drawable.widget_shuffle_on, shadowOf(liked.findViewById<ImageView>(R.id.widget_shuffle).drawable).createdFromResId)
+        assertEquals("Shuffle on", liked.findViewById<ImageView>(R.id.widget_shuffle).contentDescription.toString())
+        val plain = widget(1, RiffWidgets.WidgetState("Fixture Song", "Fixture Artist", available = true, liked = false))
+        assertEquals(R.drawable.widget_heart, shadowOf(plain.findViewById<ImageView>(R.id.widget_like).drawable).createdFromResId)
+        assertEquals(View.VISIBLE, plain.findViewById<View>(R.id.widget_like).visibility)
+        // Not signed in, a song on the phone or a live stream: the place stays, so the other buttons do not move.
+        assertEquals(View.INVISIBLE, widget(4, RiffWidgets.WidgetState("Fixture Song", "Fixture Artist", available = true)).findViewById<View>(R.id.widget_like).visibility)
+    }
+    @Test fun aWidgetsProgressMovesOnWhilePlayingAndNotWhenPaused() {
+        assertEquals(250, WidgetProgress(30_000, 120_000, playing = false, atMs = 0).permille(now = 60_000))
+        assertEquals(500, WidgetProgress(30_000, 120_000, playing = true, atMs = 0).permille(now = 30_000))
+        assertEquals("never past the end", 1000, WidgetProgress(110_000, 120_000, playing = true, atMs = 0).permille(now = 60_000))
+        assertEquals("a live stream has no length", 0, WidgetProgress(30_000, 0, playing = true, atMs = 0).permille(now = 1_000))
+        val large = RiffWidgets.views(context, riffWidgetPresets[4].layout, 4, 7, RiffWidgets.WidgetState(available = true), null,
+            progress = WidgetProgress(65_000, 200_000, playing = false)).apply(context, FrameLayout(context))
+        assertEquals(325, large.findViewById<android.widget.ProgressBar>(R.id.widget_progress).progress)
+        assertEquals("03:20", large.findViewById<TextView>(R.id.widget_duration).text.toString())
+    }
+    @Test fun encoresWeekIsScaledToItsBusiestDay() {
+        val shares = encoreWeekShares(longArrayOf(0, 30, 60, 0, 0, 15, 60))
+        assertEquals(1f, shares[2], 0f); assertEquals(.5f, shares[1], 0f); assertEquals(.25f, shares[5], 0f)
+        assertTrue("a day with none keeps a stub", shares[0] > 0f && shares[0] < .25f)
+        assertTrue(encoreWeekShares(LongArray(7)).all { it == shares[0] })
+    }
+    @Test fun aWidgetAcceptsOnlyItsOwnCommands() {
+        assertTrue(listOf("toggle", "previous", "next", "like", "shuffle", "queue").all(::widgetCommandAllowed))
         assertFalse(listOf("", "seek", "clear", "Toggle", "delete").any(::widgetCommandAllowed))
     }
 

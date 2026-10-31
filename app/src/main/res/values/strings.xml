@@ -1161,6 +1161,7 @@
     <string name="encore_widget_none">Nothing yet</string>
     <string name="encore_widget_none_detail">Play something to start today</string>
     <string name="encore_widget_top">Most played: %1$s</string>
+    <string name="encore_widget_week">This week: %1$s</string>
     <!-- Feature 12, weekly recap -->
     <string name="encore_recap">Weekly recap</string>
     <string name="encore_recap_detail">A notification on Sunday evening when your week in Encore is ready.</string>
