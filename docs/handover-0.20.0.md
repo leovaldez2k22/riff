@@ -90,6 +90,16 @@ Lanes so far:
     18.9, queue open 72.1, close 40.0, play/pause 46.5, **skip 77.0 ms**: all PASS. Not a cause of the owner's lag.
     Offered, not done: greying out Next on a queue's last song.
   - The benchmark apps and Riff Debug were reinstalled with this laptop's debug key (owner's choice, 31 Oct).
+- **Release candidate built and signed at 392a5b3 (31 Oct evening): PASS_LOCAL.**
+  - `artifacts/release/riff-0.20.0.apk`, 45.1 MiB, SHA-256 `0ea0e07e…`; R8 mapping beside it. Certificate
+    `e45ac43b…` (matches `docs/release-signing.md`).
+  - `artifacts/release/riff-0.20.0-preview.apk` (`com.musicglass.personal.preview`, same key), SHA-256 `ce0e53b7…`.
+  - Signing on this laptop: the owner extracted `password.txt` from the backup; it is in `.toolchain/signing/`
+    (ignored by git), and the old laptop's `password.dpapi` is kept as `password.dpapi.old-laptop`. The key in the
+    backup is byte-for-byte the one here. Not yet re-encrypted for this Windows user (the owner's step, if wanted).
+  - The first attempt failed its evidence check: the build regenerated the licence audit (ONNX Runtime added), which
+    dirtied the tree mid-build. Committed as 392a5b3 (237 dependencies, none unresolved), then rebuilt clean.
+  - Next: step 8, Riff Preview on the phone for the owner's lag check.
 - **A signed 0.20.0 was built at 8e87588** (`artifacts/release/riff-0.20.0.apk`, 10.3 MiB). It is stale: it has no
   slide-up fix and no model. Rebuild.
 
