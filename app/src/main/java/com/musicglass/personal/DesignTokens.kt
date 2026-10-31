@@ -119,6 +119,7 @@ internal object RiffMenu {
     val tint = Color(0xFF2A2C31)
     val tintAlpha = .72f
     val rim = Color.White.copy(alpha = .10f)
+    val rimWidth = 1.dp
 }
 
 internal object RiffPlayer {

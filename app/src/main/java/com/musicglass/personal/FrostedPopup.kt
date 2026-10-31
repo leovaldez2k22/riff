@@ -91,7 +91,7 @@ internal fun Modifier.frostedBackdropSource(backdrop:FrostedBackdrop):Modifier =
             // the owner's reference for every pop-out (31 Oct).
             drawRect(RiffMenu.tint.copy(alpha=RiffMenu.tintAlpha))
             drawRect(Brush.linearGradient(listOf(White.copy(alpha=.04f+.08f*intensity.coerceIn(0f,1.5f)),Color.Transparent)))
-            val rim=1.dp.toPx()
+            val rim=RiffMenu.rimWidth.toPx()
             val corner=(cornerRadius.toPx()-rim/2).coerceAtLeast(0f)
             drawRoundRect(RiffMenu.rim,Offset(rim/2,rim/2),androidx.compose.ui.geometry.Size(size.width-rim,size.height-rim),CornerRadius(corner),style=Stroke(rim))
         }

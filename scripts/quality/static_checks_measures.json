@@ -4,7 +4,7 @@
  "AudioOutputControls.kt": 8,
  "CapsuleSlider.kt": 2,
  "CatalogScreens.kt": 24,
- "CollectionTools.kt": 9,
+ "CollectionTools.kt": 8,
  "DoubleTapSeek.kt": 4,
  "DownloadsScreen.kt": 40,
  "EarlierDataScreen.kt": 14,
@@ -19,7 +19,7 @@
  "LyricsPanel.kt": 34,
  "NowPlaying.kt": 15,
  "OnDeviceScreen.kt": 4,
- "PlayerActionMenu.kt": 8,
+ "PlayerActionMenu.kt": 6,
  "PlayerPresentation.kt": 57,
  "PlaylistEditing.kt": 2,
  "PrivacyDataScreen.kt": 7,
@@ -32,6 +32,6 @@
  "ShellChrome.kt": 10,
  "ShellScene.kt": 5,
  "SleepTimer.kt": 4,
- "SongActionMenu.kt": 11,
+ "SongActionMenu.kt": 4,
  "StartupLogo.kt": 2
 }
