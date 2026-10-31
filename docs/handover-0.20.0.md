@@ -113,6 +113,10 @@ Lanes so far:
     (`downloadUnreadable`, with a JVM test). The test passed 8 of 8 alone; the API 31 lane rerun then passed it, with
     one other failure, `CrossfadeFixtureDeviceTest#aOneSecondBlendIsGradualAndPutsTheLevelBack` ("did not align in four
     attempts"), 3 of 3 alone and once in today's four emulator lanes: a timing flake.
+  - **The release candidate to publish: built at 9922536 (the release-notes commit), PASS_LOCAL, clean.**
+    `artifacts/release/riff-0.20.0.apk` 45.1 MiB, SHA-256 `b0729fb0…`, certificate `e45ac43b…`; Preview SHA-256
+    `d223e2cb…`. **Tag `v0.20.0` on 9922536**, not on a later handover commit, so the tag, the source archive and the
+    APK's recorded commit agree. It replaces the b859a40 and 392a5b3 candidates below.
   - **Rebuilt at b859a40 (31 Oct evening): PASS_LOCAL, clean.** `artifacts/release/riff-0.20.0.apk` 45.1 MiB, SHA-256
     `36c2a58c…`, certificate `e45ac43b…`; Preview SHA-256 `0294b848…`. This replaces the 392a5b3 candidate. The owner's
     lag check was on the 392a5b3 Preview; the fix since only changes how a failed download is marked.
