@@ -22,6 +22,8 @@ import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.ceil
@@ -104,7 +106,10 @@ internal fun Modifier.frostedBackdropSource(backdrop:FrostedBackdrop):Modifier =
     // The pop-out look (RiffMenu): the menus' panel and type, so a dialog and a menu read as one family.
     AlertDialog(onDismissRequest=onDismissRequest,title={ProvideTextStyle(RiffMenu.title,title)},
         text={ProvideTextStyle(RiffMenu.text.copy(fontSize=16.sp,lineHeight=22.sp),text)},confirmButton=confirmButton,
-        dismissButton=dismissButton,modifier=modifier.clip(RoundedCornerShape(RiffMenu.corner)).frostedPopupBackground(RiffMenu.corner),containerColor=Color.Transparent,
+        dismissButton=dismissButton,modifier=modifier.clip(RoundedCornerShape(RiffMenu.corner)).frostedPopupBackground(RiffMenu.corner)
+            // A dialog is a window of its own, outside RiffApp's semantics, so its tags are named here for UI Automator
+            // (the benchmarks' clean start could not find the restore offer's Not now, 31 Oct).
+            .semantics {testTagsAsResourceId=true},containerColor=Color.Transparent,
         tonalElevation=0.dp,shape=RoundedCornerShape(RiffMenu.corner),titleContentColor=White,textContentColor=White.copy(alpha=.85f))
 }
 

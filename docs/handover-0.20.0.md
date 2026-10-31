@@ -58,10 +58,19 @@ Lanes so far:
 - **Device lane** (47ca757): 64 run, 0 failed, 45 skipped (Riff Debug signed in; see above).
 - **Benchmark lane:** stopped by the owner after 4 tests on 18593cc.
   - Passed: `queueOfTwoThousand`, `firstAudioLocalBundle`, `firstAudioUnthrottled`.
-  - **Failed:** `playerAndQueueActions` with `"player_queue_bottom" did not appear`. The tag still exists
-    (`AudioOutputControls.kt`). Suspect `reveal()` in `benchmark/.../Journeys.kt`: it swipes up 70 % → 30 % of the
-    screen to bring the button into view, which in the redesigned player may do something else, or the player hadn't
-    finished opening. Not investigated further.
+  - **Failed, then fixed (31 Oct):** `playerAndQueueActions` with `"player_queue_bottom" did not appear`. Seen in
+    screenshots every second on the phone: `closePlayer()` returned when the navigation showed, while the player was
+    still sliding away; the next `openPlayer()` tapped the mini player during the slide (lost) and found the closing
+    player's Play button, so it went on with the player shut. `closePlayer()` now waits for `playback_toggle` to go.
+    Also: the benchmark app's clean start could not find the restore offer's Not now (a fresh install finds the
+    earlier backup folder): `FrostedAlertDialog` now names its tags for UI Automator. The journey passes 3 of 3 and
+    `ActionBenchmark#playerAndQueueActions` completes.
+  - **First action timings (31 Oct, thermal 2–3, p95, budget 150 ms):** player open 18.6, close 19.3, queue open
+    51.2, close 30.8, play/pause 40.5: PASS. **Skip 4,845 ms: FAIL.** Not skip in general: per block the first three
+    skips take 50 to 126 ms and the fourth, from the playlist's last song into the recommendations after it, 3.5 to
+    8.4 s, because Next waits until the next entry is fetched and resolved before anything changes on screen. Ask
+    the owner; it bears on the lag they reported.
+  - The benchmark apps and Riff Debug were reinstalled with this laptop's debug key (owner's choice, 31 Oct).
 - **A signed 0.20.0 was built at 8e87588** (`artifacts/release/riff-0.20.0.apk`, 10.3 MiB). It is stale: it has no
   slide-up fix and no model. Rebuild.
 

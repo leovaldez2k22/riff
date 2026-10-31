@@ -191,7 +191,12 @@ internal fun MacrobenchmarkScope.paused() =
     check(device.wait(Until.hasObject(By.desc("Play")), WAIT_MS)) { "Playback did not pause" }
 
 internal fun MacrobenchmarkScope.openPlayer() = tapFor("mini_player", "playback_toggle")
-internal fun MacrobenchmarkScope.closePlayer() { tap("player_close"); shown("navigation") }
+/**
+ * Closed once the player's own controls are gone, not when the navigation shows: it shows while the player is still
+ * sliding away, and the next [openPlayer] then tapped the mini player during that slide (the tap was lost) and found the
+ * closing player's Play button, so it went on with the player shut and "player_queue_bottom" never came (31 Oct).
+ */
+internal fun MacrobenchmarkScope.closePlayer() { tap("player_close"); gone("playback_toggle"); shown("navigation") }
 internal fun MacrobenchmarkScope.openQueue() { reveal("player_queue_bottom"); tap("player_queue_bottom"); shown("queue_list") }
 
 /**
