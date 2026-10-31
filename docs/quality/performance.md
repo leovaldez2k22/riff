@@ -15,7 +15,7 @@ artwork tone and the collection title block), which no budget measures. Evidence
 | 2,000-entry queue, p95 | 369 ms (main thread 205 ms) | 2,000 ms | PASS |
 | Local bundle first audio, p95 | 294 ms | 500 ms | PASS |
 | Controlled online first audio, p95 | 263 ms | 3,000 ms | PASS |
-| Six action timings (player, queue, toggle, skip) | not measured: the harness lost a tap (Q18-097) | 150 ms | MISSING |
+| Six action timings (player, queue, toggle, skip) | 31 Oct, 0.20.0 branch, owner's phone at thermal 1: player open 18.4, close 18.9, queue open 72.1, close 40.0, play/pause 46.5, skip 77.0 ms (30 samples each) | 150 ms | PASS |
 | Missed-deadline frames at 60 Hz: Home, a collection, player and queue | 8.0 %, 7.0 %, 17.1 % | 2 % | FAIL (Q18-030, left as is by the owner) |
 | Memory over 10 journeys | +5.4 MB of 22.1 MB allowed; three blocks of 10: 210.0, 210.0, 218.2, 221.8 MB | 10 % or 20 MiB | PASS (Q18-073) |
 

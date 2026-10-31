@@ -66,10 +66,12 @@ Lanes so far:
     earlier backup folder): `FrostedAlertDialog` now names its tags for UI Automator. The journey passes 3 of 3 and
     `ActionBenchmark#playerAndQueueActions` completes.
   - **First action timings (31 Oct, thermal 2–3, p95, budget 150 ms):** player open 18.6, close 19.3, queue open
-    51.2, close 30.8, play/pause 40.5: PASS. **Skip 4,845 ms: FAIL.** Not skip in general: per block the first three
-    skips take 50 to 126 ms and the fourth, from the playlist's last song into the recommendations after it, 3.5 to
-    8.4 s, because Next waits until the next entry is fetched and resolved before anything changes on screen. Ask
-    the owner; it bears on the lag they reported.
+    51.2, close 30.8, play/pause 40.5: PASS. Skip read 4,845 ms, but that was the measurement: the fixture playlist
+    had four songs, so Next on the last one changed nothing (a playlist gets no recommendations after it) and its
+    section stayed open until the next Next closed it. Now `next()` times a skip only when there is a next entry,
+    and the benchmark's playlist has 12 songs. Rerun (thermal 1), all 30 samples each, p95: player open 18.4, close
+    18.9, queue open 72.1, close 40.0, play/pause 46.5, **skip 77.0 ms**: all PASS. Not a cause of the owner's lag.
+    Offered, not done: greying out Next on a queue's last song.
   - The benchmark apps and Riff Debug were reinstalled with this laptop's debug key (owner's choice, 31 Oct).
 - **A signed 0.20.0 was built at 8e87588** (`artifacts/release/riff-0.20.0.apk`, 10.3 MiB). It is stale: it has no
   slide-up fix and no model. Rebuild.

@@ -281,7 +281,9 @@ internal class MusicPlaybackGateway(context: Context,
     override fun setPlaybackSpeed(speed:Float) = withPlayer {it.setPlaybackSpeed(playbackSpeedStep(speed))}
     override fun pause() { transport(false); withPlayer { it.pause();if(state.embedded) embeddedControl?.invoke(false) } }
     override fun resume() { transport(true); withPlayer { start(it) } }
-    override fun next() { PerfTrace.began("skip"); transport(true); withPlayer { commandError = null; it.seekToNextMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
+    // Timed only when there is a next entry: Next on a queue's last song changes nothing on screen, so its section stayed
+    // open until the next Next closed it, and the benchmark read the time between two presses as a 4 s skip (31 Oct).
+    override fun next() { transport(true); withPlayer { if(it.hasNextMediaItem()) PerfTrace.began("skip"); commandError = null; it.seekToNextMediaItem(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
     override fun previous() { transport(true); withPlayer { commandError = null; it.previousOrRestart(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
     override fun previousSong() { transport(true); withPlayer { commandError = null; it.previousSong(); if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } }
     override fun currentPositionMs(): Long = controller?.currentPosition?.coerceAtLeast(0) ?: positionMs

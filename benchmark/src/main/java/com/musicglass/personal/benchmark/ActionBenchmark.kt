@@ -23,7 +23,8 @@ class ActionBenchmark {
     @Test fun playerAndQueueActions() = rule.measureRepeated(
         packageName = TARGET, compilationMode = shipped, iterations = iterations(6),
         metrics = listOf("player_open", "queue_open", "queue_close", "play_toggle", "skip", "player_close").map(::SectionMetric),
-        setupBlock = { plainFeed(); coldHome(); openPlaylist(); playPlaylist() },
+        // Twelve songs, so each of the five Nexts has a song to go to: the fixture's four left the last two with none.
+        setupBlock = { plainFeed(); feed("tracks", "12"); coldHome(); openPlaylist(); playPlaylist() },
     ) {
         repeat(5) {
             openPlayer(); openQueue(); closeQueue()
