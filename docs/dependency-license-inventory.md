@@ -18,7 +18,7 @@ The script reads each resolved coordinate's POM from the local Gradle cache and 
 
 ## Result
 
-235 resolved release runtime dependencies on 29 October 2026, after Cast (Feature 19): 231 licenses from POM declarations, 4 from upstream sources (three Guava modules, SLF4J). None unresolved.
+237 resolved release runtime dependencies on 31 October 2026, with ONNX Runtime in the release (Automix's beat model): 233 licenses from POM declarations, 4 from upstream sources (three Guava modules, SLF4J). None unresolved. (29 October, after Cast: 235.)
 
 | Declared license | Artifacts |
 |---|---:|
