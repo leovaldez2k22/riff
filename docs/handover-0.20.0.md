@@ -59,7 +59,19 @@ commits. On 31 October the new laptop added 13 commits after 63f6dbf (the pushed
 
 Lanes so far:
 - **PR lane:** PASS_LOCAL on 07dac97 (31 Oct, after the owner's 31 Oct fixes), all nine gates.
-- **Device lane** (47ca757): 64 run, 0 failed, 45 skipped (Riff Debug signed in; see above).
+- **Device lane** (3160f9d, 31 Oct evening): **PASS_LOCAL, 64 of 64, none skipped**, Riff Debug cleared and the phone
+  in airplane mode (the fixture suite needs the network off; online, three offline-only tests skip and the lane fails
+  them). Earlier: 47ca757, 64 run, 45 skipped (Riff Debug signed in).
+  - Fixed for it: `OwnerFeaturesDeviceTest` expected the old 20 % frost default; two `DownloadLifecycleDeviceTest`
+    tests asserted the network was off and now skip online, like `RecoveryDeviceTest`.
+- **Benchmark lane** (3160f9d, 31 Oct evening, thermal 0 at the start, 2 during): **FAIL on four budgets**, the rest
+  pass. Evidence: `artifacts/quality/lanes/benchmark-20261031T132205Z`.
+  - Cold start to a usable shell, p95 **2,132 ms** (budget 2,000; 29 Oct 1,990; rc10 1,788). First frame 682 ms.
+  - Missed frames at 60 Hz: Home **13.4 %**, collection **15.6 %**, player and queue **14.8 %** (budget 2 %;
+    Q18-030, left as is by the owner; 29 Oct 18.9 / 20.6 / 25.9 %).
+  - Passing: every action at or under 82 ms p95 (budget 150), a 2,000-entry queue 374 ms, first audio 398 ms local
+    and 371 ms online.
+  - Not measured by the lane: the beat model's CPU and thermal cost with Automix on (step 6 still asks for it).
 - **Benchmark lane:** stopped by the owner after 4 tests on 18593cc.
   - Passed: `queueOfTwoThousand`, `firstAudioLocalBundle`, `firstAudioUnthrottled`.
   - **Failed, then fixed (31 Oct):** `playerAndQueueActions` with `"player_queue_bottom" did not appear`. Seen in
