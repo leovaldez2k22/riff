@@ -83,7 +83,8 @@ internal object RiffWidgets {
     }
     /** Moves the progress on without sending the cover again. */
     fun tick(context:Context,player:Player) {progress=progressOf(player);tick(context)}
-    private fun progressOf(player:Player)=WidgetProgress(player.currentPosition,player.duration.takeIf {it!=C.TIME_UNSET}?:0,player.isPlaying)
+    // A live stream reports its replay window as a length, with the position at its end; it has no length to show.
+    private fun progressOf(player:Player)=WidgetProgress(player.currentPosition,player.duration.takeIf {it!=C.TIME_UNSET && !player.isCurrentMediaItemLive}?:0,player.isPlaying)
     private fun tick(context:Context) {
         if(!progressShown) return
         val app=context.applicationContext;val now=progress
