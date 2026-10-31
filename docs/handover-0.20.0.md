@@ -139,7 +139,7 @@ owner's listening checks.
 3. Look into `playerAndQueueActions`; fix the journey or the app.
    - New on 31 Oct, for the owner on the phone: listen to Automix (the seven fixes and the volume handover above);
      look at the pop-outs; watch a widget's progress through a song, signed in; songs play signed in (checked);
-     signed out they don't (see "Signed-out songs don't play").
+     signed out they should now too (see "Signed-out songs don't play"): check it.
 4. PR lane: `python scripts/quality/verify.py --lane pr`.
 5. Clear Riff Debug (approved), then the device lane:
    `python scripts/quality/verify.py --lane device --allow-install --serial 10BE1D18C0000E5 --tier R`.
@@ -197,13 +197,23 @@ All passed the PR lane and are committed; the phone checks are noted for each.
   `manifest_challenge_solved ms=` in the event log records the time. The owner's own Riff keeps the bug until 0.20.0.
   - How it was found: the solver's own log (`solver_events`) passes only known steps; a temporary `Log.w` of every
     library message showed the 56 s gap after "GitHub preprocessed-player missing config". This vivo drops `Log.d`.
-- **Signed-out songs don't play (found 31 Oct, deferred by the owner):** signed out, every song resolves
-  (`transport=DIRECT po_token=false`, cipher done by EJS in about 1.5 s) and then googlevideo answers 403 on the
-  audio (`http_rejected code=403 kind=segment`); after the retries and the other clients, `recovery_stop`. Signed in,
-  songs play (checked on Riff Debug: "You Right", no 403); the owner's own Riff plays too. Signed-out playback worked
-  on 22 Oct (case map, Q19B B7) and nothing changed on 31 Oct touches song resolution, so likely a YouTube change
-  (signed-out clients wanting a proof-of-origin token; also new player `11a45ffb`). Fix it or say so in the release
-  notes.
+- **Signed-out songs don't play (found 31 Oct; fixed the same evening, not yet checked on the phone):**
+  - **Cause:** signed out, the library's first client (VISIONOS) now answers with SABR only, as do WEB and MWEB (which
+    carry a PO token), and TVHTML5_SIMPLY offers bounded ranges only. Riff asked songs for direct audio, so after about
+    30 s it took WEB_KIDS with no PO token, whose direct address googlevideo refuses with 403 after the first bytes.
+    The canary reads only 2 KB, so it still called this healthy.
+  - **Fix:** a signed-out song may use SABR (`streamHints(... signedOut)`), with `VISIONOS_SABR` excluded
+    (`signedOutSongExclusions`), since it is tokenless and stops after its first segment (5 Oct). Signed in, songs stay
+    direct.
+  - **Checked on the API 33 emulator, signed out:** `AudioContinuityInstrumentation -e riffTrack dQw4w9WgXcQ` played
+    `WEB_SABR__po` itag 251 for 41 s, then a seek and background playback, with no 403 and no recovery. Startup took
+    21.7 s on the very slow emulator.
+  - **The harness:** it registers itself with `InstrumentationRegistry` (it couldn't run before), takes `riffTrack`,
+    and accepts SABR when signed out. Its default songs (Numb, Blinding Lights) are unavailable on this network
+    (YouTube places it in the US).
+  - **The emulator:** the API 36 one crashes (exit 139) soon after boot, with or without a window. Use riff-glass-33.
+  - **Still to do:** play a song signed out on the phone, and note the start time. Cast refuses SABR, so signed-out
+    songs can't be cast.
 
 ## Setting up the new laptop
 

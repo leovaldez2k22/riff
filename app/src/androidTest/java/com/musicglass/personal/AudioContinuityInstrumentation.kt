@@ -15,9 +15,13 @@ import org.json.JSONObject
 /** Real provider audio through the service, bypassing downloaded files. */
 @androidx.annotation.OptIn(markerClass=[androidx.media3.common.util.UnstableApi::class])
 class AudioContinuityInstrumentation : Instrumentation() {
-    override fun onCreate(arguments:Bundle?) {super.onCreate(arguments);start()}
+    // -e riffTrack <video id> plays only that song (the defaults are not available in every country).
+    private var onlyTrack:String?=null
+    override fun onCreate(arguments:Bundle?) {super.onCreate(arguments);onlyTrack=arguments?.getString("riffTrack");start()}
     override fun onStart() {
         val result=Bundle()
+        // phoneSavedQueue asks the registry for the instrumentation; this one is not run by AndroidJUnitRunner.
+        androidx.test.platform.app.InstrumentationRegistry.registerInstance(this,Bundle())
         try {
             // The phone can freeze a cached process before an unprepared media service
             // becomes foreground. Start like a real user, then test background playback.
@@ -38,7 +42,7 @@ class AudioContinuityInstrumentation : Instrumentation() {
                     }
                     val controller=withContext(Dispatchers.IO) {connection.get(15,java.util.concurrent.TimeUnit.SECONDS)}
                     player=controller
-                    val tracks=listOfNotNull(saved?.queue?.getOrNull(saved.index)?.takeIf {it.mediaId.startsWith("yt:") && !it.live && it.music}?.let {
+                    val tracks=onlyTrack?.let {listOf(ProviderTrack(it,"",""))} ?: listOfNotNull(saved?.queue?.getOrNull(saved.index)?.takeIf {it.mediaId.startsWith("yt:") && !it.live && it.music}?.let {
                         ProviderTrack(it.mediaId.removePrefix("yt:"),it.title,it.artist)
                     },ProviderTrack("5qZQEq_C3vc","Numb","Linkin Park"),
                         ProviderTrack("4NRXx6U8ABQ","Blinding Lights","The Weeknd")).distinctBy {it.videoId}
@@ -84,7 +88,8 @@ class AudioContinuityInstrumentation : Instrumentation() {
                         provider.invalidateStream(track.videoId)
                         val started=android.os.SystemClock.elapsedRealtime()
                         val stream=withTimeout(60_000) {provider.resolve(track.videoId).getOrThrow()}
-                        check(stream.sabrBootstrap==null) {"Ordinary audio selected SABR"}
+                        // Signed out, a song's direct addresses have no token and are refused, so SABR is expected (31 Oct).
+                        check(stream.sabrBootstrap==null || !provider.signedIn) {"Ordinary audio selected SABR"}
                         check(stream.mimeType?.contains("mpegurl",true)!=true) {"Ordinary audio selected adaptive HLS"}
                         withContext(Dispatchers.Main) {gateway.playProvider(track,stream)}
                         awaitPlaying("yt:${track.videoId}")

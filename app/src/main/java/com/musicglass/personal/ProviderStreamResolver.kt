@@ -198,8 +198,10 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
             val revision = authRevision
             require(videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) { "Invalid video ID" }
             requireSolver()
-            val hints = streamHints(video,live,download,quality,premiumConfirmed())
-            val excluded = excludedProfiles + if(live || video) setOf("WEB_REMIX","WEB_REMIX_SABR","ANDROID_MUSIC","IOS_MUSIC") else emptySet()
+            val signedOut = !session.signedIn
+            val hints = streamHints(video,live,download,quality,premiumConfirmed(),signedOut)
+            val excluded = excludedProfiles + (if(live || video) setOf("WEB_REMIX","WEB_REMIX_SABR","ANDROID_MUSIC","IOS_MUSIC") else emptySet()) +
+                signedOutSongExclusions(signedOut,video,live,download)
             // Q18-089: a download asks WEB_REMIX first, the client that gives the best formats; any other answers if it cannot.
             val preferred = downloadClientOverride(download,video,live,excluded)?.let {client->
                 try {extractor.extract(videoId = videoId,hints = hints.copy(playbackClientOverrideId = client),excludedClients = excluded,audioQuality = quality)}
@@ -337,10 +339,18 @@ internal fun premiumOnlyFormat(itag: Int?): Boolean = itag == 774 || itag == 141
  * audio keeps the format selected for the quality setting. Q18-090: Premium is passed only once it is confirmed, and
  * only for high-quality audio, so the library tries its Premium-capable signed-in clients first.
  */
-internal fun streamHints(video: Boolean, live: Boolean, download: Boolean, quality: AudioQuality, premium: Boolean): ContentHints =
+internal fun streamHints(video: Boolean, live: Boolean, download: Boolean, quality: AudioQuality, premium: Boolean, signedOut: Boolean = false): ContentHints =
     ContentHints(wantVideo = video, isLive = live, maxVideoHeight = if (quality == AudioQuality.LOW) 360 else 720).withStreamCapabilities(
-        allowHls = !download && (video || live), allowSabr = video || live || download, allowBoundedRange = download)
+        allowHls = !download && (video || live), allowSabr = video || live || download || signedOut, allowBoundedRange = download)
         .let { if (premium && quality == AudioQuality.HIGH && !video && !live) it.withPremium() else it }
+
+/**
+ * 31 Oct: signed out, every client that still gives a direct song address gives it without a proof-of-origin token, and
+ * googlevideo now answers 403 after the first bytes; the clients with a token (WEB, MWEB) give SABR only. So a signed-out
+ * song may use SABR, but not VISIONOS's, which has no token either and stops after its first segment (5 Oct).
+ */
+internal fun signedOutSongExclusions(signedOut: Boolean, video: Boolean, live: Boolean, download: Boolean): Set<String> =
+    if (signedOut && !video && !live && !download) setOf("VISIONOS_SABR") else emptySet()
 
 /** Q18-089: the client a download asks first, or null to let the library choose. */
 internal fun downloadClientOverride(download: Boolean, video: Boolean, live: Boolean, excluded: Set<String>): String? =

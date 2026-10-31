@@ -23,6 +23,19 @@ class StreamQualityTest {
         assertTrue("the transport limits stay", download.allowSabr && download.allowBoundedRange && !download.allowHls)
     }
 
+    @Test fun aSignedOutSongMayUseSabrButNotTheTokenlessVisionOsOne() {
+        // 31 Oct: signed out, a song's direct addresses have no token and googlevideo answers 403 after the first bytes.
+        val signedOut = streamHints(video = false, live = false, download = false, quality = AudioQuality.AUTO, premium = false, signedOut = true)
+        assertTrue(signedOut.allowSabr && !signedOut.allowHls && !signedOut.allowBoundedRange)
+        assertFalse("signed in, songs stay direct (5 Oct)", streamHints(video = false, live = false, download = false, quality = AudioQuality.AUTO, premium = false).allowSabr)
+        assertEquals(setOf("VISIONOS_SABR"), signedOutSongExclusions(signedOut = true, video = false, live = false, download = false))
+        assertEquals(emptySet<String>(), signedOutSongExclusions(signedOut = false, video = false, live = false, download = false))
+        assertEquals("video, live and downloads keep their clients", emptySet<String>(),
+            signedOutSongExclusions(signedOut = true, video = true, live = false, download = false) +
+                signedOutSongExclusions(signedOut = true, video = false, live = true, download = false) +
+                signedOutSongExclusions(signedOut = true, video = false, live = false, download = true))
+    }
+
     /** Stands for an exception R8 renamed in a release build. */
     private class ja5(cause: Throwable? = null) : java.io.IOException("secret message", cause)
 
