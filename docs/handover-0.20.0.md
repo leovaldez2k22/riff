@@ -105,7 +105,15 @@ Lanes so far:
   - **API 31: 70 run, 1 failed.** `DownloadLifecycleDeviceTest#aDownloadThatBeginsRightButCannotBePlayedFailsAsADownloadAndIsNotRetried`:
     rerun alone, 1 pass, 1 fail. When it passes the player hits `EOFException` on the half-length file at once and
     logs `download_invalid reason=unreadable`; when it fails it reaches READY and reports nothing for the test's 30 s.
-    Seen only on API 31 (passes on API 33, 36 and the phone). Not investigated.
+    Seen only on API 31 (passes on API 33, 36 and the phone). **Investigated and fixed (31 Oct, the owner asked):**
+    the file's index is at its front, so the first half plays and the error came only once about 7.5 s of audio had
+    played; a slow emulator late in the lane didn't always get there in 30 s. The test now seeks into the missing half.
+    That showed a real bug: a seek past the end fails as `READ_POSITION_OUT_OF_RANGE`, which `noteDownloadFault` did
+    not count, so the download was not marked damaged and the same broken file opened again. Now it is
+    (`downloadUnreadable`, with a JVM test). The test passed 8 of 8 alone; the API 31 lane rerun then passed it, with
+    one other failure, `CrossfadeFixtureDeviceTest#aOneSecondBlendIsGradualAndPutsTheLevelBack` ("did not align in four
+    attempts"), 3 of 3 alone and once in today's four emulator lanes: a timing flake.
+  - **The release candidate built at 392a5b3 is now stale** (the fix above changes the app): rebuild before publishing.
   - **API 36: 71 run, 1 failed.** `PlayerFixesDeviceTest#aSlowSlideUpShowsOneTitle` (3,367 pixels differed at p=0.002);
     rerun alone, 3 of 3 pass: a timing flake. The API 36 emulator booted and stayed up this time (cold boot,
     `-no-snapshot -no-window`).
