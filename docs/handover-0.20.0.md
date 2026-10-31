@@ -54,7 +54,7 @@ commits.
 | 18593cc | Model and runtime in the release (see the plan's row "20 Automix, stage 4"); the benchmarks' clean start closes the release "What's new" sheet (from code 34 a cleared install counts as an update) |
 
 Lanes so far:
-- **PR lane:** passed before 61b8922. Not run since the model went into the release.
+- **PR lane:** PASS_LOCAL on 07dac97 (31 Oct, after the owner's 31 Oct fixes), all nine gates.
 - **Device lane** (47ca757): 64 run, 0 failed, 45 skipped (Riff Debug signed in; see above).
 - **Benchmark lane:** stopped by the owner after 4 tests on 18593cc.
   - Passed: `queueOfTwoThousand`, `firstAudioLocalBundle`, `firstAudioUnthrottled`.
