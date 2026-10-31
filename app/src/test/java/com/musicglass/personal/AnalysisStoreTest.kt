@@ -34,6 +34,21 @@ class AnalysisStoreTest {
         assertNull(store.read("local:7:head")!!.beats)
     }
 
+    @Test fun theModelsBeatsAreNeverTakenFromAnAnalysisWithoutIt() {
+        // A build with the model; Smart wrote the song with stage 2's tracker (the model runs only for Automix).
+        val store = AnalysisStore(folder.root, version = ANALYSIS_VERSION_MODEL)
+        store.write("yt:s:tail", envelope(), beatModel = false)
+        assertNull("Automix wants the model's", store.read("yt:s:tail"))
+        assertNotNull("kept for Smart until the model's replaces it", store.read("yt:s:tail", beatModel = false))
+        store.write("yt:s:tail", envelope())
+        assertNotNull("the model's serves both", store.read("yt:s:tail", beatModel = false))
+        assertNotNull(store.read("yt:s:tail"))
+        // A build without the model has only the one kind.
+        val plain = AnalysisStore(folder.newFolder())
+        plain.write("yt:p:tail", envelope(), beatModel = false)
+        assertNotNull(plain.read("yt:p:tail"))
+    }
+
     @Test fun missingOtherKeysAndOtherVersionsReadAsNothing() {
         val store = AnalysisStore(folder.root)
         assertNull(store.read("yt:none:tail"))

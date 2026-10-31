@@ -115,18 +115,22 @@ internal object TrackAnalysis {
         return CachedState(length, true, cache.isCached(key, 0, minOf(length, CACHED_HEAD_BYTES)), runFrom, cachedTailMs(length, runFrom, durationMs))
     }
 
-    /** The envelope of [lengthMs] from [fromMs] (negative: that far before the end), or null when it cannot be read. */
-    fun envelope(context: Context, source: Uri, fromMs: Long, lengthMs: Long): TrackEnvelope? =
-        envelope({ PlatformDemuxer(MediaExtractor().also { it.setDataSource(context, source, null) }) }, fromMs, lengthMs, null, BeatModel.get(context))
+    /**
+     * The envelope of [lengthMs] from [fromMs] (negative: that far before the end), or null when it cannot be read.
+     * [beatModel]: the beats are the model's (Automix only, owner 31 Oct); otherwise stage 2's light tracker's.
+     */
+    fun envelope(context: Context, source: Uri, fromMs: Long, lengthMs: Long, beatModel: Boolean): TrackEnvelope? =
+        envelope({ PlatformDemuxer(MediaExtractor().also { it.setDataSource(context, source, null) }) }, fromMs, lengthMs, null,
+            if (beatModel) BeatModel.get(context) else null)
 
     /**
      * A cached stream's tail. Read with Media3's extractor, which goes to the tail by the container's index; the
      * platform's reads a WebM file's clusters from the start, into the part that was never cached. [knownDurationMs]
      * stands in for a container that does not say its length.
      */
-    fun envelope(context: Context, cached: CachedTail, knownDurationMs: Long?, head: Boolean = false): TrackEnvelope? = cached.source.use { bytes ->
+    fun envelope(context: Context, cached: CachedTail, knownDurationMs: Long?, head: Boolean = false, beatModel: Boolean): TrackEnvelope? = cached.source.use { bytes ->
         envelope({ Media3Demuxer(MediaExtractorCompat(context).also { it.setDataSource(bytes) }) }, if (head) 0 else -cached.tailMs, cached.tailMs, knownDurationMs,
-            BeatModel.get(context))
+            if (beatModel) BeatModel.get(context) else null)
     }
 
     private fun envelope(open: () -> Demuxer, fromMs: Long, lengthMs: Long, knownDurationMs: Long?, model: BeatLogits?): TrackEnvelope? {

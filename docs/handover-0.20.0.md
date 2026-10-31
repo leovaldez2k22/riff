@@ -32,7 +32,11 @@ commits.
 1. **Reduce the beat model's load on the phone?** Deferred on 31 Oct: the owner is not sure yet how demanding Automix
    really is and wants to test it first, possibly after 0.20.0 is final. Don't make these changes until they ask. The
    four proposals:
-   1. Run the model only in Automix mode. Smart and Crossfade don't use the beat grid.
+   1. Run the model only in Automix mode. Smart and Crossfade don't use the beat grid. **Done 31 Oct, at the owner's
+      request:** Smart, the silence skip and download analysis outside Automix use stage 2's light tracker. Their
+      analyses are stored as version 1 (`AnalysisStore.write(..., beatModel = false)`), so Automix never takes their
+      beats for the model's: it reads them as missing and analyses again with the model. A model analysis serves Smart
+      too. Switching to Automix drops the in-memory analyses read without the model.
    2. Stop analysing at download time (`analyseDownload` runs it on every download, back to back). Analyse just ahead
       of playback instead: the current song's end and the next song's start. Optionally, analyse a batch of downloads
       only while charging.

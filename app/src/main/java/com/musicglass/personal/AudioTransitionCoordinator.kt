@@ -42,6 +42,8 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, TrackEnvelope?>?) = size > 24
     })
     private val crossfadePrefs = context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE)
+    /** Whether [envelopes] were read for Automix, with the beat model. */
+    @Volatile private var envelopesWithModel: Boolean? = null
     /** Each song's analysis, kept on the phone so it is decoded once (engine report, stage A). */
     private val analysisStore = AnalysisStore.get(context)
     /** Songs whose artists Encore's genres call classical: they blend plainly. */
@@ -56,7 +58,12 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
         item ?: return
         val key = "${item.mediaId}:$part"
         // Feature 9's Path A reads the same tail, for where the sound ends.
-        val smart = blendMode(crossfadePrefs) != BlendMode.Crossfade
+        val mode = blendMode(crossfadePrefs)
+        val smart = mode != BlendMode.Crossfade
+        // The beat model runs only for Automix; Smart and the silence skip never use the beats (owner, 31 Oct). On a
+        // change of mode the songs read without the model are read again, from the store when it has the model's.
+        val model = mode == BlendMode.Automix
+        if (model != envelopesWithModel) { envelopes.clear(); envelopesWithModel = model }
         val wanted = smart || part == "tail" && boostPrefs.getBoolean(SKIP_END_SILENCE_KEY, false)
         if (!wanted || envelopes.containsKey(key)) return
         envelopes[key] = null
@@ -67,7 +74,7 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
             val onPhone = TrackAnalysis.localSource(context, item) != null
             // Read on an earlier play: a stream's tail stays known after the cache has let it go. A song on the phone
             // whose tail was read before the longer window (report 1.7) is read again.
-            analysisStore.read(key)?.takeIf { known == null || kotlin.math.abs(it.durationMs - known) <= CACHED_LENGTH_SLACK_MS }
+            analysisStore.read(key, model)?.takeIf { known == null || kotlin.math.abs(it.durationMs - known) <= CACHED_LENGTH_SLACK_MS }
                 ?.takeIf { part == "head" || !onPhone || !shortLocalTail(it) }?.let {
                 envelopes[key] = it
                 events.append("automix_analysis part=$part found=1 source=store"); return@launch
@@ -92,16 +99,16 @@ internal class AudioTransitionCoordinator(private val context: Context, private 
             // Why a cached tail was not used: it could not be decoded, or its end is not where the player's is.
             var refused = ""
             val envelope = when {
-                cached != null -> TrackAnalysis.envelope(context, cached, known, head = part == "head")
+                cached != null -> TrackAnalysis.envelope(context, cached, known, head = part == "head", beatModel = model)
                     .also { if (it == null) refused = " reason=decode" }
                     // A file whose end is not where the player's is would cut the song in the wrong place.
                     ?.takeIf { (known != null && kotlin.math.abs(it.durationMs - known) <= CACHED_LENGTH_SLACK_MS && (part == "head" || kotlin.math.abs(it.endMs - known) <= CACHED_LENGTH_SLACK_MS))
                         .also { fits -> if (!fits) refused = " reason=length delta=${(it.endMs - (known ?: 0)) / 100 * 100}" } }
-                part == "tail" -> TrackAnalysis.envelope(context, local!!, -ANALYSIS_LOCAL_TAIL_MS, ANALYSIS_LOCAL_TAIL_MS)
-                else -> TrackAnalysis.envelope(context, local!!, 0, ANALYSIS_HEAD_MS)
+                part == "tail" -> TrackAnalysis.envelope(context, local!!, -ANALYSIS_LOCAL_TAIL_MS, ANALYSIS_LOCAL_TAIL_MS, model)
+                else -> TrackAnalysis.envelope(context, local!!, 0, ANALYSIS_HEAD_MS, model)
             }
             envelopes[key] = envelope
-            envelope?.let { analysisStore.write(key, it) }
+            envelope?.let { analysisStore.write(key, it, model) }
             val beats = envelope?.beats
             events.append("automix_analysis part=$part found=${if (envelope == null) 0 else 1} source=${if (cached != null) "cache" else "file"} ms=${runtime.clocks.monotonicMillis() - began}$refused" +
                 if (beats == null) "" else " bpm=${beats.bpm.toInt()} beat=${"%.2f".format(java.util.Locale.ROOT, beats.confidence)} downbeat=${"%.2f".format(java.util.Locale.ROOT, beats.downbeatConfidence)}")

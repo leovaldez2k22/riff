@@ -17,7 +17,10 @@ import java.security.MessageDigest
  * sent anywhere. Raise [ANALYSIS_VERSION] when the analysis changes, and the old files are read as missing.
  */
 internal const val ANALYSIS_VERSION = 1
-/** Automix stage 4: a build with the beat model keeps its analyses apart, so stage 2's beats are not read as the model's. */
+/**
+ * Automix stage 4: a build with the beat model keeps its analyses apart, so stage 2's beats are not read as the model's.
+ * The model runs only for Automix (owner, 31 Oct): Smart and the silence skip write [ANALYSIS_VERSION] files even then.
+ */
 internal const val ANALYSIS_VERSION_MODEL = 2
 /** The most parts kept; past it the least recently used go. About 12 MB. */
 internal const val ANALYSIS_KEEP = 3_000
@@ -36,22 +39,31 @@ internal class AnalysisStore(private val dir: File, private val keep: Int = ANAL
         return File(dir, digest.joinToString("") { "%02x".format(it) } + ".env")
     }
 
-    /** [key]'s analysis ("<media id>:tail" or ":head"), or null when it was never kept or is from an older analysis. */
-    fun read(key: String): TrackEnvelope? {
+    /**
+     * [key]'s analysis ("<media id>:tail" or ":head"), or null when it was never kept or is from an older analysis.
+     * [beatModel]: only an analysis with the model's beats will do (Automix); otherwise one with stage 2's will too.
+     */
+    fun read(key: String, beatModel: Boolean = true): TrackEnvelope? {
         val f = file(key)
         val bytes = try { f.readBytes() } catch (_: IOException) { return null }
-        val envelope = decodeEnvelope(bytes, key, version) ?: run { f.delete(); return null }
+        val light = { decodeEnvelope(bytes, key, ANALYSIS_VERSION) }
+        val envelope = decodeEnvelope(bytes, key, version) ?: (if (beatModel) null else light()) ?: run {
+            // Stage 2's analysis where Automix wants the model's is kept until the model's replaces it; anything else goes.
+            if (light() == null) f.delete()
+            return null
+        }
         // Used: it goes to the back of the line for pruning.
         f.setLastModified(System.currentTimeMillis())
         return envelope
     }
 
-    @Synchronized fun write(key: String, envelope: TrackEnvelope) {
+    /** [beatModel]: [envelope]'s beats are the model's. */
+    @Synchronized fun write(key: String, envelope: TrackEnvelope, beatModel: Boolean = true) {
         try {
             dir.mkdirs()
             val f = file(key)
             val part = File(dir, f.name + ".part")
-            part.writeBytes(encodeEnvelope(envelope, key, version))
+            part.writeBytes(encodeEnvelope(envelope, key, if (beatModel) version else ANALYSIS_VERSION))
             if (!part.renameTo(f)) { f.delete(); if (!part.renameTo(f)) part.delete() }
             prune()
         } catch (_: IOException) { } // Not kept: the song is analysed again next time.
@@ -71,7 +83,10 @@ internal class AnalysisStore(private val dir: File, private val keep: Int = ANAL
  * a smart blend or the silence skip is on, and not under battery saver; a failure leaves it for when it plays.
  */
 internal fun analyseDownload(context: Context, mediaId: String, audio: File) {
-    val smart = blendMode(context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE)) != BlendMode.Crossfade
+    val mode = blendMode(context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE))
+    val smart = mode != BlendMode.Crossfade
+    // The beat model only for Automix: Smart and the silence skip never use the beats (owner, 31 Oct).
+    val model = mode == BlendMode.Automix
     val silence = context.getSharedPreferences(AUDIO_BOOST_PREFS, Context.MODE_PRIVATE).getBoolean(SKIP_END_SILENCE_KEY, false)
     if (!smart && !silence) return
     if (context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true) return
@@ -79,8 +94,8 @@ internal fun analyseDownload(context: Context, mediaId: String, audio: File) {
     for ((part, from, length) in listOf(Triple("tail", -ANALYSIS_LOCAL_TAIL_MS, ANALYSIS_LOCAL_TAIL_MS), Triple("head", 0L, ANALYSIS_HEAD_MS))) {
         if (part == "head" && !smart) continue
         val key = "$mediaId:$part"
-        if (store.read(key)?.takeIf { part == "head" || !shortLocalTail(it) } != null) continue
-        TrackAnalysis.envelope(context, Uri.fromFile(audio), from, length)?.let { store.write(key, it) }
+        if (store.read(key, model)?.takeIf { part == "head" || !shortLocalTail(it) } != null) continue
+        TrackAnalysis.envelope(context, Uri.fromFile(audio), from, length, model)?.let { store.write(key, it, model) }
     }
 }
 
