@@ -1,6 +1,6 @@
 {
  "_note": "Raw dp and sp measures still written in each screen file. See the measures rule in static_checks.py. Counts only go down.",
- "AccountScreen.kt": 21,
+ "AccountScreen.kt": 20,
  "AudioOutputControls.kt": 8,
  "CapsuleSlider.kt": 2,
  "CatalogScreens.kt": 24,

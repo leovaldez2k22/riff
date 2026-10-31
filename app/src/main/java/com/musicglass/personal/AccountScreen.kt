@@ -374,6 +374,17 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
             val token = generation
             val browser = remember(generation) {
                 WebView(context).apply {
+                    // Google's dark page colour until the page draws, not WebView's white.
+                    setBackgroundColor(GOOGLE_PAGE_DARK)
+                    // Rounded by its own outline. Clipped by Compose instead, the page's fields and buttons (drawn as
+                    // their own layers) lost what was under them, so Riff's backdrop showed as dark boxes and the
+                    // password typed was hard to see (31 Oct, seen on the phone).
+                    val radius = 22 * resources.displayMetrics.density
+                    outlineProvider = object : android.view.ViewOutlineProvider() {
+                        override fun getOutline(view: android.view.View, outline: android.graphics.Outline) =
+                            outline.setRoundRect(0, 0, view.width, view.height, radius)
+                    }
+                    clipToOutline = true
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     settings.allowFileAccess = false
@@ -482,8 +493,7 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
             Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(top = SIGN_IN_BAR_HEIGHT + 14.dp, bottom = SIGN_IN_FOOTER_HEIGHT + 8.dp, start = 10.dp, end = 10.dp)
                 .graphicsLayer { alpha = pageAlpha; translationY = lift.toPx() }
-                .then(if (stopSheet) Modifier.blur(12.dp) else Modifier)
-                .clip(RoundedCornerShape(22.dp))) {
+                .then(if (stopSheet) Modifier.blur(12.dp) else Modifier)) {
                 key(browser) { AndroidView(factory = { browser }, modifier = Modifier.fillMaxSize().testTag("account_browser")) }
             }
         }
@@ -593,6 +603,9 @@ internal fun AccountScreen(model: ShellModel, provider: YouTubeMusicProvider,
 internal val SIGN_IN_FOOTER_HEIGHT: Dp = RiffSignIn.footer
 
 internal data class RecordSpot(val x: Dp, val y: Dp, val size: Dp)
+
+/** Google's sign-in page's dark background. */
+private const val GOOGLE_PAGE_DARK = 0xFF0E0E0E.toInt()
 
 /** Where the record sits on each screen, its centre in the safe area. The bar's record is beside the back button. */
 internal fun recordSpot(phase: SignInPhase, hasAccounts: Boolean, width: Dp, height: Dp): RecordSpot = when (phase) {
