@@ -100,6 +100,18 @@ Lanes so far:
   - The first attempt failed its evidence check: the build regenerated the licence audit (ONNX Runtime added), which
     dirtied the tree mid-build. Committed as 392a5b3 (237 dependencies, none unresolved), then rebuilt clean.
   - **Step 8 done (31 Oct evening):** Riff Preview installed on the phone (package checked first); **the owner: "Smooth, no lag".**
+- **Step 9 (31 Oct evening, at 86b5fb7):**
+  - **Emulator lane, API 33: PASS_LOCAL, 70 of 70.**
+  - **API 31: 70 run, 1 failed.** `DownloadLifecycleDeviceTest#aDownloadThatBeginsRightButCannotBePlayedFailsAsADownloadAndIsNotRetried`:
+    rerun alone, 1 pass, 1 fail. When it passes the player hits `EOFException` on the half-length file at once and
+    logs `download_invalid reason=unreadable`; when it fails it reaches READY and reports nothing for the test's 30 s.
+    Seen only on API 31 (passes on API 33, 36 and the phone). Not investigated.
+  - **API 36: 71 run, 1 failed.** `PlayerFixesDeviceTest#aSlowSlideUpShowsOneTitle` (3,367 pixels differed at p=0.002);
+    rerun alone, 3 of 3 pass: a timing flake. The API 36 emulator booted and stayed up this time (cold boot,
+    `-no-snapshot -no-window`).
+  - **Packaging lane:** source archive, release identity and checksums PASS. **Upgrade FAIL, as expected:** 0.20.0
+    does not install over 0.10.0 (new key). Not uninstalled to get past it. (A stale 0.10.0 on the API 36 emulator, from
+    29 Oct and signed with another key, was removed first, so the check could install the real 0.10.0.)
 - **A signed 0.20.0 was built at 8e87588** (`artifacts/release/riff-0.20.0.apk`, 10.3 MiB). It is stale: it has no
   slide-up fix and no model. Rebuild.
 
