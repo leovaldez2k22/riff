@@ -10,14 +10,14 @@ Android 12 or later, 64-bit ARM phones. The APK is about 45 MB (0.10.0 was about
 
 - **Kept:** everything stored in your YouTube Music account: liked songs, playlists, subscriptions and YouTube's own history. Sign in again after installing.
 - **Lost:** downloads, the queue, Riff's own play history and searches, speed dial pins and settings.
-- **From 0.10.0** (a build that was prepared but never published, so few phones have it): **Backup on this phone** keeps a file in Documents/Riff Backup that survives the uninstall, and 0.20.0 offers to restore it on first start. Downloads are still lost. Before uninstalling, you can also use Settings → Library & privacy → Privacy and data → **Move to another phone** to export a file.
-- **From 0.9.0-rc20** (the last build that was handed out): rc20 has no backup or export, so only the account data above carries over.
+- **From 0.10.0** (the last release, published 24 October): **Backup on this phone**, on by default, keeps a file in Documents/Riff Backup that survives the uninstall, and 0.20.0 offers to restore it on first start. Downloads are still lost. Before uninstalling, you can also use Settings → Library & privacy → Privacy and data → **Move to another phone** to export a file.
+- **From 0.9.0-rc20 or earlier:** these have no backup or export, so only the account data above carries over.
 
 Later releases are signed with the new certificate and update 0.20.0 in place.
 
 ## What's new
 
-0.10.0 was prepared but never published; [its notes](release-notes-0.10.0.md) list everything it added since 0.9.0-rc20, and all of it is in 0.20.0. On top of that:
+Everything in [0.10.0](release-notes-0.10.0.md) is here too. New since 0.10.0:
 
 **A new look.** Liquid Glass, written in Riff, on the shell and every control; Inter as Riff's type; a redesigned player; a dark fade at the screen's edges; calmer transitions; status bar icons that follow the cover; predictive back; a side rail and player pane on wide screens. Glass is at 125 % and frosted glass at 25 % by default. Every pop-out and dialog shares one look: neutral grey glass, large corners, rows led by their icon.
 

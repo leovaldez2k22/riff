@@ -8,7 +8,7 @@ For people using Riff:
 
 - [Features and behavior](features.md)
 - [Privacy and permissions](privacy.md)
-- [Release notes for 0.20.0](release-notes-0.20.0.md) (prepared, not published), [for 0.10.0](release-notes-0.10.0.md) (final candidate, never published) and the [changelog](../CHANGELOG.md)
+- [Release notes for 0.20.0](release-notes-0.20.0.md) (prepared, not published), [for 0.10.0](release-notes-0.10.0.md) (published on GitHub, 24 October 2026) and the [changelog](../CHANGELOG.md)
 - [Security policy](../SECURITY.md)
 
 For people building or changing it:
