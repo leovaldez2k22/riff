@@ -113,7 +113,9 @@ Lanes so far:
     (`downloadUnreadable`, with a JVM test). The test passed 8 of 8 alone; the API 31 lane rerun then passed it, with
     one other failure, `CrossfadeFixtureDeviceTest#aOneSecondBlendIsGradualAndPutsTheLevelBack` ("did not align in four
     attempts"), 3 of 3 alone and once in today's four emulator lanes: a timing flake.
-  - **The release candidate built at 392a5b3 is now stale** (the fix above changes the app): rebuild before publishing.
+  - **Rebuilt at b859a40 (31 Oct evening): PASS_LOCAL, clean.** `artifacts/release/riff-0.20.0.apk` 45.1 MiB, SHA-256
+    `36c2a58c…`, certificate `e45ac43b…`; Preview SHA-256 `0294b848…`. This replaces the 392a5b3 candidate. The owner's
+    lag check was on the 392a5b3 Preview; the fix since only changes how a failed download is marked.
   - **API 36: 71 run, 1 failed.** `PlayerFixesDeviceTest#aSlowSlideUpShowsOneTitle` (3,367 pixels differed at p=0.002);
     rerun alone, 3 of 3 pass: a timing flake. The API 36 emulator booted and stayed up this time (cold boot,
     `-no-snapshot -no-window`).
