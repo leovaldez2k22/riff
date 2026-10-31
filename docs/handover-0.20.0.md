@@ -161,7 +161,8 @@ owner's listening checks.
 10. Release notes:
     - Write `docs/release-notes-0.20.0.md` from the changelog's Unreleased section, then turn that section into 0.20.0.
     - Say: uninstall first (new key, after a backup); Cast and Android Auto are untested; the APK is about 50 MB; the
-      Automix beat model; the update check.
+      Automix beat model; the update check; signing in is recommended, since signed-out songs sometimes stop
+      (YouTube refuses the stream partway; owner's call on 31 Oct: note it, don't chase it now).
     - Update the README's Availability section once published.
 11. GitHub:
     - Install the GitHub CLI (ask the owner before the download, naming file and size). The owner runs `gh auth login`.
@@ -220,7 +221,8 @@ All passed the PR lane and are committed; the phone checks are noted for each.
       every SABR request got its first chunk and then `ATTESTATION_REQUIRED`. Which client that was isn't known: the
       event log hides profiles, and the temporary logging caught only passing runs.
     - A first three-song run also stopped at once with "Track unavailable" for one song; which one isn't known.
-    - So signed-out playback mostly works but isn't reliable. The release notes should say signing in is recommended.
+    - So signed-out playback mostly works but isn't reliable. **The owner's call (31 Oct): note it in the release
+      notes (step 10) and move on.**
     - Riff Debug is signed out now; the owner signs it back in.
   - Cast refuses SABR, so a signed-out song that falls back to SABR can't be cast.
 
