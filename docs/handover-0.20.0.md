@@ -99,7 +99,7 @@ Lanes so far:
     backup is byte-for-byte the one here. Not yet re-encrypted for this Windows user (the owner's step, if wanted).
   - The first attempt failed its evidence check: the build regenerated the licence audit (ONNX Runtime added), which
     dirtied the tree mid-build. Committed as 392a5b3 (237 dependencies, none unresolved), then rebuilt clean.
-  - Next: step 8, Riff Preview on the phone for the owner's lag check.
+  - **Step 8 done (31 Oct evening):** Riff Preview installed on the phone (package checked first); **the owner: "Smooth, no lag".**
 - **A signed 0.20.0 was built at 8e87588** (`artifacts/release/riff-0.20.0.apk`, 10.3 MiB). It is stale: it has no
   slide-up fix and no model. Rebuild.
 
