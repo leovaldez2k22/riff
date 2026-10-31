@@ -1,5 +1,9 @@
 package com.musicglass.personal
+import com.metrolist.innertubex.models.response.PlayerResponse.StreamingData.Format
 import okhttp3.HttpUrl.Companion.toHttpUrl
+
+/** A live manifest's challenge address as a format, so the solver treats it as it treats a song's. */
+internal fun hlsChallengeFormat(challengeUrl: String) = Format(itag = 0, url = challengeUrl, mimeType = "application/x-mpegURL")
 
 /** YouTube HLS authentication and n challenges live in the path, before the playlist suffix. */
 internal suspend fun prepareYoutubeHlsManifest(raw: String, solveN: suspend (String) -> String?): String {

@@ -20,6 +20,14 @@ class SolverProtocolTest {
         assertFalse(SolverProtocol.decodeFormats(SolverProtocol.encodeFormats(listOf(video)))[0].isAudio)
     }
 
+    @Test fun aLiveManifestsChallengeGoesToTheSolverAsASongsAddressDoes() {
+        // Radio's n challenge is solved as a format (the path songs take); 31 Oct the single-address call took 56 s.
+        val url = "https://manifest.googlevideo.com/videoplayback?n=AbCdEf123"
+        val sent = SolverProtocol.decodeFormats(SolverProtocol.encodeFormats(listOf(hlsChallengeFormat(url)))).single()
+        assertEquals(url, sent.url)
+        assertNull("nothing to decipher but n", sent.signatureCipher)
+    }
+
     @Test fun realisticRequestIsFarBelowTheBinderLimit() {
         // A player response offers roughly 20 formats; the extractor sends audio plus two video candidates.
         val encoded = SolverProtocol.encodeFormats(List(25) { audio.copy(itag = it) })

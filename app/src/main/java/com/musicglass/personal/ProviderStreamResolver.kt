@@ -230,8 +230,14 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
                 val config=try {configParser.fetchConfig(videoId,useLoginCookies=false)} catch(_:IllegalStateException) {configParser.fetchEmbeddedConfig(videoId,useLoginCookies=false)}
                 playbackEvents.append("manifest_challenge_found")
                 val challengeUrl="https://manifest.googlevideo.com/videoplayback?n=$challenge"
-                val processed=requireSolver().processNParameter(config.playerUrl,challengeUrl)
-                processed?.toHttpUrl()?.queryParameter("n")
+                val solveStarted=dependencies.clocks.monotonicMillis()
+                // Asked as a format's address, the way a song's is: the library's single-address call tries its old
+                // solver first, which on player 11a45ffb ran 56 s before falling back, so radio never started (31 Oct).
+                val solved=requireSolver().processFormats(config.playerUrl,listOf(hlsChallengeFormat(challengeUrl))).firstOrNull()?.url
+                    ?.toHttpUrl()?.queryParameter("n")?.takeIf {it!=challenge}
+                    ?: requireSolver().processNParameter(config.playerUrl,challengeUrl)?.toHttpUrl()?.queryParameter("n")
+                playbackEvents.append("manifest_challenge_solved ms=${dependencies.clocks.monotonicMillis()-solveStarted}")
+                solved
             } else stream.audioUrl
             playbackEvents.append("manifest_ready hls=$hls")
             val videoUrl=stream.videoUrl?.takeUnless {it==stream.audioUrl}
