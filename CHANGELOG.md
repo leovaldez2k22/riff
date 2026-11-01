@@ -2,7 +2,7 @@
 
 Newest first. Release candidates before 0.9.0-rc16 were recorded only in the README; their text is kept here unchanged. Detailed implementation and verification records are in `docs/`.
 
-## 0.20.0 (code 34), published 1 November 2026
+## 0.20.0 (code 34), published 31 October 2026
 
 Release notes: `docs/release-notes-0.20.0.md`. Signed with a **new certificate**, so it does not install over 0.10.0 or 0.9.0-rc20: the old app is uninstalled first. The features planned in `docs/feasibility-glass-font-lyrics-artwork-2026-10-27.md`; its implementation log records what each one differs from the plan and what is still to check on a phone. The "What's new" sheet (`res/raw/whats_new.json`) is written for version code 34; since the new key makes every install a fresh one, a fresh install shows the release's cards too, with the tips after them.
 
