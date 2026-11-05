@@ -16,13 +16,12 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 
 /**
- * Runs YouTube's signature and n-parameter challenges (QuickJS, native code) in the `:solver`
- * process. If QuickJS crashes, only this process dies: playback, the media session and the UI keep
+ * Runs YouTube's signature and n-parameter challenges (the library's QuackJS, in Kotlin) in the `:solver`
+ * process. If that fails or runs out of memory, only this process dies: playback, the media session and the UI keep
  * running, and [RemoteCipherClient] restarts it for the next request.
  *
  * Nothing else runs in this process: RiffApplication only installs the strings and the crash recorder
- * here, so no provider, WebView or image loader is created. The pinned library may fetch a
- * pre-processed YouTube player from jsDelivr here (docs/privacy.md); this client has no cookies.
+ * here, so no provider, WebView or image loader is created. This client has no cookies.
  * The prepared player script is kept in the app's cache folder ([PreprocessedPlayerCache]).
  */
 class SolverService : Service() {
@@ -37,7 +36,7 @@ class SolverService : Service() {
     private val steps by lazy { PlaybackEventLog(this, PlaybackEventLog.SOLVER_FILE) }
     private val cipher by lazy {
         YouTubeCipherService(http, RemotePlayerConfigStore(http, AppPlayerConfigRepository(this, "player_config_solver")),
-            logger = { event -> cipherStepEvent(event.message)?.let(steps::append) })
+            logger = { event -> cipherStepEvent(event.message)?.let(steps::append); StartupDiagnostics.cipherStep(event.message) })
     }
 
     // The prepared player script survives this process, so a solver started again does not prepare it again.
@@ -53,11 +52,12 @@ class SolverService : Service() {
             if (code < SolverProtocol.INITIALIZE || code > SolverProtocol.PROCESS_N) return super.onTransact(code, data, reply, flags)
             if (Binder.getCallingUid() != Process.myUid()) return false
             data.enforceInterface(SolverProtocol.DESCRIPTOR)
+            StartupDiagnostics.point(StartupDiagnostics.Stage.SolverReceived, StartupDiagnostics.Kind.Solver)
             // Compute fully before writing, so a failure never leaves a half-written reply.
             val result: Result<String?> = runCatching {
                 cacheInstalled
                 // Q18-098: a song's lookup goes ahead of preloads that have not entered the library yet.
-                val work = { runBlocking {
+                val work = { StartupDiagnostics.measure(StartupDiagnostics.Stage.CipherCall, StartupDiagnostics.Kind.Solver) { runBlocking {
                     when (code) {
                         SolverProtocol.INITIALIZE -> { cipher.initialize(); null }
                         SolverProtocol.PRELOAD -> { cipher.preloadPlayerCode(checkNotNull(data.readString())); null }
@@ -69,7 +69,7 @@ class SolverService : Service() {
                         }
                         else -> cipher.processNParameter(checkNotNull(data.readString()), checkNotNull(data.readString()))
                     }
-                } }
+                } } }
                 when (code) {
                     SolverProtocol.PRELOAD, SolverProtocol.PREWARM -> gate.background({ steps.append("solver_preload_yielded ms=$it") }, work)
                     SolverProtocol.PROCESS_FORMATS, SolverProtocol.PROCESS_N -> gate.lookup(work)
@@ -88,8 +88,14 @@ class SolverService : Service() {
 
     override fun onBind(intent: Intent?): IBinder = binder
 
+    override fun onCreate() {
+        super.onCreate()
+        StartupDiagnostics.point(StartupDiagnostics.Stage.SolverCreate, StartupDiagnostics.Kind.Solver)
+    }
+
     override fun onDestroy() {
-        // Frees the QuickJS heaps (up to ~200 MB of native memory) once the app stops using the solver.
+        StartupDiagnostics.point(StartupDiagnostics.Stage.SolverDestroy, StartupDiagnostics.Kind.Solver)
+        // Frees the challenge engine's memory (about 100 MB of this process) once the app stops using the solver.
         runBlocking { runCatching { cipher.dispose() } }
         runCatching { http.close() }
         super.onDestroy()

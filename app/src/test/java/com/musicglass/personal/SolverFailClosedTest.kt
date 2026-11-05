@@ -64,12 +64,14 @@ class SolverFailClosedTest {
         @Volatile var deathsLeft = 0
         @Volatile var alive = true
         val transactions = AtomicInteger()
+        @Volatile var beforeReply: (() -> Unit)? = null
         override fun isBinderAlive() = alive
         override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
             // Only the request under test is scripted and counted. Robolectric gives this binder to every client in
             // the process, and a provider left by an earlier test may still be asking for something else.
             if (code != SolverProtocol.PROCESS_N) { reply?.writeInt(SolverProtocol.STATUS_OK); reply?.writeString(null); return true }
             transactions.incrementAndGet()
+            beforeReply?.invoke()
             if (deathsLeft > 0) { deathsLeft--; alive = false; throw DeadObjectException() }
             alive = true
             data.enforceInterface(SolverProtocol.DESCRIPTOR)
@@ -78,10 +80,37 @@ class SolverFailClosedTest {
         }
     }
 
-    private fun client(solver: FakeSolver, events: MutableList<String>): RemoteCipherClient {
+    private fun client(solver: FakeSolver, events: MutableList<String>, idleMs: Long = 10 * 60_000L): RemoteCipherClient {
         val app = ApplicationProvider.getApplicationContext<Application>()
         shadowOf(app).setComponentNameAndServiceForBindService(ComponentName(app, SolverService::class.java), solver)
-        return RemoteCipherClient(app, onEvent = { synchronized(events) { events += it } })
+        return RemoteCipherClient(app, onEvent = { synchronized(events) { events += it } }, idleMs = idleMs)
+    }
+
+    @Test fun idleReleaseCannotUnbindAnActiveRequest() {
+        val events = java.util.concurrent.CopyOnWriteArrayList<String>()
+        val solver = FakeSolver()
+        val client = client(solver, events, idleMs = 100)
+        request { client.processNParameter("player", "https://manifest.example/?n=x") }.getOrThrow()
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        solver.beforeReply = { entered.countDown(); check(release.await(5, java.util.concurrent.TimeUnit.SECONDS)) }
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val active = scope.async { client.processNParameter("player", "https://manifest.example/?n=y") }
+        try {
+            val deadline = System.nanoTime() + 2_000_000_000L
+            while (entered.count != 0L) {
+                check(System.nanoTime() < deadline)
+                shadowOf(Looper.getMainLooper()).idle(); Thread.sleep(5)
+            }
+            val releases = events.count { it == "solver_idle_release" }
+            Thread.sleep(250) // Deliberately cross the configured idle deadline while Binder is busy.
+            assertEquals(releases, events.count { it == "solver_idle_release" })
+            release.countDown()
+            runBlocking { withTimeout(2000) { active.await() } }
+            val end = System.nanoTime() + 2_000_000_000L
+            while (events.count { it == "solver_idle_release" } == releases && System.nanoTime() < end) Thread.sleep(5)
+            assertEquals(releases + 1, events.count { it == "solver_idle_release" })
+        } finally { release.countDown(); scope.cancel() }
     }
 
     /** The client connects through the main looper, so the test keeps it turning while the request runs elsewhere. */

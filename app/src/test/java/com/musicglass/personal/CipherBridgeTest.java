@@ -31,7 +31,7 @@ public class CipherBridgeTest {
         @Override public Object processFormats(String playerUrl, List<Format> formats, Continuation<? super List<Format>> c) {
             lastPlayerUrl = playerUrl;
             return Collections.singletonList(new Format(140, "https://solved.example/audio", "audio/mp4", 0, null, null, null,
-                null, null, null, null, null, null, null, null, null, false, null, null));
+                null, null, null, null, null, null, null, null, null, null, false, null, null));
         }
         @Override public Object processNParameter(String playerUrl, String url, Continuation<? super String> c) { return url; }
     }

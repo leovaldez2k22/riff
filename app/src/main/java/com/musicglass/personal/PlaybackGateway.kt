@@ -102,7 +102,8 @@ internal interface PlaybackGateway {
 }
 
 internal class MusicPlaybackGateway(context: Context,
-    private val dependencies:RuntimeDependencies=AppContainer.get(context).runtime) : PlaybackGateway {
+    private val dependencies:RuntimeDependencies=AppContainer.get(context).runtime,
+    private val controllerFactory: ((MediaController.Listener) -> com.google.common.util.concurrent.ListenableFuture<MediaController>)? = null) : PlaybackGateway {
     private val appContext = context.applicationContext
     private val handler = Handler(Looper.getMainLooper())
     var onLivePlay:((ProviderTrack)->Unit)?=null
@@ -118,14 +119,10 @@ internal class MusicPlaybackGateway(context: Context,
     private var transportSequence = 0L
     private var transportPlay = true
     private fun transport(play: Boolean) { transportSequence++; transportPlay = play }
-    private val future = MediaController.Builder(appContext,
-        SessionToken(appContext, ComponentName(appContext, MusicPlaybackService::class.java)))
-        .setListener(object : MediaController.Listener {
-            // Queue revision, owner and recovery state arrive here, not as player events.
-            override fun onExtrasChanged(controller: MediaController, extras: Bundle) = refresh(readQueue = false)
-        })
-        .buildAsync()
-    private var pending: ((MediaController) -> Unit)? = null
+    private var future: com.google.common.util.concurrent.ListenableFuture<MediaController>? = null
+    private var closed = false
+    private var foreground = true
+    private val pending = ArrayDeque<(MediaController) -> Unit>()
     override var state by mutableStateOf(PlaybackUiState())
         private set
     override var positionMs by mutableLongStateOf(0L)
@@ -140,25 +137,72 @@ internal class MusicPlaybackGateway(context: Context,
         }
     }
 
-    init {
-        future.addListener({
+    init { connect() }
+
+    /** All connection state belongs to the main thread, just like MediaController itself. */
+    fun foregrounded() { foreground = true; connect() }
+    fun backgrounded() { foreground = false }
+
+    private fun disconnect() {
+        handler.removeCallbacks(ticker)
+        controller?.removeListener(listener)
+        controller = null
+        val old = future
+        future = null
+        old?.let(MediaController::releaseFuture)
+        state = state.copy(ready = false, playing = false)
+    }
+
+    private fun connect() {
+        if (closed || controller?.isConnected == true) return
+        if (controller != null) disconnect()
+        // A completed future may still have its attachment callback queued on the main executor.
+        // Keep that connection attempt until its callback consumes it, even when isDone is true.
+        if (future != null) return
+        disconnect()
+        val connectionListener = object : MediaController.Listener {
+                override fun onExtrasChanged(controller: MediaController, extras: Bundle) {
+                    if (this@MusicPlaybackGateway.controller === controller) refresh(readQueue = false)
+                }
+                override fun onDisconnected(controller: MediaController) {
+                    if (closed || this@MusicPlaybackGateway.controller !== controller) return
+                    disconnect()
+                    // Background disconnection stays dormant until foreground or an explicit command.
+                    if (foreground) connect()
+                }
+            }
+        val connecting = controllerFactory?.invoke(connectionListener) ?: MediaController.Builder(appContext,
+            SessionToken(appContext, ComponentName(appContext, MusicPlaybackService::class.java)))
+            .setListener(connectionListener).buildAsync()
+        future = connecting
+        connecting.addListener({
+            if (closed || future !== connecting) return@addListener
             try {
-                val connected = future.get()
+                val connected = connecting.get()
+                check(connected.isConnected) { "Playback service disconnected during binding" }
                 controller = connected
+                commandError = null
                 connected.addListener(listener)
+                videoSurface?.let(connected::setVideoSurfaceView)
                 refresh()
-                pending?.invoke(connected)
-                pending = null
+                while (pending.isNotEmpty() && connected.isConnected) pending.removeFirst().invoke(connected)
+                handler.removeCallbacks(ticker)
                 handler.post(ticker)
             } catch (error: Exception) {
+                disconnect()
+                // The user is told this failed, so it must not start by surprise when a later return reconnects.
+                pending.clear()
+                queueRequests.toList().forEach(::deleteQueueRequest)
                 fail(PlaybackFailure(PlaybackFailureKind.Connection, error.message.orEmpty()))
             }
         }, appContext.mainExecutor)
     }
 
     private fun withPlayer(command: (MediaController) -> Unit) {
+        if (closed) return
         val current = controller
-        if (current == null) pending = command else command(current)
+        if (current?.isConnected == true) command(current)
+        else { pending.addLast(command); connect() }
     }
     private fun fail(failure: PlaybackFailure) {
         commandError = failure
@@ -247,6 +291,8 @@ internal class MusicPlaybackGateway(context: Context,
         if (updated.copy(positionMs = state.positionMs) != state) state = updated
     }
     override fun toggle() = withPlayer {
+        StartupDiagnostics.point(StartupDiagnostics.Stage.Dispatch, StartupDiagnostics.Kind.Ui)
+        StartupDiagnostics.state(StartupDiagnostics.Stage.EntryState, it)
         PerfTrace.began("play_toggle")
         if(state.embedded) {
             val control=embeddedControl
@@ -349,6 +395,8 @@ internal class MusicPlaybackGateway(context: Context,
     // replacement is made is dropped; requests that only add to the queue do not drop one another.
     private var replaceSequence=0L
     private val catalogScope=kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()+dependencies.dispatchers.main)
+    private val queueRequests = mutableSetOf<java.io.File>()
+    private fun deleteQueueRequest(file: java.io.File) { file.delete(); queueRequests.remove(file) }
     // One lane, so requests reach the service in the order the user made them.
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private val requestLane=dependencies.dispatchers.io.limitedParallelism(1)
@@ -362,27 +410,29 @@ internal class MusicPlaybackGateway(context: Context,
         val entry=state.playback.queueItemId.takeIf {replacePosition!=null}
         if(replaces) {PerfTrace.began("queue_prepare");if(autoplay) PerfTrace.began("first_audio")}
         catalogScope.launch {
-            val file=java.io.File(appContext.cacheDir,"queue-request-${java.util.UUID.randomUUID()}.json")
+            val file=java.io.File(appContext.cacheDir,"queue-request-${java.util.UUID.randomUUID()}.json").also { queueRequests.add(it) }
             try {
-                kotlinx.coroutines.withContext(requestLane) { PerfTrace.block("queue_io_encode") {
+                kotlinx.coroutines.withContext(requestLane) { StartupDiagnostics.measure(StartupDiagnostics.Stage.QueueEncode, StartupDiagnostics.Kind.Ui) { PerfTrace.block("queue_io_encode") {
                     val items=tracks.map {t->SavedQueueItem("yt:${t.videoId}",t.title.take(180),t.artist.take(180),t.artworkUrl,t.album.take(180),t.artistId,t.albumId,t.isLive,music=t.isMusic)}
                     // Checked before anything is sent: the service refuses a larger request.
                     val payload=encodePlaybackSnapshotBounded(PlaybackSnapshot(items,index,0,shuffle,collectionTitle=title.take(180)))?:return@block false
                     file.writeText(payload);true
-                } }.let {fits->if(!fits) {commandError=PlaybackFailure(PlaybackFailureKind.CollectionTooLarge);refresh();return@launch}}
-                if(generation!=replaceSequence) {file.delete();return@launch}
+                } } }.let {fits->if(!fits) {deleteQueueRequest(file);commandError=PlaybackFailure(PlaybackFailureKind.CollectionTooLarge);refresh();return@launch}}
+                if(generation!=replaceSequence) {deleteQueueRequest(file);return@launch}
                 // Pause pressed while the queue was being prepared: load it, but do not start it.
-                val play=if(transportSequence!=pressed) autoplay && transportPlay else autoplay
                 withPlayer {player->
+                    if (generation != replaceSequence) { deleteQueueRequest(file); return@withPlayer }
+                    val play=if(transportSequence!=pressed) autoplay && transportPlay else autoplay
                     commandError=null
                     val args=Bundle().apply {putString("queueFile",file.name);insertAt?.let {putInt("insertAt",it)};putBoolean("autoplay",play);entry?.takeIf {it.isNotEmpty()}?.let {putString("expectedEntry",it)};putBoolean("automatic",automatic);putLong("sessionGeneration",owner.generation);putString("sessionNonce",owner.nonce);replacePosition?.let {putLong("replacePosition",it)};enqueueNext?.let {putBoolean("enqueueNext",it)}}
                     val command=player.sendCustomCommand(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY),args)
+                    queueRequests.remove(file) // Service owns this request until its acknowledgement.
                     command.addListener({if(replaces) PerfTrace.ended("queue_prepare");try {if(command.get().resultCode !in setOf(SessionResult.RESULT_SUCCESS,SessionError.INFO_CANCELLED)) commandError=PlaybackFailure(PlaybackFailureKind.CollectionRejected);refresh()}
                         catch(_:Exception){commandError=PlaybackFailure(PlaybackFailureKind.CollectionRejected);refresh()}
-                        finally {file.delete()}},appContext.mainExecutor)
+                        finally {deleteQueueRequest(file)}},appContext.mainExecutor)
                 }
-            } catch(e:kotlinx.coroutines.CancellationException) {file.delete();throw e}
-            catch(_:Exception) {file.delete();commandError=PlaybackFailure(PlaybackFailureKind.CollectionPrepare);refresh()}
+            } catch(e:kotlinx.coroutines.CancellationException) {deleteQueueRequest(file);throw e}
+            catch(_:Exception) {deleteQueueRequest(file);commandError=PlaybackFailure(PlaybackFailureKind.CollectionPrepare);refresh()}
         }
     }
     override fun enqueueProvider(track: ProviderTrack, stream: ProviderStream, playNext: Boolean) =
@@ -475,11 +525,12 @@ internal class MusicPlaybackGateway(context: Context,
         }
     }
     override fun close() {
+        closed = true
         catalogScope.cancel()
-        handler.removeCallbacks(ticker)
-        controller?.removeListener(listener)
-        MediaController.releaseFuture(future)
-        controller = null
+        pending.clear()
+        queueRequests.toList().forEach(::deleteQueueRequest)
+        videoSurface = null
+        disconnect()
     }
 }
 

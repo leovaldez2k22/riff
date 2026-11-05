@@ -188,7 +188,10 @@ internal fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
                 modifier = Modifier.size(48.dp).testTag("mini_crash_notice_dismiss")) {
                 Icon(Icons.Rounded.Close, contentDescription = string(R.string.dismiss_notice), tint = Muted)
             }
-        IconButton(onClick = hapticClick(playback::toggle),
+        IconButton(onClick = hapticClick {
+            StartupDiagnostics.request(StartupDiagnostics.Stage.MiniTap)
+            playback.toggle()
+        },
             modifier = Modifier.size(48.dp).graphicsLayer { alpha = actionsAlpha }
                 .testTag("mini_play")) {
             Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,

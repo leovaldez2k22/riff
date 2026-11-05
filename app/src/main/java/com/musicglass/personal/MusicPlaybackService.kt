@@ -103,7 +103,7 @@ class MusicPlaybackService : MediaLibraryService() {
         }
     }
     private var recoverySignal = RecoverySignal()
-    private val sabrHttp = HttpClient(OkHttp)
+    private val sabrHttp = HttpClient(OkHttp) { engine { sharePlaybackConnections() } }
     private val offline by lazy {OfflineMusicStore.get(this)}
     private var listeningId=""
     /** Feature 12: listened time per play for Encore, written off the main thread. */
@@ -179,6 +179,7 @@ class MusicPlaybackService : MediaLibraryService() {
     override fun onCreate() {
         super.onCreate()
         events.append("service_create")
+        StartupDiagnostics.point(StartupDiagnostics.Stage.ServiceCreate, StartupDiagnostics.Kind.Source)
         serviceScope.launch(Dispatchers.IO) {logNewProcessExits(this@MusicPlaybackService,events)}
         runCatching {
             val callback=object:android.net.ConnectivityManager.NetworkCallback() {
@@ -212,6 +213,7 @@ class MusicPlaybackService : MediaLibraryService() {
             .setMaxSeekToPreviousPositionMs(PREVIOUS_RESTARTS_AFTER_MS)
             .experimentalSetDynamicSchedulingEnabled(false)
             .build().apply {
+            setWakeMode(C.WAKE_MODE_NETWORK)
             setAudioAttributes(AudioAttributes.Builder()
                 .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                 .setUsage(C.USAGE_MEDIA).build(), true)
@@ -221,6 +223,7 @@ class MusicPlaybackService : MediaLibraryService() {
                     .setAudioOffloadMode(androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED).build()).build()
             setHandleAudioBecomingNoisy(true)
             addAnalyticsListener(nerdStats)
+            addAnalyticsListener(StartupAudioListener())
             audio.attach(this)
             repeatMode = Player.REPEAT_MODE_OFF
             addListener(object : Player.Listener {
@@ -230,6 +233,7 @@ class MusicPlaybackService : MediaLibraryService() {
                     if(reason==Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) order.edited()
                 }
                 override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                    StartupDiagnostics.state(StartupDiagnostics.Stage.ServiceState, this@apply)
                     events.append("play_when_ready=$playWhenReady reason=$reason")
                     // The app, the notification, a headset or a widget: all arrive as a user request.
                     if(reason==Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST && !internalChange.active) order.userIntent(playWhenReady)
@@ -251,6 +255,7 @@ class MusicPlaybackService : MediaLibraryService() {
                     speeds.remember(isMusic(this@apply.currentMediaItem),playbackParameters.speed)
                 }
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    sources.selected(mediaItem?.entryId())
                     val wanted=speeds.forKind(isMusic(mediaItem))
                     if(kotlin.math.abs(this@apply.playbackParameters.speed-wanted)>.001f) this@apply.setPlaybackSpeed(wanted)
                     if(reason!=Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED || mediaItem!==queue.replacement) {
@@ -286,7 +291,11 @@ class MusicPlaybackService : MediaLibraryService() {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         mainPlayer = player
-        val shown = WaitingSessionPlayer(player) { recovery.masksError }.also { sessionPlayer = it }
+        provider.onAppReturn = {mainPlayer?.let(sources::readySelected)}
+        val shown = WaitingSessionPlayer(player) { recovery.masksError }.also {
+            sessionPlayer = it
+            it.onPlay = { retryPlayback(player) }
+        }
         session = MediaLibrarySession.Builder(this, castable(shown, player), object : MediaLibrarySession.Callback {
             override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
                 // Another app: transport and reading, not rewriting the queue, and none of the app's own commands.
@@ -386,9 +395,9 @@ class MusicPlaybackService : MediaLibraryService() {
                     return queueCommand(replaces=!args.containsKey("enqueueNext") && !args.containsKey("replacePosition"),
                         onSuperseded={java.io.File(cacheDir,name).delete()},prepare={
                         withContext(queueDecoder) {val file=java.io.File(cacheDir,name)
-                            try {PerfTrace.block("queue_io_decode") {if(file.length() in 1..MAX_SNAPSHOT_BYTES) decodePlaybackSnapshot(file.readText()) else null}}
+                            try {StartupDiagnostics.measure(StartupDiagnostics.Stage.QueueDecode, StartupDiagnostics.Kind.Source) { PerfTrace.block("queue_io_decode") {if(file.length() in 1..MAX_SNAPSHOT_BYTES) decodePlaybackSnapshot(file.readText()) else null}}}
                             catch(_:Exception) {null} finally {file.delete()}}
-                    }) {ticket,saved->PerfTrace.block("queue_main") {queue.playCatalogQueue(player,args,saved,ticket) {staleSession(args)}}}
+                    }) {ticket,saved->PerfTrace.block("queue_main") {StartupDiagnostics.measure(StartupDiagnostics.Stage.QueueApply, StartupDiagnostics.Kind.Source) {queue.playCatalogQueue(player,args,saved,ticket) {staleSession(args)}}}}
                 }
                 if (customCommand.customAction == PLAY_LOCAL_AUDIO) {
                     if (checkSelfPermission(audioLibraryPermission()) !=
@@ -422,12 +431,16 @@ class MusicPlaybackService : MediaLibraryService() {
         // The newest of this owner's queue and the on-device queue, read off the main thread once older
         // state has been moved. A queue from before owners existed is never loaded here.
         serviceScope.launch {
-            val stored=persistence.loadNewest()?:return@launch
-            if(persistence.closed || player.mediaItemCount>0) return@launch
-            // Play pressed while the queue was still loading, for example from a widget on a cold start.
+            val stored=persistence.loadNewest()
+            queueLoaded=true
+            if(stored==null) {mediaKeyHold.letGo();return@launch}
+            if(persistence.closed || player.mediaItemCount>0) {mediaKeyHold.handedOver();return@launch}
+            // Play pressed while the queue was still loading: from a widget, or a media key that started the app.
             val wanted=player.playWhenReady
             internally {queue.restore(player,stored)}
-            if(wanted) {player.prepare();player.play()}
+            mediaKeyHold.handedOver()
+            StartupDiagnostics.state(StartupDiagnostics.Stage.QueueRestore, player)
+            if(wanted) {player.prepare();player.play()} else if(provider.appOnScreen) sources.readySelected(player)
         }
         publishState()
         sessionRegistration=sessions.register(object:SessionParticipant {
@@ -448,7 +461,10 @@ class MusicPlaybackService : MediaLibraryService() {
         }}
     }
 
+    private val mediaKeyHold=MediaKeyHold(this)
+    private var queueLoaded=false
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
+        if(mediaKeyNeedsHold(intent?.action,mainPlayer?.mediaItemCount?:0)) {mediaKeyHold.start();if(queueLoaded) mediaKeyHold.letGo()}
         val result=super.onStartCommand(intent,flags,startId)
         if(intent?.action==WIDGET_CONTROL && intent.getStringExtra("widgetToken")==RiffWidgets.token(this)) {
             val player=mainPlayer?:return result
@@ -557,6 +573,7 @@ class MusicPlaybackService : MediaLibraryService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
     override fun onDestroy() {
+        StartupDiagnostics.point(StartupDiagnostics.Stage.ServiceDestroy, StartupDiagnostics.Kind.Source)
         encore.ended(EncoreEnded.STOPPED)
         recovery.clear()
         networkCallback?.let {callback-> runCatching {getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(callback)}}
@@ -573,7 +590,7 @@ class MusicPlaybackService : MediaLibraryService() {
             media.player.release()
             media.release()
         }
-        session = null; sessionPlayer = null; mainPlayer = null
+        provider.onAppReturn = null; session = null; sessionPlayer = null; mainPlayer = null
         offline.playbackBusy=false
         queue.resetForNewQueue(keepQueuedIds=true);serviceScope.cancel()
         sabrHttp.close()

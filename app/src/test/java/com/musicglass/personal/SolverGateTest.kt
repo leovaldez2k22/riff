@@ -20,7 +20,7 @@ class SolverGateTest {
         // The second preload queues behind the first; then the song is tapped.
         val second = thread { gate.background({ synchronized(held) { held += it } }) { order += "second" } }
         Thread.sleep(100)
-        val lookup = thread { gate.lookup { lookupArrived.countDown(); order += "lookup start"; Thread.sleep(200); order += "lookup end" } }
+        val lookup = thread { gate.lookup { order += "lookup start"; lookupArrived.countDown(); Thread.sleep(200); order += "lookup end" } }
         lookupArrived.await()
         releaseFirst.countDown()
         listOf(first, second, lookup).forEach { it.join() }

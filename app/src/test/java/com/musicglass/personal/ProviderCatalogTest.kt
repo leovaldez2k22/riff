@@ -82,6 +82,24 @@ class ProviderCatalogTest {
         }
     }
 
+    private fun albumRow(id:String,type:String,credits:String?) = """{"musicResponsiveListItemRenderer":{
+        "flexColumns":[{"musicResponsiveListItemFlexColumnRenderer":{"text":{"runs":[{"text":"$id","navigationEndpoint":{"watchEndpoint":{"videoId":"$id",
+            "watchEndpointMusicSupportedConfigs":{"watchEndpointMusicConfig":{"musicVideoType":"$type"}}}}}]}}}],
+        "playlistItemData":{"videoId":"$id"},
+        "menu":{"menuRenderer":{"items":[{"menuNavigationItemRenderer":{"navigationEndpoint":{"browseEndpoint":{"browseId":"${credits?.let {"MPTC$it"}?:"UCother"}"}}}}]}}}}"""
+    @Test fun anAlbumPlaysAMusicVideoRowByItsAudioTrack() {
+        val root=Json.parseToJsonElement("""{"contents":{"musicShelfRenderer":{"contents":[
+            ${albumRow("videoVideo1","MUSIC_VIDEO_TYPE_OMV","audioAudio1")},
+            ${albumRow("audioAudio2","MUSIC_VIDEO_TYPE_ATV","audioAudio2")},
+            ${albumRow("videoVideo3","MUSIC_VIDEO_TYPE_OMV",null)}]}}}""")
+        val page=catalogPage(root)
+        assertEquals("Only a list that is an album changes its ids",listOf("videoVideo1","audioAudio2","videoVideo3"),page.cards.map {it.videoId})
+        val album=page.albumAudioTracks()
+        assertEquals(listOf("audioAudio1","audioAudio2","videoVideo3"),album.cards.map {it.videoId})
+        assertEquals("audioAudio1",album.shelves.single().cards.first().videoId)
+        assertEquals(false,album.cards.first().officialMusicVideo)
+        assertEquals("With no audio track named the row keeps its video",true,album.cards.last().officialMusicVideo)
+    }
     @Test fun detailAlbumHeaderRetainsLinkedArtist() {
         val root=Json.parseToJsonElement("""{"header":{"musicDetailHeaderRenderer":{"title":{"runs":[{"text":"Graduation"}]},"subtitle":{"runs":[{"text":"Album • "},{"text":"Kanye West","navigationEndpoint":{"browseEndpoint":{"browseId":"UCartist"}}},{"text":" • 2007"}]}}}}""")
         val page=catalogPage(root)

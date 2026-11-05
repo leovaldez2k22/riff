@@ -26,7 +26,7 @@ internal class InternalChange {
 }
 
 internal val PLAYABLE_ID = Regex("[A-Za-z0-9_-]{11}")
-private val STREAM_HEADERS = setOf("user-agent", "accept", "accept-language", "referer", "origin")
+internal val STREAM_HEADERS = setOf("user-agent", "accept", "accept-language", "referer", "origin")
 private fun providerMediaHost(uri: Uri) = uri.scheme == "https" && (uri.host == "googlevideo.com" || uri.host.orEmpty().endsWith(".googlevideo.com"))
 
 /** A stream the app resolved itself and now asks the service to play. */
@@ -130,7 +130,7 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         val hls = stream.mimeType?.contains("mpegurl", true) == true
         // HLS forbids MediaItem custom cache keys; live/video also bypass the audio cache.
         val cacheKey = if (!hls && !track.isLive && !stream.includesVideo && videoUri == null)
-            audioStreamCacheKey(offline.currentScope, stream.sourceVideoId ?: track.videoId, stream.itag,
+            stream.cachedKey ?: audioStreamCacheKey(offline.currentScope, stream.sourceVideoId ?: track.videoId, stream.itag,
                 stream.mimeType, stream.bitrate, stream.sabrBootstrap != null) else null
         return MediaItem.Builder().setMediaId("yt:${track.videoId}").setUri(uri).setCustomCacheKey(cacheKey)
             .apply { if (hls) setMimeType(MimeTypes.APPLICATION_M3U8) }
@@ -328,17 +328,18 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         val previous = resolvedStreams[item]
         val sourceId = if (track.isLive) track.videoId else extras?.getString("sourceVideoId") ?: previous?.sourceVideoId ?: track.videoId
         if (item.mediaId.startsWith("yt:") && step.action != RecoveryAction.Prepare) provider.invalidateStream(sourceId)
-        // An entry that was never resolved is looked up by its own source, which also prefers a download.
         if (item.mediaId.startsWith("yt:") && scheme == "file" && step.action != RecoveryAction.Prepare) {
             // A download that could not be read: look the entry up again, which uses the files only when they are complete.
             val fresh = catalogItem(track, keepEntry(item))
             replacement = fresh
             return if (selfChange.run { replaceFailedStream(player, item, fresh) }) AttemptOutcome.Applied else AttemptOutcome.Obsolete
         }
-        if (step.action == RecoveryAction.Prepare || !item.mediaId.startsWith("yt:") || scheme == "catalog") {
+        if (step.action == RecoveryAction.Prepare || !item.mediaId.startsWith("yt:")) {
             selfChange.run { player.prepare() }
             return AttemptOutcome.Applied
         }
+        // A catalog entry reaches this point too: its own source only repeats a plain lookup, which could not refresh the
+        // attestation or leave out a refused profile. A usable download would have become a file entry already.
         val started = generation
         val video = track.isLive || previous?.includesVideo == true || extras?.getBoolean("video") == true
         return try {

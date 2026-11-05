@@ -18,14 +18,16 @@ The script reads each resolved coordinate's POM from the local Gradle cache and 
 
 ## Result
 
-237 resolved release runtime dependencies on 31 October 2026, with ONNX Runtime in the release (Automix's beat model): 233 licenses from POM declarations, 4 from upstream sources (three Guava modules, SLF4J). None unresolved. (29 October, after Cast: 235.)
+247 resolved release runtime dependencies on 5 November 2026, after the upgrade to InnerTubeX 0.11.2: 243 licenses from POM declarations, 4 from upstream sources (three Guava modules, SLF4J). None unresolved. (31 October, with ONNX Runtime: 237. 29 October, after Cast: 235.)
 
 | Declared license | Artifacts |
 |---|---:|
-| Apache-2.0 (under three spellings) | 227 |
+| Apache-2.0 (under three spellings) | 235 |
 | Android Software Development Kit License (Google Play services: `play-services-base`, `-basement`, `-cast`, `-cast-framework`, `-flags`, `-tasks`) | 6 |
-| GNU GPL-3.0 (`innertubex`, `innertubex-android`) | 2 |
-| MIT (`slf4j-api`) | 1 |
+| GNU GPL-3.0 (`innertubex`, `innertubex-android`, `quackjs`, `quackjs-android`) | 4 |
+| MIT (`slf4j-api`, and one artifact declaring "MIT License") | 2 |
+
+**Changed 5 November 2026 (InnerTubeX 0.7.2 to 0.11.2):** `quickjs-kt` and its native QuickJS are gone; QuackJS 0.1.2 (Kotlin, GPL-3.0, from JitPack) replaces them. Ktor goes to 3.6.0, OkHttp to 5.5.0, Okio to 3.18.2, and `kaml` 0.79.0 (Apache-2.0) comes in. The audit CSV has the rest.
 
 **Closed 24 October 2026:** the seven artifacts under Google's proprietary terms (ML Kit and the Play services parts it brought) are gone with lyrics translation (Q18-101), and so are the Firebase components and Google data-transport libraries ML Kit used. Every artifact left is under an open-source license.
 
@@ -46,14 +48,13 @@ own extractor behind the `MediaExtractor` API. It needs nothing beyond `media3-e
 | Component | Version | License / source |
 |---|---|---|
 | Riff (this repository) | 0.10.0-rc1 | GNU GPL-3.0; root `LICENSE` |
-| InnerTubeX | 0.7.2 (JitPack) | GNU GPL-3.0; [upstream](https://github.com/MetrolistGroup/innertubex) |
+| InnerTubeX, QuackJS | 0.11.2, 0.1.2 (JitPack) | GNU GPL-3.0; [InnerTubeX](https://github.com/MetrolistGroup/innertubex), [QuackJS](https://github.com/MetrolistGroup/quackjs) |
 | AndroidX: Compose BOM, Activity, Media3 (with Cast), MediaRouter, Profile installer | 2026.06.01, 1.13.0, 1.11.1, 1.8.1, 1.4.1 | Apache-2.0; [AndroidX](https://github.com/androidx/androidx) |
 | Google Play services Cast framework (through `media3-cast`) | 22.3.1 | Android Software Development Kit License; closed source |
 | Kotlin, kotlinx coroutines and serialization | 2.4.10, 1.11.0, 1.11.0 | Apache-2.0; [Kotlin](https://github.com/JetBrains/kotlin) |
-| Ktor client | 3.5.2 | Apache-2.0; [upstream](https://github.com/ktorio/ktor) |
-| OkHttp, Okio | 5.3.2, 3.17.0 | Apache-2.0; [OkHttp](https://github.com/square/okhttp), [Okio](https://github.com/square/okio) |
+| Ktor client | 3.6.0 | Apache-2.0; [upstream](https://github.com/ktorio/ktor) |
+| OkHttp, Okio | 5.5.0, 3.18.2 | Apache-2.0; [OkHttp](https://github.com/square/okhttp), [Okio](https://github.com/square/okio) |
 | Coil | 3.3.0 | Apache-2.0; [upstream](https://github.com/coil-kt/coil) |
-| QuickJS for Kotlin (`quickjs-kt`) | 1.0.14 | Apache-2.0; [upstream](https://github.com/dokar3/quickjs-kt) |
 | Guava (transitive) | 33.3.1-android | Apache-2.0; [upstream](https://github.com/google/guava) |
 | SLF4J API (transitive) | 2.0.18 | MIT; [license](https://www.slf4j.org/license.html) |
 | ONNX Runtime for Android (`com.microsoft.onnxruntime:onnxruntime-android`), native code for arm64 | 1.31.1 | MIT; [upstream](https://github.com/microsoft/onnxruntime), `licenses/ONNXRUNTIME-MIT.txt`; in the release from 0.20.0 |
@@ -92,6 +93,26 @@ Read from that source: `RemotePlayerConfigStore.validatedSourceUrlOrNull` accept
 is not rebuilt from this source: that fallback (S03 action 3) was declined by the owner (D9), so the link between
 this source and the hashed AAR rests on JitPack building the tag.
 
+### InnerTubeX 0.11.2 and QuackJS 0.1.2 (5 November 2026)
+
+The tables above record 0.7.2. The same terms apply to the upgrade: JitPack's builds, fixed by hash in
+`gradle/verification-metadata.xml`, with no rebuild from source.
+
+| Artifact | SHA-256 |
+|---|---|
+| innertubex-android-0.11.2.aar | `8cef66c32ffd8a31d03c893cbed6d2cec688c442e30ff999298071824a6f7397` |
+| innertubex-0.11.2.module | `0775959c71e0cc0348498cf05a905bc9d1e04eb4c55597c3a866f1e48d95ef7f` |
+| quackjs-android-0.1.2.aar | `dc98b90789e5335df4edabcb31abdba4354a03f45a33fbfb65d5ffc1ea6d062f` |
+| quackjs-0.1.2.module | `354c41b3b29a93a370edfccb7f6d025fb62c45bd7f44414f42cfaf4e00e2cf0d` |
+
+InnerTubeX source read: tag `v0.11.2`, commit `c863ddf15be01a1abfa4630329bdc0a1e95f1531`, in a temporary folder, not kept
+in this repository, and nothing in it was built or run. **QuackJS's source has not been read or kept.** Keeping both
+sources for a release, as the GPL-3.0 corresponding-source duty may need, is still to do.
+
+Read from that InnerTubeX source: `validatedSourceUrlOrNull` still accepts only `MetrolistGroup/faraday`, so Riff's
+ZemerTeam address is still refused, and `configuredUrl()` then returns nothing. Riff therefore asks for no remote player
+config. The library's own addresses in its source are YouTube's, plus Faraday's on GitHub used only when configured.
+
 ## Assets in the APK
 
 | Asset | Provenance |
@@ -112,3 +133,21 @@ Earlier versions of this file listed generated demo audio and a motion loop. Nei
 
 - `AndroidStreamTokenProvider.kt` and `AndroidTokenRuntime.kt` are adapted from InnerTubeX's GPL-3.0 harness (`HarnessTokenProvider.kt`, `BrowserRuntime.kt`); copyright the InnerTubeX contributors. See `NOTICE.md`.
 - No other source file is known to be copied from another project. This has not been checked by a tool.
+
+## Desktop feasibility module (1 November 2026)
+
+Opt-in with `-PriffDesktop=true`: JetBrains Compose Multiplatform Gradle plugin and desktop runtime 1.12.2, Apache-2.0 (https://github.com/JetBrains/compose-multiplatform). Kotlin/compiler remain 2.4.10. Gradle verification metadata records resolved dependency SHA-256 values. Inter and its OFL license are copied from the existing audited Android assets. A complete Skiko/Skia native transitive license audit is still required before desktop distribution; the Android dependency totals above do not describe the desktop runtime.
+
+
+## Windows Phase 1 additions (2 November 2026)
+
+The desktop graph now actually consumes SQLDelight sqlite-driver/coroutines-extensions 2.1.0, SQLite JDBC 3.51.3.0, Ktor CIO/content negotiation/JSON 3.6.0 and InnerTubeX desktop 0.11.2 with QuackJS 0.1.2 (both raised 5 November 2026). JAR checksums are in Gradle verification metadata. Native FFmpeg LGPLv3 shared libraries and the build-only Zig compiler have archive size/SHA-256 pins in `native/riff-audio/dependencies.json`; the actual FFmpeg revision and dynamic-linking/source obligations are documented in `native/riff-audio/README.md`. These additions are outside the Android inventory totals. The SQLite session is real SQLite; the old custom map/file database survives only in component-test sources. Full native transitive notices/source distribution are still a Phase 5 release gate, not inferred from this inventory.
+
+## Windows Phase 3 lyrics (3 November 2026)
+
+ICU4J `com.ibm.icu:icu4j:78.3` is now a direct desktop dependency, reusing the existing verified artifact and Gradle SHA-256 entry. Unicode License v3 plus upstream historical notices are copied unchanged from the release-78.3 LICENSE into `licenses/ICU4J-78.3-LICENSE.txt` and the desktop resource license directory. It replaces Android's built-in ICU API for the same offline transform; it is outside the Android artifact totals. The transform is mechanical, not a pronunciation or translation guarantee. References: https://unicode-org.github.io/icu/userguide/transforms/general/ and https://github.com/unicode-org/icu/blob/release-78.3/LICENSE .
+
+
+## Windows Automix work in progress (4 November 2026)
+
+The desktop analysis port consumes the official CPU Java artifact `com.microsoft.onnxruntime:onnxruntime:1.31.1` (MIT), matching Android's runtime version. Official JVM/platform documentation: https://onnxruntime.ai/docs/get-started/with-java . The existing 4,655,416-byte owner-approved Beat This! small0 int8 asset is reused verbatim, SHA-256 `0e8b1cf3608dba5459826e940df4f15982a06e420e7a4d2b0a1a04acc587e32c`. Existing complete ONNX Runtime and Beat This! notices are copied into desktop resources. No model network download is performed at runtime. Dependency verification and actual desktop inference remain pending at this work-in-progress boundary; this does not claim Automix player integration.

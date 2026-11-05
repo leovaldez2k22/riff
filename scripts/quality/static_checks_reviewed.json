@@ -11,7 +11,8 @@
   "blocking": [
     {"file": "PlaybackPersistence.kt", "contains": "runBlocking { withTimeoutOrNull(FLUSH_WAIT_MS)", "reason": "Lifecycle handoff in onTaskRemoved and onDestroy: Android gives no later moment to finish the write. Bounded to 1.5 s; the write itself runs on the IO dispatcher."},
     {"file": "SabrPlaybackTransport.kt", "contains": "runBlocking { checkNotNull(chunks).receiveCatching() }", "reason": "DataSource.read is a blocking call made on the player's loader thread, never the main thread."},
-    {"file": "SolverService.kt", "contains": "runBlocking {", "reason": "Binder threads and onDestroy of the separate solver process, which has no screen and plays no audio."}
+    {"file": "SolverService.kt", "contains": "runBlocking {", "reason": "Binder threads and onDestroy of the separate solver process, which has no screen and plays no audio."},
+    {"file": "StreamUrlDataSource.kt", "contains": "runBlocking(Dispatchers.IO) { withinLookupDeadline(30_000)", "reason": "ResolvingDataSource resolves inside DataSource.open, a blocking call made on the player's loader thread, never the main thread. Only when the address has expired; bounded to 30 s."}
   ],
   "direction": [
     {"file": "AccountScreen.kt", "contains": "CookieManager.getInstance().setAccept", "reason": "Turns cookies on for the sign-in WebView this screen hosts. It reads no cookie; the session is read by ProviderSessionManager."}

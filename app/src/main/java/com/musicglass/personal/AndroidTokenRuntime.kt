@@ -6,15 +6,24 @@ import android.os.Looper
 import android.webkit.*
 import java.io.ByteArrayInputStream
 import kotlinx.coroutines.*
+import kotlinx.coroutines.selects.select
 import kotlinx.serialization.json.*
-import kotlin.coroutines.resume
+
+/** Longest wait for WebView to answer one script. Well above what the phone takes, and below a song's 30 s lookup deadline. */
+internal const val TOKEN_SCRIPT_DEADLINE_MS = 15_000L
 
 /** Network-blocked runtime for the validated Google attestation interpreter; no native JavaScript bridge. */
-internal class AndroidTokenRuntime(private val context: Context) : AutoCloseable {
+internal class AndroidTokenRuntime(private val context: Context, private val scriptDeadlineMs: Long = TOKEN_SCRIPT_DEADLINE_MS) : AutoCloseable {
     private var web: WebView? = null
     private var loaded = false
+    private val gone = CompletableDeferred<Unit>()
+    /** False once Android has ended this WebView's renderer: the minter inside it went too, so a new runtime is needed. */
+    val alive get() = !gone.isCompleted
+    internal val viewForTest get() = web
+
     suspend fun evaluate(script: String): String = withContext(Dispatchers.Main.immediate) {
         require(script.length <= 12*1024*1024)
+        check(alive) { RENDERER_GONE }
         if (web == null) {
             web = WebView(context.applicationContext).apply {
                 settings.javaScriptEnabled = true
@@ -26,25 +35,43 @@ internal class AndroidTokenRuntime(private val context: Context) : AutoCloseable
                         WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
                     override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = true
                     override fun onPageFinished(v: WebView, url: String) { loaded = true }
+                    /**
+                     * Android may end this off-screen renderer while the app sits idle. Unhandled, that kills the whole
+                     * app process, playback included. Here it costs only a new attestation at the next lookup.
+                     */
+                    override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                        if (web === view) { web = null; loaded = false }
+                        gone.complete(Unit)
+                        view.destroy()
+                        return true
+                    }
                 }
                 loadDataWithBaseURL("https://www.youtube.com/robots.txt", "<!doctype html><html><head></head><body></body></html>", "text/html", "UTF-8", null)
             }
-            withTimeout(10000) { while (!loaded) delay(25) }
+            StartupDiagnostics.await(StartupDiagnostics.Stage.WebviewLoad, StartupDiagnostics.Kind.Token) { withTimeout(10000) { while (!loaded) { check(alive) { RENDERER_GONE }; delay(25) } } }
             eval(PAGE_BOUND_TOKEN_SCRIPT)
         }
         eval(script)
     }
-    private suspend fun eval(script: String): String = suspendCancellableCoroutine { continuation ->
+    /** A renderer that has gone or stopped answering never calls back, so neither may be waited for without limit. */
+    private suspend fun eval(script: String): String = StartupDiagnostics.await(StartupDiagnostics.Stage.Javascript, StartupDiagnostics.Kind.Token) {
+        val answer = CompletableDeferred<String>()
         checkNotNull(web).evaluateJavascript(script) { raw ->
-            if (continuation.isActive) continuation.resume(runCatching {
-                Json.parseToJsonElement(raw).jsonPrimitive.content
-            }.getOrDefault(""))
+            answer.complete(runCatching { Json.parseToJsonElement(raw).jsonPrimitive.content }.getOrDefault(""))
         }
+        withTimeoutOrNull(scriptDeadlineMs) {
+            select<String> {
+                answer.onAwait { it }
+                gone.onAwait { error(RENDERER_GONE) }
+            }
+        } ?: error("Token script did not answer")
     }
     fun dispose() {
         Handler(Looper.getMainLooper()).post { web?.apply { stopLoading(); destroy() }; web = null; loaded = false }
     }
     override fun close() = dispose()
+
+    private companion object { const val RENDERER_GONE = "Token renderer is gone" }
 }
 
 internal const val PAGE_BOUND_TOKEN_SCRIPT = """

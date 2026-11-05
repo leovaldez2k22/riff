@@ -159,7 +159,9 @@ internal class RecoveryEpisode(val entry: String) {
             // A profile that never supplied a token cannot benefit from minting it again.
             RecoveryClass.AttestationExpired -> if (!attestationRefreshed && fault.profile?.endsWith("__nopo") != true) {
                 attestationRefreshed = true; RecoveryAction.RefreshAttestation } else exclude(fault.profile)
-            RecoveryClass.RejectedStream -> if (fault.httpStatus in setOf(403, 410) && !streamRefreshed && fault.source != FaultSource.Live) {
+            // One fresh address per episode. If that is refused too, the profile itself is refused, so another client is
+            // tried: on the phone a direct address got 403 twice and SABR was the way on (31 Oct). MAX_ATTEMPTS bounds it.
+            RecoveryClass.RejectedStream -> if (fault.httpStatus in setOf(403, 404, 410, 416) && !streamRefreshed && fault.source != FaultSource.Live) {
                 streamRefreshed = true; RecoveryAction.Refresh } else exclude(fault.profile)
             else -> RecoveryAction.Refresh
         }

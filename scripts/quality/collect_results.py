@@ -354,9 +354,10 @@ def run(args):
     output = root / "artifacts/quality" / source_id / run_id
     output.mkdir(parents=True, exist_ok=False)  # Preserve failures; never overwrite a previous run.
     title = args.variant.capitalize()
-    tasks = [":app:testDebugUnitTest", "--rerun", f":app:lint{title}", "--rerun", f":app:assemble{title}"]
+    tasks = [":app:testDebugUnitTest", f":app:lint{title}", f":app:assemble{title}"]
     wrapper = root / ("gradlew.bat" if os.name == "nt" else "gradlew")
-    command = [str(wrapper), *tasks, "--continue", "--console=plain"]
+    # Freshness checks require the report and APK producers to run, not only aggregate tasks.
+    command = [str(wrapper), *tasks, "--rerun-tasks", "--continue", "--console=plain"]
     if args.offline:
         command.append("--offline")
     if args.collect_only:

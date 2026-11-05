@@ -3,7 +3,7 @@ package com.musicglass.personal
 import java.io.File
 
 /**
- * The solver's copy on disk of YouTube's player script as the pinned library prepares it for QuickJS. Without it a
+ * The solver's copy on disk of YouTube's player script as the pinned library prepares it for its challenge engine. Without it a
  * solver started again (after ten idle minutes, or after Android stopped the app) downloaded and prepared the
  * script once more before the first song could play, which made that song slow to start.
  *

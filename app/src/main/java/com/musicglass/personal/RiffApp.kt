@@ -216,8 +216,19 @@ internal fun RiffApp() {
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, player) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) player.stopped(model.sheet.isNotEmpty())
-            if (event == Lifecycle.Event.ON_START) provider.warmStreams()
+            if (event == Lifecycle.Event.ON_STOP) {
+                playback.backgrounded()
+                StartupDiagnostics.point(StartupDiagnostics.Stage.Background, StartupDiagnostics.Kind.Ui)
+                StartupDiagnostics.services(context)
+                player.stopped(model.sheet.isNotEmpty())
+                provider.appLeft()
+            }
+            if (event == Lifecycle.Event.ON_START) {
+                playback.foregrounded()
+                StartupDiagnostics.point(StartupDiagnostics.Stage.Foreground, StartupDiagnostics.Kind.Ui)
+                StartupDiagnostics.services(context)
+                provider.warmStreams()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }

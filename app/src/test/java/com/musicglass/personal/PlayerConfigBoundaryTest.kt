@@ -42,6 +42,14 @@ class PlayerConfigBoundaryTest {
         return ProviderSessionManager(context, w.runtime)
     }
 
+    /** From 0.11.2 a read answers from the table and refreshes behind it: waits for that request, then for its answer to be handled. */
+    private fun refreshAnswered() {
+        val deadline = System.currentTimeMillis() + 5_000
+        while (world!!.calls.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(10)
+        assertFalse("the refresh was never asked for", world!!.calls.isEmpty())
+        Thread.sleep(200)
+    }
+
     @Test fun riffsConfiguredAddressIsRefusedByThePinnedLibrarySoNothingIsFetched() = runBlocking {
         val session = signedInClient { error("no request expected: ${it.host}${it.endpoint}") }
         val store = RemotePlayerConfigStore(session.http, AppPlayerConfigRepository(context, "player_config_boundary_test"))
@@ -66,8 +74,10 @@ class PlayerConfigBoundaryTest {
         val repository = Repository("https://raw.githubusercontent.com/MetrolistGroup/faraday/main/player_configs.json")
         val session = signedInClient { ProviderWorld.Reply("", status = 302, headers = mapOf("Location" to "https://evil.example/player_configs.json")) }
         repository.cachedJson = table; repository.cachedSourceUrl = repository.sourceUrl; repository.cachedAtMs = 0
-        assertEquals(20123, RemotePlayerConfigStore(session.http, repository).getSignatureTimestamp(player))
-        assertEquals(listOf("raw.githubusercontent.com"), world!!.calls.map { it.host })
+        val store = RemotePlayerConfigStore(session.http, repository)
+        assertEquals(20123, store.getSignatureTimestamp(player))
+        refreshAnswered()
+        assertEquals(listOf("raw.githubusercontent.com"), world!!.calls.map { it.host }.distinct())
         assertEquals(table, repository.cachedJson)
     }
 
@@ -76,8 +86,11 @@ class PlayerConfigBoundaryTest {
             val repository = Repository("https://raw.githubusercontent.com/MetrolistGroup/faraday/main/player_configs.json")
             repository.cachedJson = table; repository.cachedSourceUrl = repository.sourceUrl; repository.cachedAtMs = 0
             val session = signedInClient { ProviderWorld.Reply(body) }
-            assertEquals(body.take(20), 20123, RemotePlayerConfigStore(session.http, repository).getSignatureTimestamp(player))
+            val store = RemotePlayerConfigStore(session.http, repository)
+            assertEquals(body.take(20), 20123, store.getSignatureTimestamp(player))
+            refreshAnswered()
             assertEquals(body.take(20), table, repository.cachedJson)
+            assertEquals(body.take(20), 20123, store.getSignatureTimestamp(player))
             world?.close(); world = null
         }
     }
@@ -102,8 +115,9 @@ class PlayerConfigBoundaryTest {
             assertFalse("$name in the solver process", name in solver)
         // The application object makes nothing but the crash recorder outside the main process.
         val start = code("Strings.kt").substringAfter("class RiffApplication").substringAfter("override fun onCreate()").substringBefore("\n    }")
-        assertEquals(listOf("super.onCreate()", "val role = processRole(getProcessName(), packageName)", "CrashRecorder.install(this, role)",
+        assertEquals(listOf("super.onCreate()", "val role = processRole(getProcessName(), packageName)", "StartupDiagnostics.installTraceFile(this, role.name.lowercase())", "CrashRecorder.install(this, role)",
             "if (role == ProcessRole.Main) Thread({ runCatching { recordProcessExits(this) } }, \"riff-exit-records\").start()"),
             start.lines().map(String::trim).filter { it.isNotEmpty() && it != "{" })
     }
 }
+

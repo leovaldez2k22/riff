@@ -7,7 +7,7 @@ import kotlinx.serialization.json.Json
 
 /**
  * What the main process asks of the cipher. [RemoteCipherClient] sends it to the `:solver`
- * process, so a native crash in QuickJS (stress test F1) can't take playback down with it.
+ * process, so a crash in the challenge engine can't take playback down with it.
  */
 internal interface CipherBackend {
     suspend fun initialize()

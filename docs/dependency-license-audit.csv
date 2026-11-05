@@ -2,9 +2,9 @@ coordinate,declared_license,license_url,status
 androidx.activity:activity:1.13.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.activity:activity-compose:1.13.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.activity:activity-ktx:1.13.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-androidx.annotation:annotation:1.9.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.annotation:annotation:1.10.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.annotation:annotation-experimental:1.4.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-androidx.annotation:annotation-jvm:1.9.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.annotation:annotation-jvm:1.10.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.appcompat:appcompat:1.7.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.appcompat:appcompat-resources:1.7.1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.arch.core:core-common:2.2.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
@@ -127,8 +127,12 @@ androidx.viewpager:viewpager:1.0.0,"The Apache Software License, Version 2.0",ht
 androidx.window:window:1.5.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.window:window-core:1.5.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.window:window-core-android:1.5.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-com.github.MetrolistGroup.innertubex:innertubex:0.7.2,"GNU General Public License, version 3",https://www.gnu.org/licenses/gpl-3.0.html,POM declaration
-com.github.MetrolistGroup.innertubex:innertubex-android:0.7.2,"GNU General Public License, version 3",https://www.gnu.org/licenses/gpl-3.0.html,POM declaration
+com.charleskorn.kaml:kaml:0.79.0,"The Apache License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.charleskorn.kaml:kaml-jvm:0.79.0,"The Apache License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.github.MetrolistGroup.innertubex:innertubex:0.11.2,"GNU General Public License, version 3",https://www.gnu.org/licenses/gpl-3.0.html,POM declaration
+com.github.MetrolistGroup.innertubex:innertubex-android:0.11.2,"GNU General Public License, version 3",https://www.gnu.org/licenses/gpl-3.0.html,POM declaration
+com.github.MetrolistGroup.quackjs:quackjs:0.1.2,"GNU General Public License, version 3 only",https://www.gnu.org/licenses/gpl-3.0.html,POM declaration
+com.github.MetrolistGroup.quackjs:quackjs-android:0.1.2,"GNU General Public License, version 3 only",https://www.gnu.org/licenses/gpl-3.0.html,POM declaration
 com.google.accompanist:accompanist-drawablepainter:0.37.3,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 com.google.android.datatransport:transport-api:3.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 com.google.android.datatransport:transport-backend-cct:3.1.3,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
@@ -146,10 +150,10 @@ com.google.guava:failureaccess:1.0.2,Apache-2.0,https://github.com/google/guava,
 com.google.guava:guava:33.3.1-android,Apache-2.0,https://github.com/google/guava,upstream repository
 com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava,Apache-2.0,https://github.com/google/guava,upstream repository
 com.microsoft.onnxruntime:onnxruntime-android:1.31.1,MIT License,https://opensource.org/licenses/MIT,POM declaration
-com.squareup.okhttp3:okhttp:5.3.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-com.squareup.okhttp3:okhttp-android:5.3.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-com.squareup.okio:okio:3.17.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-com.squareup.okio:okio-jvm:3.17.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.squareup.okhttp3:okhttp:5.5.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.squareup.okhttp3:okhttp-android:5.5.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.squareup.okio:okio:3.18.2,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+com.squareup.okio:okio-jvm:3.18.2,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 io.coil-kt.coil3:coil:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 io.coil-kt.coil3:coil-android:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 io.coil-kt.coil3:coil-compose:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
@@ -162,39 +166,43 @@ io.coil-kt.coil3:coil-network-core:3.3.0,"The Apache License, Version 2.0",https
 io.coil-kt.coil3:coil-network-core-android:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 io.coil-kt.coil3:coil-network-okhttp:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 io.coil-kt.coil3:coil-network-okhttp-jvm:3.3.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.github.dokar3:quickjs-kt:1.0.14,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.github.dokar3:quickjs-kt-android:1.0.14,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-client-content-negotiation:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-client-content-negotiation-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-client-core:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-client-core-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-client-okhttp:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-client-okhttp-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-events:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-events-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-http:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-http-cio:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-http-cio-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-http-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-io:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-io-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-network:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-network-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-serialization:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-serialization-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-serialization-kotlinx:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-serialization-kotlinx-json:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-serialization-kotlinx-json-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-serialization-kotlinx-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-sse:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-sse-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-utils:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-utils-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-websocket-serialization:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-websocket-serialization-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-websockets:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-io.ktor:ktor-websockets-jvm:3.5.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-client-content-negotiation:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-client-content-negotiation-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-client-core:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-client-core-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-client-okhttp:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-client-okhttp-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-events:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-events-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-http:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-http-cio:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-http-cio-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-http-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-io:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-io-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-network:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-network-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-openapi-schema:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-openapi-schema-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-serialization:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-serialization-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-serialization-kotlinx:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-serialization-kotlinx-json:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-serialization-kotlinx-json-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-serialization-kotlinx-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-sse:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-sse-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-utils:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-utils-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-websocket-serialization:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-websocket-serialization-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-websockets:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+io.ktor:ktor-websockets-jvm:3.6.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+it.krzeminski:snakeyaml-engine-kmp:3.1.1,Apache-2.0,https://opensource.org/licenses/Apache-2.0,POM declaration
+it.krzeminski:snakeyaml-engine-kmp-jvm:3.1.1,Apache-2.0,https://opensource.org/licenses/Apache-2.0,POM declaration
 javax.inject:javax.inject:1,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+net.thauvin.erik.urlencoder:urlencoder-lib:1.6.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+net.thauvin.erik.urlencoder:urlencoder-lib-jvm:1.6.0,"The Apache License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jetbrains:annotations:23.0.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jetbrains.androidx.lifecycle:lifecycle-common:2.9.5,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jetbrains.androidx.lifecycle:lifecycle-runtime:2.9.5,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
@@ -216,23 +224,25 @@ org.jetbrains.compose.ui:ui-graphics:1.8.2,"The Apache Software License, Version
 org.jetbrains.compose.ui:ui-text:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jetbrains.compose.ui:ui-unit:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jetbrains.compose.ui:ui-util:1.8.2,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-org.jetbrains.kotlin:kotlin-stdlib:2.4.10,Apache-2.0,http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-org.jetbrains.kotlin:kotlin-stdlib-common:2.4.10,Apache-2.0,http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlin:kotlin-stdlib:2.4.21,Apache-2.0,http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlin:kotlin-stdlib-common:2.4.21,Apache-2.0,http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-datetime:0.8.0-0.6.x-compat,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-datetime-jvm:0.8.0-0.6.x-compat,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jetbrains.kotlinx:kotlinx-io-bytestring:0.9.1,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jetbrains.kotlinx:kotlinx-io-bytestring-jvm:0.9.1,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jetbrains.kotlinx:kotlinx-io-core:0.9.1,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jetbrains.kotlinx:kotlinx-io-core-jvm:0.9.1,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-org.jetbrains.kotlinx:kotlinx-serialization-bom:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-org.jetbrains.kotlinx:kotlinx-serialization-core:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-org.jetbrains.kotlinx:kotlinx-serialization-json-io:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-org.jetbrains.kotlinx:kotlinx-serialization-json-io-jvm:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-serialization-bom:1.12.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-serialization-core:1.12.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.12.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-serialization-json-io:1.12.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-serialization-json-io-jvm:1.12.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.12.0,Apache-2.0,https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 org.jspecify:jspecify:1.0.0,"The Apache License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
-org.slf4j:slf4j-api:2.0.18,MIT,https://www.slf4j.org/license.html,upstream license page
+org.slf4j:slf4j-api:2.0.19,MIT,https://www.slf4j.org/license.html,upstream license page

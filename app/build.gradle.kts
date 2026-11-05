@@ -22,6 +22,7 @@ android {
         versionCode = 34
         versionName = "0.20.0"
         buildConfigField("boolean", "LITE", "false")
+        buildConfigField("boolean", "STARTUP_TRACE_FILE", (providers.gradleProperty("riffStartupTraceFile").orNull == "true").toString())
         // Q12A: the public release feed the update check asks, and the hosts a release page may be on. No feed
         // (the default until releases are published) means the check does not exist in the build and sends
         // nothing. See docs/quality/update-notice.md.

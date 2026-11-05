@@ -23,7 +23,9 @@ internal data class ProviderHomeCard(val title: String, val subtitle: String,
     val artistId: String? = null, val albumId: String? = null, val album: String = "",val musicVideo:Boolean=false,val officialMusicVideo:Boolean=false,val setVideoId:String?=null,val addedAt:Long?=null,
     val notInterestedToken:String?=null,
     /** The row's stated length (Q18-093); null when YouTube shows none. */
-    val durationMs:Long?=null)
+    val durationMs:Long?=null,
+    /** The audio track of a row that points at the music video, see [albumAudioTracks]. */
+    val songId:String?=null)
 /** Feature 8: where a shelf's "See all" leads: YouTube's browse id, and its params for grids of albums, singles or videos. */
 internal data class ProviderMoreEndpoint(val browseId: String, val params: String? = null)
 internal data class ProviderHomeSection(val title: String, val cards: List<ProviderHomeCard>,
@@ -43,6 +45,8 @@ internal data class ProviderStream(
     val boundedRange:Boolean=false,val includesVideo:Boolean=false,val resolvedTitle:String="",val resolvedAuthor:String="",val resolvedChannelId:String?=null,
     /** How far the recording is above the provider's reference loudness, in decibels; null when the provider did not say. */
     val loudnessDb:Double?=null,
+    /** On a stand-in for bytes on disk (`cachedStreamStandIn`): the cache key those bytes are under. */
+    val cachedKey:String?=null,
 )
 
 /**
@@ -157,8 +161,14 @@ internal class YouTubeMusicProvider(context: Context,
     override suspend fun resolve(request:StreamRequest)=streams.resolve(request)
     suspend fun invalidateAttestation()=streams.invalidateAttestation()
     fun invalidateStream(videoId:String)=streams.invalidateStream(videoId)
+    fun streamQualityName()=streams.streamQualityName()
     /** The app is on the screen again: get the next song ready to start quickly ([ProviderStreamResolver.warmUp]). */
-    fun warmStreams()=streams.warmUp()
+    /** The playback service's part in coming back to the screen; null while there is no service. */
+    var onAppReturn:(()->Unit)?=null
+    var appOnScreen=false
+        private set
+    fun warmStreams() {streams.warmUp();appOnScreen=true;onAppReturn?.invoke()}
+    fun appLeft() {appOnScreen=false}
 
     override fun close() {
         sessionManager.scope.cancel()

@@ -65,6 +65,20 @@ class QueueCoordinatorTest {
         pairs.forEach { (k, v) -> when (v) { is String -> putString(k, v); is Boolean -> putBoolean(k, v); is Long -> putLong(k, v); is Bundle -> putBundle(k, v); null -> remove(k); else -> error(k) } }
     }
     private fun code(result: SessionResult) = result.resultCode
+    @Test fun catalogRecoveryHonorsProfileExclusionsAndKeepsPositionAndPause() = kotlinx.coroutines.runBlocking {
+        val original = queue.catalogItem(ProviderTrack("fxsong00001", "Song", "Artist"))
+        player.setMediaItem(original, 42000)
+        val resolver = world.runtime.resolver as ScriptedResolver
+        resolver.enqueue().complete(Result.success(stream()))
+        val step = RecoveryStep.Attempt(RecoveryAction.ExcludeProfile, 1, 0, 0, setOf("rejected-profile"))
+        val outcome = queue.reload(original.entryId(), step) { _, _ -> error("unexpected recovery failure") }
+        assertEquals(AttemptOutcome.Applied, outcome)
+        assertEquals(setOf("rejected-profile"), resolver.requests().single().excludedProfiles)
+        assertEquals(original.entryId(), player.currentMediaItem!!.entryId())
+        assertEquals(42000L, player.currentPosition)
+        assertFalse(player.playWhenReady)
+        assertEquals("https", player.currentMediaItem!!.localConfiguration!!.uri.scheme)
+    }
     private fun until(what: String, condition: () -> Boolean) {
         val end = System.nanoTime() + 10_000_000_000L
         while (!condition()) { shadowOf(Looper.getMainLooper()).idle(); Thread.sleep(5); if (System.nanoTime() > end) fail("Timed out: $what") }

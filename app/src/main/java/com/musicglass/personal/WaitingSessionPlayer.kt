@@ -12,6 +12,15 @@ import androidx.media3.common.ForwardingSimpleBasePlayer
  */
 @androidx.annotation.OptIn(markerClass = [UnstableApi::class])
 internal class WaitingSessionPlayer(player: Player, private val recovering: () -> Boolean) : ForwardingSimpleBasePlayer(player) {
+    /** Route notification/headset Play through the same service recovery entry point as the app. */
+    var onPlay: (() -> Unit)? = null
+    override fun handleSetPlayWhenReady(playWhenReady: Boolean): com.google.common.util.concurrent.ListenableFuture<*> {
+        if (playWhenReady) onPlay?.let {
+            it()
+            return com.google.common.util.concurrent.Futures.immediateVoidFuture()
+        }
+        return super.handleSetPlayWhenReady(playWhenReady)
+    }
     override fun getState(): State {
         val state = super.getState()
         return if (state.playerError != null && recovering()) maskRecoverable(state) else state

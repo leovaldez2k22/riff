@@ -11,3 +11,9 @@ import kotlinx.coroutines.ensureActive
  */
 internal suspend inline fun <T> suspendCatching(block: () -> T): Result<T> =
     try { Result.success(block()) } catch (failure: Throwable) { currentCoroutineContext().ensureActive(); Result.failure(failure) }
+
+/** The library ends a request when the account changes, without cancelling its caller: unless the caller was cancelled, a failure. */
+internal suspend fun accountChangedFailure(message: String): Result<Nothing> {
+    currentCoroutineContext().ensureActive()
+    return Result.failure(IllegalStateException(message))
+}

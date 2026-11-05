@@ -2,8 +2,9 @@
 
 Riff is licensed under GNU GPL version 3. See [LICENSE](LICENSE).
 
-The app depends on [InnerTubeX 0.7.2](https://github.com/MetrolistGroup/innertubex),
-copyright its contributors, also licensed under GNU GPL version 3. The dependency is fetched
+The app depends on [InnerTubeX 0.11.2](https://github.com/MetrolistGroup/innertubex) and on
+[QuackJS 0.1.2](https://github.com/MetrolistGroup/quackjs), which InnerTubeX uses to run YouTube's
+challenges, each copyright its contributors and licensed under GNU GPL version 3. Both are fetched
 from JitPack at build time. Riff's Android stream attestation adapter and JavaScript runtime
 (`AndroidStreamTokenProvider.kt`, `AndroidTokenRuntime.kt`) are adapted from its GPL-3.0 harness
 (`HarnessTokenProvider.kt` and `BrowserRuntime.kt`); copyright the InnerTubeX contributors.
@@ -32,6 +33,9 @@ not affiliated with or endorsed by Google or YouTube.
 Every other runtime dependency, its version and its declared license is listed in
 [docs/dependency-license-audit.csv](docs/dependency-license-audit.csv) and summarized in
 [docs/dependency-license-inventory.md](docs/dependency-license-inventory.md): Apache-2.0 for AndroidX, Kotlin,
-Ktor, OkHttp, Okio, Coil, QuickJS for Kotlin and Guava, MIT for SLF4J, and Google's Android SDK terms for the
+Ktor, OkHttp, Okio, Coil and Guava, MIT for SLF4J, and Google's Android SDK terms for the
 Google Play services parts Cast uses (closed source, distributed by Google). That inventory is declared metadata, not a
 legal review.
+
+Riff Android's `ChunkedStreamDataSource` adapts the design of `ChunkedDataSource` and the range sizes of
+`PlayerClient.rangeBytesFor` from [BitChord](https://github.com/kushagrasinghx/BitChord) (GPL-3.0; revision b690dc1).

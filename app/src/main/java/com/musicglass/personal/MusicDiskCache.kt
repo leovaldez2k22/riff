@@ -28,5 +28,16 @@ internal object MusicDiskCache {
                 }
             }
     }
-    fun clear(context:Context) {val cache=get(context);cache.keys.toList().forEach {cache.removeResource(it)}}
+    @Volatile private var indexInstance:CachedStreamIndex?=null
+    fun index(context:Context):CachedStreamIndex=indexInstance ?: synchronized(this) {indexInstance ?: CachedStreamIndex(File(context.cacheDir,"audio-cache-index-v1.tsv")).also {indexInstance=it}}
+    /** What can be played of a song before looking it up, or null. An entry whose bytes the cache has let go is forgotten. */
+    fun playable(context:Context,scope:String,videoId:String,quality:String):Pair<CachedStreamEntry,CachedPart>? {
+        val index=index(context);val entry=index.get(scope,videoId,quality) ?: return null
+        val cache=get(context)
+        val known=androidx.media3.datasource.cache.ContentMetadata.getContentLength(cache.getContentMetadata(entry.cacheKey))
+        val part=cachedPart(entry,known) {position,length->cache.isCached(entry.cacheKey,position,length)}
+        if(part==null) index.remove(scope,videoId,quality)
+        return part?.let {entry to it}
+    }
+    fun clear(context:Context) {val cache=get(context);cache.keys.toList().forEach {cache.removeResource(it)};index(context).clear()}
 }

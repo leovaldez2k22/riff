@@ -103,8 +103,11 @@ internal const val RIFF_BACK_BUFFER_MS = 5*60_000
 /**
  * Media3's default load control keeps no back buffer, so every seek back in a streamed song threw away and downloaded
  * again what had just played (Q18-005). Five minutes of compressed audio is a few megabytes, inside the default
- * audio target, so the forward buffer is unchanged.
+ * audio target. Starting needs 0.5 s of audio and restarting after a stall 1.5 s (Media3 1.11.1's own are 1 s and 2 s).
+ * On the phone a fresh address reaches `playing` in about 0.3 s, so this is a small gain; the wait is in the lookup.
  */
 @androidx.annotation.OptIn(markerClass = [UnstableApi::class])
 internal fun riffLoadControl(): androidx.media3.exoplayer.DefaultLoadControl =
-    androidx.media3.exoplayer.DefaultLoadControl.Builder().setBackBuffer(RIFF_BACK_BUFFER_MS, true).build()
+    androidx.media3.exoplayer.DefaultLoadControl.Builder()
+        .setBufferDurationsMs(30_000, 60_000, 500, 1_500)
+        .setBackBuffer(RIFF_BACK_BUFFER_MS, true).build()

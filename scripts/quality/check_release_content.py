@@ -29,6 +29,8 @@ ANDROID = "http://schemas.android.com/apk/res/android:"
 EXPORTED = {
     "com.musicglass.personal.MainActivity": None,
     "com.musicglass.personal.MusicPlaybackService": None,
+    # A Play key after Android has ended the app; it can only start the same public playback service.
+    "androidx.media3.session.MediaButtonReceiver": None,
     "androidx.media3.session.BluetoothValidationActivity": "android.permission.BLUETOOTH_PRIVILEGED",
     "androidx.profileinstaller.ProfileInstallReceiver": "android.permission.DUMP",
     # Feature 27: only the system, holding this permission, can bind a Quick Settings tile.
@@ -178,7 +180,7 @@ def check_manifest(manifest, package, rules, share_paths=None):
             add(False, "exported is stated on " + str(item.get("name")))
         if value == "true":
             exported[item.get("name")] = item.get("permission")
-    add(exported == EXPORTED, "exported components are the reviewed five: " +
+    add(exported == EXPORTED, "exported components are the reviewed six: " +
         ("yes" if exported == EXPORTED else "found " + ", ".join(sorted(f"{k} [{v}]" for k, v in exported.items()))))
     providers = manifest.all("provider")
     granting = [item for item in providers if item.get("grantUriPermissions") not in (None, "false")]

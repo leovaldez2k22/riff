@@ -9,7 +9,11 @@ import kotlinx.io.readByteArray
 
 /** Only YouTube player JSON is filtered. Search, accounts, media bytes and live endpoints pass through. */
 internal object OriginalAudioEngine:HttpClientEngineFactory<OkHttpConfig> {
-    override fun create(block:OkHttpConfig.()->Unit):HttpClientEngine = OriginalAudioTransport(OkHttp.create(block))
+    override fun create(block:OkHttpConfig.()->Unit):HttpClientEngine = OriginalAudioTransport(OkHttp.create {
+        sharePlaybackConnections()
+        config { eventListenerFactory(StartupDiagnostics.httpEvents(StartupDiagnostics.Kind.Provider)) }
+        block()
+    })
 }
 @OptIn(io.ktor.utils.io.InternalAPI::class)
 internal class OriginalAudioTransport(private val delegate:HttpClientEngine):HttpClientEngineBase("riff-original-audio") {

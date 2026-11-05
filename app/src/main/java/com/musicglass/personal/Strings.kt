@@ -45,6 +45,7 @@ class RiffApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         val role = processRole(getProcessName(), packageName)
+        StartupDiagnostics.installTraceFile(this, role.name.lowercase())
         CrashRecorder.install(this, role)
         if (role == ProcessRole.Main) Thread({ runCatching { recordProcessExits(this) } }, "riff-exit-records").start()
     }

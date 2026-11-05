@@ -1,6 +1,23 @@
 package com.musicglass.personal
 import kotlinx.serialization.json.*
 
+/** A row's "Song credits" link is MPTC plus the id of the song's audio track, whichever id the row plays. */
+internal fun creditsSongId(menu:JsonElement?):String? = when(menu) {
+    is JsonObject -> (menu["browseId"] as? JsonPrimitive)?.contentOrNull?.let {Regex("MPTC([A-Za-z0-9_-]{11})").matchEntire(it)?.groupValues?.get(1)}
+        ?: menu.values.firstNotNullOfOrNull(::creditsSongId)
+    is JsonArray -> menu.firstNotNullOfOrNull(::creditsSongId)
+    else -> null
+}
+/**
+ * An album page lists most songs by their music video's id, with the album's length beside them (BRAT's "360": 2:14
+ * listed, 4:24 as the video, whose audio opens with its own intro; 15 of its 15 rows, 5 Nov). Every client answers such
+ * an id with the video's audio, so an album's songs are played by their audio tracks' ids. Lists that are not albums
+ * keep their ids: a video someone put in a playlist is meant as that video.
+ */
+internal fun CatalogPage.albumAudioTracks():CatalogPage {
+    fun song(card:ProviderHomeCard)=card.songId?.let {card.copy(videoId=it,musicVideo=false,officialMusicVideo=false)}?:card
+    return copy(cards=cards.map(::song),albumTracks=albumTracks.map(::song),shelves=shelves.map {it.copy(cards=it.cards.map(::song))})
+}
 /** Request the exact same song/video switcher used by YouTube Music's watch queue. */
 internal fun musicPairingRequest(raw:String):String {
     val root=runCatching {Json.parseToJsonElement(raw) as? JsonObject}.getOrNull()?:return raw

@@ -38,6 +38,9 @@ internal class RemoteCipherClient(context: Context, private val onEvent: (String
     @Volatile private var binder: IBinder? = null
     private var connection: ServiceConnection? = null
     private var idleJob: Job? = null
+    /** Guarded by connectLock; idle release must not race an in-flight Binder transaction. */
+    private var activeCalls = 0
+    private var idleGeneration = 0L
     private var bindGeneration = 0L
 
     override suspend fun initialize() { call(SolverProtocol.INITIALIZE) {} }
@@ -64,11 +67,13 @@ internal class RemoteCipherClient(context: Context, private val onEvent: (String
         try { callOnce(code, write) } catch (e: SolverUnavailableException) { unavailableCount++; throw e }
 
     private suspend fun callOnce(code: Int, write: (Parcel) -> Unit): String? = withContext(Dispatchers.IO) {
+        connectLock.withLock { activeCalls++; idleGeneration++; idleJob?.cancel(); idleJob = null }
+        try {
         var lost: DeadObjectException? = null
         repeat(2) { attempt ->
-            val target = connect()
+            val target = StartupDiagnostics.await(StartupDiagnostics.Stage.SolverBind, StartupDiagnostics.Kind.Solver) { connect() }
             try {
-                return@withContext transact(target, code, write).also { scheduleIdleUnbind() }
+                return@withContext StartupDiagnostics.measure(StartupDiagnostics.Stage.SolverRpc, StartupDiagnostics.Kind.Solver) { transact(target, code, write) }
             } catch (died: DeadObjectException) {
                 // Retry once on a fresh process; the death itself is counted in connect()/onSolverDeath().
                 onEvent("solver_call_lost code=${code - SolverProtocol.INITIALIZE} attempt=$attempt")
@@ -79,6 +84,11 @@ internal class RemoteCipherClient(context: Context, private val onEvent: (String
             }
         }
         throw SolverUnavailableException("Solver process died during the request", lost)
+        } finally {
+            withContext(kotlinx.coroutines.NonCancellable) {
+                connectLock.withLock { activeCalls--; if (activeCalls == 0) scheduleIdleUnbind() }
+            }
+        }
     }
 
     /**
@@ -156,11 +166,18 @@ internal class RemoteCipherClient(context: Context, private val onEvent: (String
 
     private fun recordDeath() { health.recordDeath(); onEvent("solver_died") }
 
-    @Synchronized private fun scheduleIdleUnbind() {
+    private fun scheduleIdleUnbind() {
         idleJob?.cancel()
+        val generation = ++idleGeneration
         idleJob = scope.launch {
             delay(idleMs)
-            connectLock.withLock { synchronized(this@RemoteCipherClient) { binder = null }; unbindLocked(); onEvent("solver_idle_release") }
+            StartupDiagnostics.point(StartupDiagnostics.Stage.SolverIdle, StartupDiagnostics.Kind.Solver)
+            connectLock.withLock {
+                if (activeCalls == 0 && generation == idleGeneration) {
+                    synchronized(this@RemoteCipherClient) { binder = null }
+                    unbindLocked(); onEvent("solver_idle_release")
+                }
+            }
         }
     }
 

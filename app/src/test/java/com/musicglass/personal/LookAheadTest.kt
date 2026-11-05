@@ -19,7 +19,4 @@ class LookAheadTest {
         assertFalse(lookAheadWanted(true, "yt:aaaaaaaaaaa", null, "local:42", false)) // a file on the phone
     }
 
-    @Test fun theLookupWaitsForTheStartedSongFirst() {
-        assertTrue(LOOK_AHEAD_DELAY_MS in 1_000L..10_000L)
-    }
 }

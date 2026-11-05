@@ -84,7 +84,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
         val root = json.parseToJsonElement(response.bodyAsText())
         // HTTP 200 can carry an error. It is a failure, not a page with nothing on it.
         providerEnvelopeError(root)?.let { throw it }
-        return catalogPage(root)
+        return catalogPage(root).let {if(browseId.startsWith("MPRE")) it.albumAudioTracks() else it}
     }
     // Retries a collection page on network errors, timeouts, 429 and 5xx; other HTTP errors and account changes fail at once.
     private suspend fun requestCollectionPage(id: String, token: String? = null, params: String? = null): CatalogPage {
@@ -98,6 +98,8 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                     is TimeoutCancellationException, is java.io.IOException -> true
                     is CancellationException -> throw e
                     is ProviderHttpException -> e.status == 429 || e.status >= 500
+                    // The library now retries a 5xx itself, and a 429 only when told how long to wait.
+                    is com.metrolist.innertubex.InnerTubeHttpException -> e.status.value == 429
                     else -> false
                 }
                 if (!retryable || attempt >= 2 || revision != authRevision) {
@@ -384,7 +386,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                 IllegalStateException(string(R.string.account_changed_while_loading_home)))
             Result.success(sections)
         } catch (error: CancellationException) {
-            throw error
+            accountChangedFailure(string(R.string.account_changed_while_loading_home))
         } catch (error: Exception) {
             Result.failure(IllegalStateException(
                 if (error is java.net.UnknownHostException)
@@ -420,8 +422,9 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
             diagnosticLogcat("RiffProfile", "loaded name=${!profile?.name.isNullOrBlank()} photo=${profile?.artworkUrl != null}")
             accountProfile = profile
             Result.success(profile)
-        } catch (error: CancellationException) { throw error }
-        catch (error: Exception) {
+        } catch (error: CancellationException) {
+            accountChangedFailure(string(R.string.account_changed_while_loading_profile))
+        } catch (error: Exception) {
             Result.failure(IllegalStateException(
                 string(R.string.could_not_load_account_profile_x, error::class.simpleName)))
         }
@@ -448,7 +451,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                 IllegalStateException(string(R.string.account_changed_while_loading_the_library)))
             Result.success(count)
         } catch (error: CancellationException) {
-            throw error
+            accountChangedFailure(string(R.string.account_changed_while_loading_the_library))
         } catch (error: Exception) {
             Result.failure(error)
         }
@@ -470,7 +473,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                     IllegalStateException(string(R.string.account_changed_while_loading_the_library)))
                 Result.success(root)
             } catch (error: CancellationException) {
-                throw error
+                accountChangedFailure(string(R.string.account_changed_while_loading_the_library))
             } catch (error: Exception) {
                 Result.failure(IllegalStateException(
                     string(R.string.could_not_read_the_account_library_x, error::class.simpleName)))
@@ -547,7 +550,7 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
                 Result.success(page)
             }
         } catch (error: CancellationException) {
-            throw error
+            accountChangedFailure(string(R.string.account_changed_while_searching))
         } catch (error: Exception) {
             Result.failure(IllegalStateException(string(R.string.youtube_music_search_is_unavailable_x, error::class.simpleName)))
         }

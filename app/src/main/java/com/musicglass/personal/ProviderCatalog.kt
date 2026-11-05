@@ -153,7 +153,8 @@ internal fun parseCatalogCards(root: JsonElement): List<ProviderHomeCard> {
                             catalogValue(item,"musicVideoType") in setOf("MUSIC_VIDEO_TYPE_OMV","MUSIC_VIDEO_TYPE_UGC"),
                             catalogValue(item,"musicVideoType")=="MUSIC_VIDEO_TYPE_OMV",
                             catalogValue(item["playlistItemData"],"playlistSetVideoId")?:catalogValue(item,"setVideoId"),playlistEntryAddedAt(item),
-                            notInterestedToken(item["menu"]),catalogDurationMs(item))
+                            notInterestedToken(item["menu"]),catalogDurationMs(item),
+                            video?.takeIf {catalogValue(item,"musicVideoType")=="MUSIC_VIDEO_TYPE_OMV"}?.let {creditsSongId(item["menu"])?.takeIf {song->song!=it}})
                         result[card.key()] = card
                     }
                 }

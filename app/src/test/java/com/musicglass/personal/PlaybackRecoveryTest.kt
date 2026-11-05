@@ -100,7 +100,7 @@ class PlaybackRecoveryTest {
     }
 
     @Test fun aRejectedStreamIsRefreshedOnceAndThenItsProfileIsExcluded() {
-        for (status in listOf(403, 410)) {
+        for (status in listOf(403, 404, 410, 416)) {
             val episode = RecoveryEpisode("e")
             val first = episode.next(fault(RecoveryClass.RejectedStream, status = status)) { 0 } as RecoveryStep.Attempt
             assertEquals(RecoveryAction.Refresh, first.action); assertTrue(first.excluded.isEmpty())
@@ -108,6 +108,7 @@ class PlaybackRecoveryTest {
             assertEquals(RecoveryAction.ExcludeProfile, second.action); assertEquals(setOf("p1"), second.excluded)
             val third = episode.next(fault(RecoveryClass.RejectedStream, status = status, profile = "p2")) { 0 } as RecoveryStep.Attempt
             assertEquals(setOf("p1", "p2"), third.excluded)
+            assertTrue("three attempts in all", episode.next(fault(RecoveryClass.RejectedStream, status = status, profile = "p3")) { 0 } is RecoveryStep.Stop)
         }
         // A live stream has no stream to refresh: the rejected profile is excluded at once.
         val live = RecoveryEpisode("e").next(fault(RecoveryClass.RejectedStream, FaultSource.Live, 403)) { 0 } as RecoveryStep.Attempt

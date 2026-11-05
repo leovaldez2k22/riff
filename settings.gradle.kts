@@ -12,7 +12,10 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven("https://jitpack.io") {
-            content { includeGroup("com.github.MetrolistGroup.innertubex") }
+            content {
+                includeGroup("com.github.MetrolistGroup.innertubex")
+                includeGroup("com.github.MetrolistGroup.quackjs")
+            }
         }
     }
 }

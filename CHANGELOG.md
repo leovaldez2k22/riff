@@ -2,6 +2,21 @@
 
 Newest first. Release candidates before 0.9.0-rc16 were recorded only in the README; their text is kept here unchanged. Detailed implementation and verification records are in `docs/`.
 
+## Unreleased
+
+Record: `docs/quality/playback-startup-warm-resume-2026-11-04.md`, sections 7 and 8. Measured signed in on one phone and one network: songs start in about 2 s from an empty cache (6 to 12 s before), 1.2 to 1.9 s from disk, and with no pauses. 0.20.0 also pauses on an empty cache. Not yet tested: signed-out playback, SABR and age-restricted songs on the new library.
+
+- An album's songs play as the album's songs. Album pages list most songs by their music video's id, so a song played the video's audio, with its intro, and ran longer than the album says (BRAT's "360": 4:24, not 2:14). Riff now plays the audio track that the same row names.
+- A Play key can bring Riff back after Android has ended it: it restores the queue and plays. If another app's media session is on the phone, Android may send the key there instead.
+- InnerTubeX 0.11.2 (from 0.7.2), with Ktor 3.6.0 and QuackJS in place of native QuickJS: the next song's lookup takes about 0.2 s, not 2.5 to 3.5 s, and the stream helper uses about 100 MB, not about 180 MB. Riff no longer asks jsDelivr for anything.
+- A song whose start is on disk plays from there before any stream is looked up, and only looks one up when it reads past those bytes.
+- A paused song has its address ready when the app comes back to the screen. An address now lasts as long as its own expiry says, not 20 minutes.
+- A streamed song is read as bounded ranges of at most 1 MiB, not one open-ended request, which stopped the stalls in the runs that played normally. On the phone it held 30 s or more of audio ahead, where the same build without it stalled 3 to 5 times a minute. Design adapted from BitChord (GPL-3.0).
+- Playback after a long idle: the app reconnects to a playback service that has gone, Play from the notification or a headset recovers like Play in the app, and a rejected stream address is replaced at once instead of after about 6 s of retries.
+- A stream address close to expiring is renewed when bytes are next needed, at the same position.
+- The token browser's renderer ending no longer takes the whole app and its playback down with it, and scripts in it can no longer wait without limit.
+- The next song is looked up as soon as the current one plays, not 3 s later, and queued songs no longer compete with the selected song's lookup.
+
 ## 0.20.0 (code 34), published 31 October 2026
 
 Release notes: `docs/release-notes-0.20.0.md`. Signed with a **new certificate**, so it does not install over 0.10.0 or 0.9.0-rc20: the old app is uninstalled first. The features planned in `docs/feasibility-glass-font-lyrics-artwork-2026-10-27.md`; its implementation log records what each one differs from the plan and what is still to check on a phone. The "What's new" sheet (`res/raw/whats_new.json`) is written for version code 34; since the new key makes every install a fresh one, a fresh install shows the release's cards too, with the tips after them.

@@ -60,6 +60,8 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
     private fun chosenQuality(download:Boolean):AudioQuality = streamingAudioQuality(dataSaverPrefs.getBoolean("enabled",false),download,
         // Feature 17: Wi-Fi and mobile data each have their own; a metered hotspot counts as mobile data.
         networkSongQuality(dataSaverPrefs, appContext.getSystemService(android.net.ConnectivityManager::class.java)?.isActiveNetworkMetered != false))
+    /** Bytes kept at one quality are not offered when another is chosen. */
+    fun streamQualityName():String = chosenQuality(false).name
     /** Q18-090: Premium is known for an account only once YouTube served it a Premium-only format. */
     private fun premiumConfirmed():Boolean = session.signedIn && session.accountScopeKey()?.let {qualityPrefs.getBoolean("premium:$it",false)}==true
     private var streamRevision=0L
@@ -94,11 +96,12 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
         cipherService = unusedInProcessCipher,
         innerTube = innerTube,
         tokenProvider = streamTokens,
-        logger = { event -> streamStageEvent(event)?.let(playbackEvents::append) },
+        logger = { event -> streamStageEvent(event)?.let(playbackEvents::append); StartupDiagnostics.extractorStep(event) },
     )
     // When the streams were last made ready (at start and by warmUp); declared before init, which sets it.
     private val warmLock=Any()
     private var warmedAtMs:Long?=null
+    private var bootstrapCacheSet=false
     private var warming:Job?=null
     init {
         cipherIsolated=runCatching {dependencies.installSolverBridge(extractor,remoteCipher)}
@@ -133,7 +136,9 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
         playbackEvents.append("stream_prewarm_player ms=${dependencies.clocks.monotonicMillis()-second} phase=${if(early) "early" else "late"}")
     }
 
-    private suspend fun prewarm(reason:String) {
+    private suspend fun prewarm(reason:String) = StartupDiagnostics.await(StartupDiagnostics.Stage.Warmup, StartupDiagnostics.Kind.Provider) {
+        // The public player address and versions survive a restart; nothing here belongs to a session or account.
+        if(!bootstrapCacheSet) {bootstrapCacheSet=true;extractor.setPlayerBootstrapCache({qualityPrefs.getString("player_bootstrap",null)},{qualityPrefs.edit().putString("player_bootstrap",it).apply()})}
         val started=dependencies.clocks.monotonicMillis()
         suspendCatching {
             val premiumHigh=premiumConfirmed() && chosenQuality(false)==AudioQuality.HIGH
@@ -150,7 +155,11 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
                 ?.let {preloadSecondPlayer(it,early=false)}
         }.fold(
             onSuccess={playbackEvents.append("stream_prewarm reason=$reason ms=${dependencies.clocks.monotonicMillis()-started}")},
-            onFailure={playbackEvents.append("stream_prewarm_failed reason=$reason type=${it::class.simpleName}")})
+            onFailure={
+                playbackEvents.append("stream_prewarm_failed reason=$reason type=${it::class.simpleName}")
+                // Often the network is not back yet as the phone wakes. Nothing was made ready, so the next return tries again.
+                synchronized(warmLock) {warmedAtMs=null}
+            })
     }
 
     suspend fun resolve(videoId:String,live:Boolean=false,excludedProfiles:Set<String> = emptySet(),video:Boolean=false,download:Boolean=false):Result<ProviderStream> =
@@ -163,8 +172,9 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
         val flight=synchronized(cacheLock) {
             val revision=streamRevision
             val key="$authRevision:$videoId:$live:$video:$download:$quality:$revision"
+            StartupDiagnostics.point(StartupDiagnostics.Stage.UrlCache, StartupDiagnostics.Kind.Provider, streamCache[key]?.let { it.expiresAtMs - dependencies.clocks.wallTimeMillis() } ?: -1L)
             streamCache[key]?.takeIf { reusableStream(it.expiresAtMs,dependencies.clocks.wallTimeMillis(),live) }?.let {return Result.success(it)}
-            streamFlights[key] ?: runtimeScope.async {
+            streamFlights[key] ?: runtimeScope.async(start = CoroutineStart.LAZY) {
                 val result=withinLookupDeadline(60_000) {
                     try {resolveFresh(videoId,live,emptySet(),video,download,quality)}
                     catch(e:CancellationException) {
@@ -173,11 +183,12 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
                         dependencies.wait(150);resolveFresh(videoId,live,emptySet(),video,download,quality)
                     }
                 }
-                result.getOrNull()?.let {stream->synchronized(cacheLock) {if(revision==streamRevision) {streamCache[key]=stream;while(streamCache.size>32) streamCache.remove(streamCache.keys.first())}}}
+                val flightJob = currentCoroutineContext()[Job]
+                result.getOrNull()?.let {stream->synchronized(cacheLock) {if(revision==streamRevision && streamFlights[key] === flightJob) {streamCache[key]=stream;while(streamCache.size>32) streamCache.remove(streamCache.keys.first())}}}
                 result
             }.also {job->streamFlights[key]=job;job.invokeOnCompletion {synchronized(cacheLock) {if(streamFlights[key]===job) streamFlights.remove(key)}}}
         }
-        return flight.await()
+        return StartupDiagnostics.await(StartupDiagnostics.Stage.FlightWait, StartupDiagnostics.Kind.Provider) { flight.await() }
     }
     /** Drops the minted attestation so the next stream mints a fresh one (it can go stale after a network change). */
     suspend fun invalidateAttestation() {
@@ -185,10 +196,15 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
         // Every prefetched bootstrap using that attestation is stale, not just the failed song.
         synchronized(cacheLock) {streamRevision++;streamCache.clear();streamFlights.clear()}
     }
-    fun invalidateStream(videoId:String) {synchronized(cacheLock) {streamCache.keys.filter {it.contains(":$videoId:")}.forEach {streamCache.remove(it)}}}
+    fun invalidateStream(videoId:String) { synchronized(cacheLock) {
+        streamCache.keys.removeAll { it.contains(":$videoId:") }
+        // Detach old flights without cancelling their existing callers. Their identity check prevents
+        // a late completion from publishing a rejected URL or removing a newer flight.
+        streamFlights.keys.removeAll { it.contains(":$videoId:") }
+    } }
     private suspend fun resolveFresh(videoId: String, live: Boolean, excludedProfiles: Set<String>, video:Boolean,download:Boolean,quality:AudioQuality): Result<ProviderStream> {
         val request=StreamRequest(videoId,live,excludedProfiles,video,download,quality)
-        return dependencies.resolver?.resolve(request) ?: resolveUsingExtractor(request)
+        return StartupDiagnostics.await(StartupDiagnostics.Stage.Resolve, StartupDiagnostics.Kind.Provider) { dependencies.resolver?.resolve(request) ?: resolveUsingExtractor(request) }
     }
     private suspend fun resolveUsingExtractor(request:StreamRequest):Result<ProviderStream> = withContext(dependencies.dispatchers.io) {
         val (videoId,live,excludedProfiles,video,download,quality)=request
@@ -246,7 +262,7 @@ internal class ProviderStreamResolver(context: Context, private val session: Pro
             Result.success(ProviderStream(audioUrl, stream.headers, stream.mimeType,
                 stream.sabrBootstrap,stream.profileId,videoUrl,stream.videoMimeType,stream.sabrVideoBootstrap,videoId,
                 stream.itag,stream.bitrate?:0,stream.contentLengthBytes,maxOf((stream.mediaMetadata?.durationSeconds?:0)*1000,stream.sabrBootstrap?.durationMs?:0),
-                minOf(stream.expiresAt?.toEpochMilliseconds()?:Long.MAX_VALUE,dependencies.clocks.wallTimeMillis()+20*60_000),
+                streamUrlExpiry(audioUrl, stream.expiresAt?.toEpochMilliseconds() ?: 0, dependencies.clocks.wallTimeMillis()),
                 stream.requireBoundedRange || stream.useRangeChunks,video || live,stream.mediaMetadata?.title.orEmpty(),stream.mediaMetadata?.author.orEmpty(),stream.mediaMetadata?.channelId,
                 validLoudnessDb(stream.loudnessDb)))
         } catch (error: CancellationException) {

@@ -63,7 +63,7 @@ internal class AndroidStreamTokenProvider(
         cookie: String?,
     ): PoTokenResult =
         withContext(Dispatchers.IO) {
-            mutex.withLock {
+            StartupDiagnostics.locked(mutex, StartupDiagnostics.Stage.TokenLock, StartupDiagnostics.Kind.Token) {
                 check(!closed) { "Token provider is closed" }
                 require(videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) { "Invalid video ID" }
                 require(
@@ -73,6 +73,8 @@ internal class AndroidStreamTokenProvider(
                 val started = System.nanoTime()
                 var stage = "bootstrap"
                 try {
+                    StartupDiagnostics.point(StartupDiagnostics.Stage.TokenLifetime, StartupDiagnostics.Kind.Token, (expiresAt - System.currentTimeMillis()).coerceAtLeast(0))
+                    dropGoneRenderer()
                     if ((visitor != null && (visitor != visitorData || cookieValue != cookie)) ||
                         (expiresAt > 0 && System.currentTimeMillis() >= expiresAt)
                     ) {
@@ -81,6 +83,7 @@ internal class AndroidStreamTokenProvider(
                     val runtime = browser ?: AndroidTokenRuntime(context).also { browser = it }
                     val cachedPlayer = playerToken != null
                     if (!cachedPlayer) {
+                        StartupDiagnostics.point(StartupDiagnostics.Stage.TokenWatch, StartupDiagnostics.Kind.Token)
                         stage = "watch"
                         val page =
                             http
@@ -92,10 +95,12 @@ internal class AndroidStreamTokenProvider(
                                     header(HttpHeaders.Cookie, listOfNotNull(cookie, "SOCS=CAI").joinToString("; "))
                                 }.bounded(4 * 1024 * 1024)
                         val attestation = parseWebPageAttestationContext(page)
+                        StartupDiagnostics.point(StartupDiagnostics.Stage.TokenInterpreter, StartupDiagnostics.Kind.Token)
                         stage = "interpreter"
                         val interpreterUrl = requireTrustedAttestationInterpreterUrl(parseAttestationInterpreterUrl(attestation.challenge))
                         val interpreter = http.get(interpreterUrl) { header(HttpHeaders.UserAgent, TOKEN_USER_AGENT) }.bounded(8 * 1024 * 1024)
                         val challengeData = parseAttestationChallengeData(attestation.challenge, interpreter)
+                        StartupDiagnostics.point(StartupDiagnostics.Stage.TokenBrowser, StartupDiagnostics.Kind.Token)
                         stage = "browser"
                         runtime.evaluate(
                             """
@@ -110,6 +115,7 @@ internal class AndroidStreamTokenProvider(
                             """.trimIndent(),
                         )
                         val snapshot = await(runtime)
+                        StartupDiagnostics.point(StartupDiagnostics.Stage.TokenIntegrity, StartupDiagnostics.Kind.Token)
                         stage = "integrity"
                         val response =
                             http
@@ -122,6 +128,7 @@ internal class AndroidStreamTokenProvider(
                                     setBody("[\"O43z0dpjhgX20SCx4KAo\",${Json.encodeToString(snapshot)}]")
                                 }.bounded(1024 * 1024)
                         val integrity = parseIntegrityTokenData(response)
+                        StartupDiagnostics.point(StartupDiagnostics.Stage.TokenMinter, StartupDiagnostics.Kind.Token)
                         stage = "minter"
                         runtime.evaluate(
                             """
@@ -140,6 +147,7 @@ internal class AndroidStreamTokenProvider(
                         visitor = visitorData
                         cookieValue = cookie
                     }
+                    StartupDiagnostics.point(StartupDiagnostics.Stage.TokenReady, StartupDiagnostics.Kind.Token)
                     stage = "video"
                     val gvs = mint(runtime, videoId)
                     check(System.currentTimeMillis() < expiresAt) { "Token integrity expired" }
@@ -164,8 +172,9 @@ internal class AndroidStreamTokenProvider(
 
     override suspend fun prewarm(cookie: String?) {
         withContext(Dispatchers.IO) {
-            mutex.withLock {
+            StartupDiagnostics.locked(mutex, StartupDiagnostics.Stage.TokenLock, StartupDiagnostics.Kind.Token) {
                 check(!closed) { "Token provider is closed" }
+                dropGoneRenderer()
                 if (browser == null) {
                     try {
                         AndroidTokenRuntime(context).also { browser = it }.evaluate("'ready'")
@@ -183,13 +192,13 @@ internal class AndroidStreamTokenProvider(
         }
     }
 
-    override suspend fun invalidateAttestation() = withContext(Dispatchers.IO) { mutex.withLock { reset() } }
+    override suspend fun invalidateAttestation() = withContext(Dispatchers.IO) { StartupDiagnostics.locked(mutex, StartupDiagnostics.Stage.TokenLock, StartupDiagnostics.Kind.Token) { reset() } }
 
     fun dispose() { browser?.dispose(); http.close(); closed = true }
 
     override suspend fun close() =
         withContext(Dispatchers.IO) {
-            mutex.withLock {
+            StartupDiagnostics.locked(mutex, StartupDiagnostics.Stage.TokenLock, StartupDiagnostics.Kind.Token) {
                 closed = true
                 try {
                     reset()
@@ -198,6 +207,13 @@ internal class AndroidStreamTokenProvider(
                 }
             }
         }
+
+    /** The minter lived in the renderer, so the attestation is made again here rather than failing the song's lookup. */
+    private fun dropGoneRenderer() {
+        if (browser?.alive != false) return
+        onEvent("token_renderer_gone")
+        reset()
+    }
 
     private fun reset() {
         try {
