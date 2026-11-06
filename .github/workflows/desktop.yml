@@ -69,6 +69,7 @@ jobs:
           name: desktop-reports
           path: |
             artifacts/quality/lanes/desktop/*.log
+            build/reports/dependency-verification/
             desktop/build/reports/tests/
             desktop/build/test-results/
             desktop-data/build/reports/tests/
