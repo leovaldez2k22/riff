@@ -1,0 +1,4 @@
+CREATE TABLE encore_artist_genre (
+ scope TEXT NOT NULL,artist_key TEXT NOT NULL,display_name TEXT NOT NULL,mbid TEXT,status TEXT NOT NULL,genres TEXT NOT NULL,fetched_ms INTEGER NOT NULL,
+ PRIMARY KEY(scope,artist_key),CHECK(status IN('Ready','NoMatch','Ambiguous'))
+);

@@ -1,0 +1,27 @@
+CREATE TABLE session_checkpoint (
+    scope TEXT NOT NULL PRIMARY KEY,
+    revision INTEGER NOT NULL,
+    payload TEXT NOT NULL,
+    updated_ms INTEGER NOT NULL
+);
+
+readCheckpoint:
+SELECT revision, payload, updated_ms FROM session_checkpoint WHERE scope = ?;
+
+writeCheckpoint:
+INSERT OR REPLACE INTO session_checkpoint(scope, revision, payload, updated_ms) VALUES (?, ?, ?, ?);
+CREATE TABLE command_receipt (
+    command_id TEXT NOT NULL PRIMARY KEY,
+    revision INTEGER NOT NULL,
+    payload_sha256 TEXT NOT NULL,
+    committed_ms INTEGER NOT NULL
+);
+
+readReceipt:
+SELECT revision, payload_sha256 FROM command_receipt WHERE command_id = ?;
+
+writeReceipt:
+INSERT INTO command_receipt(command_id,revision,payload_sha256,committed_ms) VALUES (?,?,?,?);
+
+pruneReceipts:
+DELETE FROM command_receipt WHERE command_id NOT IN (SELECT command_id FROM command_receipt ORDER BY committed_ms DESC LIMIT 1024);

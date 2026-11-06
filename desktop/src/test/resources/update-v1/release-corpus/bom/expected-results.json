@@ -1,0 +1,11 @@
+{
+  "caseId": "bom",
+  "outcome": "INVALID_PAYLOAD",
+  "stored": "none",
+  "syntaxError": "INVALID_PAYLOAD",
+  "signedPayloadBytes": 588,
+  "finalByte": 10,
+  "keyId": "test-rfc8032-01",
+  "signedKeyId": "test-rfc8032-01",
+  "clock": 1793578000
+}

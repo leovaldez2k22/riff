@@ -1,0 +1,11 @@
+{
+  "caseId": "future-schema",
+  "outcome": "UNSUPPORTED_FORMAT",
+  "stored": "none",
+  "syntaxError": "UNSUPPORTED_FORMAT",
+  "signedPayloadBytes": 34,
+  "finalByte": 10,
+  "keyId": "test-rfc8032-01",
+  "signedKeyId": "test-rfc8032-01",
+  "clock": 1793578000
+}

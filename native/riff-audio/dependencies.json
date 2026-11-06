@@ -1,0 +1,22 @@
+[
+  {
+    "name": "zig-0.15.2",
+    "url": "https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip",
+    "sha256": "3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c",
+    "bytes": 92614574
+  },
+  {
+    "name": "ffmpeg-8.1-lgpl-shared",
+    "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-lgpl-shared-8.1.zip",
+    "sha256": "8f8219f9a6a99da57c6fce6ab285b7dc7aed1d1dba26c1b50146677e63e59371",
+    "bytes": 80349409
+  },
+  {
+    "name": "soundtouch-2.4.1",
+    "url": "https://www.surina.net/soundtouch/soundtouch-2.4.1.tar.gz",
+    "sha256": "e07abf20ce8f95850c280132e1f61ad400fc1f4011b7fac698a503de6aab6733",
+    "bytes": 607365,
+    "sourceArchive": "vendor/soundtouch-2.4.1.tar.gz",
+    "license": "LGPL-2.1-or-later"
+  }
+]

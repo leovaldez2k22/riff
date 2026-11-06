@@ -1,0 +1,98 @@
+{
+  "testOnly": true,
+  "redistribute": false,
+  "license": "Complete original package retained; noncommercial local development tests only; never bundled",
+  "files": [
+    {
+      "name": "Manual.pdf",
+      "url": "https://samples.ffmpeg.org/A-codecs/AAC/aacPlusDecoderCheckPackage_v2.1/Manual.pdf",
+      "bytes": 105028,
+      "sha256": "2346ba30d3163e3a86702a4798f334c38bdae01c7c1915d9f241a14585d62910"
+    },
+    {
+      "name": "aac.wav",
+      "url": "https://samples.ffmpeg.org/A-codecs/AAC/aacPlusDecoderCheckPackage_v2.1/aac.wav",
+      "bytes": 346276,
+      "sha256": "56d7fe23f2da4938ef81a08bda625d8ecf55601412f2a51308b9b8eae9550071"
+    },
+    {
+      "name": "aacPlusv1.wav",
+      "url": "https://samples.ffmpeg.org/A-codecs/AAC/aacPlusDecoderCheckPackage_v2.1/aacPlusv1.wav",
+      "bytes": 692268,
+      "sha256": "c9c83663a58997a2e36247b4707d2886727ba2e3c921e18147355560622c08e7"
+    },
+    {
+      "name": "aacPlusv2.wav",
+      "url": "https://samples.ffmpeg.org/A-codecs/AAC/aacPlusDecoderCheckPackage_v2.1/aacPlusv2.wav",
+      "bytes": 1384492,
+      "sha256": "c2763d5223dc0a356bb6efbf87d0f9dd1917158647e2988d638b1d159d2c7acf"
+    },
+    {
+      "name": "license.txt",
+      "url": "https://samples.ffmpeg.org/A-codecs/AAC/aacPlusDecoderCheckPackage_v2.1/license.txt",
+      "bytes": 1419,
+      "sha256": "0c805575d14e43cbe950af13fc1858ee37f7d00b90c614eecbbb39ecbded3960"
+    },
+    {
+      "name": "md5sum",
+      "url": "https://samples.ffmpeg.org/A-codecs/AAC/aacPlusDecoderCheckPackage_v2.1/md5sum",
+      "bytes": 229,
+      "sha256": "47bca069094dd5ad134e4e1db65708bfa2fbf1e82ddbde23e695afa7b9b7c37a"
+    },
+    {
+      "name": "bitstreams/File1.aac",
+      "url": "https://samples.ffmpeg.org/A-codecs/AAC/aacPlusDecoderCheckPackage_v2.1/bitstreams/File1.aac",
+      "bytes": 31507,
+      "sha256": "2b7312468bef3ba96a41b51e6e43b54a3edb1f6638d4c6cb96331efb757818b4"
+    },
+    {
+      "name": "bitstreams/File2.mp4",
+      "url": "https://samples.ffmpeg.org/A-codecs/AAC/aacPlusDecoderCheckPackage_v2.1/bitstreams/File2.mp4",
+      "bytes": 32992,
+      "sha256": "dcd2e94da030f048938c412f6f2025468628fbf33e6e3dcf427e443bd163d2bd"
+    },
+    {
+      "name": "bitstreams/File3.mp4",
+      "url": "https://samples.ffmpeg.org/A-codecs/AAC/aacPlusDecoderCheckPackage_v2.1/bitstreams/File3.mp4",
+      "bytes": 32995,
+      "sha256": "f251f65bb38cd3f2d53bf0ef9da0a249b394263168312df97430e152064aa021"
+    },
+    {
+      "name": "bitstreams/File4.mp4",
+      "url": "https://samples.ffmpeg.org/A-codecs/AAC/aacPlusDecoderCheckPackage_v2.1/bitstreams/File4.mp4",
+      "bytes": 32997,
+      "sha256": "c6303c32dbc4a47c27923578ee30b0f9182068c3496e74bef129d957a6ffbe01"
+    },
+    {
+      "name": "bitstreams/File5.mp4",
+      "url": "https://samples.ffmpeg.org/A-codecs/AAC/aacPlusDecoderCheckPackage_v2.1/bitstreams/File5.mp4",
+      "bytes": 32990,
+      "sha256": "49595c57f80deae34c2570bc227658a8d856babd978cd8151f74d43054a63ba5"
+    },
+    {
+      "name": "bitstreams/File6.3gp",
+      "url": "https://samples.ffmpeg.org/A-codecs/AAC/aacPlusDecoderCheckPackage_v2.1/bitstreams/File6.3gp",
+      "bytes": 32901,
+      "sha256": "bf4f1288fb3faa1dd23f6bfffad2bf6f3e8074a0c4d12e93e4982adfb2734058"
+    },
+    {
+      "name": "bitstreams/File7.3gp",
+      "url": "https://samples.ffmpeg.org/A-codecs/AAC/aacPlusDecoderCheckPackage_v2.1/bitstreams/File7.3gp",
+      "bytes": 32896,
+      "sha256": "bee9c5c9cae168c2ce4cab43564c1f83739b6dd07fd9c27bb490525f4142f885"
+    },
+    {
+      "name": "bitstreams/md5sum",
+      "url": "https://samples.ffmpeg.org/A-codecs/AAC/aacPlusDecoderCheckPackage_v2.1/bitstreams/md5sum",
+      "bytes": 308,
+      "sha256": "8b64010746afa269105790393c8d5c4d003accd09eb2abc259d0ee635adbfed7"
+    }
+  ],
+  "heV1": {
+    "url": "https://samples.ffmpeg.org/A-codecs/AAC/ct_nero-heaac.mp4",
+    "bytes": 163514,
+    "sha256": "e1890d642f7703961caa4954d59d858d755248d6118cb42c7d15c90bdf8b26a4",
+    "testOnly": true,
+    "redistribute": false
+  }
+}

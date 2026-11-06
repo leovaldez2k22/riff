@@ -1,0 +1,375 @@
+import java.nio.file.Files
+import java.io.File
+import java.security.MessageDigest
+plugins {
+    kotlin("jvm")
+    alias(libs.plugins.compose.compiler)
+    id("org.jetbrains.compose") version "1.12.2"
+    id("app.cash.sqldelight") version "2.1.0"
+}
+
+kotlin { jvmToolchain(21) }
+
+dependencies {
+    implementation(project(":desktop-data"))
+    implementation("com.ibm.icu:icu4j:78.3")
+    implementation("com.microsoft.onnxruntime:onnxruntime:1.31.1")
+    implementation(compose.desktop.currentOs)
+    implementation("net.java.dev.jna:jna:5.19.1")
+    implementation("app.cash.sqldelight:sqlite-driver:2.1.0")
+    implementation("app.cash.sqldelight:coroutines-extensions:2.1.0")
+    implementation("org.xerial:sqlite-jdbc:3.51.3.0")
+    implementation(libs.innertubex)
+    implementation("io.ktor:ktor-client-cio:3.6.0")
+    implementation("io.ktor:ktor-client-content-negotiation:3.6.0")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:3.6.0")
+    testImplementation(kotlin("test-junit"))
+}
+
+val copyRiffFont = tasks.register<Copy>("copyRiffFont") {
+    from(rootProject.file("app/src/main/res/font/inter_variable.ttf"))
+    into(layout.buildDirectory.dir("generated/riffResources/fonts"))
+}
+sourceSets.main { resources.srcDir(layout.buildDirectory.dir("generated/riffResources")) }
+val copyFontLicense = tasks.register<Copy>("copyFontLicense") {
+    from(rootProject.file("licenses/INTER-OFL.txt"),rootProject.file("licenses/ICU4J-78.3-LICENSE.txt"),rootProject.file("licenses/ONNXRUNTIME-MIT.txt"),rootProject.file("licenses/BEAT-THIS-MIT.txt"))
+    into(layout.buildDirectory.dir("generated/riffResources/META-INF/licenses"))
+}
+tasks.processResources { dependsOn(copyRiffFont, copyFontLicense) }
+
+// Preserve the existing declared desktop release version; runtime and native package consume this one value.
+val riffDesktopVersion = "0.1.0"
+val desktopIdentityResources = layout.buildDirectory.dir("generated/desktopIdentity")
+val generateDesktopBuildIdentity = tasks.register("generateDesktopBuildIdentity") {
+    inputs.property("desktopVersion", riffDesktopVersion)
+    outputs.dir(desktopIdentityResources)
+    doLast {
+        desktopIdentityResources.get().file("META-INF/riff-desktop.properties").asFile.apply {
+            parentFile.mkdirs()
+            writeText("version=$riffDesktopVersion\n", Charsets.US_ASCII)
+        }
+    }
+}
+sourceSets.main { resources.srcDir(desktopIdentityResources) }
+tasks.processResources { dependsOn(generateDesktopBuildIdentity) }
+tasks.test { systemProperty("riff.test.desktopVersion", riffDesktopVersion) }
+
+compose.desktop {
+    application {
+        mainClass = "com.musicglass.desktop.MainKt"
+        jvmArgs("--add-modules=jdk.accessibility", "-Djavax.accessibility.assistive_technologies=com.sun.java.accessibility.AccessBridge")
+        nativeDistributions {
+            packageName = "Riff Desktop Preview"
+            packageVersion = riffDesktopVersion
+            modules("jdk.httpserver", "jdk.accessibility", "jdk.crypto.ec", "java.sql", "java.net.http", "jdk.unsupported", "java.management")
+            targetFormats(
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe
+            )
+            windows {
+                menuGroup = "Riff"
+                perUserInstall = true
+                upgradeUuid = "6C31D8DF-8C9B-4F7D-B8D5-A1E2F3B4C5D6"
+            }
+        }
+    }
+}
+
+
+
+
+
+val providerProbe = configurations.create("providerProbe") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    attributes {
+        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
+        attribute(org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.attribute,
+            org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.jvm)
+    }
+}
+dependencies { add(providerProbe.name, libs.innertubex) }
+tasks.register("verifyProviderJvm") {
+    val probeFiles = providerProbe
+    val report = layout.buildDirectory.file("reports/provider-jvm.txt")
+    outputs.file(report)
+    doLast {
+        val files = probeFiles.resolve()
+        check(files.none { it.extension == "aar" }) { "Android AAR leaked into the desktop provider graph" }
+        check(files.any { it.name.startsWith("innertubex-desktop-") }) { "No desktop provider artifact" }
+        report.get().asFile.apply { parentFile.mkdirs(); writeText(files.map { it.name }.sorted().joinToString("\n")) }
+    }
+}
+
+
+
+sqldelight {
+    databases {
+        create("DesktopSessionDb") {
+            packageName.set("com.musicglass.desktop.storage")
+        }
+    }
+}
+
+
+tasks.test { exclude("**/NativeAudioIntegrationTest*","**/DownloadIntegrationTest*") }
+tasks.register<Test>("nativeAudioTest") {
+    systemProperty("riff.test.production.classpath",sourceSets.main.get().runtimeClasspath.asPath)
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    filter { includeTestsMatching("com.musicglass.desktop.NativeAudioIntegrationTest");includeTestsMatching("com.musicglass.desktop.DownloadIntegrationTest") }
+    systemProperty("riff.test.runtime.classpath",sourceSets.test.get().runtimeClasspath.asPath)
+    systemProperty("riff.native.dir", layout.buildDirectory.dir("native").get().asFile.absolutePath)
+    systemProperty("riff.corpus.dir", rootProject.file("artifacts/desktop/phase1/corpus").absolutePath)
+}
+tasks.register<JavaExec>("probeDesktopProvider") {
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.DesktopProviderProbe")
+    args(rootProject.file("artifacts/desktop/phase1/provider-probe").absolutePath, "dQw4w9WgXcQ")
+}
+
+
+val buildDesktopNative = tasks.register<Exec>("buildDesktopNative") {
+    workingDir(rootProject.projectDir)
+    commandLine("python", "scripts/desktop/build-phase1-native.py")
+    inputs.file(rootProject.file("native/riff-audio/riff_audio.cpp"))
+    inputs.file(rootProject.file("native/riff-audio/vendor/soundtouch-2.4.1.tar.gz"))
+    inputs.file(rootProject.file(".toolchain/desktop-native/download-manifest.json"))
+    inputs.file(rootProject.file("native/riff-audio/dependencies.json"))
+    outputs.file(layout.buildDirectory.file("native/riff_audio.dll"))
+}
+tasks.named("nativeAudioTest") { dependsOn(buildDesktopNative) }
+tasks.matching { it.name == "createDistributable" }.configureEach {
+    dependsOn(buildDesktopNative)
+    inputs.dir(layout.buildDirectory.dir("native"))
+    inputs.files(rootProject.file("licenses/FFMPEG-LGPL-3.0.txt"),rootProject.file("LICENSE"),rootProject.file("native/riff-audio/README.md"),rootProject.file("native/riff-audio/dependencies.json"))
+    doLast {
+        val image = layout.buildDirectory.dir("compose/binaries/main/app/Riff Desktop Preview").get().asFile
+        val appDir = image.resolve("app")
+        copy {
+            from(layout.buildDirectory.dir("native"))
+            include("riff_audio.dll", "avutil-60.dll", "swresample-6.dll", "avcodec-62.dll", "avformat-62.dll")
+            into(appDir.resolve("native"))
+        }
+        copy { from(rootProject.file("LICENSE"));from(rootProject.file("licenses/FFMPEG-LGPL-3.0.txt"));from(rootProject.file("licenses/SOUNDTOUCH-LGPL-2.1.txt"));from(rootProject.file("native/riff-audio/vendor/soundtouch-2.4.1.tar.gz"));from(rootProject.file("native/riff-audio/README.md"));from(rootProject.file("native/riff-audio/dependencies.json"));into(appDir.resolve("native/licenses")) }
+        val cfg = appDir.resolve("Riff Desktop Preview.cfg")
+        check(cfg.isFile) { "Packaged launcher configuration missing" }
+        val content = cfg.readText().lineSequence().filterNot { it.startsWith("java-options=-Driff.native.dir=") }.joinToString("\n") + "\njava-options=-Driff.native.dir=$" + "APPDIR/native\n"
+        cfg.writeText(content)
+        image.resolve("Riff Desktop Preview.exe").copyTo(image.resolve("RiffAudioWorker.exe"), overwrite = true)
+        appDir.resolve("RiffAudioWorker.cfg").writeText(content.replace("com.musicglass.desktop.MainKt", "com.musicglass.desktop.AudioWorkerMain"))
+    }
+}
+tasks.withType<JavaExec>().configureEach {
+    systemProperty("riff.native.dir", layout.buildDirectory.dir("native").get().asFile.absolutePath)
+}
+
+val prepareNativeCorpus=tasks.register<Exec>("prepareNativeCorpus") {
+    workingDir(rootProject.projectDir)
+    commandLine("python","scripts/desktop/prepare-phase1-corpus.py")
+    dependsOn(buildDesktopNative)
+}
+tasks.named("nativeAudioTest") { dependsOn(prepareNativeCorpus) }
+
+tasks.register<JavaExec>("phaseTwoAcceptance") {
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.PhaseTwoAcceptance")
+    dependsOn(buildDesktopNative,prepareNativeCorpus)
+    args(rootProject.file("artifacts/desktop/phase2/acceptance").absolutePath,rootProject.file("artifacts/desktop/phase1/corpus").absolutePath)
+}
+
+tasks.register<JavaExec>("phaseTwoCatalogProbe") {
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.PhaseTwoCatalogProbe")
+    args(rootProject.file("artifacts/desktop/phase2/catalog-probe").absolutePath)
+}
+
+tasks.test { exclude("**/CodecAcceptanceTest*") }
+val prepareCodecCorpus=tasks.register<Exec>("prepareCodecCorpus") {
+    workingDir(rootProject.projectDir)
+    commandLine("python","scripts/desktop/prepare-phase3-corpus.py")
+}
+tasks.register<Test>("nativeCodecTest") {
+    testClassesDirs=sourceSets.test.get().output.classesDirs
+    classpath=sourceSets.test.get().runtimeClasspath
+    filter{includeTestsMatching("com.musicglass.desktop.CodecAcceptanceTest")}
+    systemProperty("riff.repo.root",rootProject.projectDir.absolutePath)
+    systemProperty("riff.native.dir",layout.buildDirectory.dir("native").get().asFile.absolutePath)
+    dependsOn(buildDesktopNative,prepareCodecCorpus)
+}
+
+tasks.register("stageSoakRuntime") {
+    dependsOn(tasks.jar,":desktop-data:jar",buildDesktopNative)
+    doLast {
+        val root=rootProject.file("artifacts/desktop/phase3/soak").apply{mkdirs()}
+        val destination=Files.createTempDirectory(root.toPath(),"runtime-").toFile()
+        val libraries=destination.resolve("lib").apply{mkdirs()}
+        val classes=destination.resolve("classes").apply{mkdirs()}
+        sourceSets.main.get().runtimeClasspath.files.filter{it.exists()}.forEach{entry->if(entry.isDirectory)copy{from(entry);into(classes)}else entry.copyTo(libraries.resolve(entry.name))}
+        copy{from(layout.buildDirectory.dir("native"));include("riff_audio.dll","avutil-60.dll","swresample-6.dll","avcodec-62.dll","avformat-62.dll","codec-capabilities.json");into(destination.resolve("native"))}
+        val evidence=destination.resolve("evidence").apply{mkdirs()}
+        fun quote(value:String)="\""+value.replace("\\","\\\\").replace("\"","\\\"")+"\""
+        destination.resolve("launch.args").writeText(listOf(quote("-Driff.native.dir="+destination.resolve("native").absolutePath),"-cp",quote(classes.absolutePath+File.pathSeparator+libraries.absolutePath+"/*"),"com.musicglass.desktop.PhaseThreeSoak",quote(rootProject.file("artifacts/desktop/phase3/corpus").absolutePath),quote(evidence.absolutePath),"28800").joinToString("\n"))
+        root.resolve("latest-runtime.txt").writeText(destination.absolutePath)
+        destination.resolve("native-sha256.txt").writeText(MessageDigest.getInstance("SHA-256").digest(destination.resolve("native/riff_audio.dll").readBytes()).joinToString(""){"%02x".format(it)})
+        destination.resolve("runtime-sha256.txt").writeText(destination.walkTopDown().filter{it.isFile&&it.name!="runtime-sha256.txt"}.sortedBy{it.relativeTo(destination).invariantSeparatorsPath}.joinToString("\n"){file->
+            MessageDigest.getInstance("SHA-256").digest(file.readBytes()).joinToString(""){"%02x".format(it)}+"  "+file.relativeTo(destination).invariantSeparatorsPath
+        })
+        println("Staged isolated soak runtime: "+destination.absolutePath)
+    }
+}
+
+tasks.register<JavaExec>("phaseThreeAcceptance") {
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.PhaseThreeAcceptance")
+    dependsOn(buildDesktopNative,prepareCodecCorpus)
+    args(rootProject.file("artifacts/desktop/phase3/corpus").absolutePath,rootProject.file("artifacts/desktop/phase3/acceptance").absolutePath)
+}
+
+tasks.register<JavaExec>("remoteStreamDecodeAcceptance") {
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.RemoteStreamDecodeAcceptance")
+    dependsOn(buildDesktopNative)
+    args(rootProject.file("artifacts/desktop/phase3/remote-full-decode").absolutePath,"khnokW3Mw24")
+}
+
+tasks.register<JavaExec>("phaseTwoHistoryAcceptance") {
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.PhaseTwoHistoryAcceptance")
+    dependsOn(buildDesktopNative,prepareNativeCorpus)
+    args(rootProject.file("artifacts/desktop/phase3/history-acceptance").absolutePath,rootProject.file("artifacts/desktop/phase1/corpus/reference-long.flac").absolutePath)
+}
+
+tasks.register<JavaExec>("remotePlaybackEnduranceAcceptance") {
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.RemotePlaybackEnduranceAcceptance")
+    dependsOn(buildDesktopNative)
+    args(rootProject.file("artifacts/desktop/phase3/remote-playback-endurance").absolutePath,"khnokW3Mw24","180")
+}
+
+tasks.register<JavaExec>("codecLifecycleAcceptance") {
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.CodecLifecycleAcceptance")
+    dependsOn(buildDesktopNative,prepareCodecCorpus)
+    args(rootProject.file("artifacts/desktop/phase3/corpus").absolutePath,rootProject.file("artifacts/desktop/phase3/codec-lifecycle.json").absolutePath)
+}
+
+tasks.register<JavaExec>("recorderHandleDiagnostic") {
+    classpath=sourceSets.test.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.RecorderHandleDiagnostic")
+    dependsOn(tasks.testClasses,buildDesktopNative)
+    maxHeapSize="128m"
+    jvmArgs("-XX:FlightRecorderOptions=maxchunksize=1m")
+    args(rootProject.file("artifacts/desktop/phase3/soak/recorder-handle-diagnostic.json").absolutePath)
+}
+
+
+tasks.register<JavaExec>("downloadPlaybackAcceptance") {
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.DownloadPlaybackAcceptance")
+    dependsOn(buildDesktopNative)
+    maxHeapSize="256m"
+    args(rootProject.file("artifacts/desktop/phase3/download-playback-acceptance").absolutePath,"khnokW3Mw24")
+}
+
+
+tasks.register<JavaExec>("playbackIntentAcceptance") {
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.PlaybackIntentAcceptance")
+    dependsOn(buildDesktopNative,prepareNativeCorpus)
+    args(rootProject.file("artifacts/desktop/phase3/playback-intent-acceptance").absolutePath,rootProject.file("artifacts/desktop/phase1/corpus/reference-long.flac").absolutePath)
+}
+
+
+tasks.register<JavaExec>("canonicalEqualizerAcceptance") {
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.CanonicalEqualizerAcceptance")
+    dependsOn(buildDesktopNative,prepareNativeCorpus)
+    args(rootProject.file("artifacts/desktop/phase3/canonical-equalizer-acceptance").absolutePath,rootProject.file("artifacts/desktop/phase1/corpus/reference-long.flac").absolutePath)
+}
+
+
+tasks.register<JavaExec>("playbackSpeedAcceptance") {
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.PlaybackSpeedAcceptance")
+    dependsOn(buildDesktopNative,prepareNativeCorpus)
+    args(rootProject.file("artifacts/desktop/phase3/playback-speed-acceptance").absolutePath,rootProject.file("artifacts/desktop/phase1/corpus/reference-long.flac").absolutePath)
+}
+
+tasks.register<Test>("nativeBackgroundTest") {
+    testClassesDirs=sourceSets.test.get().output.classesDirs
+    classpath=sourceSets.test.get().runtimeClasspath
+    filter {
+        includeTestsMatching("com.musicglass.desktop.NativeAudioIntegrationTest")
+        includeTestsMatching("com.musicglass.desktop.DownloadIntegrationTest")
+        excludeTestsMatching("*.actualDualDeckPipelineReachesWindowsLoopback")
+    }
+    systemProperty("riff.test.runtime.classpath",sourceSets.test.get().runtimeClasspath.asPath)
+    systemProperty("riff.test.production.classpath",sourceSets.main.get().runtimeClasspath.asPath)
+    systemProperty("riff.native.dir",layout.buildDirectory.dir("native").get().asFile.absolutePath)
+    systemProperty("riff.corpus.dir",rootProject.file("artifacts/desktop/phase1/corpus").absolutePath)
+    dependsOn(buildDesktopNative,prepareNativeCorpus)
+}
+
+
+tasks.register<JavaExec>("episodeSpeedAcceptance") {
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.EpisodeSpeedAcceptance")
+    dependsOn(buildDesktopNative,prepareNativeCorpus)
+    args(rootProject.file("artifacts/desktop/phase3/episode-speed-acceptance").absolutePath,rootProject.file("artifacts/desktop/phase1/corpus/reference-long.flac").absolutePath)
+}
+
+
+tasks.register<JavaExec>("encorePlaybackAcceptance") {
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.EncorePlaybackAcceptance")
+    dependsOn(buildDesktopNative,prepareNativeCorpus)
+    args(rootProject.file("artifacts/desktop/phase3/encore-playback-acceptance").absolutePath,rootProject.file("artifacts/desktop/phase1/corpus/reference-long.flac").absolutePath)
+}
+
+
+tasks.register<JavaExec>("genreLookupAcceptance") {
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.GenreLookupAcceptance")
+    args(rootProject.file("artifacts/desktop/phase3/genre-lookup-acceptance").absolutePath)
+}
+
+val copyDesktopBeatModel=tasks.register<Copy>("copyDesktopBeatModel"){
+    val model=rootProject.file("app/src/main/assets/automix/beat-this-small0-int8.onnx")
+    from(model);into(layout.buildDirectory.dir("generated/riffResources/automix"))
+    doFirst{
+        check(model.length()==4655416L)
+        check(MessageDigest.getInstance("SHA-256").digest(model.readBytes()).joinToString(""){"%02x".format(it)}=="0e8b1cf3608dba5459826e940df4f15982a06e420e7a4d2b0a1a04acc587e32c"){"Beat model differs from the owner-approved Android asset"}
+    }
+}
+tasks.processResources{dependsOn(copyDesktopBeatModel)}
+
+tasks.register<JavaExec>("automixAnalysisAcceptance"){
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.automix.DesktopAutomixAnalysisAcceptance")
+    maxHeapSize="256m"
+    args(rootProject.file("artifacts/automix/pcm").absolutePath,rootProject.file("artifacts/desktop/phase3/automix-analysis").absolutePath)
+}
+
+// This explicit acceptance needs the retained owner-selected PCM excerpts; never a normal unit-test fixture.
+tasks.test { exclude("**/AutomixRecordedIntegrationTest*") }
+val prepareAutomixRecordedCorpus=tasks.register<Exec>("prepareAutomixRecordedCorpus") {
+    workingDir(rootProject.projectDir)
+    commandLine("python","scripts/desktop/prepare-automix-recorded-corpus.py")
+}
+tasks.register<Test>("automixRecordedTest") {
+    testClassesDirs=sourceSets.test.get().output.classesDirs
+    classpath=sourceSets.test.get().runtimeClasspath
+    filter{includeTestsMatching("com.musicglass.desktop.AutomixRecordedIntegrationTest")}
+    systemProperty("riff.native.dir",layout.buildDirectory.dir("native").get().asFile.absolutePath)
+    systemProperty("riff.recorded.dir",rootProject.file("artifacts/desktop/phase3/automix-recorded-corpus").absolutePath)
+    dependsOn(buildDesktopNative,prepareAutomixRecordedCorpus)
+}
+
+tasks.register<JavaExec>("remoteRestartAcceptance") {
+    classpath=sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.musicglass.desktop.RemoteRestartAcceptance")
+    dependsOn(buildDesktopNative)
+    args(rootProject.file("artifacts/desktop/phase3/remote-restart-acceptance").absolutePath,"khnokW3Mw24")
+}

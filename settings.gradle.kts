@@ -23,3 +23,7 @@ dependencyResolutionManagement {
 rootProject.name = "Riff"
 include(":app")
 include(":benchmark")
+
+// Windows desktop feasibility module; Android modules keep their existing boundaries.
+if (providers.gradleProperty("riffDesktop").orNull == "true") include(":desktop", ":desktop-data")
+

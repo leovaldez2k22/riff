@@ -1,0 +1,11 @@
+{
+  "caseId": "signature-tamper",
+  "outcome": "INVALID_SIGNATURE",
+  "stored": "none",
+  "syntaxError": null,
+  "signedPayloadBytes": 585,
+  "finalByte": 10,
+  "keyId": "test-rfc8032-01",
+  "signedKeyId": "test-rfc8032-01",
+  "clock": 1793578000
+}

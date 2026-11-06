@@ -1,0 +1,9 @@
+# TEST-ONLY full release corpus
+
+Generated only by scripts/desktop/generate-update-vectors.cjs using the public RFC 8032 section 7.1 seed and a second distinct TEST-ONLY seed derived from SHA-256 of the public label RIFF RELEASE CORPUS SECOND PUBLIC TEST KEY - NOT FOR PRODUCTION. No release credentials. Original parent-directory Module 2 vectors are immutable and unchanged.
+
+27 named cases: see expectations.tsv and each expected-results.json. configuration.json fixes the clock, trust aliases, installed version, capabilities, bootstrap and optional conflict state. The corpus is not production configuration. Both distinct public keys are stored at this root; every case stores exact payload.bin, preimage.bin/preimage.hex, signature.bin, envelope.json and expected results. sha256.json covers 168 generated files (not itself/this README).
+
+Default payloads end LF, no-final-newline deliberately does not, body-exact/body-over end spaces; each expected-results.json records signed byte count and final byte value. Preimage/signature binaries have no terminator, hex and JSON files end LF. For tampered cases, preimage/signature files record the authentic original signing operation; envelope.json deliberately carries the named payload/signature/key-ID mutation. Correctly signed schema/policy failures exercise later layers instead of failing accidentally at authentication.
+
+Node/OpenSSL assembles/signs independently. Kotlin/JCA checks every original preimage/signature and routes emitted envelopes through verifier, parser and full coordinator. Production package excludes this entire test-resource subtree and test signing material. See scripts/desktop/README.md and UPDATE-06 result for reproduction and limitations.

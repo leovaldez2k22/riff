@@ -1,0 +1,11 @@
+{
+  "caseId": "conflict",
+  "outcome": "RELEASE_CONFLICT",
+  "stored": "valid",
+  "syntaxError": null,
+  "signedPayloadBytes": 562,
+  "finalByte": 10,
+  "keyId": "test-rfc8032-01",
+  "signedKeyId": "test-rfc8032-01",
+  "clock": 1793578000
+}

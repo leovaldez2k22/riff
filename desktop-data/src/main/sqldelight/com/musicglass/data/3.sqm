@@ -1,0 +1,8 @@
+CREATE TABLE download_job (
+ scope TEXT NOT NULL,track_id TEXT NOT NULL,state TEXT NOT NULL,
+ bytes INTEGER NOT NULL DEFAULT 0,total INTEGER NOT NULL DEFAULT -1,sha256 TEXT,error_code TEXT,updated_ms INTEGER NOT NULL,
+ PRIMARY KEY(scope,track_id),FOREIGN KEY(scope,track_id) REFERENCES track(scope,id),
+ CHECK(state IN ('Queued','Resolving','Transferring','Paused','Verifying','Complete','Failed','Removing')),
+ CHECK(bytes>=0 AND total>=-1)
+);
+CREATE INDEX download_job_work ON download_job(state,updated_ms);

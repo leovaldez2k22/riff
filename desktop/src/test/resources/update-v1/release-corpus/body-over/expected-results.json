@@ -1,0 +1,11 @@
+{
+  "caseId": "body-over",
+  "outcome": "SIZE_LIMIT",
+  "stored": "none",
+  "syntaxError": "SIZE_LIMIT",
+  "signedPayloadBytes": 65537,
+  "finalByte": 32,
+  "keyId": "test-rfc8032-01",
+  "signedKeyId": "test-rfc8032-01",
+  "clock": 1793578000
+}

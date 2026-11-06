@@ -37,5 +37,31 @@ Ktor, OkHttp, Okio, Coil and Guava, MIT for SLF4J, and Google's Android SDK term
 Google Play services parts Cast uses (closed source, distributed by Google). That inventory is declared metadata, not a
 legal review.
 
+## Desktop feasibility preview (1 November 2026)
+
+The opt-in desktop module uses JetBrains Compose Multiplatform 1.12.2 (Apache-2.0), with Skiko/Skia native rendering dependencies. Inter is reused unchanged under SIL OFL-1.1; its license is bundled in the desktop resources. Native transitive notices and corresponding source inventory must be audited before distributing an installer; this preview is not a release artifact.
+
+
+## Windows walking skeleton (2 November 2026)
+
+The opt-in desktop app now bundles SQLDelight 2.1.0 (Apache-2.0), Xerial SQLite JDBC 3.51.3.0 (Apache-2.0/BSD-2-Clause declared upstream), Ktor 3.6.0 (Apache-2.0), and InnerTubeX desktop 0.11.2 with QuackJS 0.1.2 (GPL-3.0). Native audio dynamically links FFmpeg `n8.1.3-32-g760d10603e-20261102`, supplied by BtbN under LGPL-3.0; see [license](licenses/FFMPEG-LGPL-3.0.txt), [native build/provenance](native/riff-audio/README.md), and [pinned downloads](native/riff-audio/dependencies.json). Zig 0.15.2 is used only for compilation and is not shipped. Local music test recordings and downloaded provider acceptance audio are excluded from the packaged app. These local acceptance builds do not establish public release license/source compliance; complete native transitive notices and corresponding sources remain a release gate.
+
+## Windows lyrics transliteration (3 November 2026)
+
+The desktop module uses ICU4J 78.3 from Unicode, under Unicode License v3 with its included historical third-party notices. The complete upstream release license is retained in [licenses/ICU4J-78.3-LICENSE.txt](licenses/ICU4J-78.3-LICENSE.txt) and copied into desktop resources. The Any-Latin; Latin-ASCII transform runs locally and its mechanical output is labelled Auto. Source-provided romanization takes precedence. No new translation or transliteration network destination is introduced.
+
+
+Riff Desktop's canonical equalizer ports Riff Android's `EqualizerCurve.kt` and `PcmEqualizer`
+to independent Float32 decoder decks. The section layout and equalizer design follow the
+[BitChord](https://github.com/kushagrasinghx/BitChord) reference documented in Riff's Feature 10
+plan (GPL-3.0; reference revision 04a4a83). The Android PCM16 comparison processor is isolated
+test source and is not distributed.
+
 Riff Android's `ChunkedStreamDataSource` adapts the design of `ChunkedDataSource` and the range sizes of
 `PlayerClient.rangeBytesFor` from [BitChord](https://github.com/kushagrasinghx/BitChord) (GPL-3.0; revision b690dc1).
+
+
+Riff Desktop's Float32 pitch-preserving tempo engine includes unmodified [SoundTouch 2.4.1](https://www.surina.net/soundtouch),
+copyright Olli Parviainen and contributors, LGPL version 2.1 or later. Full license:
+[licenses/SOUNDTOUCH-LGPL-2.1.txt](licenses/SOUNDTOUCH-LGPL-2.1.txt). The pinned corresponding source archive
+is retained at `native/riff-audio/vendor/soundtouch-2.4.1.tar.gz` and supplied with the desktop native notices.

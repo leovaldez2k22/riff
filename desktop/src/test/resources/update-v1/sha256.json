@@ -1,0 +1,10 @@
+{
+  "public-key.hex": "40d359139cfd8af4ff3ebfbf9c8845468ca7876582189c11d3293b832f660632",
+  "expected-results.json": "8d1399fd17c981b9e88a79cc7ce33b810c004d695cd80a44005738792057faae",
+  "public-key.der": "06e3fd8fda29bb60ab59557de61edb0aecdb231134be30e75b455f8e1b792fa9",
+  "payload.bin": "1f4edb718138ca8ef8b8a4bc546e716c30c830eb0dc1bd8a7e736002689cbbfa",
+  "preimage.bin": "d2b7de78f0f871761d3da1f0f9ca95caa3dd7e42a5ae75acfd40b87e6c2c63b1",
+  "preimage.hex": "6f82c1f1e404b03a4da2095c64f30b0743bc76c199ed93c0acc8d45e410b2a15",
+  "signature.bin": "7e6934133dd0bef03486762b372f13f2f64883b98ed83e05462f5ee6c642e28f",
+  "envelope.json": "279df53f58eb84d5e7587d368cfbcd902f38ebecd56d444448e66e3f55347711"
+}

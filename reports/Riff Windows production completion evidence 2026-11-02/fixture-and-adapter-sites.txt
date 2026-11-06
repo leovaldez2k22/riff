@@ -1,0 +1,51 @@
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\AudioWorkerMain.kt:56:                        AudioResult(cmd.requestId, success = true, appliedStateRevision = 1L)
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\AudioWorkerMain.kt:60:                        AudioResult(cmd.requestId, success = true, appliedStateRevision = 1L)
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\AudioWorkerMain.kt:64:                        AudioResult(cmd.requestId, success = true, appliedStateRevision = 1L)
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\AudioWorkerMain.kt:68:                        AudioResult(cmd.requestId, success = true, appliedStateRevision = cmd.timelineEpoch)
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\AudioWorkerMain.kt:72:                        AudioResult(cmd.requestId, success = true, appliedStateRevision = 1L)
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\AudioWorkerMain.kt:76:                        AudioResult(cmd.requestId, success = true, appliedStateRevision = 1L)
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\AudioWorkerMain.kt:86:                        AudioResult(cmd.requestId, success = true, appliedStateRevision = 1L)
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\AudioWorkerMain.kt:90:                        AudioResult(cmd.requestId, success = true, appliedStateRevision = 1L)
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\AudioWorkerMain.kt:94:                        AudioResult(cmd.requestId, success = true, appliedStateRevision = 1L)
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopStreamResolver.kt:74:                        "riff://stream/$sessionScope/$trackId"
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopHost.kt:66:    val currentTrack: SongItem = FixtureTracks.cinnamonGirl,
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopHost.kt:72:    val queueEntries: List<QueueEntry> = FixtureTracks.all.map { QueueEntry(song = it) },
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBridge.kt:171:                AudioResult(command.requestId, success = true, appliedStateRevision = 1L)
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBridge.kt:178:                AudioResult(command.requestId, success = true, appliedStateRevision = epoch)
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBridge.kt:183:                AudioResult(command.requestId, success = true, appliedStateRevision = timelineEpoch.get())
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBridge.kt:189:                AudioResult(command.requestId, success = true, appliedStateRevision = epoch)
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBridge.kt:193:                AudioResult(command.requestId, success = true, appliedStateRevision = timelineEpoch.get())
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBridge.kt:197:                AudioResult(command.requestId, success = true, appliedStateRevision = timelineEpoch.get())
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBridge.kt:207:                AudioResult(command.requestId, success = true, appliedStateRevision = timelineEpoch.get())
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBridge.kt:211:                AudioResult(command.requestId, success = true, appliedStateRevision = timelineEpoch.get())
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBridge.kt:215:                AudioResult(command.requestId, success = true, appliedStateRevision = timelineEpoch.get())
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBackend.kt:24:    private var isHeadlessFallback = false
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBackend.kt:41:                isHeadlessFallback = false
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBackend.kt:43:                isHeadlessFallback = true
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBackend.kt:46:            isHeadlessFallback = true
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBackend.kt:60:        if (!isHeadlessFallback && currentLine != null && currentLine.isOpen) {
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBackend.kt:102:        if (!isHeadlessFallback && currentLine != null && currentLine.isOpen) {
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopAudioBackend.kt:116:    fun isUsingHeadlessFallback(): Boolean = isHeadlessFallback
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopDualDeckMixer.kt:23:internal class SyntheticTrackSource(
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopDualDeckMixer.kt:319:                SyntheticTrackSource(trackId, sampleRate = backend.sampleRate, channels = backend.channels)
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\DesktopDualDeckMixer.kt:322:            SyntheticTrackSource(trackId, sampleRate = backend.sampleRate, channels = backend.channels)
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:67:                FixtureTracks.all.take(3).forEach { track ->
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:83:                items(FixtureTracks.albums) { album ->
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:97:                items(FixtureTracks.artists) { artist ->
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:108:                FixtureTracks.all.forEach { track ->
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:133:        if (query.isBlank()) FixtureTracks.all
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:134:        else FixtureTracks.all.filter {
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:142:        if (query.isBlank()) FixtureTracks.albums
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:143:        else FixtureTracks.albums.filter {
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:283:                items(FixtureTracks.playlists) { playlist ->
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:288:                items(FixtureTracks.all) { track ->
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:298:                        FixtureTracks.albums.take(3).forEach { album ->
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:307:                items(FixtureTracks.artists) { artist ->
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:315:                items(FixtureTracks.all.take(3)) { track ->
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:341:        items(FixtureTracks.podcasts) { pod ->
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:395:                FixtureTracks.radioStations.forEach { station ->
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:438:    val album = FixtureTracks.albums.firstOrNull { it.id == albumId } ?: FixtureTracks.albums.first()
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:535:    val artist = FixtureTracks.artists.firstOrNull { it.id == artistId } ?: FixtureTracks.artists.first()
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:621:    val playlist = FixtureTracks.playlists.firstOrNull { it.id == playlistId } ?: FixtureTracks.playlists.first()
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceStages.kt:1002:                FixtureTracks.all.forEachIndexed { i, track ->
+C:\Volume D\Riff\desktop\src\main\kotlin\com\musicglass\desktop\WorkspaceModels.kt:123:internal object FixtureTracks {

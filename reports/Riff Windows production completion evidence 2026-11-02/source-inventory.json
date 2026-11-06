@@ -1,0 +1,503 @@
+{
+  "scope": "Fingerprints of inspected/adjacent source anchors; not a whole-repository security audit",
+  "files": [
+    {
+      "path": "app/src/main/java/com/musicglass/personal/AccountSession.kt",
+      "bytes": 12067,
+      "sha256": "7b8d62033f041fdc93916e9b01dcdbd23b1ca7402f2f52dac35f342fb60aa01e"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/AndroidStreamTokenProvider.kt",
+      "bytes": 14079,
+      "sha256": "fd3b610b27b152a7422c254ae184458c5c4ba6fa747a3d5c282bfa8b6c100e6b"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/AndroidTokenRuntime.kt",
+      "bytes": 5378,
+      "sha256": "7d4a5d6437eff6fb7f3b543d8c12159c297b6664169701da2c550d149812e0fd"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/ArtworkColor.kt",
+      "bytes": 2102,
+      "sha256": "bd7088e92bce3de3326fcba5af85564a45f67fc3a98d0674b4cfceac5d9d79d9"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/ArtworkImageLoader.kt",
+      "bytes": 3200,
+      "sha256": "a5aaa3c0ea202657712cb3c72b885f12e8c4ebaef3544d62e9c9898c134007f7"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/ArtworkPalette.kt",
+      "bytes": 2059,
+      "sha256": "8d7632e6ef5d8c9de694bcc5764f156c26213111da9e613e480f80752c007a1a"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/AudioSessionEffects.kt",
+      "bytes": 2617,
+      "sha256": "137ead52ca2637bed7206ac293e9a154a02cc41e1bc76521e8a1880de02abb28"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/Crossfade.kt",
+      "bytes": 31187,
+      "sha256": "ea2f55c2f9f3ddfe96b5fe7dc1c53c22788e284821f10c2a6c9dd8813c98a409"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/DesignTokens.kt",
+      "bytes": 20023,
+      "sha256": "af2db9bcc71b4e416eb97f63bf18297032df1261d4459a36cb22f005ea6eb532"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/EncoreRepository.kt",
+      "bytes": 27257,
+      "sha256": "63ebc6d350ffaa2c3245f940ff16bf6eeb700cc162e3a001e7d5619c4dd9e3df"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/LocalAudioRepository.kt",
+      "bytes": 2649,
+      "sha256": "a42a588f28126b1d06cbef113eec83ce261b288f8536df66d40581deab9cc323"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/LrcRedLyrics.kt",
+      "bytes": 2997,
+      "sha256": "c2353938c10749bd3d84d5fb4ae4285a9e2a5e88b9ba8acf6d19a3c3600520bd"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/LyricsModels.kt",
+      "bytes": 26690,
+      "sha256": "81ef412445d5b02b1feaa6ed9e90494de6523a0522d4e8a259333456b32f3b8e"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/LyricsRepository.kt",
+      "bytes": 30798,
+      "sha256": "8f12ab8af539e3a4b225b2f8cc2ccbfd8765c8c63ccd0ce8626f55bd30958437"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/MusicCachePolicy.kt",
+      "bytes": 1881,
+      "sha256": "f62950bbcc9730e1961fdf8751667a67c713302b5a7624e610de6216ff883a1b"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/MusicDiskCache.kt",
+      "bytes": 2226,
+      "sha256": "78fca77c93c756eaa253e0a74393ea7829812ef4ac26145c8f3afccbbdaa39cf"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/MusicPlaybackService.kt",
+      "bytes": 44282,
+      "sha256": "1e6765053d1b5c53dc0e09e912af3dbeec9661bb2bdb58979411c2a00e120a3c"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/OfflineDownloadEngine.kt",
+      "bytes": 26354,
+      "sha256": "b8335aecf540e5c008b367d60badee30f55e1177f9a3244f32e665e2c7f743de"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/OfflineDownloadService.kt",
+      "bytes": 8740,
+      "sha256": "7e6dcaac0051cf40dd408dc8a39088727fdca14a435a7a0522e9660a96491aa6"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/OriginalAudioEngine.kt",
+      "bytes": 2310,
+      "sha256": "ad7749e74e87b3745b3f0de201136ced1b359d8e204b6ee62e3692cf37d02bef"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/PlaybackFaults.kt",
+      "bytes": 4068,
+      "sha256": "ea2f6071dd026c8a1c022add6238a9d5f035d57b6561959df68de401d631a46a"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/PlaybackGateway.kt",
+      "bytes": 34690,
+      "sha256": "fec12959203d5fce31353c3cb4c01ca2fc25d502d63f0636178ac5f035debeb9"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/PlaybackPersistence.kt",
+      "bytes": 7622,
+      "sha256": "8ce5dda630e7f470677b234f927d7d7b3c91a82ef02070a357b9fc6da0630a61"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/PlaybackProtocol.kt",
+      "bytes": 811,
+      "sha256": "135c93652fe452e743142ce5828024de30ff35351e549bb7861d89d87f1b9649"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/PlaybackRecovery.kt",
+      "bytes": 21890,
+      "sha256": "49920211de31e4b166d6dd15b0b6257c3083e1d91bc6493ad637c1edce31addb"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/PlaybackSnapshot.kt",
+      "bytes": 6955,
+      "sha256": "9c9c1a4bae6e1f52774d3f9f81b282fba5edca3db22fdf131da76c0146ae6c75"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/PlaybackSources.kt",
+      "bytes": 10139,
+      "sha256": "25b95e98f15bbb13fd28380c22a2361c54e1dae264539764f98400a225551e03"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/ProviderCatalog.kt",
+      "bytes": 29608,
+      "sha256": "bd8dd79d65f08bb702debc3c7bb8ce5b23dde3cfa31e346dcea1a70665015623"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/ProviderCatalogRepository.kt",
+      "bytes": 43063,
+      "sha256": "097ce68c23d9e9a62b34a9db5b8836af281347177e0483fe4340b52229a04cfa"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/ProviderContracts.kt",
+      "bytes": 16471,
+      "sha256": "05f6098e1b9ccdff05a277855319c7f8ccddfec4caaa11071adce6d5cc5475b4"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/ProviderLibraryRepository.kt",
+      "bytes": 21957,
+      "sha256": "148daff8eefb670b1e75fe1f7dbbbe633c7c8866c86ede1d3fac13261e5ff8a2"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/ProviderSessionManager.kt",
+      "bytes": 23269,
+      "sha256": "a08d8f7bdf576019c2263fad7249298aa4a480f8ceeaa1e7da6e4d8cb76ba070"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/ProviderStreamResolver.kt",
+      "bytes": 26329,
+      "sha256": "f5e4468637b3ed8868662fe91120f093cecf4a1ec424db536c7b509894484795"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/RemoteCipherClient.kt",
+      "bytes": 9270,
+      "sha256": "088c4ce39f5325060f3960ca0a8392b920ad2fa2beae793bb1c3e4ea48fa7629"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/RiffGlass.kt",
+      "bytes": 17912,
+      "sha256": "1eef7f40a61791c8ae53f02fa1fc66ffa7ada35b37ff701e34054a8e87f56128"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/SolverService.kt",
+      "bytes": 7912,
+      "sha256": "c704af115bf7e97be3afd6292a582c54155bbcce4795533cb4814156202842b6"
+    },
+    {
+      "path": "app/src/main/java/com/musicglass/personal/YouTubeMusicProvider.kt",
+      "bytes": 13216,
+      "sha256": "a5bd7663b0ee2f534224eab3232ee80087abde8d8ad9b729497823b0798ca7cf"
+    },
+    {
+      "path": "app/src/main/res/font/inter_variable.ttf",
+      "bytes": 879708,
+      "sha256": "4989b125924991b90d05b2d16e0e388c48f7d5bb8b30539bbf9c755278d0ccaf"
+    },
+    {
+      "path": "desktop/build.gradle.kts",
+      "bytes": 3686,
+      "sha256": "e3dcb86387c45d36ecc403bf4972a5a80b8f77e7b655138b94564ffa08a8a5bd"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/AmbientBackdrop.kt",
+      "bytes": 3767,
+      "sha256": "aecbef6544da56e59e4e6a3a3818c42b49ac20287b93eaa5a47b378b6e5324f3"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/ArtworkDeckFixture.kt",
+      "bytes": 2945,
+      "sha256": "153032352ffc1492a754d0291876d89085ecf3d24acd00911306a3357c74e17f"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/ArtworkMath.kt",
+      "bytes": 4280,
+      "sha256": "ea6498988d2310c20005d689cadbef2f8e4bb5941fd7a3c825e48f210b63c868"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/ArtworkPalette.kt",
+      "bytes": 2060,
+      "sha256": "5f14db925e54cc2c4f5e136352a6ce581c2e8576c471677d8d78d80de516f9db"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/AudioContract.kt",
+      "bytes": 4912,
+      "sha256": "d4928439c2cf806d6c500e6db543c937aa81372babb8c1411bd229d0ca545cf7"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/AudioIpcTransport.kt",
+      "bytes": 15379,
+      "sha256": "895893fb55d32b1239debfe5907a68c2ba37db0d75db63778fcdda63d90487a3"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/AudioWorkerMain.kt",
+      "bytes": 5204,
+      "sha256": "e3c388a79bb0eae9bbe62360fffceb3ddb248c6c848022db9f829b7c5088c219"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/CanonicalTokens.kt",
+      "bytes": 18800,
+      "sha256": "600e080acb2c131d6202065a63f5496cef80f7770837281efd763be4787f35d1"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopArtPipeline.kt",
+      "bytes": 6765,
+      "sha256": "92ba86eb7e34f0b03ec432bc1f76f822d0d1401a61d48b8d8bfe0569d7ec53e7"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopAudioBackend.kt",
+      "bytes": 4603,
+      "sha256": "45ce4fe760ce5a833899a11d3eb0f2e0c74971b05ffde8cb796ae04e92d00e7c"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopAudioBridge.kt",
+      "bytes": 12017,
+      "sha256": "8661b9b3e7e6c866632d9c3c6d0c54a27cbb76bc8a92737968cb195c1a95469f"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopAudioCache.kt",
+      "bytes": 9131,
+      "sha256": "c538fd7c3dcebfd502f1139322fefb5253cda7a0c87196e31fc1c3625e5c941a"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopBuildIdentity.kt",
+      "bytes": 913,
+      "sha256": "24438ed80e7f2ace3b7ef03a7ba98bdf02b97f6a38fb0624f168626f4f0cf25e"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopDatabase.kt",
+      "bytes": 11470,
+      "sha256": "a5862464c2091cf8d971663bf52c1752ed1a38a8ea1042cb2faf71c21ac2ad85"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopDock.kt",
+      "bytes": 26216,
+      "sha256": "2fc586c73e9100d4d3a5c77e15283924377fb1a4d991f1e6e8cda7fa8d0a6748"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopDSP.kt",
+      "bytes": 6153,
+      "sha256": "d304946d3b8db0a4e6627e1e327209da19d4879faad90789eafc62719a5dbfa5"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopDualDeckMixer.kt",
+      "bytes": 17151,
+      "sha256": "00f62dad626a9a2e0b1e30710f64848b7f2c4449efc7732f13eccb450a49eaf1"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopFFT.kt",
+      "bytes": 3923,
+      "sha256": "0ff106070e582d2cc0261d9c41700ccd121c0bb19fddfc682e25c3f6be390319"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopGlass.kt",
+      "bytes": 15162,
+      "sha256": "761da3bb299c471124077901d4b5eb7a6b3978959a70e196fe814cd96efafc29"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopHost.kt",
+      "bytes": 27973,
+      "sha256": "cad1138373a3e1f803ada59cd3e676d8b725e0e9f6c92de16f1a8f347f3f4745"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopOSCoordinator.kt",
+      "bytes": 4032,
+      "sha256": "40ddca297db605ef0cd91aa1fbfd9c469f31cafc2cbe0207ae5b94b8a614e488"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopStreamResolver.kt",
+      "bytes": 4825,
+      "sha256": "8fc2181bfb0f090c5004a6b556ebf64a0f188ae626c3c37061dbe11241ca05d5"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopUpdateClient.kt",
+      "bytes": 5543,
+      "sha256": "5351c4fdf1543fe9f6679a59a0cb30a8e2776195aa1c1d70b77274069c9ff784"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DesktopWindowStateManager.kt",
+      "bytes": 6001,
+      "sha256": "4834dbfdda7ee9c2e04d5a9939c63646ab1964ad3dbbb8d96e0f629c98060c56"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/DiscordPresence.kt",
+      "bytes": 4706,
+      "sha256": "f4d28c74936f35b75c46f40ef1c7db35d763aa9a62f1ed2b2508302fcddd8a08"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/GlassControls.kt",
+      "bytes": 4195,
+      "sha256": "5238e9c48149971d167ae21204234d8d5e1c56cd7fdf68c4bcad07d7e8a6313b"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/GlassGallery.kt",
+      "bytes": 10644,
+      "sha256": "026aadbd1a80a3545c71a9a011b85d9c379305408db2ab7aae80a6ea83c659b2"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/GlassSegmented.kt",
+      "bytes": 10584,
+      "sha256": "4928dc6ef0b0dee18db022c6a7c3ef2b8a86f8e22b9966bbfcf2abde2324de78"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/GlobalShortcuts.kt",
+      "bytes": 2934,
+      "sha256": "0a737571fd536a9b61653f75d89008d6f5c91f0aab0fc1224a31123a3408008f"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/InspectorPane.kt",
+      "bytes": 28939,
+      "sha256": "ff7e29c866b87c7e04f93fb2df964bfc82c9067459f5469e23ad857c33804793"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/LyricModels.kt",
+      "bytes": 4289,
+      "sha256": "52a938ffe59d1362e1f600a044663dbd039a2574c119d587830e51d84ddfa3b0"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/LyricsKaraoke.kt",
+      "bytes": 22935,
+      "sha256": "c5d2cbe52e1fc5f37b027b5a1134a57bf7ffa022ba839722f6002d2088559398"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/Main.kt",
+      "bytes": 46341,
+      "sha256": "d7235de5041e901bbf32e7ae7962564001d1ce42f12af273f8af3d45fcc5ee2a"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/MiniPlayer.kt",
+      "bytes": 15924,
+      "sha256": "bfebac886cdc55e34c84fa7a533f16a19f712d6596269c3a69b145f225e9ca1a"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/Motion.kt",
+      "bytes": 3597,
+      "sha256": "2b76a94fef0fd6ce074fa91427dfa2e3784ca1920d2f17f933fda2d6ba13bcf2"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/NavigationLens.kt",
+      "bytes": 12257,
+      "sha256": "814e1854640043f69b2f1484be6666eabf0570aeb0c6a7a334a3d4148d2c5031"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/NavigationSidebar.kt",
+      "bytes": 12718,
+      "sha256": "5bcd054fe3f1e4a59c7ddeeb530f827b2303a3245f9599b781c4a92fc9aabf33"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/OSIntegrationContract.kt",
+      "bytes": 2361,
+      "sha256": "4a89f5654ec1c10e63668dfc723914cda61108faf7ec90c650d96ac48c4ee392"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/PowerManagement.kt",
+      "bytes": 2256,
+      "sha256": "f2e5259d3147f96fd19a295921691f8ac5231f22d02c57c0d5a0b59ddea86026"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/RiffDesign.kt",
+      "bytes": 555,
+      "sha256": "dbfaa4ec2fab09b409af0ef981558a7bb2730df351ee198128bd77c76e1da026"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/TabLens.kt",
+      "bytes": 3754,
+      "sha256": "e02e6c633f82f54feca8e3806eec7949ab968b9b3637112895c0d9cb65b294b0"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/UpdateEligibilityPolicy.kt",
+      "bytes": 8668,
+      "sha256": "7ee20624243d54b272fdea1580ef4a6932e255377cb3132d719d9a8f9b8da9e7"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/UpdateEnvelopeVerifier.kt",
+      "bytes": 14951,
+      "sha256": "6c12de0c0d8fad87fa719d039f37c71ad83342e6c9a490dd2092ed436b9828b3"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/UpdateFreshnessStore.kt",
+      "bytes": 8557,
+      "sha256": "20543ca918b128219b9e1589a9f111320ef12577777f6b5757b3eecde031d578"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/UpdateManifestValidationMain.kt",
+      "bytes": 917,
+      "sha256": "ac2ea5cdcb3983fa3ff21579327899927844e2a84f7dc1c3af6e1e3772cc96c1"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/UpdatePayloadParser.kt",
+      "bytes": 12629,
+      "sha256": "ff51c748a60d1186c47eddba60d2b773aee696cebd456dc56ce476a7ac1ada0d"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/UpdateVerificationProbe.kt",
+      "bytes": 1193,
+      "sha256": "45bcf0af31c9a92e9ad75b5807f8651389b594c337f2660a181b301f1cc52c1a"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/UpdateVersion.kt",
+      "bytes": 1088,
+      "sha256": "947fe2aabdb33e2eaf5279633b8b2ed642cf6d093ada2de5085e5b98fbd9631c"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/WindowsChrome.kt",
+      "bytes": 6435,
+      "sha256": "97e32c9dc62e19eee0a2ba960d4f23e2340eaeb6c61c8f9e175e99764873bad0"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/WindowsSMTC.kt",
+      "bytes": 3400,
+      "sha256": "93980a09dbdd6fec0514a970f8ad027f9976c284b8eeffbf3cf4dfaca2ccc1a6"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/WindowsTray.kt",
+      "bytes": 4560,
+      "sha256": "6e751d5d7e9b860dbd7b0596766c453cfb3c04917486dff3d287fffc58c6dda3"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/WorkspaceDivider.kt",
+      "bytes": 4519,
+      "sha256": "e2fa03ccdc7cf7c181fb7ce1d86e6b58717b82eb0970868256c5f527d5c4b910"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/WorkspaceLayout.kt",
+      "bytes": 4058,
+      "sha256": "e2487e9eb340a412849bf1f340a8a80d4912094f74448ae67ee0abf047ef3536"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/WorkspaceModels.kt",
+      "bytes": 13390,
+      "sha256": "52ab8079d35a9d6047fb532ab9a78791595fd5300a5fec71bcc718d4dcbaeaf5"
+    },
+    {
+      "path": "desktop/src/main/kotlin/com/musicglass/desktop/WorkspaceStages.kt",
+      "bytes": 47841,
+      "sha256": "e0576a00e79a80052b0c35bb05a8b12615f66038e6d64f3117defad28f7a4791"
+    },
+    {
+      "path": "desktop/src/main/resources/shaders/riff-glass.sksl",
+      "bytes": 2285,
+      "sha256": "6b38c0d81c310bbe6e31e8032eda5e916dec42c00a8bcbc897e100376119e309"
+    },
+    {
+      "path": "docs/desktop/handoffs/update-07-result.md",
+      "bytes": 10424,
+      "sha256": "139ddf3794dd324d1de869e2146eee0e8cdea38aff789b5e01f8bcc91ee2ede1"
+    },
+    {
+      "path": "docs/desktop/handoffs/update-07-review.md",
+      "bytes": 13648,
+      "sha256": "9e7af6bd07d0282e5e53274494e701101e6a7012386622096980443053f67839"
+    },
+    {
+      "path": "docs/handover-0.20.0.md",
+      "bytes": 29230,
+      "sha256": "71e90517edb7b1557c7b8cfe12431b0e6903f36841c9fab08247e7e6092c7094"
+    },
+    {
+      "path": "gradle/libs.versions.toml",
+      "bytes": 3231,
+      "sha256": "d1ba3cad154634eb7faee78c69457cb54e87a09c086fe9eb73ec39344aca6978"
+    }
+  ],
+  "missingOptionalNameCandidates": [
+    "app/src/main/java/com/musicglass/personal/Motion.kt"
+  ]
+}

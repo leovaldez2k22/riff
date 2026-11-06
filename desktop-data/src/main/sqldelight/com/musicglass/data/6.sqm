@@ -1,0 +1,9 @@
+CREATE TABLE encore_lifetime (
+ scope TEXT NOT NULL,kind TEXT NOT NULL,key TEXT NOT NULL,title TEXT NOT NULL,subtitle TEXT NOT NULL,artwork TEXT,
+ plays INTEGER NOT NULL,listened_ms INTEGER NOT NULL,first_day TEXT NOT NULL,last_day TEXT NOT NULL,PRIMARY KEY(scope,kind,key)
+);
+CREATE INDEX history_occurrence_period ON history_occurrence(scope,started_ms);
+INSERT INTO encore_lifetime SELECT scope,kind,key,MAX(title),MAX(subtitle),MAX(artwork),SUM(plays),SUM(listened_ms),MIN(day),MAX(day)
+ FROM encore_daily GROUP BY scope,kind,key;
+
+CREATE INDEX IF NOT EXISTS encore_repeat ON encore_daily(kind,day,key,scope,plays,title);

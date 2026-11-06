@@ -1,0 +1,14 @@
+{
+  "runtime": {
+    "coordinate": "com.microsoft.onnxruntime:onnxruntime:1.31.1",
+    "documentation": "https://onnxruntime.ai/docs/get-started/with-java",
+    "license": "MIT"
+  },
+  "model": {
+    "source": "existing owner-approved Android assets/automix/beat-this-small0-int8.onnx",
+    "bytes": 4655416,
+    "sha256": "0e8b1cf3608dba5459826e940df4f15982a06e420e7a4d2b0a1a04acc587e32c",
+    "license": "licenses/BEAT-THIS-MIT.txt"
+  },
+  "acceptance": "IN_PROGRESS_NOT_PRODUCTION_INTEGRATION"
+}

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "scope": "Research-document checks; not app integration acceptance",
+  "sqlSchemas": [
+    {
+      "index": 0,
+      "status": "PASS",
+      "sqlite": "3.37.2",
+      "tables": 24
+    },
+    {
+      "index": 1,
+      "status": "PASS",
+      "sqlite": "3.37.2",
+      "tables": 4
+    }
+  ],
+  "parts": 4,
+  "phases": 5,
+  "contaminationEntries": 22,
+  "fences": "balanced",
+  "bannedPlaceholderPhrases": [
+    {
+      "phrase": "implement codec support here",
+      "found": false
+    },
+    {
+      "phrase": "connect to API as needed",
+      "found": false
+    }
+  ],
+  "repositoryPrLane": "artifacts/quality/lanes/pr-20261102T114105Z/lane-summary.json",
+  "initialDocumentHarnessCorrection": "Corrected harness INSERT placeholder count from 9 to 8; both document schemas then passed. No app/schema implementation was changed.",
+  "finalReportSha256": "37efb583c7566a7b6b81e1a8cf2a48fde0cb11f2681c6d9f38673dfdc146e545",
+  "finalReportBytes": 167748,
+  "finalStructuralAndLocalLinkCheck": "PASS",
+  "researchSources": "Primary documentation linked inline; proposed dependencies not installed"
+}

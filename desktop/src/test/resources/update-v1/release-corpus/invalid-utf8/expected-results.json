@@ -1,0 +1,11 @@
+{
+  "caseId": "invalid-utf8",
+  "outcome": "INVALID_PAYLOAD",
+  "stored": "none",
+  "syntaxError": "INVALID_PAYLOAD",
+  "signedPayloadBytes": 2,
+  "finalByte": 40,
+  "keyId": "test-rfc8032-01",
+  "signedKeyId": "test-rfc8032-01",
+  "clock": 1793578000
+}

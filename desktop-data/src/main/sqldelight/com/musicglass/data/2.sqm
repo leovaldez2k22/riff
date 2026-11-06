@@ -1,0 +1,10 @@
+CREATE TABLE history_occurrence (
+ scope TEXT NOT NULL,occurrence TEXT NOT NULL,track_id TEXT NOT NULL,started_ms INTEGER NOT NULL,updated_ms INTEGER NOT NULL,listened_ms INTEGER NOT NULL,completed INTEGER NOT NULL,
+ PRIMARY KEY(scope,occurrence),FOREIGN KEY(scope,track_id) REFERENCES track(scope,id)
+);
+CREATE INDEX history_occurrence_recent ON history_occurrence(scope,updated_ms DESC,occurrence);
+CREATE INDEX history_span_occurrence ON history_span(scope,occurrence,started_ms);
+CREATE TABLE history_epoch (scope TEXT NOT NULL PRIMARY KEY,epoch INTEGER NOT NULL);
+CREATE TABLE history_rollup_version (scope TEXT NOT NULL PRIMARY KEY,version INTEGER NOT NULL);
+INSERT INTO history_occurrence(scope,occurrence,track_id,started_ms,updated_ms,listened_ms,completed)
+SELECT scope,occurrence,min(track_id),min(started_ms),max(started_ms+listened_ms),sum(listened_ms),max(completed) FROM history_span GROUP BY scope,occurrence;

@@ -1,0 +1,16 @@
+{
+  "keyId": "test-rfc8032-01",
+  "appIds": [
+    "com.musicglass.desktop"
+  ],
+  "channels": [
+    "preview"
+  ],
+  "targets": [
+    "windows-x64"
+  ],
+  "allowTestKeys": true,
+  "verification": "VERIFIED_OPAQUE_PAYLOAD",
+  "payloadSchemaEvaluated": false,
+  "eligibilityEvaluated": false
+}

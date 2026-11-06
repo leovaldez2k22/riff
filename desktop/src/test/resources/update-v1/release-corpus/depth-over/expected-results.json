@@ -1,0 +1,11 @@
+{
+  "caseId": "depth-over",
+  "outcome": "SIZE_LIMIT",
+  "stored": "none",
+  "syntaxError": "SIZE_LIMIT",
+  "signedPayloadBytes": 605,
+  "finalByte": 10,
+  "keyId": "test-rfc8032-01",
+  "signedKeyId": "test-rfc8032-01",
+  "clock": 1793578000
+}

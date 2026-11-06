@@ -1,0 +1,10 @@
+CREATE TABLE encore_daily (
+ scope TEXT NOT NULL,day TEXT NOT NULL,kind TEXT NOT NULL,key TEXT NOT NULL,title TEXT NOT NULL,subtitle TEXT NOT NULL,artwork TEXT,
+ plays INTEGER NOT NULL DEFAULT 0,listened_ms INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(scope,day,kind,key)
+);
+CREATE INDEX encore_daily_period ON encore_daily(scope,kind,day);
+CREATE TABLE encore_hourly (scope TEXT NOT NULL,day TEXT NOT NULL,hour INTEGER NOT NULL CHECK(hour BETWEEN 0 AND 23),listened_ms INTEGER NOT NULL,PRIMARY KEY(scope,day,hour));
+CREATE TABLE encore_rollup_version (scope TEXT NOT NULL PRIMARY KEY,version INTEGER NOT NULL);
+CREATE VIEW encore_plays AS SELECT h.scope,h.started_ms AS played_at,h.track_id AS media_id,t.title,h.listened_ms,t.duration_ms,
+ CASE WHEN h.completed=1 THEN 1 ELSE 0 END AS ended,CASE WHEN t.source_kind='local' THEN 'device' ELSE NULL END AS source,1 AS music
+ FROM history_occurrence h JOIN track t ON t.scope=h.scope AND t.id=h.track_id WHERE t.is_episode=0;

@@ -1,0 +1,39 @@
+{
+  "TEST_ONLY": true,
+  "clock": 1793578000,
+  "appId": "com.musicglass.desktop",
+  "channel": "preview",
+  "target": "windows-x64",
+  "installedVersion": "0.1.0",
+  "isWindows": true,
+  "windowsBuild": 26100,
+  "workerProtocols": [
+    1
+  ],
+  "installedDatabaseSchema": 1,
+  "migrationPaths": [
+    [
+      1,
+      1
+    ]
+  ],
+  "artifactHosts": [
+    "releases.example.invalid"
+  ],
+  "bootstrap": {
+    "sequence": 10,
+    "version": "0.1.0",
+    "digest": null
+  },
+  "trustedKeyIds": [
+    "test-rfc8032-01",
+    "test-rfc8032-rotated"
+  ],
+  "conflictState": {
+    "sequence": 20,
+    "version": "0.2.0",
+    "digest": "90aababe97eafe6680ef688f64622490429b8b49367ba430e9586a148f6cf59f",
+    "highestVersion": "0.2.0",
+    "lastEvaluationTime": 1793578000
+  }
+}

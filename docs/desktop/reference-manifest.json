@@ -1,0 +1,30 @@
+[
+  {
+    "path": "app/src/main/java/com/musicglass/personal/DesignTokens.kt",
+    "sha256": "af2db9bcc71b4e416eb97f63bf18297032df1261d4459a36cb22f005ea6eb532"
+  },
+  {
+    "path": "app/src/main/java/com/musicglass/personal/RiffGlass.kt",
+    "sha256": "1eef7f40a61791c8ae53f02fa1fc66ffa7ada35b37ff701e34054a8e87f56128"
+  },
+  {
+    "path": "app/src/main/java/com/musicglass/personal/LyricsKaraoke.kt",
+    "sha256": "70d703f5f509bfc6bb037f8617f3c6f139f786a87a2386a48504ced5f1b06678"
+  },
+  {
+    "path": "app/src/main/java/com/musicglass/personal/GlassMotion.kt",
+    "sha256": "e6eaf9385527cb647b31cbb643265260c21247d25ce55245fef9b81134d43d53"
+  },
+  {
+    "path": "app/src/main/java/com/musicglass/personal/PlayerBackdrop.kt",
+    "sha256": "96582c4b76ef4beceae5675bb340153754c44ee6216d24f501e4bfb7df6d6728"
+  },
+  {
+    "path": "app/src/main/java/com/musicglass/personal/ArtworkPalette.kt",
+    "sha256": "8d7632e6ef5d8c9de694bcc5764f156c26213111da9e613e480f80752c007a1a"
+  },
+  {
+    "path": "app/src/main/res/font/inter_variable.ttf",
+    "sha256": "4989b125924991b90d05b2d16e0e388c48f7d5bb8b30539bbf9c755278d0ccaf"
+  }
+]

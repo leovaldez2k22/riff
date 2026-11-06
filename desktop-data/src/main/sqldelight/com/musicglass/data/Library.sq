@@ -1,0 +1,98 @@
+CREATE TABLE artist (
+ scope TEXT NOT NULL, id TEXT NOT NULL, name TEXT NOT NULL, artwork_url TEXT,
+ PRIMARY KEY(scope,id)
+);
+CREATE TABLE album (
+ scope TEXT NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL, artist TEXT NOT NULL, artist_id TEXT, artwork_url TEXT,
+ PRIMARY KEY(scope,id)
+);
+CREATE TABLE track (
+ row_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+ scope TEXT NOT NULL,id TEXT NOT NULL,title TEXT NOT NULL,artist TEXT NOT NULL,album TEXT NOT NULL,duration_ms INTEGER NOT NULL,
+ source_kind TEXT NOT NULL,source_path TEXT,file_identity TEXT,artist_id TEXT,album_id TEXT,artwork_key TEXT,artwork_url TEXT,
+ available INTEGER NOT NULL,codec TEXT,added_ms INTEGER NOT NULL,is_episode INTEGER NOT NULL DEFAULT 0 CHECK(is_episode IN (0,1)),
+ UNIQUE(scope,id)
+);
+CREATE INDEX track_scope_title ON track(scope,title COLLATE NOCASE,id);
+CREATE INDEX track_scope_identity ON track(scope,file_identity);
+CREATE INDEX track_album ON track(scope,album_id);
+CREATE INDEX track_artist ON track(scope,artist_id);
+CREATE TABLE playlist (
+ scope TEXT NOT NULL,id TEXT NOT NULL,title TEXT NOT NULL,description TEXT NOT NULL,updated_ms INTEGER NOT NULL,remote_id TEXT,
+ PRIMARY KEY(scope,id)
+);
+CREATE TABLE playlist_entry (
+ scope TEXT NOT NULL,playlist_id TEXT NOT NULL,entry_id TEXT NOT NULL,ordinal INTEGER NOT NULL,track_id TEXT NOT NULL,
+ PRIMARY KEY(scope,playlist_id,entry_id),
+ FOREIGN KEY(scope,playlist_id) REFERENCES playlist(scope,id) ON DELETE CASCADE,
+ FOREIGN KEY(scope,track_id) REFERENCES track(scope,id)
+);
+CREATE INDEX playlist_order ON playlist_entry(scope,playlist_id,ordinal);
+CREATE TABLE local_root (id TEXT NOT NULL PRIMARY KEY,path TEXT NOT NULL UNIQUE,recursive INTEGER NOT NULL,generation INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE file_location (
+ path TEXT NOT NULL PRIMARY KEY,root_id TEXT,track_id TEXT NOT NULL,file_identity TEXT NOT NULL,modified_ms INTEGER NOT NULL,size_bytes INTEGER NOT NULL,
+ generation INTEGER NOT NULL,available INTEGER NOT NULL
+);
+CREATE INDEX location_identity ON file_location(file_identity);
+CREATE INDEX location_root ON file_location(root_id,generation);
+CREATE TABLE history_span (
+ scope TEXT NOT NULL,id TEXT NOT NULL,occurrence TEXT NOT NULL,track_id TEXT NOT NULL,started_ms INTEGER NOT NULL,listened_ms INTEGER NOT NULL,completed INTEGER NOT NULL,
+ PRIMARY KEY(scope,id), FOREIGN KEY(scope,track_id) REFERENCES track(scope,id)
+);
+CREATE INDEX history_period ON history_span(scope,started_ms);
+CREATE TABLE daily_total (scope TEXT NOT NULL,day TEXT NOT NULL,listened_ms INTEGER NOT NULL,PRIMARY KEY(scope,day));
+CREATE TABLE privacy_preference (scope TEXT NOT NULL PRIMARY KEY,save_history INTEGER NOT NULL,retention_days INTEGER NOT NULL,keep_totals INTEGER NOT NULL,genre_lookup INTEGER NOT NULL);
+CREATE TABLE sync_operation (scope TEXT NOT NULL,id TEXT NOT NULL,kind TEXT NOT NULL,target TEXT NOT NULL,state TEXT NOT NULL,created_ms INTEGER NOT NULL,PRIMARY KEY(scope,id));
+CREATE TABLE import_receipt (digest TEXT NOT NULL PRIMARY KEY,imported INTEGER NOT NULL,quarantined INTEGER NOT NULL,backup_path TEXT NOT NULL,report_path TEXT NOT NULL);
+CREATE TABLE quarantine (digest TEXT NOT NULL,line_number INTEGER NOT NULL,reason TEXT NOT NULL,PRIMARY KEY(digest,line_number));
+CREATE TABLE lyrics_cache (scope TEXT NOT NULL,track_id TEXT NOT NULL,format TEXT NOT NULL,payload TEXT NOT NULL,fetched_ms INTEGER NOT NULL,PRIMARY KEY(scope,track_id));
+CREATE TABLE artwork (key TEXT NOT NULL PRIMARY KEY,path TEXT NOT NULL,bytes INTEGER NOT NULL,accessed_ms INTEGER NOT NULL,palette TEXT NOT NULL);
+CREATE TABLE catalog_page (scope TEXT NOT NULL,request_key TEXT NOT NULL,cursor TEXT NOT NULL,payload TEXT NOT NULL,next_cursor TEXT,fetched_ms INTEGER NOT NULL,PRIMARY KEY(scope,request_key,cursor));
+
+CREATE TABLE scan_issue (root_id TEXT NOT NULL,path TEXT NOT NULL,reason TEXT NOT NULL,observed_ms INTEGER NOT NULL,PRIMARY KEY(root_id,path));
+
+CREATE TABLE history_occurrence (
+ scope TEXT NOT NULL,occurrence TEXT NOT NULL,track_id TEXT NOT NULL,started_ms INTEGER NOT NULL,updated_ms INTEGER NOT NULL,listened_ms INTEGER NOT NULL,completed INTEGER NOT NULL,
+ PRIMARY KEY(scope,occurrence),FOREIGN KEY(scope,track_id) REFERENCES track(scope,id)
+);
+CREATE INDEX history_occurrence_recent ON history_occurrence(scope,updated_ms DESC,occurrence);
+CREATE INDEX history_span_occurrence ON history_span(scope,occurrence,started_ms);
+CREATE TABLE history_epoch (scope TEXT NOT NULL PRIMARY KEY,epoch INTEGER NOT NULL);
+CREATE TABLE history_rollup_version (scope TEXT NOT NULL PRIMARY KEY,version INTEGER NOT NULL);
+
+CREATE TABLE download_job (
+ scope TEXT NOT NULL,track_id TEXT NOT NULL,state TEXT NOT NULL,
+ bytes INTEGER NOT NULL DEFAULT 0,total INTEGER NOT NULL DEFAULT -1,sha256 TEXT,error_code TEXT,updated_ms INTEGER NOT NULL,
+ PRIMARY KEY(scope,track_id),FOREIGN KEY(scope,track_id) REFERENCES track(scope,id),
+ CHECK(state IN ('Queued','Resolving','Transferring','Paused','Verifying','Complete','Failed','Removing')),
+ CHECK(bytes>=0 AND total>=-1)
+);
+CREATE INDEX download_job_work ON download_job(state,updated_ms);
+
+CREATE TABLE encore_daily (
+ scope TEXT NOT NULL,day TEXT NOT NULL,kind TEXT NOT NULL,key TEXT NOT NULL,title TEXT NOT NULL,subtitle TEXT NOT NULL,artwork TEXT,
+ plays INTEGER NOT NULL DEFAULT 0,listened_ms INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(scope,day,kind,key)
+);
+CREATE INDEX encore_daily_period ON encore_daily(scope,kind,day);
+CREATE TABLE encore_hourly (scope TEXT NOT NULL,day TEXT NOT NULL,hour INTEGER NOT NULL CHECK(hour BETWEEN 0 AND 23),listened_ms INTEGER NOT NULL,PRIMARY KEY(scope,day,hour));
+CREATE TABLE encore_rollup_version (scope TEXT NOT NULL PRIMARY KEY,version INTEGER NOT NULL);
+
+CREATE VIEW encore_plays AS SELECT h.scope,h.started_ms AS played_at,h.track_id AS media_id,t.title,h.listened_ms,t.duration_ms,
+ CASE WHEN h.completed=1 THEN 1 ELSE 0 END AS ended,CASE WHEN t.source_kind='local' THEN 'device' ELSE NULL END AS source,1 AS music
+ FROM history_occurrence h JOIN track t ON t.scope=h.scope AND t.id=h.track_id WHERE t.is_episode=0;
+
+CREATE TABLE encore_lifetime (
+ scope TEXT NOT NULL,kind TEXT NOT NULL,key TEXT NOT NULL,title TEXT NOT NULL,subtitle TEXT NOT NULL,artwork TEXT,
+ plays INTEGER NOT NULL,listened_ms INTEGER NOT NULL,first_day TEXT NOT NULL,last_day TEXT NOT NULL,PRIMARY KEY(scope,kind,key)
+);
+CREATE INDEX history_occurrence_period ON history_occurrence(scope,started_ms);
+
+CREATE INDEX IF NOT EXISTS encore_repeat ON encore_daily(kind,day,key,scope,plays,title);
+
+CREATE TABLE encore_artist_genre (
+ scope TEXT NOT NULL,artist_key TEXT NOT NULL,display_name TEXT NOT NULL,mbid TEXT,status TEXT NOT NULL,genres TEXT NOT NULL,fetched_ms INTEGER NOT NULL,
+ PRIMARY KEY(scope,artist_key),CHECK(status IN('Ready','NoMatch','Ambiguous'))
+);
+
+countTracks:
+SELECT count(*) FROM track WHERE scope = ?;

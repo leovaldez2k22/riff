@@ -15,6 +15,13 @@
 
 Based on Riff's source at 9ea71f4, frames from the owner's reference video (`WhatsApp Video 2026-10-27 at 11.24.00.mp4`), and BitChord's source ([kushagrasinghx/BitChord](https://github.com/kushagrasinghx/BitChord), GPL-3.0, commit 04a4a83 of 26 Oct 2026). File and line references are to Riff unless marked BitChord.
 
+## Windows implementation evidence, 3 November 2026
+
+Feature 24 now uses the actual InnerTubeX suggestion endpoint with a 200 ms debounce, separate 450 ms result search, a persisted on/off setting and authority-scoped submitted-query history. Features 13/24 support pasted or command-line YouTube links through a strict JVM URI parser and actual extractor metadata; OS association/single-instance activation remains a separate Windows integration gate. The current Android SharedLinks parser opens a watch URL as a song and does not append its list parameter; desktop preserves that observed behavior rather than claiming the older plan's list-queue behavior.
+
+
+The Windows port is tracked separately in `docs/desktop/phase-2-status.md` and `docs/desktop/phase-3-status.md`; Android's built status is not evidence of desktop integration. Feature 25 uses the same Any-Latin; Latin-ASCII policy through pinned ICU4J 78.3 because JVM desktop has no Android ICU API. Source forms win, generated forms are labelled Auto, and word timing stays attached to the original text. The Windows romanization mode persists globally in the desktop session; manual timing offsets remain attached to scoped lyrics documents. The HE-AAC v2 acceptance corpus revealed provisional mono/channel parameters before the first decoded frame: the native resampler now initializes from actual frame metadata. Passing codec component tests do not close the long-run, physical endpoint, or feature-parity gates.
+
 ## How to use this plan during implementation
 
 This document is the working plan for Riff's next features. Anyone implementing them, a person or an AI coding session, should:
@@ -954,6 +961,9 @@ Match: about 100 % of the screenshot.
 
 ### 12.3 Data: what to add and how
 
+**Windows correction (3 Nov 2026):** the first desktop implementation capped raw one-second spans, which could prune history after about 28 continuously played hours. Desktop schema 3 separates occurrence identity from raw presented spans, caps 100,000 occurrences, advances a persisted history epoch on clear/history-consent changes, and rejects queued writes from older epochs. Actual heard milliseconds split across local-day boundaries, including DST/date-line changes; migration/rebuild receipts are transactional and rebuilds stream day totals rather than retain every span in heap. This is the history foundation, not acceptance of the complete Encore charts/stories UI. Already-pruned older span detail cannot be reconstructed. The frozen audio soak runs its own earlier database/profile; it does not certify the new history migration.
+
+
 1. **More columns on each play.** A new `LibraryStateDb` version that adds to `history_events`:
    - `listened_ms INTEGER NOT NULL DEFAULT 0`;
    - `album TEXT`, `album_id TEXT`, `artist_id TEXT`;
@@ -980,6 +990,8 @@ Match: about 100 % of the screenshot.
    - **For the owner to decide:** a setting "Keep Encore totals beyond history retention" that keeps only the daily totals (no individual plays) for lifetime numbers. It's off by default and explained in Privacy and data.
 6. **Turning history off** (Settings → Privacy and data → Save listening history) also stops Encore. The page then says why it's empty and links to the setting.
 7. **Performance.** Every Encore query runs on the IO dispatcher against the daily tables (at most 366 rows × kinds per year), with indexes on `(scope, day)`. The page renders from a `StateFlow<EncoreState>` and never blocks the main thread.
+
+**Windows continuation (3 Nov 2026):** desktop schema 7 now maintains daily/hour/lifetime music rollups in the same transaction as actual heard spans; episodes are excluded, and clear/retention/epoch behavior applies to every derived table. Android period/ranking/personality/story rules and chart tokens are connected to actual desktop SQLite state, with local CSV/JSON and actual-layer PNG export. Unknown legacy heard time is **not** estimated from duration on desktop, because that would manufacture listening evidence. Unknown ending/remote source facts stay unknown. A reproduced read-snapshot/writer lock conflict required a separate bounded read-only WAL connection for Encore, closed with its Flow. The 100,000-occurrence load and real 1×/2× heard-time/restart/clear receipts, their limitations and the held screen/phone gates are recorded in `desktop/phase-3-status.md`; no full visual or feature acceptance is implied. Optional genres and complete ending/route provenance remain open.
 
 ### 12.4 Genres (optional, off by default)
 
@@ -1165,6 +1177,8 @@ Match: browsing, search, voice and playback, like other music apps in Android Au
 ---
 
 ## Feature 15: Playback speed
+
+**Windows implementation correction (3 November 2026):** actual Android `PlaybackSpeeds` shares one remembered episode speed and resets music to 1x on restart; Windows follows that observed behavior, rather than inventing per-show state from the older proposal. Windows uses pinned Float32 SoundTouch 2.4.1 in the native worker, preserving pitch and 1x decode identity; non-1x output is not claimed bit-identical to Android's PCM16 Sonic processing. Per-source rate metadata follows actual provider episode kind through SQLite schema 5, prepared queues and hardware-clock spans. Analytical pitch tests and separate real compressed/hardware/seek/restart journeys have evidence in the Phase 3 ledger. Current native tempo counters are bounded to four hours; longer known recordings use 1x. This is an explicit capability boundary, not a silently accepted filename. Screen/physical listening and final endurance acceptance remain open.
 
 ### 15.1 Findings
 
@@ -2017,3 +2031,8 @@ Match: the whole app moves at one calmer pace, set in one place, with Quick avai
 - Lyrics: [Better Lyrics API](https://github.com/better-lyrics/api), [LRCLib word-sync issue](https://github.com/Andbal23/dynamic-music-pill/issues/193)
 - Automix: [9to5Mac on AutoMix](https://9to5mac.com/2025/06/16/automix-apple-music-ios-26/), [MusicTech on AutoMix](https://musictech.com/news/gear/apple-music-automix-ai/), [iGeeksBlog on AutoMix](https://www.igeeksblog.com/apple-music-automix-in-ios-26/), [Beat This! GGUF (licence notes)](https://huggingface.co/cstr/beat-this-GGUF), [Beat This! ONNX](https://huggingface.co/musetric/beat-this-onnx), [open-unmix on PyTorch Hub](https://pytorch.org/hub/sigsep_open-unmix-pytorch_umx/), [UMX-HQ ONNX export](https://huggingface.co/edgetools/umx-hq)
 - Cast: [Default Media Receiver overview](https://www.tothenew.com/blog/what-is-chromecast-receiver/)
+
+
+## Windows Phase 1 measurement note (2 November 2026)
+
+Inspection during the desktop walking-skeleton work found that the earlier desktop prototype's ten fixed octave-band TPT EQ is not Feature 10's seven manual plus three dynamic filter layout. Phase 1 preserves the existing desktop TPT transfer equations while changing its actual sample path to bounded Float32 FFmpeg/WASAPI playback. It must not be described as full Android EQ parity. Porting Feature 10's parameter mapping, shelf behavior, preamp and smoothing remains the desktop DSP-parity work in the production completion plan; no Android EQ behavior is changed by this phase. This corrects earlier desktop capability prose which treated existence of ten filters as Android equivalence.

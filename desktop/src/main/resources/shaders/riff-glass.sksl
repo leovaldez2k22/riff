@@ -1,0 +1,50 @@
+
+    uniform shader page;
+    uniform float2 size;
+    uniform float reach;
+    uniform float radius;
+    uniform float rim;
+    uniform float bend;
+    uniform float depth;
+    uniform float dispersion;
+    uniform float highlight;
+    uniform float zoom;
+    uniform float direction;
+
+    float box(float2 p, float2 b, float r) {
+        float2 q = abs(p) - b + float2(r);
+        return min(max(q.x, q.y), 0.0) + length(max(q, float2(0.0))) - r;
+    }
+    half4 main(float2 coord) {
+        float2 b = size * 0.5;
+        float2 p = coord - float2(reach) - b;
+        float r = min(radius, min(b.x, b.y));
+        float d = box(p, b, r);
+        if (d > 1.0) return page.eval(coord);
+        float2 centre = float2(reach) + b;
+        float2 base = centre + p / zoom;
+        float inner = -d;
+        // The rim is at most half the short side, or the edge would read past the centre. The bend is at most 0.6
+        // of the rim: bending by the whole rim folds it back over itself, a second ring inside a round lens.
+        float band = min(rim, 0.5 * min(b.x, b.y));
+        if (inner >= band) return page.eval(base);
+        float x = 1.0 - max(inner, 0.0) / band;
+        float amount = (1.0 - sqrt(max(1.0 - x * x, 0.0))) * min(bend, 0.6 * band);
+        float e = 0.5;
+        float2 g = float2(box(p + float2(e, 0.0), b, r) - box(p - float2(e, 0.0), b, r),
+                          box(p + float2(0.0, e), b, r) - box(p - float2(0.0, e), b, r));
+        float2 n = normalize(normalize(g + float2(0.00001)) + depth * normalize(p + float2(0.00001)));
+        float2 shift = -n * amount * direction;
+        float corner = clamp(abs(p.x * p.y) / max(b.x * b.y, 1.0), 0.0, 1.0);
+        float k = dispersion * (0.12 + 0.30 * corner);
+        half4 c = page.eval(base + shift);
+        if (k > 0.0) {
+            c.r = page.eval(base + shift * (1.0 + k)).r;
+            c.b = page.eval(base + shift * (1.0 - k)).b;
+        }
+        float light = pow(max(dot(n, normalize(float2(-0.6, -0.8))), 0.0), 3.0) + 0.35 * pow(max(dot(n, normalize(float2(0.6, 0.8))), 0.0), 3.0);
+        float glint = light * x * x * highlight * 0.55;
+        c.rgb = clamp(c.rgb + half3(glint) * c.a, half3(0.0), half3(c.a));
+        return c;
+    }
+
