@@ -1,10 +1,8 @@
 {
-  "version": 34,
+  "version": 35,
   "cards": [
-    {"title": "A new look", "body": "Glass controls that bend what is behind them, a calmer player, and the Inter typeface throughout.", "action": "settings"},
-    {"title": "Encore", "body": "Your listening by day, week, month and year, with charts and stories. It lives in Library.", "action": "encore"},
-    {"title": "Equalizer", "body": "Shape the sound with a tone pad or ten bands, before it reaches the phone.", "action": "equalizer"},
-    {"title": "Cars, speakers and TVs", "body": "Riff in Android Auto, and on Chromecasts and Google speakers from the output button under the player.", "action": "player"},
-    {"title": "Smart crossfade", "body": "Downloaded songs blend where they wind down, on the beat when both have one. Turn it on in Settings, Playback.", "action": "settings"}
+    {"title": "Shuffle, then Reshuffle", "body": "Shuffle now mixes the queue once, so the list shows what plays next. Reshuffle in the queue mixes the rest again without stopping the song.", "action": "player"},
+    {"title": "Add to queue plays next", "body": "Songs you add play right after this one, in the order you added them. Play next is gone; this does its job.", "action": "player"},
+    {"title": "Faster back to your music", "body": "When you open Riff, the song you left paused is ready, so Play starts almost at once.", "action": "player"}
   ]
 }

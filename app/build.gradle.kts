@@ -19,8 +19,8 @@ android {
         applicationId = "com.musicglass.personal"
         minSdk = 31
         targetSdk = 36
-        versionCode = 34
-        versionName = "0.20.0"
+        versionCode = 35
+        versionName = "0.21.0"
         buildConfigField("boolean", "LITE", "false")
         buildConfigField("boolean", "STARTUP_TRACE_FILE", (providers.gradleProperty("riffStartupTraceFile").orNull == "true").toString())
         // Q12A: the public release feed the update check asks, and the hosts a release page may be on. No feed

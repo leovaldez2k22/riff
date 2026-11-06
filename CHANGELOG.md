@@ -2,7 +2,9 @@
 
 Newest first. Release candidates before 0.9.0-rc16 were recorded only in the README; their text is kept here unchanged. Detailed implementation and verification records are in `docs/`.
 
-## Unreleased
+## 0.21.0 (code 35), prepared, not published
+
+Release notes: `docs/release-notes-0.21.0.md`. Signed with the same certificate as 0.20.0, so it updates 0.20.0 in place. The "What's new" sheet is written for version code 35.
 
 Record: `docs/quality/playback-startup-warm-resume-2026-11-04.md`, sections 7 and 8. Measured signed in on one phone and one network: songs start in about 2 s from an empty cache (6 to 12 s before), 1.2 to 1.9 s from disk, and with no pauses. 0.20.0 also pauses on an empty cache. Not yet tested: signed-out playback, SABR and age-restricted songs on the new library.
 
