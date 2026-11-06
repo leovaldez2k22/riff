@@ -35,6 +35,7 @@ These come from `CLAUDE.md` and `AGENTS.md`.
 | `$T` | `desktop/src/test/kotlin/com/musicglass/desktop` |
 | `$A` | `app/src/main/java/com/musicglass/personal` |
 | `$DD` | `desktop-data/src/main/kotlin/com/musicglass/data` |
+| **Gradle setup** | Set `JAVA_HOME` to `.toolchain\jdk-21*` and `GRADLE_USER_HOME` to `.toolchain\gradle-user-home` first, as `scripts/quality/verify.py` does. The system JDK is 20 and won't build desktop |
 | **Unit** | `.\gradlew.bat -PriffDesktop=true :desktop:test :desktop-data:test --offline --continue` |
 | **Native** | `.\gradlew.bat -PriffDesktop=true :desktop:nativeBackgroundTest --offline` (real decoders and WASAPI, no window) |
 | **PR lane** | `python scripts/quality/verify.py --lane pr` |
@@ -363,12 +364,13 @@ Unless a task says otherwise, it also runs **Unit** before closing. The phases i
 
 *Done when:* desktop is under version control, the desktop suite is green and part of a lane, and no status file claims something untrue.
 
-- **[ ] Task 1.1: Commit the desktop tree to its own branch**
+- **[x] Task 1.1: Commit the desktop tree to its own branch**
   - **Goal:** Stop 447 files living only on one disk (needs D1).
   - **Files to Create / Modify / Delete:** Stage `desktop/`, `desktop-data/`, `docs/desktop/`, `native/`, `reports/`, `scripts/desktop/`, `scripts/quality/desktop_smoke.py`, `settings.gradle.kts`, the three untracked licence files, `PLAN.md`. Create branch `desktop/foundation` from the current HEAD.
   - **Key Classes, Interfaces & Signatures:** None.
   - **Implementation Details:** Don't stage Android's uncommitted bug-batch files. Before committing, scan the staged set for secrets, `.toolchain`, build output and corpus audio, and check `native/riff-audio/vendor` licences. Report the size. Don't push.
   - **Verification Step:** `git log -- desktop` shows the commit, `git status` still lists Android's files as modified, and `.\gradlew.bat -PriffDesktop=true :desktop:compileKotlin --offline` still passes.
+  - **Done 6 November 2026:** commit `a010fd9` on `desktop/foundation`, 475 files, not pushed. Android's changes were already committed in 0.21.0, so there were none to leave out. `NOTICE.md`, `AGENTS.md`, the desktop note in the feature plan and `scripts/quality/test_desktop_smoke.py` were added too. Gradle must use the project's `.toolchain/jdk-21*` and `.toolchain/gradle-user-home` (as `verify.py` does); with those, compile passes offline and **Unit** gives 258 desktop tests with 1 failure (`TokenParityContractTest`, fixed by Task 1.5) and 41 data tests passing.
 
 - **[ ] Task 1.2: Evidence manifest**
   - **Goal:** Make the ignored evidence in `artifacts/` recoverable and verifiable (needs D2).
