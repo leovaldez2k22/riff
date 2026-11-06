@@ -60,8 +60,11 @@ internal class TabLensMotion(private val tabs: Int = 4, private val search: Bool
     var moving = false; private set
 
     fun layout(slotPx: Float, barHeightPx: Float, searchCenterPx: Float, searchSizePx: Float, selectedIndex: Int, reducedMotion: Boolean) {
+        // A bar that changes size under a pill at rest takes the pill with it: laid out once before its size was final,
+        // the pill stayed at the old place (Encore's "dislodged" pill, 5 Nov).
+        val resized = slotPx != slot || barHeightPx != barHeight || searchCenterPx != searchCenter || searchSizePx != searchSize
         slot = slotPx; barHeight = barHeightPx; searchCenter = searchCenterPx; searchSize = searchSizePx; reduced = reducedMotion
-        if (!placed) { selected = selectedIndex; center.snap(tabCenter(selected)); restWidth.snap(restWidthFor(selected)); target = center.value; ghost.snap(center.value); placed = true }
+        if (!placed || (resized && !pressed && !lifted)) { selected = selectedIndex; center.snap(tabCenter(selected)); restWidth.snap(restWidthFor(selected)); target = center.value; ghost.snap(center.value); placed = true }
         else if (selectedIndex != selected) select(selectedIndex)
     }
 

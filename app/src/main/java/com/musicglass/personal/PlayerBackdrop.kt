@@ -1,5 +1,6 @@
 package com.musicglass.personal
 
+import kotlin.math.pow
 import android.graphics.Bitmap
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
@@ -53,6 +54,17 @@ private const val BACKDROP_BLUR_PASSES = 3
 private const val BACKDROP_BLUR_ALPHA = .6f
 /** How far down the panel below the seam the blurred copy takes to come in fully. */
 private const val BACKDROP_BLUR_FADE = .35f
+/** A backdrop this light or darker gets no scrim, and from [BACKDROP_SCRIM_FULL] on all the scrim it needs. */
+internal const val BACKDROP_SCRIM_FROM = .35f
+internal const val BACKDROP_SCRIM_FULL = .6f
+internal const val BACKDROP_INK_LIGHT = .10f
+/** The player's own darkening on a white cover is this share of what the queue's needs: the owner found it a little too dark (6 Nov). */
+internal const val BACKDROP_DECK_SCRIM_SHARE = .75f
+internal const val BACKDROP_WHITE_LIGHT = .70f
+internal const val BACKDROP_WHITE_COLOUR = .16f
+/** Where the player's scrim starts and where it is whole, as shares of the panel: a long, soft way down to the title. */
+private const val BACKDROP_SCRIM_TOP = .26f
+private const val BACKDROP_SCRIM_BOTTOM = .54f
 
 /** The average colour of each cell of a [grid] × [grid] split of [pixels] ([width] × [height]), row by row. */
 internal fun meshColors(pixels: IntArray, width: Int, height: Int, grid: Int = BACKDROP_GRID): IntArray {
@@ -116,7 +128,43 @@ internal fun boxBlur(pixels: IntArray, width: Int, height: Int, radius: Int = BA
     return source
 }
 
-internal class PlayerBackdropImages(val mesh: ImageBitmap, val blurred: ImageBitmap)
+/** [deckScrim] darkens from the title down, [panelScrim] the whole panel behind the open queue. */
+internal class PlayerBackdropImages(val mesh: ImageBitmap, val blurred: ImageBitmap, val deckScrim: Float = 0f, val panelScrim: Float = 0f)
+
+/** How much light a colour sends, 0 to 1 (WCAG's relative luminance). */
+internal fun backdropLight(argb: Int): Float {
+    fun linear(c: Int) = (c / 255f).let { if (it <= .04045f) it / 12.92f else ((it + .055f) / 1.055f).pow(2.4f) }
+    return .2126f * linear(argb shr 16 and 0xFF) + .7152f * linear(argb shr 8 and 0xFF) + .0722f * linear(argb and 0xFF)
+}
+
+/**
+ * How dark a layer white words need over a backdrop this light: nothing on an ordinary cover, and on a white one enough
+ * to bring it down to [BACKDROP_INK_LIGHT], where the faint artist name and buttons read too (5 Nov, the owner's choice
+ * over a shadow). The ramp keeps a cover just past the start from jumping to dark.
+ */
+internal fun backdropScrimAlpha(light: Float): Float {
+    if (light <= BACKDROP_SCRIM_FROM) return 0f
+    val needed = 1f - (BACKDROP_INK_LIGHT / light).coerceAtMost(1f).pow(1f / 2.2f)
+    val t = ((light - BACKDROP_SCRIM_FROM) / (BACKDROP_SCRIM_FULL - BACKDROP_SCRIM_FROM)).coerceIn(0f, 1f)
+    return needed * t * t * (3f - 2f * t)
+}
+
+/**
+ * The colour behind the title counts as white or off-white when it is both very light and nearly without colour. BRAT's
+ * green and ordinary light covers are not, and keep the player as it was (owner, 5 Nov: off-white is included to be safe).
+ */
+internal fun backdropIsWhite(cells: List<Int>): Boolean {
+    if (cells.isEmpty()) return false
+    val r = cells.sumOf { it shr 16 and 0xFF } / cells.size; val g = cells.sumOf { it shr 8 and 0xFF } / cells.size; val b = cells.sumOf { it and 0xFF } / cells.size
+    val top = maxOf(r, g, b); val bottom = minOf(r, g, b)
+    return backdropLight((r shl 16) or (g shl 8) or b) >= BACKDROP_WHITE_LIGHT && top > 0 && (top - bottom).toFloat() / top <= BACKDROP_WHITE_COLOUR
+}
+
+/** The scrims for a [grid] × [grid] mesh: the player's only on a white lower half, the queue's from its lightest cell. */
+internal fun backdropScrims(deck: IntArray, grid: Int = BACKDROP_GRID): Pair<Float, Float> {
+    val lower = deck.drop(grid * (grid / 2))
+    return (if (backdropIsWhite(lower)) backdropScrimAlpha(lower.maxOf(::backdropLight)) * BACKDROP_DECK_SCRIM_SHARE else 0f) to backdropScrimAlpha(deck.maxOf(::backdropLight))
+}
 
 private val backdropCache = android.util.LruCache<String, PlayerBackdropImages>(12)
 
@@ -127,7 +175,8 @@ private fun backdropImages(bitmap: Bitmap): PlayerBackdropImages {
     val deck = deckMesh(meshColors(pixels, BACKDROP_SAMPLE_PX, BACKDROP_SAMPLE_PX)).map(::deckTone).toIntArray()
     val mesh = Bitmap.createBitmap(deck, BACKDROP_GRID, BACKDROP_GRID, Bitmap.Config.ARGB_8888)
     val blurred = Bitmap.createBitmap(boxBlur(pixels, BACKDROP_SAMPLE_PX, BACKDROP_SAMPLE_PX), BACKDROP_SAMPLE_PX, BACKDROP_SAMPLE_PX, Bitmap.Config.ARGB_8888)
-    return PlayerBackdropImages(mesh.asImageBitmap(), blurred.asImageBitmap())
+    val (deckScrim, panelScrim) = backdropScrims(deck)
+    return PlayerBackdropImages(mesh.asImageBitmap(), blurred.asImageBitmap(), deckScrim, panelScrim)
 }
 
 /** The cover's backdrop, made once and cached by address; null until it is ready or when the cover can't load. */
@@ -155,7 +204,7 @@ internal fun rememberPlayerBackdrop(url: String?): PlayerBackdropImages? {
  * art faded into nothing.
  */
 @Composable
-internal fun PlayerBackdrop(url: String?, fallback: Color, modifier: Modifier = Modifier, glass: RiffBackdrop? = null) {
+internal fun PlayerBackdrop(url: String?, fallback: Color, modifier: Modifier = Modifier, glass: RiffBackdrop? = null, queueShown: () -> Float = { 0f }) {
     val images = rememberPlayerBackdrop(url)
     val motion = LocalMotionPolicy.current
     var shown by remember { mutableStateOf(images) }
@@ -172,18 +221,19 @@ internal fun PlayerBackdrop(url: String?, fallback: Color, modifier: Modifier = 
         val progress = arrival.value
         val incoming = shown
         val outgoing = leaving
+        val queue = queueShown()
         val paint: DrawScope.() -> Unit = {
             drawRect(fallback.readableArtworkTone())
             // The new cover fades in over the old one; with no new cover the old one fades out.
-            outgoing?.let { drawPlayerBackdrop(it, if (incoming == null) 1f - progress else 1f) }
-            incoming?.let { drawPlayerBackdrop(it, progress) }
+            outgoing?.let { drawPlayerBackdrop(it, if (incoming == null) 1f - progress else 1f, queue) }
+            incoming?.let { drawPlayerBackdrop(it, progress, queue) }
         }
         paint()
         if (glass != null && glass.readers > 0) glass.layer.record(this, layoutDirection, size.toIntSize()) { paint() }
     }
 }
 
-private fun DrawScope.drawPlayerBackdrop(images: PlayerBackdropImages, alpha: Float) {
+private fun DrawScope.drawPlayerBackdrop(images: PlayerBackdropImages, alpha: Float, queue: Float) {
     if (alpha <= 0f) return
     val seam = size.height * BACKDROP_SEAM
     val deck = IntSize(size.width.toInt(), (size.height - seam).toInt().coerceAtLeast(1))
@@ -198,4 +248,15 @@ private fun DrawScope.drawPlayerBackdrop(images: PlayerBackdropImages, alpha: Fl
     drawContext.canvas.restore()
     drawRect(Brush.verticalGradient(0f to Color.Transparent, .28f to Color.Black.copy(alpha = .4f * alpha), 1f to Color.Black.copy(alpha = .4f * alpha),
         startY = seam, endY = size.height), topLeft = Offset(0f, seam))
+    // Under the art, which stays as it is: only what it fades into gets darker.
+    val deckScrim = images.deckScrim * (1f - queue) * alpha
+    if (deckScrim > 0f) {
+        val top = size.height * BACKDROP_SCRIM_TOP
+        fun dark(share: Float) = Color.Black.copy(alpha = deckScrim * share)
+        // Eased at both ends, so no edge shows where it starts or finishes.
+        drawRect(Brush.verticalGradient(0f to Color.Transparent, .2f to dark(.07f), .4f to dark(.28f), .6f to dark(.58f), .8f to dark(.86f), 1f to dark(1f),
+            startY = top, endY = size.height * BACKDROP_SCRIM_BOTTOM), topLeft = Offset(0f, top))
+    }
+    val panelScrim = images.panelScrim * queue * alpha
+    if (panelScrim > 0f) drawRect(Color.Black.copy(alpha = panelScrim))
 }

@@ -187,11 +187,10 @@ internal fun LiquidTabBar(model: ShellModel, compact: Boolean, height: androidx.
         val slot = mainWidth / 4
         val barWidth = maxWidth.value * density
         val barHeight = height.value * density
-        SideEffect {
-            lens.layout(slot.value * density, barHeight, (mainWidth.value + height.value / 2f) * density + 8f * density,
-                barHeight, active, still)
-            if (lens.moving) animate()
-        }
+        // In composition, as in GlassSegmented: the pill's layer must not draw before the lens is placed.
+        lens.layout(slot.value * density, barHeight, (mainWidth.value + height.value / 2f) * density + 8f * density,
+            barHeight, active, still)
+        SideEffect { if (lens.moving) animate() }
         fun frame(): TabLensFrame {
             tick
             val f = lens.frame()

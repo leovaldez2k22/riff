@@ -168,6 +168,10 @@ internal class ProviderCatalogRepository(private val session: ProviderSessionMan
         page.copy(cards=page.cards.filter(::matches))
     }
 
+    /** Signed out on purpose: Encore finding a photo by itself must not reach the account's search history. */
+    suspend fun artistPhotoByName(name: String): Result<String?> = providerResult { paceSearch()
+        catalogPage(json.parseToJsonElement(innerTube.search(YouTubeClient.WEB_REMIX,query=name.trim().take(100),params="EgWKAQIgAWoMEA4QChADEAQQCRAF",setLogin=false).bodyAsText()))
+            .cards.firstOrNull {it.kind==CatalogKind.Artist && lyricsNormalize(it.title)==lyricsNormalize(name)}?.artworkUrl }
     suspend fun browseCatalog(id: String)=browseCatalog(id,null)
     suspend fun browseCatalog(id: String, token: String?): Result<CatalogPage> = providerResult {
         require(id.matches(Regex("[A-Za-z0-9_-]{2,200}"))) { string(R.string.collection_is_unavailable) }

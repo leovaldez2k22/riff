@@ -525,14 +525,13 @@
     <string name="play">Play</string>
     <string name="play_all">Play all</string>
     <string name="play_counts">play counts</string>
-    <string name="play_next">Play next</string>
+    <string name="reshuffle_queue">Reshuffle queue</string>
     <string name="play_x">Play %1$s</string>
     <string name="playback_cache_cleared_downloads_kept">Playback cache cleared; downloads kept</string>
     <string name="playback_could_not_connect_x">Playback could not connect: %1$s</string>
     <string name="playback_diagnostics_copied">Playback diagnostics copied</string>
     <string name="playback_stopped_unexpectedly_tap_play_to_co">Playback stopped unexpectedly. Tap play to continue.</string>
     <string name="player">Player</string>
-    <string name="playing_next">Playing next</string>
     <string name="playing_now_x_of_x">Playing now, %1$s of %2$s</string>
     <string name="playlist">Playlist</string>
     <string name="playlist_saved_to_youtube_music">Playlist saved to YouTube Music</string>
@@ -910,7 +909,6 @@
     <string name="youtube_music_is_unavailable">YouTube Music is unavailable</string>
     <string name="youtube_music_is_unavailable_http_x">YouTube Music is unavailable (HTTP %1$s)</string>
     <string name="youtube_music_keeps_its_own_record_of">YouTube Music keeps its own record of feedback you\'ve sent from Riff.</string>
-    <string name="youtube_music_recommendations">YouTube Music recommendations</string>
     <string name="youtube_music_refreshed_its_session_please_r">YouTube Music refreshed its session. Please retry.</string>
     <string name="youtube_music_refreshed_its_session_retry_th">YouTube Music refreshed its session. Retry the remaining selections.</string>
     <string name="youtube_music_refused_the_audio_restart_the">YouTube Music refused the audio. Restart the download later.</string>
@@ -1195,7 +1193,7 @@
     <string name="encore_open_on_phone">This song is a file on the phone. Play it from On this phone.</string>
     <string name="encore_find_genres">Find genres for your artists</string>
     <string name="encore_find_genres_detail">Sends artist names to MusicBrainz, on Wi-Fi only. Off by default.</string>
-    <string name="encore_footnote">Encore is made from your listening history on this phone. Nothing leaves it unless you turn on genres.</string>
+    <string name="encore_footnote">Encore is made from your listening history on this phone. Riff asks YouTube Music for your top artists\' photos. Nothing else leaves it unless you turn on genres.</string>
     <string name="encore_empty">Nothing played in this period yet.</string>
     <string name="encore_loading">Loading your Encore</string>
     <string name="encore_history_off">Saving listening history is off, so Encore isn’t counting new plays.</string>

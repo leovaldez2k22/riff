@@ -205,8 +205,7 @@ import kotlinx.coroutines.launch
                         SongActionMenu(menu,{menu=false}) {
                             card.track()?.let {DownloadSongAction(it,onNotice,onDismiss={menu=false});AddToPlaylistAction(it,{menu=false}) {playlistTrack=it}}
                             if(caps.removeEntries.available && card.setVideoId!=null) SongActionItem(string(R.string.remove_from_playlist_2)) {menu=false;removing=card}
-                            SongActionItem("Play next",onClick={ menu=false;scope.launch {enqueueRealTrack(provider,playback,card,true,onNotice)}})
-                            SongActionItem("Add to queue",onClick={ menu=false;scope.launch {enqueueRealTrack(provider,playback,card,false,onNotice)}})
+                            SongActionItem("Add to queue",onClick={ menu=false;scope.launch {enqueueRealTrack(provider,playback,card,onNotice)}})
                             card.track()?.let {EncoreHistoryAction(EncoreKind.SONG,encoreSongKey(it.videoId),card.title) {menu=false}}
                         }
                     }

@@ -106,6 +106,27 @@ class EncoreRepositoryTest {
         assertEquals(30 * 60_000L, summary.weekHours!![0][22])
     }
 
+    @Test fun anArtistUnderTwoKeysIsOneRowWithOneHistory() {
+        val repo = EncoreRepository(db)
+        val week = week("2026-06-01")
+        val d = db.writableDatabase
+        fun row(key: String, title: String, day: String, ms: Long) = d.execSQL("INSERT INTO stats_daily(scope,day,kind,key,title,subtitle,artwork,plays,listened_ms) " +
+            "VALUES('s',?,'artist',?,?,'',NULL,1,?)", arrayOf<Any?>(day, key, title, ms))
+        row("id:UCabba", "ABBA", "2026-06-02", 19 * 60_000L)
+        row("name:abba", "ABBA", "2026-06-03", 11 * 60_000L)
+        row("name:lorde", "Lorde", "2026-06-03", 20 * 60_000L)
+        val top = repo.top(listOf("s"), week, EncoreKind.ARTIST, EncoreSort.Minutes)
+        assertEquals(listOf("ABBA", "Lorde"), top.map { it.title })
+        assertEquals("id:UCabba", top[0].key)
+        assertEquals(30 * 60_000L, top[0].listenedMs)
+        assertEquals(30 * 60_000L, repo.history(listOf("s"), EncoreKind.ARTIST, "name:abba", LocalDate.parse("2026-06-05"))!!.listenedMs)
+        assertEquals(1, repo.history(listOf("s"), EncoreKind.ARTIST, "id:UCabba", LocalDate.parse("2026-06-05"))!!.rankThisYear)
+        repo.saveArtistPhoto(listOf("s"), "abba", "https://x/abba.jpg")
+        assertEquals("https://x/abba.jpg", repo.top(listOf("s"), week, EncoreKind.ARTIST, EncoreSort.Minutes)[0].artwork)
+        assertEquals("https://x/abba.jpg", repo.artistPhoto(listOf("s"), "ABBA"))
+        assertNull(repo.artistPhoto(listOf("s"), "Lorde"))
+    }
+
     @Test fun rankMovementComparesWithThePreviousList() {
         val before = listOf(EncoreItem("song", "a", "A", "", null, 1, 1), EncoreItem("song", "b", "B", "", null, 1, 1))
         val now = listOf(EncoreItem("song", "b", "B", "", null, 1, 1), EncoreItem("song", "c", "C", "", null, 1, 1), EncoreItem("song", "a", "A", "", null, 1, 1))

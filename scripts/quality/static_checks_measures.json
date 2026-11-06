@@ -12,7 +12,7 @@
  "GlassCategoryChip.kt": 5,
  "HomeFeed.kt": 59,
  "ImmersiveCollection.kt": 45,
- "InlineQueue.kt": 34,
+ "InlineQueue.kt": 32,
  "LibraryHistoryScreens.kt": 26,
  "LibraryShortcuts.kt": 14,
  "LocalDataTransferScreen.kt": 24,
@@ -31,7 +31,7 @@
  "ShelfSkeleton.kt": 40,
  "ShellChrome.kt": 10,
  "ShellScene.kt": 5,
- "SleepTimer.kt": 4,
+ "SleepTimer.kt": 3,
  "SongActionMenu.kt": 4,
  "StartupLogo.kt": 2
 }

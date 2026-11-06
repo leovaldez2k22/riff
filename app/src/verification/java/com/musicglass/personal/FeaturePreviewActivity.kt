@@ -68,7 +68,7 @@ internal class FixturePlayback:PlaybackGateway {
     override fun clearProviderPlayback()=unsupported()
     override fun setSleepTimer(minutes:Int)=unsupported()
     override fun seekQueueItem(index:Int)=unsupported()
-    override fun enqueueProvider(track:ProviderTrack,stream:ProviderStream,playNext:Boolean)=unsupported()
+    override fun enqueueProvider(track:ProviderTrack,stream:ProviderStream)=unsupported()
     override fun playSong(track:ProviderTrack)=unsupported()
     override fun restoreAudio(track:ProviderTrack,position:Long)=unsupported()
     override fun playAlbum(tracks:List<ProviderTrack>,index:Int)=unsupported()

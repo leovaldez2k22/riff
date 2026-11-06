@@ -12,7 +12,7 @@ targets, checked by its own tests.
 | Labels | Every pressable node says what it is; nothing pressable is outside the screen | same |
 | Text sizes and windows | 15 screens x font scale 1.0, 1.3, 1.6, 2.0 x left-to-right and right-to-left, on a 360 x 640 dp phone, the same phone on its side, and an 840 x 900 dp window | same |
 | Longer text | The same 15 screens with every string a third longer and marked; the layout checks run again, and any words on screen that are not marked fail the test | `PseudoLocaleSweepTest` |
-| Queue without dragging | Each row offers Move up, Move down, Play next and Remove as actions, only where they change something, and says its position ("3 of 6", "Playing now, 2 of 6") | `AccessibilitySemanticsTest` |
+| Queue without dragging | Each row offers Move up, Move down and Remove as actions, only where they change something, and says its position ("3 of 6", "Playing now, 2 of 6") | `AccessibilitySemanticsTest` |
 | State | Like says Liked or Not liked and keeps one name; exactly one tab is selected and each is a tab; the seek bar says its position and length | `AccessibilitySemanticsTest`, `PlayerControlSemanticsTest` |
 | Keyboard | A tab and a filter chip answer Enter and Space | `AccessibilitySemanticsTest` |
 | Reduced motion | Motion is reduced by the app's setting or by the system animator scale being 0; reduced motion makes every timed animation instant | `AccessibilitySemanticsTest` |
@@ -62,6 +62,8 @@ and a soft one at 55% blurred by 6 dp; under words one black shadow at 90%, 8 px
 3:1 and 4.5:1 figures above are worked out against a backing of known depth, and a shadow has no single
 depth to work out, so these four controls have no arithmetic figure. They are checked by eye over a pure
 white cover on the device (Q18F's B13 and A9), with PlayerFixesDeviceTest's white fixture cover as the picture.
+
+**Adaptive fade on very bright covers (the owner's choice, 5 Nov 2026).** On a backdrop lighter than relative luminance 0.35, the open queue darkens the whole panel; from 0.6 on, it is brought down to 0.10, which gives white words more than 4.5:1. The player does the same behind the title and buttons only when the lower half of the backdrop is white or off-white (lightness at least 0.70, colour at most 0.16); on other bright covers, such as BRAT's green, its words rely on the cover's own fade, at the owner's request. The art itself is not faded, so Q18-002 stands. Record: `owner-bug-batch-2026-11-05.md`.
 
 **rc20's artwork colours (the owner's choice, 24 Oct 2026, rc11).** The owner asked for the gradients of
 rc20 back: Q13's title block (the cover's tone at 90% under a collection's and Downloads' title, artist and
@@ -121,7 +123,7 @@ TalkBack on, swipe through each journey in `core-journeys.md`:
 3. UX03 filter, sort, play: the chosen chip says selected; the sort menu says the current order.
 4. UX04 download: each phase is announced once when it changes, not continuously.
 5. UX05 mini player, full player, queue: opening the player moves focus into it; closing returns focus to
-   the mini player. In the queue, the actions menu offers Move up, Move down, Play next and Remove, and the
+   the mini player. In the queue, the actions menu offers Move up, Move down and Remove, and the
    row says its position. Playback progress is never read out on its own.
 6. UX06 lyrics: the timing dialog is reached, its value is read, and it can be left.
 7. UX07 account switch: the confirmation is read; focus lands somewhere sensible afterwards.

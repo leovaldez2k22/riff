@@ -275,7 +275,7 @@ internal fun parseQrc(raw: String, durationMs: Long, title: String = "", artist:
         text.append(rest.substring(previous))
         val value = text.toString()
         if (start < 15_000 && (lyricsNormalize(value) == lyricsNormalize(title) ||
-            lyricsNormalize(value) == lyricsNormalize("$title $artist"))) continue
+            lyricsNormalize(value) == lyricsNormalize("$title $artist") || lyricsIsTitleLine(value, title, artist))) continue
         if (value.isNotBlank()) lines += LyricLine((start + offset).coerceAtLeast(0),
             if (length > 0) start + offset + length else 0, value, parts)
     }

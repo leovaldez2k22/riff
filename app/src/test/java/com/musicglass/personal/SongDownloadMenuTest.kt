@@ -108,7 +108,7 @@ class SongDownloadMenuTest {
         compose.runOnIdle { peek.open(ProviderHomeCard("Song", "Artist", null, videoId = track.videoId), Rect(40f, 200f, 300f, 460f), 12f, true) {} }
         compose.waitUntil(10_000) { runCatching { compose.onNodeWithText("Remove download").assertExists() }.isSuccess }
         compose.onNodeWithText("Download song").assertDoesNotExist()
-        compose.onNodeWithText("Play next").assertExists()
+        compose.onNodeWithText("Add to queue").assertExists()
     }
 
     @Test fun aSongNeverDownloadedOffersToDownloadIt() {

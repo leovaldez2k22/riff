@@ -147,7 +147,7 @@ class MusicPlaybackService : MediaLibraryService() {
     private inline fun <T> internally(block:()->T):T=internalChange.run(block)
     private val queue:QueueCoordinator by lazy {QueueCoordinator(this,serviceScope,provider,sessions,offline,events,order,audio,{persistence},internalChange,{mainPlayer}) {recovery.clear()}}
     private val faults:PlaybackFaults by lazy {PlaybackFaults(serviceScope,runtime,provider,offline,events,queue)}
-    private val sources:PlaybackSources by lazy {PlaybackSources(this,serviceScope,provider,offline,events,audio,queue,sabrHttp,::publishState)}
+    private val sources:PlaybackSources by lazy {PlaybackSources(this,serviceScope,provider,offline,events,audio,queue,sabrHttp,::publishState,{runtime.networkConditions().validated})}
     private var sleepDeadlineMs=0L
     private var publishedState=""
     /** Feature 14: the library Android Auto browses. */
@@ -213,6 +213,8 @@ class MusicPlaybackService : MediaLibraryService() {
             .setMaxSeekToPreviousPositionMs(PREVIOUS_RESTARTS_AFTER_MS)
             .experimentalSetDynamicSchedulingEnabled(false)
             .build().apply {
+            // The flag on, in list order: QueueOrder shuffles the list itself, once.
+            setShuffleOrder(androidx.media3.exoplayer.source.ShuffleOrder.UnshuffledShuffleOrder(0))
             setWakeMode(C.WAKE_MODE_NETWORK)
             setAudioAttributes(AudioAttributes.Builder()
                 .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
@@ -228,6 +230,7 @@ class MusicPlaybackService : MediaLibraryService() {
             repeatMode = Player.REPEAT_MODE_OFF
             addListener(object : Player.Listener {
                 override fun onAudioSessionIdChanged(audioSessionId: Int) = audio.audioSessionChanged(audioSessionId)
+                override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = queue.queueOrder.shuffleChanged(this@apply,shuffleModeEnabled)
                 override fun onEvents(player: Player,events: Player.Events) {refreshMediaButtons();audio.update();persistence.save(player);publishState();publishWidgets(player,events.contains(Player.EVENT_POSITION_DISCONTINUITY));tickWidgets(player);sources.lookUpNext(player)}
                 override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
                     if(reason==Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) order.edited()
@@ -314,7 +317,7 @@ class MusicPlaybackService : MediaLibraryService() {
                     .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
                         .buildUpon().add(SessionCommand(PLAY_PROVIDER_STREAM, Bundle.EMPTY))
                         .add(SessionCommand(PLAY_LOCAL_AUDIO, Bundle.EMPTY)).add(SessionCommand(RETRY_PLAYBACK, Bundle.EMPTY))
-                        .add(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY)).add(SessionCommand(RESTORE_SAVED_QUEUE,Bundle.EMPTY)).add(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY)).add(SessionCommand(LOAD_MORE_QUEUE,Bundle.EMPTY)).add(SessionCommand(GET_NERD_STATS,Bundle.EMPTY))
+                        .add(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY)).add(SessionCommand(RESHUFFLE_QUEUE,Bundle.EMPTY)).add(SessionCommand(RESTORE_SAVED_QUEUE,Bundle.EMPTY)).add(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY)).add(SessionCommand(LOAD_MORE_QUEUE,Bundle.EMPTY)).add(SessionCommand(GET_NERD_STATS,Bundle.EMPTY))
                         .apply {mediaButtonCommands.forEach {add(SessionCommand(it,Bundle.EMPTY))}}.build())
                     .build()
             }
@@ -362,6 +365,7 @@ class MusicPlaybackService : MediaLibraryService() {
                 }
                 if(customCommand.customAction==GET_NERD_STATS)
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS,nerdStatsBundle(player,nerdStats,audio.lastBlend)))
+                if(customCommand.customAction==RESHUFFLE_QUEUE) {queue.queueOrder.reshuffle(player);persistence.save(player);return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))}
                 if(customCommand.customAction==LOAD_MORE_QUEUE) {
                     queue.replenish(player,onDemand=true)
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))

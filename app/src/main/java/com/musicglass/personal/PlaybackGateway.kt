@@ -61,6 +61,8 @@ internal interface PlaybackGateway {
     fun setPlaybackSpeed(speed:Float) {}
     /** Q18-096: the open queue reached its last song; asks for more recommendations. */
     fun loadMoreQueue() {}
+    /** The whole queue in a new order, around the song playing. */
+    fun reshuffleQueue() {}
     /** Feature 16: the format-level figures of what is playing, or null with no player. */
     suspend fun nerdStats(): Bundle? = null
     fun pause()
@@ -77,7 +79,7 @@ internal interface PlaybackGateway {
     fun cycleRepeat()
     fun moveQueueItem(from: Int, to: Int)
     fun seekQueueItem(index: Int)
-    fun enqueueProvider(track: ProviderTrack, stream: ProviderStream, playNext: Boolean = false)
+    fun enqueueProvider(track: ProviderTrack, stream: ProviderStream)
     fun playSong(track:ProviderTrack)
     fun restoreAudio(track:ProviderTrack,position:Long)
     fun playAlbum(tracks: List<ProviderTrack>, index: Int)
@@ -322,6 +324,7 @@ internal class MusicPlaybackGateway(context: Context,
         return result?.takeIf { it.resultCode == SessionResult.RESULT_SUCCESS }?.extras
     }
     override fun loadMoreQueue() = withPlayer {it.sendCustomCommand(SessionCommand(LOAD_MORE_QUEUE,Bundle.EMPTY),Bundle.EMPTY)}
+    override fun reshuffleQueue() = withPlayer {it.sendCustomCommand(SessionCommand(RESHUFFLE_QUEUE,Bundle.EMPTY),Bundle.EMPTY)}
     override fun setSleepTimer(minutes:Int) = withPlayer {it.sendCustomCommand(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY),Bundle().apply {putInt("minutes",minutes)})}
     override fun setSleepTimerSongs(songs:Int) = withPlayer {it.sendCustomCommand(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY),Bundle().apply {putInt("songs",songs)})}
     override fun setPlaybackSpeed(speed:Float) = withPlayer {it.setPlaybackSpeed(playbackSpeedStep(speed))}
@@ -385,7 +388,7 @@ internal class MusicPlaybackGateway(context: Context,
     override fun playAlbum(tracks: List<ProviderTrack>, index: Int)=sendCatalogQueue(tracks,index,true)
     override fun playCollection(tracks:List<ProviderTrack>,index:Int,title:String,shuffle:Boolean) {embeddedControl?.invoke(false);embeddedId=null;embeddedPlaying=false;sendCatalogQueue(tracks,index,true,title,shuffle)}
     override fun playSong(track:ProviderTrack) {embeddedControl?.invoke(false);embeddedId=null;embeddedPlaying=false;sendCatalogQueue(listOf(track),0,true,automatic=true)}
-    fun enqueueSong(track:ProviderTrack,next:Boolean) {sendCatalogQueue(listOf(track),0,true,enqueueNext=next)}
+    fun enqueueSong(track:ProviderTrack) {sendCatalogQueue(listOf(track),0,true,enqueueNext=true)}
     override fun restoreQueueEntry(entry: QueueEntry, index: Int) {
         val id = entry.mediaId.removePrefix("yt:").takeIf { entry.mediaId.startsWith("yt:") } ?: return
         sendCatalogQueue(listOf(ProviderTrack(id, entry.title, entry.artist, entry.artworkUrl)),0,false,enqueueNext=false,insertAt=index)
@@ -435,16 +438,16 @@ internal class MusicPlaybackGateway(context: Context,
             catch(_:Exception) {deleteQueueRequest(file);commandError=PlaybackFailure(PlaybackFailureKind.CollectionPrepare);refresh()}
         }
     }
-    override fun enqueueProvider(track: ProviderTrack, stream: ProviderStream, playNext: Boolean) =
-        sendProvider(track,stream,0,true,playNext)
+    override fun enqueueProvider(track: ProviderTrack, stream: ProviderStream) =
+        sendProvider(track,stream,0,true)
     override fun playProvider(track: ProviderTrack, stream: ProviderStream, startPositionMs: Long) {
         embeddedControl?.invoke(false);embeddedId=null;embeddedPlaying=false
         replaceSequence++
-        sendProvider(track,stream,startPositionMs,false,false)
+        sendProvider(track,stream,startPositionMs,false)
     }
-    override fun replaceProvider(track:ProviderTrack,stream:ProviderStream,position:Long)=sendProvider(track,stream,position,false,false,true)
+    override fun replaceProvider(track:ProviderTrack,stream:ProviderStream,position:Long)=sendProvider(track,stream,position,false,true)
     private fun sendProvider(track: ProviderTrack, stream: ProviderStream, startPositionMs: Long,
-        enqueue: Boolean, playNext: Boolean, replace:Boolean=false) {
+        enqueue: Boolean, replace:Boolean=false) {
         val entry=state.playback.queueItemId.takeIf {replace && it.isNotEmpty()}
         withPlayer { player ->
         commandError = null
@@ -463,7 +466,7 @@ internal class MusicPlaybackGateway(context: Context,
             putString("artist", track.artist)
             putString("artworkUrl", track.artworkUrl)
             putString("artistId",track.artistId);putString("albumId",track.albumId);putString("album",track.album)
-            putBoolean("live",track.isLive);putBoolean("enqueue",enqueue);putBoolean("playNext",playNext)
+            putBoolean("live",track.isLive);putBoolean("enqueue",enqueue)
             putLong("position", startPositionMs.coerceAtLeast(0L))
             putBundle("headers", headers)
             YouTubeMusicProvider.shared(appContext).session.value.let {

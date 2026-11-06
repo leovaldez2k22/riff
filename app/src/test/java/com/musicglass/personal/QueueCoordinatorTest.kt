@@ -165,21 +165,82 @@ class QueueCoordinatorTest {
         assertEquals("yt:fxsong00005", ids().last())
     }
 
-    @Test fun addingASongPutsItNextOrLastAndNeverTwice() {
+    private fun add(id: String) = queue.playCatalogQueue(player, Bundle().apply { putBoolean("enqueueNext", true) }, saved(id), ticket(false)) { false }
+
+    @Test fun addedSongsPlayNextInTheOrderAddedAndNeverTwice() {
         queue.playCatalogQueue(player, Bundle().apply { putBoolean("autoplay", false) }, saved("yt:fxsong00001", "yt:fxsong00002", "yt:fxsong00003"), ticket()) { false }
-        val next = Bundle().apply { putBoolean("enqueueNext", true) }; val last = Bundle().apply { putBoolean("enqueueNext", false) }
-        queue.playCatalogQueue(player, next, saved("yt:fxsong00004"), ticket(false)) { false }
-        assertEquals(listOf("yt:fxsong00001", "yt:fxsong00004", "yt:fxsong00002", "yt:fxsong00003"), ids())
-        queue.playCatalogQueue(player, last, saved("yt:fxsong00005"), ticket(false)) { false }
-        assertEquals("yt:fxsong00005", ids().last())
-        // Already queued: moved to play next rather than added again.
-        val entry = entries()[3]
-        queue.playCatalogQueue(player, next, saved("yt:fxsong00003"), ticket(false)) { false }
-        assertEquals(listOf("yt:fxsong00001", "yt:fxsong00003", "yt:fxsong00004", "yt:fxsong00002", "yt:fxsong00005"), ids())
-        assertEquals("the same entry, moved", entry, entries()[1])
-        queue.playCatalogQueue(player, last, saved("yt:fxsong00002"), ticket(false)) { false }
-        assertEquals(5, player.mediaItemCount)
+        add("yt:fxsong00004"); add("yt:fxsong00005")
+        assertEquals(listOf("yt:fxsong00001", "yt:fxsong00004", "yt:fxsong00005", "yt:fxsong00002", "yt:fxsong00003"), ids())
+        add("yt:fxsong00003")
+        assertEquals("already queued: left where it is", 5, player.mediaItemCount)
+        assertEquals("yt:fxsong00003", ids().last())
         assertEquals(1, resets)
+    }
+
+    @Test fun aRearrangedAddedSongStaysWhereTheUserPutIt() {
+        queue.playCatalogQueue(player, Bundle().apply { putBoolean("autoplay", false) }, saved("yt:fxsong00001", "yt:fxsong00002", "yt:fxsong00003"), ticket()) { false }
+        add("yt:fxsong00004")
+        player.moveMediaItem(1, 3)
+        add("yt:fxsong00005")
+        assertEquals(listOf("yt:fxsong00001", "yt:fxsong00005", "yt:fxsong00002", "yt:fxsong00003", "yt:fxsong00004"), ids())
+    }
+
+    // ---- shuffle: the list is the play order
+
+    private val many = (1..9).map { "yt:fxsong0000$it" }.toTypedArray()
+    private fun shuffled(index: Int) = queue.playCatalogQueue(player, Bundle().apply { putBoolean("autoplay", false) }, saved(*many).copy(index = index, shuffle = true), ticket()) { false }
+
+    @Test fun shufflingAPlaylistOrdersItOnceWithTheChosenSongFirst() {
+        shuffled(4)
+        assertEquals(0, player.currentMediaItemIndex)
+        assertEquals("yt:fxsong00005", ids().first())
+        assertEquals(many.toSet(), ids().toSet())
+        assertEquals(9, player.mediaItemCount)
+        assertTrue(player.shuffleModeEnabled)
+    }
+
+    @Test fun anOutsideSongPlaysNextInAShuffledQueueUntilReshuffled() {
+        shuffled(0)
+        add("yt:fxoutside71")
+        assertEquals("yt:fxoutside71", ids()[1])
+        add("yt:fxoutside72")
+        assertEquals("yt:fxoutside72", ids()[2])
+        queue.queueOrder.reshuffle(player)
+        add("yt:fxoutside73")
+        assertEquals("a reshuffle ends what was waiting", "yt:fxoutside73", ids()[1])
+    }
+
+    @Test fun reshufflingKeepsTheSongPlayingAndBringsBackThePlayedOnes() {
+        queue.playCatalogQueue(player, Bundle().apply { putBoolean("autoplay", false) }, saved(*many), ticket()) { false }
+        player.seekTo(4, 12_000)
+        val entry = player.currentMediaItem!!.entryId()
+        val before = entries().toSet()
+        queue.queueOrder.reshuffle(player)
+        assertEquals(0, player.currentMediaItemIndex)
+        assertEquals("the same entry", entry, player.currentMediaItem!!.entryId())
+        assertEquals("not restarted", 12_000, player.currentPosition)
+        assertEquals("the same entries, none new", before, entries().toSet())
+        assertTrue(player.shuffleModeEnabled)
+    }
+
+    @Test fun turningShuffleOffGoesBackToTheOriginalOrderWithAddedSongsNext() {
+        shuffled(3)
+        add("yt:fxoutside71")
+        player.shuffleModeEnabled = false
+        queue.queueOrder.shuffleChanged(player, false)
+        assertEquals(many.take(4) + "yt:fxoutside71" + many.drop(4), ids())
+        assertEquals("yt:fxsong00004", player.currentMediaItem!!.mediaId)
+        assertEquals(3, player.currentMediaItemIndex)
+    }
+
+    @Test fun turningShuffleOnFromAButtonShufflesOnce() {
+        queue.playCatalogQueue(player, Bundle().apply { putBoolean("autoplay", false) }, saved(*many), ticket()) { false }
+        queue.queueOrder.shuffleChanged(player, true)
+        val once = ids()
+        queue.queueOrder.shuffleChanged(player, true)
+        assertEquals("told again, nothing more happens", once, ids())
+        assertEquals("yt:fxsong00001", once.first())
+        assertEquals(many.toSet(), once.toSet())
     }
 
     @Test fun replacingTheSelectedEntryKeepsItsIdentityAndIsCancelledWhenTheUserMovedOn() {
@@ -228,7 +289,7 @@ class QueueCoordinatorTest {
         queue.playProviderStream(player, streamArgs("enqueue" to true), request, ticket(false)) { false }
         assertEquals(2, player.mediaItemCount)
         val other = providerStreamRequest(streamArgs("videoId" to "fxsong00009", "title" to "Another", "streamVideoId" to "fxsong00009"))!!
-        queue.playProviderStream(player, streamArgs("enqueue" to true, "playNext" to true), other, ticket(false)) { false }
+        queue.playProviderStream(player, streamArgs("enqueue" to true), other, ticket(false)) { false }
         assertEquals(listOf("yt:fxsong00001", "yt:fxsong00009", "yt:fxsong00003"), ids())
         assertEquals(1, resets)
     }

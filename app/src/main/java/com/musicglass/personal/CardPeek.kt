@@ -171,8 +171,7 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
         val held = card ?: return@PlayerActionMenu
         val track = held.track()
         if (track != null) {
-            SongActionItem("Play next") { act { enqueueRealTrack(provider, playback, held, true, onNotice) } }
-            SongActionItem("Add to queue") { act { enqueueRealTrack(provider, playback, held, false, onNotice) } }
+            SongActionItem("Add to queue") { act { enqueueRealTrack(provider, playback, held, onNotice) } }
             if (track.isMusic && !track.isLive) {
                 SongActionItem("Add to playlist") { peek.dismiss(); uiHaptic(); playlistTrack = track }
                 DownloadSongAction(track, onNotice, onDismiss = { peek.dismiss() }, scope = scope)

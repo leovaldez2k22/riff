@@ -234,7 +234,7 @@ private fun storyGradient(slide: EncoreSlide): Brush {
             EncoreSlide.TopArtist -> summary.top(EncoreKind.ARTIST).first().let { artist ->
                 Text(string(R.string.encore_story_top_artist), color = Muted, fontSize = RiffEncore.storyBody)
                 val cover = summary.top(EncoreKind.SONG).firstOrNull { it.subtitle.contains(artist.title) }
-                CatalogArtwork(cover?.artwork, artist.key, modifier = lift.size(RiffEncore.storyArt).clip(CircleShape))
+                CatalogArtwork(artist.artwork ?: cover?.artwork, artist.key, modifier = lift.size(RiffEncore.storyArt).clip(CircleShape))
                 Text(artist.title, color = White, fontSize = RiffEncore.storyTitle, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                 if (summary.listenedMs > 0) Text(string(R.string.encore_story_share_of, encorePercent(artist.listenedMs.toFloat() / summary.listenedMs)),
                     color = Muted, fontSize = RiffEncore.storyBody)

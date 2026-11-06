@@ -50,7 +50,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         model.openCollection(it,card.title)
     }
 }
-@Composable internal fun CatalogCardRow(card:ProviderHomeCard,onEnqueue:((Boolean)->Unit)?=null,onOpen:()->Unit) {
+@Composable internal fun CatalogCardRow(card:ProviderHomeCard,onEnqueue:(()->Unit)?=null,onOpen:()->Unit) {
     var menu by remember(card.key()) {mutableStateOf(false)}
     var playlistTrack by remember {mutableStateOf<ProviderTrack?>(null)}
     playlistTrack?.let {PlaylistPicker(it,{playlistTrack=null},{})}
@@ -65,8 +65,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         if(onEnqueue!=null && card.track()!=null) Box {
             IconButton({ uiHaptic(); menu=true},modifier=Modifier.testTag("catalog_menu_${card.key()}")) {Icon(Icons.Rounded.MoreHoriz,string(R.string.song_options),tint=Muted)}
             SongActionMenu(menu,{menu=false}) {
-                SongActionItem("Play next",onClick={ menu=false;onEnqueue(true)})
-                SongActionItem("Add to queue",onClick={ menu=false;onEnqueue(false)})
+                SongActionItem("Add to queue",onClick={ menu=false;onEnqueue()})
                 card.track()?.let {DownloadSongAction(it,onDismiss={menu=false});AddToPlaylistAction(it,{menu=false}) {playlistTrack=it}
                     EncoreHistoryAction(EncoreKind.SONG,encoreSongKey(it.videoId),card.title) {menu=false}}
             }
@@ -107,6 +106,11 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         provider.discover(model.searchQuery,filter=model.searchFilter).fold(
             onSuccess={ cards=it.cards;next=pageTokens.next(it.next);history.record(model.searchQuery);keep() },onFailure={ error=it.message })
         loading=false
+        // Feature (5 Nov): an "All" answer can leave out the song itself; the Songs answer has it first.
+        if(model.searchFilter=="All" && error==null) provider.discover(model.searchQuery,filter="Songs").onSuccess {
+            val merged=searchWithBestSong(cards,it.cards,model.searchQuery)
+            if(merged!==cards) {cards=merged;keep()}
+        }
     }
     fun open(card:ProviderHomeCard) {history.record(model.searchQuery);keyboard?.hide();openCatalogCard(model,card) {scope.launch {playRealTrack(provider,playback,it,onNotice,video=model.searchFilter=="Videos")}}}
     // Feature 24: suggestions while the field is being typed in; each key cancels the request before it.
@@ -158,7 +162,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         if(!loading && error==null && cards.isEmpty() && !(typing && !suggestions.isEmpty)) item(key="state:empty") { ContentEmpty(if(model.searchQuery.isBlank()) string(R.string.find_your_next_listen) else string(R.string.no_matching_results)) }
         val top=if(model.searchSort=="Title") null else searchTopResult(cards,model.searchFilter)
         top?.let {item(key="top:${it.key()}") {SearchTopResultCard(it) {open(it)}}}
-        items(if(model.searchSort=="Title") cards.sortedBy {it.title.lowercase()} else cards.drop(if(top!=null) 1 else 0),key={it.key()}) { card -> CatalogCardRow(card,onEnqueue={next->scope.launch{enqueueRealTrack(provider,playback,card,next,onNotice)}}) { open(card) } }
+        items(if(model.searchSort=="Title") cards.sortedBy {it.title.lowercase()} else cards.drop(if(top!=null) 1 else 0),key={it.key()}) { card -> CatalogCardRow(card,onEnqueue={scope.launch{enqueueRealTrack(provider,playback,card,onNotice)}}) { open(card) } }
         moreError?.let { item(key="state:more") { Text(it,color=White,fontSize=RiffType.body,modifier=Modifier.testTag("load_more_problem")) } }
         if(next!=null) item { Button({ uiHaptic(); 
             val token=next?:return@Button;val query=model.searchQuery;val filter=model.searchFilter;val revision=provider.authRevision
@@ -201,7 +205,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         if(data!=null) {
             if(data.shelves.size>1) data.shelves.forEachIndexed { i,shelf -> item(key="shelf:$i") {
                 HomeCardShelf(shelf.title,shelf.cards,150.dp,onOpen=::open)
-            } } else items(data.cards,key={it.key()}) {card->CatalogCardRow(card,onEnqueue={next->scope.launch{enqueueRealTrack(provider,playback,card,next,onNotice)}}) {open(card)}}
+            } } else items(data.cards,key={it.key()}) {card->CatalogCardRow(card,onEnqueue={scope.launch{enqueueRealTrack(provider,playback,card,onNotice)}}) {open(card)}}
             moreError?.let { item(key="state:more") { Text(it,color=White,fontSize=RiffType.body,modifier=Modifier.testTag("load_more_problem")) } }
             if(data.next!=null) item { Button({ uiHaptic(); 
                 val token=data.next;val revision=provider.authRevision;loading=true;moreError=null
@@ -285,7 +289,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         if(provider.signedIn && kind=="Playlists") item(key="new_playlist") {ToolLink(string(R.string.new_playlist)) {uiHaptic();newPlaylist=true}}
         if(loading && cards.isEmpty()) item(key="state:loading") {ListSkeleton(string(R.string.loading_your_library))}
         error?.let {item(key="state:problem") {ContentProblem(it,onRetry={retry++},onSignIn={model.push(Route.Account)})}}
-        items(cards,key={it.key()}) {card->CatalogCardRow(card,onEnqueue={next->scope.launch{enqueueRealTrack(provider,playback,card,next,onNotice)}}){open(card)}}
+        items(cards,key={it.key()}) {card->CatalogCardRow(card,onEnqueue={scope.launch{enqueueRealTrack(provider,playback,card,onNotice)}}){open(card)}}
         moreError?.let {item(key="state:more") {Text(it,color=White,fontSize=RiffType.body,modifier=Modifier.testTag("load_more_problem"))}}
         if(next!=null) item {Button({ uiHaptic(); 
             val token=next?:return@Button;val revision=provider.authRevision;loading=true;moreError=null
@@ -301,19 +305,19 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     }
 }
 internal suspend fun enqueueRealTrack(provider:YouTubeMusicProvider,playback:PlaybackGateway,
-    card:ProviderHomeCard,next:Boolean,onNotice:(String)->Unit) {
+    card:ProviderHomeCard,onNotice:(String)->Unit) {
     val track=card.track()?:return
     if(playback is MusicPlaybackGateway) {
-        val outcome=if(playback.state.queue.isEmpty()) EnqueueOutcome.Added else enqueueOutcome(playback.state.queue,playback.state.index,track,next)
-        playback.enqueueSong(track,next);uiHaptic(HapticCue.Confirm);onNotice(enqueueNotice(outcome,next));return
+        val outcome=if(playback.state.queue.isEmpty()) EnqueueOutcome.Added else enqueueOutcome(playback.state.queue,track)
+        playback.enqueueSong(track);uiHaptic(HapticCue.Confirm);onNotice(enqueueNotice(outcome));return
     }
     val revision=provider.authRevision
     provider.resolve(track.videoId,track.isLive).fold(onSuccess={stream->
         if(revision==provider.authRevision) {
             if(playback.state.queue.isEmpty()) playback.playProvider(track,stream)
-            else playback.enqueueProvider(track,stream,next)
+            else playback.enqueueProvider(track,stream)
             uiHaptic(HapticCue.Confirm)
-            onNotice(if(next) string(R.string.playing_next) else string(R.string.added_to_queue))
+            onNotice(string(R.string.added_to_queue))
         }
     },onFailure={onNotice(it.message?:string(R.string.could_not_add_to_queue))})
 }

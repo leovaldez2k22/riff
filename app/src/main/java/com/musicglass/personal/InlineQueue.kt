@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.scrollBy
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -34,14 +36,13 @@ import androidx.compose.ui.unit.*
 import coil3.compose.AsyncImage
 
 private class QueueCoordinates {var value:LayoutCoordinates?=null}
+/** How long a dropped row waits for the player's list to agree before the list on screen follows the player anyway. */
+private const val QUEUE_MOVE_WAIT_MS=1_500L
 
 /** What a queue row offers without dragging or swiping (Q13). A move that would change nothing is not offered. */
-internal enum class QueueRowAction(private val labelRes:Int) {MoveUp(R.string.move_up),MoveDown(R.string.move_down),PlayNext(R.string.play_next),Remove(R.string.remove_from_queue);val label:String get()=string(labelRes)}
+internal enum class QueueRowAction(private val labelRes:Int) {MoveUp(R.string.move_up),MoveDown(R.string.move_down),Remove(R.string.remove_from_queue);val label:String get()=string(labelRes)}
 internal fun queueRowActions(index:Int,current:Int,size:Int):List<QueueRowAction> = listOfNotNull(
-    QueueRowAction.MoveUp.takeIf {index>0},QueueRowAction.MoveDown.takeIf {index<size-1},
-    QueueRowAction.PlayNext.takeIf {index!=current && index!=current+1},QueueRowAction.Remove)
-/** Where a row lands so that it plays straight after the current one. */
-internal fun playNextTarget(index:Int,current:Int)=if(index<current) current else current+1
+    QueueRowAction.MoveUp.takeIf {index>0},QueueRowAction.MoveDown.takeIf {index<size-1},QueueRowAction.Remove)
 /** Q18-096: the last of the [upNext] songs is on screen, so more are wanted. */
 internal fun queueWantsMore(lastVisible:Int,upNext:Int)=upNext>0 && lastVisible>=upNext-1
 
@@ -61,19 +62,38 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
     val scope=rememberCoroutineScope()
     val latestQueue by rememberUpdatedState(state.queue)
     var draggingKey by remember {mutableStateOf<String?>(null)}
-    var dragIndex by remember {mutableIntStateOf(-1)}
     var fingerY by remember {mutableFloatStateOf(0f)}
     var grabY by remember {mutableFloatStateOf(0f)}
     var autoScroll by remember {mutableStateOf<Job?>(null)}
     fun rowKey(index:Int,item:QueueEntry)=item.queueId.ifBlank {"${item.mediaId}:${latestQueue.take(index).count {it.mediaId==item.mediaId}}"}
-    val visible=state.queue.withIndex().filter {history || it.index>state.index}
+    // The order on screen during a drag. Sending each step to the player and waiting for the list to come back left the
+    // row and the scroll position fighting: it doubled over its neighbours, and at the top the list jumped (owner's video, 5 Nov).
+    var dragOrder by remember {mutableStateOf<List<IndexedValue<QueueEntry>>?>(null)}
+    var landed by remember {mutableStateOf<Pair<String,Int>?>(null)}
+    val visible=dragOrder?:state.queue.withIndex().filter {history || it.index>state.index}
     val latestVisible by rememberUpdatedState(visible)
+    LaunchedEffect(landed) {
+        val (key,to)=landed?:return@LaunchedEffect
+        withTimeoutOrNull(QUEUE_MOVE_WAIT_MS) {snapshotFlow {latestQueue}.first {queue->queue.getOrNull(to)?.let {rowKey(to,it)}==key}}
+        // The same rows in the same order, so the list stays where it is: left alone, it jumped on release (seen on the phone).
+        val anchor=listState.firstVisibleItemIndex;val offset=listState.firstVisibleItemScrollOffset
+        dragOrder=null;landed=null;listState.requestScrollToItem(anchor,offset)
+    }
+    var reshuffled by remember {mutableStateOf(false)}
+    LaunchedEffect(state.queue) {if(reshuffled) {reshuffled=false;listState.requestScrollToItem(0)}}
     fun reorder() {
-        val layout=listState.layoutInfo.visibleItemsInfo
-        val target=layout.minByOrNull {kotlin.math.abs(fingerY-(it.offset+it.size/2f))}?:return
-        val to=latestVisible.getOrNull(target.index)?.index?:return
-        if(dragIndex in latestQueue.indices && to!=dragIndex) {val from=dragIndex;dragIndex=to;val anchor=listState.firstVisibleItemIndex;val offset=listState.firstVisibleItemScrollOffset
-            playback.moveQueueItem(from,to);listState.requestScrollToItem(anchor,offset);uiHaptic(HapticCue.Selection)}
+        val order=dragOrder?:return
+        val target=listState.layoutInfo.visibleItemsInfo.minByOrNull {kotlin.math.abs(fingerY-(it.offset+it.size/2f))}?:return
+        val from=order.indexOfFirst {rowKey(it.index,it.value)==draggingKey}
+        // Dragging up works as dragging down does: the song never takes the first row on screen while the list can still scroll
+        // up under it. Taking it pinned the list to the song, mostly above the top, and each step shifted the whole list and lost
+        // the row under the finger (owner, 6 Nov: "scroll down some and then drag a song to the very top").
+        val to=queueDragTarget(target.index,from,listState.firstVisibleItemIndex,listState.firstVisibleItemScrollOffset)
+        if(from>=0 && to in order.indices && to!=from) {
+            val anchor=listState.firstVisibleItemIndex;val offset=listState.firstVisibleItemScrollOffset
+            dragOrder=order.toMutableList().apply {add(to,removeAt(from))}
+            listState.requestScrollToItem(anchor,offset);uiHaptic(HapticCue.Selection)
+        }
     }
     // Q18-096: scrolling to the last song asks for more recommendations; a collection is already whole.
     val radio=!history && state.queueMessage !in setOf("Album order","Collection order")
@@ -82,7 +102,17 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
         snapshotFlow {queueWantsMore(listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index?:-1,latestVisible.size) to latestQueue.size}
             .distinctUntilChanged().collect {(wants,_)->if(wants) playback.loadMoreQueue()}
     }
-    fun finishDrag() {autoScroll?.cancel();autoScroll=null;draggingKey=null;dragIndex=-1;uiHaptic(HapticCue.DragEnd)}
+    fun finishDrag() {
+        autoScroll?.cancel();autoScroll=null
+        val key=draggingKey;val order=dragOrder
+        val at=order?.indexOfFirst {rowKey(it.index,it.value)==key}?:-1
+        val from=latestQueue.withIndex().indexOfFirst {rowKey(it.index,it.value)==key}
+        val to=(if(history) 0 else state.index+1)+at
+        if(at>=0 && from>=0 && from!=to && key!=null) {playback.moveQueueItem(from,to);landed=key to to} else dragOrder=null
+        // A song dropped at the top edge stays in sight, not a row above it.
+        if(at>=0 && at<=listState.firstVisibleItemIndex) listState.requestScrollToItem(at,0)
+        draggingKey=null;uiHaptic(HapticCue.DragEnd)
+    }
     DisposableEffect(Unit) {onDispose {autoScroll?.cancel()}}
     Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal=20.dp).testTag("inline_queue")) {
         // Q18-079: the header rows grow with large text rather than cut it off.
@@ -111,7 +141,7 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
             // outline inside the glass (phone checks 29 Oct, bug 3).
             QueueModeButton(state.shuffle,true,Icons.Rounded.Shuffle,string(R.string.shuffle),glass,hapticClick(playback::toggleShuffle))
             QueueModeButton(state.repeat!=0,true,if(state.repeat==1) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,string(R.string.repeat),glass,hapticClick(playback::cycleRepeat))
-            QueueModeButton(state.queueMessage !in setOf("Album order","Collection order"),false,Icons.Rounded.AllInclusive,string(R.string.youtube_music_recommendations),glass) {}
+            QueueReshuffleButton(state.queue.size>1,glass) {reshuffled=true;uiHaptic(HapticCue.Confirm);playback.reshuffleQueue()}
         }
         Row(Modifier.fillMaxWidth().padding(top=6.dp,bottom=4.dp),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -120,7 +150,9 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
             }
             TextButton({uiHaptic(HapticCue.Selection);history=!history}) {Text(if(history) string(R.string.up_next) else string(R.string.history),color=White,fontSize=11.sp)}
         }
-        LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("queue_list").onGloballyPositioned {listCoordinates.value=it},state=listState) {
+        // The list's own touch scrolling stays off during a drag and until the move lands: left on, the list ran on by about
+        // the distance dragged when the song was let go, and the song left the screen (seen on the phone, 5 Nov).
+        LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("queue_list").onGloballyPositioned {listCoordinates.value=it},state=listState,userScrollEnabled=dragOrder==null) {
             itemsIndexed(visible,key={_,e->rowKey(e.index,e.value)}) {_,entry->
                 val index=entry.index;val item=entry.value;val key=rowKey(index,item)
                 val latestIndex by rememberUpdatedState(index)
@@ -132,7 +164,7 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
                 }
                 var swipe by remember {mutableFloatStateOf(0f)}
                 Row(Modifier.fillMaxWidth().height(54.dp).zIndex(if(dragged) 1f else 0f).then(if(motion.reduced || dragged) Modifier else Modifier.animateItem())
-                    .graphicsLayer {val info=if(dragged) listState.layoutInfo.visibleItemsInfo.firstOrNull {it.key==key} else null;translationY=if(info!=null) fingerY-grabY-info.offset else 0f;scaleX=if(dragged) 1.015f else 1f;scaleY=scaleX}
+                    .graphicsLayer {val info=if(dragged) listState.layoutInfo.visibleItemsInfo.firstOrNull {it.key==key} else null;val view=listState.layoutInfo;translationY=if(info!=null) queueDraggedTop(fingerY-grabY,view.viewportStartOffset,view.viewportEndOffset,info.size)-info.offset else 0f;scaleX=if(dragged) 1.015f else 1f;scaleY=scaleX}
                     .background(if(dragged) White.copy(alpha=.1f) else Color.Transparent,RoundedCornerShape(8.dp))
                     .pointerInput(item.mediaId,index) {detectHorizontalDragGestures(onHorizontalDrag={change,x->val before=swipe;swipe+=x;if(before>= -70.dp.toPx() && swipe< -70.dp.toPx()) uiHaptic(HapticCue.Threshold);change.consume()},onDragCancel={swipe=0f},onDragEnd={if(swipe< -70.dp.toPx()) {playback.removeQueueItemWithUndo(latestIndex);uiHaptic(HapticCue.Confirm)};swipe=0f})}
                     .clickable { uiHaptic(); playback.seekQueueItem(index)}.semantics {
@@ -141,7 +173,6 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
                             when(action) {
                                 QueueRowAction.MoveUp->playback.moveQueueItem(index,index-1)
                                 QueueRowAction.MoveDown->playback.moveQueueItem(index,index+1)
-                                QueueRowAction.PlayNext->playback.moveQueueItem(index,playNextTarget(index,state.index))
                                 QueueRowAction.Remove->playback.removeQueueItemWithUndo(index)
                             }
                             uiHaptic(if(action==QueueRowAction.Remove) HapticCue.Confirm else HapticCue.Selection);true
@@ -161,7 +192,7 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
                     Icon(Icons.Rounded.DragHandle,null,tint=White.copy(alpha=.45f),modifier=Modifier.size(48.dp)
                          .clearAndSetSemantics {testTag="queue_drag_$index"}.onGloballyPositioned {handleCoordinates.value=it}.clickable {uiHaptic(HapticCue.Selection)}.pointerInput(key) {
                             detectVerticalDragGestures(onDragStart={point->
-                                dragIndex=latestIndex;draggingKey=key
+                                dragOrder=latestVisible;landed=null;draggingKey=key
                                 val info=listState.layoutInfo.visibleItemsInfo.firstOrNull {it.key==key}
                                 fingerY=fingerInList(point)?:((info?.offset?:0)+point.y+7.dp.toPx());grabY=fingerY-(info?.offset?:0)
                                 uiHaptic(HapticCue.DragStart)
@@ -182,14 +213,36 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
     }
 }
 
-/** A queue mode (shuffle, repeat, recommendations): one glass pill, pink while on, dimmed when it can't be changed. */
+/** The same glass pill, but something to press and not a mode: the whole queue again, around the song playing. */
+@Composable private fun RowScope.QueueReshuffleButton(enabled:Boolean,glass:RiffBackdrop?,onClick:()->Unit) {
+    Box(Modifier.weight(1f).height(RiffQueue.buttonHeight).riffGlass(GlassRole.Button,backdrop=glass).clip(RoundedCornerShape(50))
+        .clickable(enabled=enabled,role=androidx.compose.ui.semantics.Role.Button,onClickLabel=string(R.string.reshuffle_queue),onClick=onClick)
+        .semantics {contentDescription=string(R.string.reshuffle_queue)}.testTag("queue_reshuffle"),contentAlignment=Alignment.Center) {
+        Icon(Icons.Rounded.Autorenew,null,tint=White.copy(alpha=if(enabled) 1f else .5f),modifier=Modifier.size(RiffQueue.buttonIcon))
+    }
+}
+
+/** A queue mode (shuffle, repeat): one glass pill, pink while on, dimmed when it can't be changed. */
 @Composable private fun RowScope.QueueModeButton(on:Boolean,enabled:Boolean,icon:androidx.compose.ui.graphics.vector.ImageVector,
     label:String,glass:RiffBackdrop?,onClick:()->Unit) {
     val shape=RoundedCornerShape(50)
-    Box(Modifier.weight(1f).height(40.dp).riffGlass(GlassRole.Button,backdrop=glass).clip(shape)
+    Box(Modifier.weight(1f).height(RiffQueue.buttonHeight).riffGlass(GlassRole.Button,backdrop=glass).clip(shape)
         .background(if(on) Pink.copy(alpha=.22f) else Color.Transparent)
         .toggleable(on,enabled=enabled,role=androidx.compose.ui.semantics.Role.Switch) {onClick()}
         .semantics {contentDescription=label},contentAlignment=Alignment.Center) {
-        Icon(icon,null,tint=(if(on) Pink else White).copy(alpha=if(enabled) 1f else .5f),modifier=Modifier.size(18.dp))
+        Icon(icon,null,tint=(if(on) Pink else White).copy(alpha=if(enabled) 1f else .5f),modifier=Modifier.size(RiffQueue.buttonIcon))
     }
 }
+
+/**
+ * Where a dragged song goes when the row nearest the finger is [nearest]. While the list is not at its very top, the song
+ * stops at the second row on screen, so the row above it, not the song, keeps the list's place.
+ */
+internal fun queueDragTarget(nearest:Int,from:Int,firstVisible:Int,firstOffset:Int):Int {
+    val lowest=if(firstVisible==0 && firstOffset==0) 0 else firstVisible+1
+    return if(nearest<lowest && from>=lowest) lowest else nearest
+}
+
+/** The dragged row stays whole inside the list at both edges, rather than mostly hidden above the top (seen on the phone, 6 Nov). */
+internal fun queueDraggedTop(wanted:Float,viewportStart:Int,viewportEnd:Int,rowSize:Int):Float =
+    if(viewportEnd-viewportStart<rowSize) wanted else wanted.coerceIn(viewportStart.toFloat(),(viewportEnd-rowSize).toFloat())

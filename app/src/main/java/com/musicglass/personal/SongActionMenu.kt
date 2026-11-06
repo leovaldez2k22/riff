@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 @Composable internal fun SongActionItem(label:String,onClick:()->Unit) {
     val icon=when(label) {
         "View artist"->Icons.Rounded.Person;"View album"->Icons.Rounded.Album
-        "Play next"->Icons.Rounded.PlaylistPlay;"Add to queue"->Icons.Rounded.QueueMusic
+        "Add to queue"->Icons.Rounded.QueueMusic
         "Add to playlist"->Icons.Rounded.PlaylistAdd;"Share song","Share"->Icons.Rounded.Share
         "Sleep timer"->Icons.Rounded.Bedtime;"Playback speed"->Icons.Rounded.Speed;"Stats for nerds"->Icons.Rounded.Analytics;"Equalizer"->Icons.Rounded.Equalizer;"View credits"->Icons.Rounded.Info;"Favorite"->Icons.Rounded.StarBorder
         "Download details"->Icons.Rounded.Info;"Resume download","Retry missing assets"->Icons.Rounded.Refresh
@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
     }
     // The pop-out look (RiffMenu): the icon leads, the words are regular, and rows are not ruled one from the next.
     val tint=if(label.startsWith("Remove")) Pink else White
-    DropdownMenuItem(text={Text(keyLabel(label),color=tint,style=RiffMenu.text)},onClick = if(label in setOf("Favorite","Play next","Add to queue","Add to playlist")) onClick else hapticClick(onClick),
+    DropdownMenuItem(text={Text(keyLabel(label),color=tint,style=RiffMenu.text)},onClick = if(label in setOf("Favorite","Add to queue","Add to playlist")) onClick else hapticClick(onClick),
         // Material leaves 12 dp after the icon; the reference has 16.
         leadingIcon={Icon(icon,null,tint=tint,modifier=Modifier.padding(end=RiffMenu.iconGap-12.dp).size(RiffMenu.icon))},
         modifier=Modifier.heightIn(min=RiffMenu.row),contentPadding=PaddingValues(horizontal=RiffMenu.edge))

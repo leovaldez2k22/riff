@@ -18,6 +18,7 @@ For people building or changing it:
 - [Dependency license inventory](dependency-license-inventory.md) and its [CSV](dependency-license-audit.csv); [third-party notices](../NOTICE.md); [asset provenance](../licenses/placeholder-art.md)
 - The plan the current work follows: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md)
 - [Idle playback investigation and implementation plan](idle-playback-investigation-plan-2026-11-01.md): signed-in mini-player resume after ten minutes, evidence, staged fixes and device acceptance
+- [Owner's bug batch, 5 November](quality/owner-bug-batch-2026-11-05.md): search, Encore artists and pill, adaptive fade, sleep timer, guest-title lyrics, QQ's heading.
 - [Android startup and warm-resume audit/fixes](quality/playback-startup-warm-resume-2026-11-04.md): pipeline, reference research, hypothesis verdicts, implementation and verification
 - The plan for the next features (from 28 October 2026): [feasibility and implementation plan](feasibility-glass-font-lyrics-artwork-2026-10-27.md), covering 33 features (Liquid Glass, Encore statistics, equalizer, Android Auto, Cast and more), with its Automix design in the [AutoMix engine report](automix-engine-report-2026-10-28.md) and the measurements for its stage 4 model in [Automix stage 4 groundwork](automix-stage4-groundwork-2026-10-30.md), and the [AutoMix research report of 31 October](Riff-AutoMix-Research-Report-2026-10-31.pdf) (state of the art and a three-phase roadmap; its Phase 1 is built)
 

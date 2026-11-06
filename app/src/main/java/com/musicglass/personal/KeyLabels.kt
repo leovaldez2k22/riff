@@ -36,7 +36,6 @@ private val keyLabels: Map<String, Int> = mapOf(
     "Pause download" to R.string.pause_download,
     "Pending" to R.string.pending,
     "Pin to speed dial" to R.string.pin_to_speed_dial,
-    "Play next" to R.string.play_next,
     "Your history with this" to R.string.encore_your_history,
     "Playlists" to R.string.playlists,
     "Podcasts" to R.string.podcasts,

@@ -110,6 +110,7 @@ internal class YouTubeMusicProvider(context: Context,
     suspend fun discover(query:String,filter:String)=catalog.discover(query,null,filter)
     override suspend fun discover(query:String,token:String?,filter:String)=catalog.discover(query,token,filter)
     suspend fun browseCatalog(id:String)=catalog.browseCatalog(id,null)
+    suspend fun artistPhotoByName(name:String)=catalog.artistPhotoByName(name)
     override suspend fun browseCatalog(id:String,token:String?)=catalog.browseCatalog(id,token)
     override suspend fun completeCollection(id:String)=catalog.completeCollection(id)
     suspend fun artistShelfPage(more:ProviderMoreEndpoint,token:String?)=catalog.artistShelfPage(more,token)

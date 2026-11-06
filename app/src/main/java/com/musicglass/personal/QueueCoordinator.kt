@@ -142,7 +142,10 @@ internal class QueueCoordinator(private val context: Context, private val scope:
     fun tailItem(item: MediaItem): MediaItem = resolvedStreams[item]?.let { providerItem(trackFromItem(item), it, keepEntry(item)) } ?: item
 
     /** Ends recommendations and forgets what was resolved for the queue. Retries in progress end with it. */
+    /** The queue's order: shuffle once, and where a song the user adds goes. */
+    val queueOrder = QueueOrder()
     fun reset() {
+        queueOrder.forget()
         replacement = null; resolvedStreams.clear(); downloadServed.clear()
         onReset(); autoEntries.clear()
         generation++; radioJob?.cancel(); radioJob = null; radioSeed = null; radioContinuation = null; radioEnded = false; candidates.clear()
@@ -164,6 +167,7 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         val shown = items.mapIndexed { i, item -> if (i != saved.index || saved.durationMs <= 0) item
             else item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon().setDurationMs(saved.durationMs).build()).build() }
         player.setMediaItems(shown, saved.index, saved.positionMs)
+        queueOrder.loaded(saved.shuffle)
         player.shuffleModeEnabled = saved.shuffle; player.repeatMode = saved.repeat; player.playWhenReady = false
         radioSeed = saved.radioSeed; queuedIds.addAll(saved.queue.filter { it.mediaId.startsWith("yt:") }.map { it.mediaId.removePrefix("yt:") })
         player.setPlaylistMetadata(MediaMetadata.Builder().setSubtitle(if (radioSeed == null) "Album order" else string(R.string.restored_queue_paused)).build())
@@ -186,11 +190,9 @@ internal class QueueCoordinator(private val context: Context, private val scope:
             val track = tracks[0]; val existing = indexOfRecording(player, track)
             // Feature 26: Undo puts a removed song back at the row it left.
             val insertAt = args.getInt("insertAt", -1)
-            if (existing != null) { if (args.getBoolean("enqueueNext") && existing != player.currentMediaItemIndex) player.moveMediaItem(existing, afterCurrent(player, existing)) }
-            else { queuedIds.add(track.videoId); player.addMediaItem(when {
-                insertAt >= 0 -> insertAt.coerceAtMost(player.mediaItemCount)
-                args.getBoolean("enqueueNext") -> player.currentMediaItemIndex + 1
-                else -> player.mediaItemCount }, catalogItem(track)) }
+            if (existing == null) { queuedIds.add(track.videoId); val item = catalogItem(track)
+                if (insertAt >= 0) player.addMediaItem(insertAt.coerceAtMost(player.mediaItemCount), item)
+                else { player.addMediaItem(queueOrder.nextSlot(player), item); queueOrder.userAdded(item) } }
             return SessionResult(SessionResult.RESULT_SUCCESS)
         }
         if (args.containsKey("replacePosition") && tracks.size == 1 && player.mediaItemCount > 0) {
@@ -201,9 +203,12 @@ internal class QueueCoordinator(private val context: Context, private val scope:
             return SessionResult(SessionResult.RESULT_SUCCESS)
         }
         player.stop(); resetForNewQueue()
+        val items = tracks.map { catalogItem(it) }
+        // Shuffled once, here: the list is the play order from now on, with the chosen song first.
+        queueOrder.loaded(saved.shuffle, if (saved.shuffle) items.map { it.entryId() } else null)
         player.shuffleModeEnabled = saved.shuffle; player.repeatMode = Player.REPEAT_MODE_OFF
         queuedIds.addAll(tracks.map { it.videoId })
-        player.setMediaItems(tracks.map { catalogItem(it) }, saved.index, 0)
+        if (saved.shuffle) player.setMediaItems(shuffledAround(items, saved.index), 0, 0) else player.setMediaItems(items, saved.index, 0)
         if (args.getBoolean("automatic") && !tracks[0].isLive) radioSeed = tracks[0].videoId
         player.setPlaylistMetadata(MediaMetadata.Builder().setTitle(saved.collectionTitle).setSubtitle(if (saved.collectionTitle.isBlank()) "Album order" else "Collection order").build())
         // A pause made after this was asked for wins: the queue loads, silent.
@@ -215,6 +220,7 @@ internal class QueueCoordinator(private val context: Context, private val scope:
     /** Feature 14: a queue chosen in the car replaces the current one; the session sets the returned items on the player. */
     fun carQueue(player: Player, tracks: List<ProviderTrack>): List<MediaItem> {
         player.stop(); resetForNewQueue()
+        queueOrder.loaded(false)
         player.shuffleModeEnabled = false; player.repeatMode = Player.REPEAT_MODE_OFF
         queuedIds.addAll(tracks.map { it.videoId })
         events.append("car_queue_selected count=${tracks.size}")
@@ -246,13 +252,9 @@ internal class QueueCoordinator(private val context: Context, private val scope:
             player.prepare(); player.playWhenReady = wants
         } else if (args.getBoolean("enqueue") && player.mediaItemCount > 0) {
             val existing = indexOfRecording(player, track)
-            if (existing != null) {
-                if (args.getBoolean("playNext") && existing != player.currentMediaItemIndex) player.moveMediaItem(existing, afterCurrent(player, existing))
-                return SessionResult(SessionResult.RESULT_SUCCESS)
-            }
+            if (existing != null) return SessionResult(SessionResult.RESULT_SUCCESS)
             val item = providerItem(track, stream)
-            val index = if (args.getBoolean("playNext")) player.currentMediaItemIndex + 1 else player.mediaItemCount
-            queuedIds.add(videoId); player.addMediaItem(index, item)
+            queuedIds.add(videoId); player.addMediaItem(queueOrder.nextSlot(player), item); queueOrder.userAdded(item)
         } else {
             resetForNewQueue()
             queuedIds.add(videoId)
@@ -270,10 +272,6 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         val item = player.getMediaItemAt(it); val m = item.mediaMetadata
         sameRecording(item.mediaId, m.title.toString(), m.artist.toString(), track)
     }
-    /** The index that puts the entry now at [existing] directly after the selected one. */
-    private fun afterCurrent(player: Player, existing: Int) =
-        (player.currentMediaItemIndex + 1 - if (existing < player.currentMediaItemIndex) 1 else 0).coerceAtMost(player.mediaItemCount - 1)
-
     private fun status(player: Player, loading: Boolean, message: String) {
         player.setPlaylistMetadata(MediaMetadata.Builder().setSubtitle(message)
             .setExtras(Bundle().apply { putBoolean("queueLoading", loading) }).build())
@@ -365,23 +363,14 @@ internal class QueueCoordinator(private val context: Context, private val scope:
 internal fun sameRecording(mediaId: String, title: String, artist: String, track: ProviderTrack) =
     mediaId == "yt:${track.videoId}" || queueRecordingKey(title, artist) == queueRecordingKey(track.title, track.artist)
 
-internal enum class EnqueueOutcome { Added, Moved, AlreadyQueued }
-/**
- * What Add to queue or Play next does to [queue] with [current] selected, by the rule the service follows: a
- * recording already queued is never added twice; Play next moves it after the selected one (Q18-018).
- */
-internal fun enqueueOutcome(queue: List<QueueEntry>, current: Int, track: ProviderTrack, next: Boolean): EnqueueOutcome {
-    val existing = queue.indexOfFirst { sameRecording(it.mediaId, it.title, it.artist, track) }
-    return when {
-        existing < 0 -> EnqueueOutcome.Added
-        next && existing != current -> EnqueueOutcome.Moved
-        else -> EnqueueOutcome.AlreadyQueued
-    }
-}
+internal enum class EnqueueOutcome { Added, AlreadyQueued }
+/** What Add to queue does to [queue], by the rule the service follows: a recording already queued is never added twice (Q18-018). */
+internal fun enqueueOutcome(queue: List<QueueEntry>, track: ProviderTrack): EnqueueOutcome =
+    if (queue.any { sameRecording(it.mediaId, it.title, it.artist, track) }) EnqueueOutcome.AlreadyQueued else EnqueueOutcome.Added
 /** The notice for [outcome]: it says what happened, and nothing when nothing did. */
-internal fun enqueueNotice(outcome: EnqueueOutcome, next: Boolean) = when (outcome) {
+internal fun enqueueNotice(outcome: EnqueueOutcome) = when (outcome) {
     EnqueueOutcome.AlreadyQueued -> string(R.string.already_in_the_queue)
-    else -> if (next) string(R.string.playing_next) else string(R.string.added_to_queue)
+    EnqueueOutcome.Added -> string(R.string.added_to_queue)
 }
 
 /** Recommendations stop at this many entries in the queue when they are added on their own. */

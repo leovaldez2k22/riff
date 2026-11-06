@@ -286,7 +286,8 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     val playerGlass = rememberRiffBackdrop()
     // Feature 34.2: the cover's own colours, blurred, under the whole panel; the video and live radio stay on black.
     Box(Modifier.fillMaxWidth().fillMaxHeight()) {
-    if(!state.video && !state.live) PlayerBackdrop(state.artworkUrl, artworkColor.value, Modifier.matchParentSize(), glass = playerGlass)
+    val queueShown by androidx.compose.animation.core.animateFloatAsState(if(queueOpen) 1f else 0f, GlassMotion.timed(GlassMotion.playerMs,motion), label="queue scrim")
+    if(!state.video && !state.live) PlayerBackdrop(state.artworkUrl, artworkColor.value, Modifier.matchParentSize(), glass = playerGlass, queueShown = {queueShown})
     Column(Modifier.fillMaxWidth().fillMaxHeight().preferredFrameRate(LocalUiRefreshRate.current)
         .drawBehind {if(state.video || state.live) drawRect(Color.Black)}
         .then(if(queueOpen) Modifier else Modifier.nestedScroll(swipeConnection))
@@ -438,7 +439,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     // Encore keys a play by its media id, so a file on the phone has a history too; live radio has none.
                     if(!state.live) EncoreHistoryAction(EncoreKind.SONG,state.mediaId,state.title) {moreExpanded=false}
                     val options = if (state.source == "YouTube Music")
-                        listOf("View credits", "Add to playlist", "Share song", "View album", "View artist", "Favorite", "Play next", "Add to queue", if(keptOnPhone) "Remove from Saved on this phone" else "Save on this phone", "Library shortcuts", "Sleep timer", "Playback speed", "Equalizer", "Stats for nerds", if(providerTrack().videoId in pins) "Unpin from speed dial" else "Pin to speed dial") + (if(hasQueue) listOf("Remove from queue") else emptyList()) + (if(state.live) emptyList() else listOf("Not interested"))
+                        listOf("View credits", "Add to playlist", "Share song", "View album", "View artist", "Favorite", "Add to queue", if(keptOnPhone) "Remove from Saved on this phone" else "Save on this phone", "Library shortcuts", "Sleep timer", "Playback speed", "Equalizer", "Stats for nerds", if(providerTrack().videoId in pins) "Unpin from speed dial" else "Pin to speed dial") + (if(hasQueue) listOf("Remove from queue") else emptyList()) + (if(state.live) emptyList() else listOf("Not interested"))
                         else listOf("Library shortcuts", "View credits", "Sleep timer", "Playback speed", "Equalizer", "Stats for nerds")
                     options.forEach { option ->
                         SongActionItem(if(option=="Sleep timer" && state.sleepDeadlineMs>0) string(R.string.sleep_timer_x_min, sleepMinutesRemaining(state.sleepDeadlineMs,android.os.SystemClock.elapsedRealtime())) else option, onClick = { 
@@ -451,8 +452,8 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                                 "Not interested" -> scope.launch {markNotInterested(context,provider,playback,NotInterestedEntry(videoId,state.title,state.artist,state.artworkUrl),null,onNotice)}
                                 "View artist" -> onArtist()
                                 "View album" -> onAlbum()
-                                "Play next", "Add to queue" -> scope.launch {
-                                    provider.resolve(videoId,state.live).fold(onSuccess={playback.enqueueProvider(providerTrack(),it,option=="Play next");onNotice(string(R.string.added_to_queue))},onFailure={onNotice(it.message?:string(R.string.could_not_add_to_queue))})
+                                "Add to queue" -> scope.launch {
+                                    provider.resolve(videoId,state.live).fold(onSuccess={playback.enqueueProvider(providerTrack(),it);onNotice(string(R.string.added_to_queue))},onFailure={onNotice(it.message?:string(R.string.could_not_add_to_queue))})
                                 }
                                 "Save on this phone" -> if (collectionsCanSave(collections)) keepOnPhone(true)
                                     else onNotice(saveUnavailableNotice(provider.accountScope()))

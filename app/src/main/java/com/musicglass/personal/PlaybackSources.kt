@@ -21,6 +21,15 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 /**
+ * Whether a paused song is prepared when the app is on screen. The bytes around the saved position must be on the phone. A song
+ * only partly there can still top up the player's buffer, so that also needs a network, or the failed read would start recovery
+ * on a song nobody asked to play. More must be left than the player buffers (60 s), so it does not go on to the next song.
+ */
+internal fun preparesOnReturn(allOnPhone: Boolean, aroundOnPhone: Boolean, online: Boolean, positionMs: Long, durationMs: Long) =
+    durationMs - positionMs > RETURN_PREPARE_MIN_LEFT_MS && (allOnPhone || (aroundOnPhone && online))
+internal const val RETURN_PREPARE_MIN_LEFT_MS = 60_000L
+
+/**
  * Turns a queue entry into something the player can read: a download, an on-device file, a resolved stream, or a
  * catalog entry whose stream is looked up when the player reaches it. Used by the main player and by the crossfade's
  * second player. Owned by the playback service; [createMediaSource] is called on the playback thread.
@@ -29,6 +38,7 @@ import java.util.concurrent.ConcurrentHashMap
 internal class PlaybackSources(private val context: Context, private val scope: CoroutineScope, private val provider: YouTubeMusicProvider,
     private val offline: OfflineMusicStore, private val events: PlaybackEventLog, private val audio: AudioTransitionCoordinator,
     private val queue: QueueCoordinator, private val sabrHttp: HttpClient, private val resolvingChanged: () -> Unit,
+    private val online: () -> Boolean,
     private val defaults: DefaultMediaSourceFactory = DefaultMediaSourceFactory(context)) : MediaSource.Factory by defaults {
     /** Entries whose stream is being looked up now. Written from the playback thread. */
     private val resolving = ConcurrentHashMap.newKeySet<String>()
@@ -84,11 +94,27 @@ internal class PlaybackSources(private val context: Context, private val scope: 
         if (!returnLookupWanted(player.isPlaying, player.playWhenReady, item.localConfiguration?.uri?.scheme, item.mediaId,
                 item.mediaMetadata.extras?.getBoolean("live") == true)) return
         val videoId = item.mediaId.removePrefix("yt:")
+        val entry = item.entryId()
         val scopeNow = offline.currentScope
         val quality = provider.streamQualityName()
         scope.launch {
-            val held = withContext(Dispatchers.IO) { offline.audio(scopeNow, videoId) != null || MusicDiskCache.playable(context, scopeNow, videoId, quality) != null }
-            if (held) return@launch
+            val positionMs = player.currentPosition
+            val durationMs = item.mediaMetadata.durationMs ?: 0L
+            val (downloaded, cached, around) = withContext(Dispatchers.IO) {
+                val saved = offline.audio(scopeNow, videoId) != null
+                val found = if (saved) null else MusicDiskCache.playable(context, scopeNow, videoId, quality)
+                Triple(saved, found?.second, found != null && MusicDiskCache.holdsAround(context, found.first, positionMs, durationMs))
+            }
+            if (downloaded || cached != null) {
+                // Play on a restored song waited for the player to read from the file's last seek point to the saved position:
+                // up to about 1 s, seen on the phone. That reading now happens here, paused, from the bytes already on the phone.
+                if (preparesOnReturn(downloaded || cached == CachedPart.Whole, around, online(), positionMs, durationMs)
+                    && player.currentMediaItem?.entryId() == entry && player.playbackState == Player.STATE_IDLE
+                    && !player.playWhenReady && player.playerError == null) {
+                    events.append("prepared_on_return"); player.prepare()
+                }
+                return@launch
+            }
             val start = android.os.SystemClock.elapsedRealtime()
             provider.resolve(videoId).onSuccess { events.append("stream_ready_on_return ms=${android.os.SystemClock.elapsedRealtime() - start}") }
         }

@@ -39,5 +39,9 @@ internal object MusicDiskCache {
         if(part==null) index.remove(scope,videoId,quality)
         return part?.let {entry to it}
     }
+    fun holdsAround(context:Context,entry:CachedStreamEntry,positionMs:Long,durationMs:Long):Boolean {
+        val length=entry.contentLength ?: return false
+        return cachedAround(positionMs,durationMs,length) {position,bytes->get(context).isCached(entry.cacheKey,position,bytes)}
+    }
     fun clear(context:Context) {val cache=get(context);cache.keys.toList().forEach {cache.removeResource(it)};index(context).clear()}
 }

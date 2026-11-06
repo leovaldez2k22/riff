@@ -483,3 +483,21 @@ internal fun contrastRatio(foreground: Color, background: Color): Double {
     val a = luminance(foreground); val b = luminance(background)
     return (maxOf(a, b) + 0.05) / (minOf(a, b) + 0.05)
 }
+
+/** The buttons above the queue. */
+internal object RiffQueue {
+    val buttonHeight = 40.dp
+    val buttonIcon = 18.dp
+}
+
+/** The sleep timer's list and boxes. */
+internal object RiffSleep {
+    /** Four and a half rows, so the half row says there is more; the rows are 48 dp. */
+    val listMax = 216.dp
+    val edgeFade = 28.dp
+    val thumbMin = 24.dp
+    val thumbWidth = 3.dp
+    // The dialog's own corner, in proportion to each box's height.
+    val chipCorner = RiffMenu.corner / 2
+    val fieldCorner = RiffMenu.corner * .7f
+}

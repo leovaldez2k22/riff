@@ -107,6 +107,7 @@ import kotlin.math.abs
         } ?: return@LaunchedEffect
         historyStart = read.first; summary = read.second; extras = read.third
     }
+    val artistPhotos = rememberEncoreArtistPhotos(summary, scopes, provider, process)
     // The optional genre lookup (12.4): only with the setting on, on Wi-Fi, for the top artists of all time.
     LaunchedEffect(genresOn, scopes) {
         if (!genresOn) return@LaunchedEffect
@@ -185,7 +186,7 @@ import kotlin.math.abs
                 val lists = listOf(EncoreKind.SONG to R.string.encore_top_songs, EncoreKind.ALBUM to R.string.encore_top_albums,
                     EncoreKind.ARTIST to R.string.encore_top_artists, ENCORE_GENRE_KIND to R.string.encore_top_genres)
                 lists.forEach { (kind, title) ->
-                    val items = current.top(kind, sort)
+                    val items = current.top(kind, sort).let { if (kind == EncoreKind.ARTIST) it.withArtistPhotos(artistPhotos, current.top(EncoreKind.SONG, sort)) else it }
                     if (items.isNotEmpty()) item(key = "top:$kind") {
                         TopList(string(title), items, compared = current.previousListenedMs != null, sort, kind, menu = rowActions) { item -> openItem(item, model, provider, playback, onNotice, scope) }
                     }

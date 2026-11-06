@@ -27,6 +27,18 @@ internal fun cachedPart(entry: CachedStreamEntry, knownLength: Long, isCached: (
     return if (isCached(0, minOf(length, CACHED_START_BYTES))) CachedPart.Start else null
 }
 
+/**
+ * Whether the bytes around [positionMs] are cached, so the player can reach it without the network. Seek points were about 10 s
+ * apart on the phone, and it reads forward from the one before the position. Bytes are placed by time, so the margin is generous.
+ */
+internal fun cachedAround(positionMs: Long, durationMs: Long, length: Long, isCached: (position: Long, length: Long) -> Boolean): Boolean {
+    if (durationMs <= 0 || length <= 0) return false
+    val from = (positionMs - CACHED_AROUND_MS).coerceAtLeast(0).coerceAtMost(durationMs) * length / durationMs
+    val to = (positionMs + CACHED_AROUND_MS).coerceAtLeast(0).coerceAtMost(durationMs) * length / durationMs
+    return to > from && isCached(from, to - from)
+}
+private const val CACHED_AROUND_MS = 15_000L
+
 /** The entry for a stream just looked up, or null when its bytes are not kept or its address could not continue them. */
 internal fun cachedStreamEntry(stream: ProviderStream, cacheKey: String?): CachedStreamEntry? {
     if (cacheKey == null || stream.itag <= 0 || stream.includesVideo || stream.videoUrl != null || stream.boundedRange) return null

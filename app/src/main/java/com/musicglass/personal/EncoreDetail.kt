@@ -107,8 +107,8 @@ internal fun encoreArtistKey(channelId: String) = "id:$channelId"
     SongActionMenu(expanded, onDismiss, Modifier.testTag("encore_row_menu")) {
         val track = item.track()
         SongActionItem(if (track != null) "Play" else "Open") { onDismiss(); onOpen(item) }
-        if (track != null && provider != null && playback != null) SongActionItem("Play next") {
-            onDismiss(); scope.launch { enqueueRealTrack(provider, playback, ProviderHomeCard(item.title, item.subtitle, item.artwork, videoId = track.videoId), true, onNotice) }
+        if (track != null && provider != null && playback != null) SongActionItem("Add to queue") {
+            onDismiss(); scope.launch { enqueueRealTrack(provider, playback, ProviderHomeCard(item.title, item.subtitle, item.artwork, videoId = track.videoId), onNotice) }
         }
         if (item.kind != ENCORE_GENRE_KIND) EncoreHistoryAction(item.kind, item.key, item.title, onDismiss)
     }

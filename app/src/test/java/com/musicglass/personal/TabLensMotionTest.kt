@@ -32,6 +32,16 @@ class TabLensMotionTest {
         assertEquals(0f, f.lift, 0f); assertEquals(0f, f.ghostAlpha, 0f)
     }
 
+    @Test fun aBarThatGetsItsSizeLateTakesThePillWithIt() {
+        val m = TabLensMotion(tabs = 3, search = false)
+        m.layout(0f, 0f, 0f, 0f, 1, false)
+        m.layout(slot, bar, 0f, 0f, 1, false)
+        val f = m.frame()
+        assertEquals(slot * 1.5f, f.centerX, .01f)
+        assertEquals(160f, f.height, 1f); assertEquals(rest, f.width, 1f)
+        assertFalse(m.moving)
+    }
+
     @Test fun aDragLiftsItIntoALensThatStandsOutOfTheBarWithASmallBounce() {
         val m = motion()
         m.down(slot / 2f, now); m.move(slot / 2f + 20f, 8f)

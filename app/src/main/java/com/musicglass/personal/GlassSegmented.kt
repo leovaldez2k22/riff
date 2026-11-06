@@ -131,10 +131,10 @@ import kotlin.math.abs
         }) {
         val barWidth = constraints.maxWidth.toFloat()
         val barHeight = constraints.maxHeight.toFloat()
-        SideEffect {
-            lens.layout(barWidth / count, barHeight, 0f, 0f, selected.coerceIn(0, count - 1), still)
-            if (lens.moving) animate()
-        }
+        // In composition, not an effect: the pill's layer reads the lens when it first draws, and a lens not yet placed
+        // has it at the bar's left edge and halfway down, with nothing to say it moved (5 Nov).
+        lens.layout(barWidth / count, barHeight, 0f, 0f, selected.coerceIn(0, count - 1), still)
+        SideEffect { if (lens.moving) animate() }
         fun frame(): TabLensFrame {
             tick
             val f = lens.frame()

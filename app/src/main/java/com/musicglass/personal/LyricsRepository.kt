@@ -92,21 +92,26 @@ internal class LyricsRepository(private val directory: File,
         youtube: suspend () -> LyricsDocument?): Flow<LyricsDocument> = channelFlow {
         if (track.title.isBlank() || track.artist.isBlank() || track.durationMs <= 0) return@channelFlow
         val key = cacheKey(track)
-        val offline = offlineReader?.invoke(track)
+        val offline = offlineReader?.invoke(track)?.withoutTitleLine(track)
         offline?.let { send(it) }
         var known: LyricsDocument? = offline
+        val guestTitle = lyricsTitleNamesGuest(track.title)
         if (!force && offline?.timed != true && offline?.instrumental != true) {
-            val cached = withContext(Dispatchers.IO) { readCache(key) }
+            val cached = withContext(Dispatchers.IO) { readCache(key) }?.withoutTitleLine(track)
             if (cached != null) { send(cached); known = cached }
         } else if (!force && offline?.timed == true) {
             // A download's line-timed lyrics may have been bettered since (Q18-003).
-            withContext(Dispatchers.IO) { readCache(key) }?.takeIf { it.quality > offline.quality }?.let { send(it); known = it }
+            withContext(Dispatchers.IO) { readCache(key) }?.withoutTitleLine(track)?.takeIf { it.quality > offline.quality ||
+                (guestTitle && offline.source in LYRICS_UNCHECKED_SOURCES && it.source !in LYRICS_UNCHECKED_SOURCES) }?.let { send(it); known = it }
         }
-        if (known?.wordTimed == true || known?.instrumental == true) return@channelFlow
+        // Lyrics saved from a source that doesn't say which version it found may be the song without its guest, so they
+        // are compared with a source that does, once in 12 hours (5 Nov).
+        val versionUnsure = !force && guestTitle && known?.source in LYRICS_UNCHECKED_SOURCES
+        if ((known?.wordTimed == true && !versionUnsure) || known?.instrumental == true) return@channelFlow
         // Line timing is shown at once, but word timing may exist and have been slow or missing then: ask the
         // word-timed sources again, no more often than every 12 hours (Q18-003).
         val upgrading = known?.timed == true
-        if (upgrading && !force && !withContext(Dispatchers.IO) { wordRetryDue(key) }) return@channelFlow
+        if (upgrading && !force && !withContext(Dispatchers.IO) { if (versionUnsure) versionCheckDue(key) else wordRetryDue(key) }) return@channelFlow
         if (!force && !upgrading && synchronized(missing) { (missing[key] ?: 0) > (System.nanoTime()/1_000_000) }) return@channelFlow
         var best: LyricsDocument? = known
         var shownAt = clock()
@@ -120,6 +125,7 @@ internal class LyricsRepository(private val directory: File,
         val settled = kotlinx.coroutines.flow.MutableStateFlow(0)
         fun canStillOutrank(source: Source): Boolean {
             val shown = best ?: return true
+            if (guestTitle && shown.source in LYRICS_UNCHECKED_SOURCES && source.name !in LYRICS_UNCHECKED_SOURCES) return true
             return source.bestTier > shown.quality || (source.bestTier == shown.quality &&
                 lyricsProviderPriority(source.name) < lyricsProviderPriority(shown.source) && clock() - shownAt <= swapWindowMs)
         }
@@ -127,7 +133,7 @@ internal class LyricsRepository(private val directory: File,
         suspend fun offer(doc: LyricsDocument?) {
             if (doc == null || (!doc.instrumental && doc.lines.isEmpty())) return
             ranking.withLock {
-                if (lyricsOutranks(doc, best, clock() - shownAt, swapWindowMs)) { best = doc; shownAt = clock(); send(doc) }
+                if (lyricsReplaces(doc, best, clock() - shownAt, swapWindowMs, guestTitle)) { best = doc; shownAt = clock(); send(doc) }
             }
             cancelOutranked(); settled.update { it + 1 }
         }
@@ -198,7 +204,7 @@ internal class LyricsRepository(private val directory: File,
         val plain = Source("Lyrics.ovh", 0) { offer(ovh(track,::request)) }
         coroutineScope {
             wordSources.forEach { start(it) }
-            if (!upgrading) {
+            if (!upgrading || versionUnsure) {
                 // The others start a moment later, and only while no word timing has come: the three that may have it
                 // answer first without sharing the connection.
                 withTimeoutOrNull(staggerMs) {
@@ -344,6 +350,9 @@ internal class LyricsRepository(private val directory: File,
         val last = maxOf(File(directory,"$key.retry").lastModified(),File(directory,"$key.json").lastModified())
         return System.currentTimeMillis()-last >= WORD_RETRY_MS
     }
+    /** Only the last check counts here: the saved file's own age says nothing about whether it was ever compared. */
+    private fun versionCheckDue(key: String): Boolean =
+        System.currentTimeMillis()-File(directory,"$key.retry").lastModified() >= WORD_RETRY_MS
     private fun markWordRetry(key: String) = runCatching {
         directory.mkdirs()
         val marker = File(directory,"$key.retry")

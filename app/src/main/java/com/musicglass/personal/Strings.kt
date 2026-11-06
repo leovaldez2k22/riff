@@ -14,7 +14,7 @@ import org.w3c.dom.Element
  * the application's resources so that a change of language reaches text made outside a screen as well - a
  * notification, an error raised by a repository, a queue subtitle.
  *
- * Words the code compares or looks things up by ("Songs", "Play next") stay literals; [keyLabel] gives the
+ * Words the code compares or looks things up by ("Songs", "Add to queue") stay literals; [keyLabel] gives the
  * text to show for one.
  */
 internal object AppStrings {

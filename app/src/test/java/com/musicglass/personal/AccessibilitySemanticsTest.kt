@@ -72,16 +72,10 @@ class AccessibilitySemanticsTest {
     // ---- queue
 
     @Test fun aMoveThatChangesNothingIsNotOffered() {
-        assertEquals(listOf(QueueRowAction.MoveDown, QueueRowAction.PlayNext, QueueRowAction.Remove), queueRowActions(0, 3, 6))
-        assertEquals(listOf(QueueRowAction.MoveUp, QueueRowAction.PlayNext, QueueRowAction.Remove), queueRowActions(5, 3, 6))
-        assertEquals("the current song cannot play after itself", listOf(QueueRowAction.MoveUp, QueueRowAction.MoveDown, QueueRowAction.Remove), queueRowActions(3, 3, 6))
-        assertEquals("the next song already plays next", listOf(QueueRowAction.MoveUp, QueueRowAction.MoveDown, QueueRowAction.Remove), queueRowActions(4, 3, 6))
+        assertEquals(listOf(QueueRowAction.MoveDown, QueueRowAction.Remove), queueRowActions(0, 3, 6))
+        assertEquals(listOf(QueueRowAction.MoveUp, QueueRowAction.Remove), queueRowActions(5, 3, 6))
+        assertEquals(listOf(QueueRowAction.MoveUp, QueueRowAction.MoveDown, QueueRowAction.Remove), queueRowActions(3, 3, 6))
         assertEquals(listOf(QueueRowAction.Remove), queueRowActions(0, 0, 1))
-    }
-
-    @Test fun playNextLandsStraightAfterTheCurrentSong() {
-        assertEquals(4, playNextTarget(5, 3))
-        assertEquals("a song from earlier moves down past the current one, which moves up a place", 3, playNextTarget(0, 3))
     }
 
     @Test fun aQueueRowSaysWhereItIsAndOffersEveryMoveWithoutDragging() {
@@ -89,15 +83,14 @@ class AccessibilitySemanticsTest {
         show { InlineQueue(player.gateway, p, {}, {}, {}) }
         // The song playing is entry 1, so the list starts at entry 2.
         assertEquals(listOf("Move up", "Move down", "Remove from queue"), actions(2).map { it.label })
-        assertEquals(listOf("Move up", "Move down", "Play next", "Remove from queue"), actions(4).map { it.label })
-        assertEquals(listOf("Move up", "Play next", "Remove from queue"), actions(5).map { it.label })
+        assertEquals(listOf("Move up", "Move down", "Remove from queue"), actions(4).map { it.label })
+        assertEquals(listOf("Move up", "Remove from queue"), actions(5).map { it.label })
         assertEquals("5 of 6", row(4).fetchSemanticsNode().config[SemanticsProperties.StateDescription])
 
-        compose.runOnIdle { actions(4).first { it.label == "Play next" }.action() }
         compose.runOnIdle { actions(4).first { it.label == "Move up" }.action() }
         compose.runOnIdle { actions(4).first { it.label == "Move down" }.action() }
         compose.runOnIdle { actions(4).first { it.label == "Remove from queue" }.action() }
-        assertEquals(listOf("moveQueueItem(4,2)", "moveQueueItem(4,3)", "moveQueueItem(4,5)", "removeQueueItem(4)"),
+        assertEquals(listOf("moveQueueItem(4,3)", "moveQueueItem(4,5)", "removeQueueItem(4)"),
             player.asked.filter { it != "loadMoreQueue()" }) // Q18-096: a short queue also asks for more songs
     }
 

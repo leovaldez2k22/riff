@@ -8,5 +8,6 @@ internal const val PLAY_CATALOG_QUEUE = "com.musicglass.personal.PLAY_CATALOG_QU
 internal const val RESTORE_SAVED_QUEUE = "com.musicglass.personal.RESTORE_SAVED_QUEUE"
 /** Q18-096: the open queue was scrolled to its last song; more recommendations are wanted now. */
 internal const val LOAD_MORE_QUEUE = "com.musicglass.personal.LOAD_MORE_QUEUE"
+internal const val RESHUFFLE_QUEUE = "com.musicglass.personal.RESHUFFLE_QUEUE"
 /** Tries the selected entry again after a failure. Carries the entry it was asked for. */
 internal const val RETRY_PLAYBACK = "com.musicglass.personal.RETRY_PLAYBACK"

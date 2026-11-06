@@ -176,9 +176,15 @@ internal data class Lifetime(val listenedMs: Long, val plays: Int, val artists: 
 
 /** Movement in rank against the previous period's list: places gained (negative when it fell), or null when new. */
 internal fun encoreRanked(current: List<EncoreItem>, previous: List<EncoreItem>): List<EncoreItem> {
-    val before = previous.withIndex().associate { it.value.key to it.index }
-    return current.mapIndexed { index, item -> before[item.key]?.let { item.copy(movement = it - index, wasRanked = true) } ?: item.copy(movement = null) }
+    val before = previous.withIndex().associate { encoreRankId(it.value) to it.index }
+    return current.mapIndexed { index, item -> before[encoreRankId(item)]?.let { item.copy(movement = it - index, wasRanked = true) } ?: item.copy(movement = null) }
 }
+
+/** An artist's first credit is keyed by channel and the others by name, so a list compares artists by name. */
+private fun encoreRankId(item: EncoreItem) = if (item.kind == EncoreKind.ARTIST) "artist:" + item.title.lowercase() else item.key
+
+/** What makes one row of a top list: an artist seen both first and later in a song's credits has two keys and one name. */
+private fun encoreGroup(kind: String) = if (kind == EncoreKind.ARTIST) "lower(title)" else "key"
 
 /**
  * Reads Encore for one owner's plays and their phone's own files ([scopes]). [genres] gives an artist's genres when
@@ -220,15 +226,16 @@ internal class EncoreRepository(private val db: LibraryStateDb, private val zone
     /** The top [limit] of one kind, by listening time or by plays. */
     fun top(scopes: List<String>, period: EncorePeriod, kind: String, sort: EncoreSort, limit: Int = ENCORE_TOP_LIMIT): List<EncoreItem> {
         val order = if (sort == EncoreSort.Plays) "plays DESC,ms DESC" else "ms DESC,plays DESC"
-        return db.readableDatabase.rawQuery("SELECT key,MAX(title),MAX(subtitle),MAX(artwork),SUM(plays) AS plays,SUM(listened_ms) AS ms FROM stats_daily " +
-            "WHERE ${scopeIn(scopes)} AND kind=? AND day>=? AND day<? GROUP BY key HAVING plays>0 OR ms>0 ORDER BY $order,key LIMIT $limit",
+        // MIN: "id:" sorts before "name:", so a merged artist keeps the channel the row opens.
+        return db.readableDatabase.rawQuery("SELECT MIN(key) AS rowkey,MAX(title),MAX(subtitle),MAX(artwork),SUM(plays) AS plays,SUM(listened_ms) AS ms FROM stats_daily " +
+            "WHERE ${scopeIn(scopes)} AND kind=? AND day>=? AND day<? GROUP BY ${encoreGroup(kind)} HAVING plays>0 OR ms>0 ORDER BY $order,rowkey LIMIT $limit",
             (scopes + kind + period.start.toString() + period.end.toString()).toTypedArray()).use { c ->
             buildList { while (c.moveToNext()) add(EncoreItem(kind, c.getString(0), c.getString(1), c.getString(2), if (c.isNull(3)) null else c.getString(3), c.getInt(4), c.getLong(5))) }
         }
     }
 
     private fun counts(scopes: List<String>, period: EncorePeriod): Map<String, Int> =
-        db.readableDatabase.rawQuery("SELECT kind,COUNT(DISTINCT key) FROM stats_daily WHERE ${scopeIn(scopes)} AND day>=? AND day<? AND (plays>0 OR listened_ms>0) GROUP BY kind",
+        db.readableDatabase.rawQuery("SELECT kind,COUNT(DISTINCT CASE WHEN kind='artist' THEN lower(title) ELSE key END) FROM stats_daily WHERE ${scopeIn(scopes)} AND day>=? AND day<? AND (plays>0 OR listened_ms>0) GROUP BY kind",
             dayArgs(scopes, period)).use { c -> buildMap { while (c.moveToNext()) put(c.getString(0), c.getInt(1)) } }
 
     private fun totals(scopes: List<String>, period: EncorePeriod): Pair<Int, Long> =
@@ -249,7 +256,7 @@ internal class EncoreRepository(private val db: LibraryStateDb, private val zone
 
     /** Each artist's first day in all of history: what "discovery" compares against. */
     private fun firstHeard(scopes: List<String>): Map<String, LocalDate> =
-        db.readableDatabase.rawQuery("SELECT key,MIN(day) FROM stats_daily WHERE ${scopeIn(scopes)} AND kind='artist' GROUP BY key", scopes.toTypedArray())
+        db.readableDatabase.rawQuery("SELECT MIN(key),MIN(day) FROM stats_daily WHERE ${scopeIn(scopes)} AND kind='artist' GROUP BY lower(title)", scopes.toTypedArray())
             .use { c -> buildMap { while (c.moveToNext()) put(c.getString(0), LocalDate.parse(c.getString(1))) } }
 
     private fun lifetime(scopes: List<String>, before: LocalDate): Lifetime {
@@ -363,9 +370,12 @@ internal class EncoreRepository(private val db: LibraryStateDb, private val zone
      * month (by year past two years), and its rank among its kind this year. Null when it was never played.
      */
     fun history(scopes: List<String>, kind: String, key: String, today: LocalDate): EncoreHistory? {
-        val args = (scopes + kind + key).toTypedArray()
-        val where = "${scopeIn(scopes)} AND kind=? AND key=?"
         val d = db.readableDatabase
+        val keys = if (kind != EncoreKind.ARTIST) listOf(key) else d.rawQuery("SELECT DISTINCT key FROM stats_daily WHERE ${scopeIn(scopes)} AND kind='artist' AND " +
+            "lower(title)=(SELECT lower(title) FROM stats_daily WHERE ${scopeIn(scopes)} AND kind='artist' AND key=? LIMIT 1)", (scopes + scopes + key).toTypedArray())
+            .use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }.ifEmpty { listOf(key) }
+        val args = (scopes + kind + keys).toTypedArray()
+        val where = "${scopeIn(scopes)} AND kind=? AND key IN (${keys.joinToString(",") { "?" }})"
         val head = d.rawQuery("SELECT MIN(day),MAX(title),MAX(subtitle),MAX(artwork),SUM(plays),SUM(listened_ms) FROM stats_daily WHERE $where", args).use { c ->
             if (!c.moveToFirst() || c.isNull(0)) null
             else EncoreHistory(c.getString(1), c.getString(2), if (c.isNull(3)) null else c.getString(3), LocalDate.parse(c.getString(0)), c.getInt(4), c.getLong(5), emptyList(), null)
@@ -379,16 +389,26 @@ internal class EncoreRepository(private val db: LibraryStateDb, private val zone
         else (firstMonth.year..lastMonth.year).map { year -> LocalDate.of(year, 1, 1).let { y ->
             EncoreBar(y, null, months.filterKeys { it.startsWith("$year-") }.values.sum(), EncorePeriod(EncoreRange.Year, y, y.plusYears(1))) } }
         val year = today.withDayOfYear(1).toString(); val nextYear = today.withDayOfYear(1).plusYears(1).toString()
-        val mine = d.rawQuery("SELECT SUM(listened_ms) FROM stats_daily WHERE $where AND day>=? AND day<?", (scopes + kind + key + year + nextYear).toTypedArray())
+        val mine = d.rawQuery("SELECT SUM(listened_ms) FROM stats_daily WHERE $where AND day>=? AND day<?", (scopes + kind + keys + year + nextYear).toTypedArray())
             .use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else 0L }
-        val rank = if (mine <= 0) null else d.rawQuery("SELECT COUNT(*) FROM (SELECT key FROM stats_daily WHERE ${scopeIn(scopes)} AND kind=? AND day>=? AND day<? " +
-            "GROUP BY key HAVING SUM(listened_ms)>CAST(? AS INTEGER))", (scopes + kind + year + nextYear + mine.toString()).toTypedArray()).use { c -> if (c.moveToFirst()) c.getInt(0) + 1 else null }
+        val rank = if (mine <= 0) null else d.rawQuery("SELECT COUNT(*) FROM (SELECT 1 FROM stats_daily WHERE ${scopeIn(scopes)} AND kind=? AND day>=? AND day<? " +
+            "GROUP BY ${encoreGroup(kind)} HAVING SUM(listened_ms)>CAST(? AS INTEGER))", (scopes + kind + year + nextYear + mine.toString()).toTypedArray()).use { c -> if (c.moveToFirst()) c.getInt(0) + 1 else null }
         return head.copy(bars = bars, rankThisYear = rank)
     }
 
     /** Today's listening and top song, for the Library card. */
     fun quick(scopes: List<String>, period: EncorePeriod): Pair<Long, EncoreItem?> =
         totals(scopes, period).second to top(scopes, period, EncoreKind.SONG, EncoreSort.Minutes, 1).firstOrNull()
+
+    /** A photo of [name] already saved under any day; a new day's rows start without one. */
+    fun artistPhoto(scopes: List<String>, name: String): String? =
+        db.readableDatabase.rawQuery("SELECT MAX(artwork) FROM stats_daily WHERE ${scopeIn(scopes)} AND kind='artist' AND lower(title)=lower(?)",
+            (scopes + name).toTypedArray()).use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getString(0) else null }
+
+    fun saveArtistPhoto(scopes: List<String>, name: String, url: String) {
+        if (url.length <= 2048) db.writableDatabase.execSQL("UPDATE stats_daily SET artwork=? WHERE ${scopeIn(scopes)} AND kind='artist' AND lower(title)=lower(?)",
+            (listOf(url) + scopes + name).toTypedArray())
+    }
 
     internal fun database(): SQLiteDatabase = db.readableDatabase
 }

@@ -254,3 +254,43 @@ These keys were sent directly to the receiver, with `cmd deviceidle tempwhitelis
 Not tested: a real headset or Bluetooth key after Android's own low-memory kill, signed-out album playback (the laptop's signed-out requests were refused for both kinds of id), and a key after a kill while playing.
 
 Verification: `python scripts/quality/verify.py --lane pr`, 5 November, `pr-20261105T113817Z`: **PASS_LOCAL**, all nine gates, 1,552 JVM tests with no failures or skips.
+
+## 10. Timing Riff's own steps, and Play on a restored song (6 November)
+
+The owner's request was to time the steps from tap to first sound and cut the slow ones. Timings are from the Debug build on one phone and one network, by script, with `RiffStartup` stages. The time from the tap to the queue starting wasn't measured, so each figure starts at the queue.
+
+| Start | To audio advancing | Where the time goes |
+|---|---|---|
+| Song not on the phone | 1.73 to 1.87 s | Riff's own steps about 34 ms. Lookup 310 to 355 ms, DNS about 190 ms, TCP and TLS about 380 ms, server wait about 365 ms, first byte to playing about 115 ms |
+| Song on the phone, row tapped | 340 to 450 ms | |
+| Paused song, same process | 256 to 268 ms | About 230 ms is the audio output starting; Riff adds no fade |
+| Restored after a force-stop, Play on the mini player | 540 to 1,450 ms | See below |
+
+**Riff's own steps were not the slow part of a new song.** That time is network, which this work didn't touch.
+
+**The restored song was the one wait inside Riff's control.** Its time rose and fell with the saved position: 54 ms at 20.1 s, 450 at 24.4, 817 at 28.4, 289 at 32.1, 561 at 36.2, 868 at 39.9, measured from creating the decoder to setting up the `AudioTrack`. That is about 80 to 100 ms for each second past a seek point, with seek points about 10 s apart, and no network in the gap. The player reads forward from the last seek point to the saved position.
+
+Theories rejected: the signature solver still warming up (a 25 s wait before Play was no faster than 6 s), and a fade in Riff (there is none).
+
+**The change.** When the app is on screen and a restored song is paused, `PlaybackSources.readySelected` now prepares it, so that reading happens before Play. The first rule asked for the whole song on the phone, and it never fired in practice, because a song paused part-way is only partly cached. The rule now (`preparesOnReturn`, `cachedAround`):
+
+- the bytes 15 s either side of the saved position are on the phone, or all of the song is;
+- a song only partly on the phone also needs a validated network, because a failed read would start recovery on a song nobody asked to play;
+- more than 60 s of the song is left, because the player's buffer target is 60 s. With less left it would go on to load the next song.
+
+**Result:** eight runs at saved positions from 24 s to 55 s on a 2:43 song, restarted each time: **292 to 333 ms**, flat, where the same kind of start took 540 to 1,450 ms.
+
+Also checked: the player stays `PAUSED`, its `AudioTrack` is paused, and there were no player errors. 35 s after opening, with the whole song on the phone, there was no lookup for the next song and no media request. It reached ready about 2 s after the app opened, so a Play pressed sooner still waits.
+
+**Costs, stated plainly:**
+
+- Opening the app with a restored song now shows the media notification and starts the foreground service, as pausing a song already does. The player holds its decoder as it does in any pause.
+- A song only partly on the phone tops up its buffer while paused, so opening the app can use data without Play being pressed. The buffer overshot the 60 s target: `buffered_ms` showed the whole 2:43 song loaded from 24 s. That is an estimated 1 to 2 MB, not measured directly, once per song, since the bytes are then on the phone. Those five runs were on Wi-Fi with no metered-network check in the rule.
+
+Songs with 60 s or less left, and songs without the bytes around the position, start as before.
+
+Not tested: a real tap by hand, the release build, Play pressed within the first 2 s, being offline with a partly cached song (the rule skips it; only the unit test covers that), and a call or another app playing during the prepare (no audio focus is requested until Play, by reading the code).
+
+Verification: `python scripts/quality/verify.py --lane pr`, `pr-20261105T190026Z` (00:30 on 6 November, local time): **PASS_LOCAL**, all nine gates, 1,586 JVM tests with no failures. The first run that day failed lint: a new top-level function had separated `PlaybackSources` from its `@OptIn(UnstableApi)` annotation.
+
+Re-check on the final Debug build, 6 November, a 2:51 song from 58 s to 85 s, eight restarts: the song was prepared every time (`PAUSED` on opening, `playing` 63 to 72 ms after the tap). Sound took 724 to 1,483 ms, because the output was a Bluetooth A2DP device this time, not the phone speaker: the extra time is between `playing` and the audio position advancing, which is the Bluetooth link starting. The 292 to 333 ms above is for the phone speaker. Two of the eight runs left too little in the log to time.

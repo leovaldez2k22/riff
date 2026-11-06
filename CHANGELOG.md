@@ -6,6 +6,30 @@ Newest first. Release candidates before 0.9.0-rc16 were recorded only in the REA
 
 Record: `docs/quality/playback-startup-warm-resume-2026-11-04.md`, sections 7 and 8. Measured signed in on one phone and one network: songs start in about 2 s from an empty cache (6 to 12 s before), 1.2 to 1.9 s from disk, and with no pauses. 0.20.0 also pauses on an empty cache. Not yet tested: signed-out playback, SABR and age-restricted songs on the new library.
 
+Record for the next fourteen entries: `docs/quality/owner-bug-batch-2026-11-05.md`, which says what was checked on the phone and what wasn't. The search change is not yet confirmed there.
+
+- An "All" search also asks the Songs filter and puts the song matching every word of the query first.
+- Encore's top artists show the artist's photo, or the cover of their top song until a photo is found. An artist known only by name is looked up with a signed-out search. Encore's note and `docs/privacy.md` now say that this goes to YouTube Music.
+- An artist credited both first and later on songs is one row in Encore, not two.
+- Encore's period pill and the tab bar's pill no longer stay low and to the left.
+- On a white or off-white cover the player darkens what the art fades into, behind the title and buttons, in a long soft gradient. Other covers, BRAT's bright green included, are unchanged in the player.
+- The open queue darkens its whole panel on any very bright cover.
+- Shuffling shuffles the queue once, with the chosen song first. The queue's list is now the real play order, and the player no longer picks the next song after each one.
+- The queue's infinity button is now Reshuffle: the song playing carries on and the whole of the rest is shuffled again, including songs already played.
+- Add to queue puts a song next, after any songs added before it, whether the queue is shuffled or not. Moving songs or reshuffling ends that. A song already in the queue stays where it is.
+- Play next is gone everywhere; Add to queue does that job.
+- Dragging a song in the queue no longer doubles over its neighbours or jumps the list: the queue changes once, when the song is let go.
+- Dragging a song up to the top of a scrolled queue works as dragging down does: the list scrolls up under the song, which stays whole under the finger and lands first. Before, the list jumped, the song lost its place and landed rows short.
+- The sleep timer lists minutes first, shows that its list scrolls, and has rounder corners on the fade chips and the custom field.
+- A title naming a guest ("feat.") no longer keeps the lyrics of the song without its guest: when Better Lyrics, QQ or Kugou disagree with a source that checks the title, that source wins, even without word timing.
+- QQ's opening heading ("Ribs - Lorde") is no longer shown as a lyric, including in copies already saved.
+
+Record for the next entry: section 10 of the playback record.
+
+- Play on a song restored after Riff was closed starts in about 0.3 s, from up to 1.4 s, when the audio around its saved position is on the phone and more than a minute of it is left. Opening the app now readies that song while paused, so the media notification appears on opening, and a song only partly on the phone can use a little data.
+
+Record for the entries below: section 7 and 8 of the playback record named above.
+
 - An album's songs play as the album's songs. Album pages list most songs by their music video's id, so a song played the video's audio, with its intro, and ran longer than the album says (BRAT's "360": 4:24, not 2:14). Riff now plays the audio track that the same row names.
 - A Play key can bring Riff back after Android has ended it: it restores the queue and plays. If another app's media session is on the phone, Android may send the key there instead.
 - InnerTubeX 0.11.2 (from 0.7.2), with Ktor 3.6.0 and QuackJS in place of native QuickJS: the next song's lookup takes about 0.2 s, not 2.5 to 3.5 s, and the stream helper uses about 100 MB, not about 180 MB. Riff no longer asks jsDelivr for anything.

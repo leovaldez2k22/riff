@@ -56,7 +56,7 @@ class OfflineSmokeInstrumentation:Instrumentation() {
                         result.putBoolean("race_stable",stable)
                         check(stable) {"An older queue request replaced the newest one"}
                         val next=base.last { it.videoId !in b.map(ProviderTrack::videoId) }
-                        withContext(Dispatchers.Main) {gateway.enqueueSong(next,true)}
+                        withContext(Dispatchers.Main) {gateway.enqueueSong(next)}
                         withTimeout(15000) {while(!withContext(Dispatchers.Main) {player.mediaItemCount==b.size+1 && player.getMediaItemAt(player.currentMediaItemIndex+1).mediaId=="yt:${next.videoId}"}) delay(50)}
                         result.putBoolean("play_next",true)
                         result.putBoolean("playing",withContext(Dispatchers.Main) {gateway.state.error==null})

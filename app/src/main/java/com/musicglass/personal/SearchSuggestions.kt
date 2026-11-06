@@ -75,6 +75,24 @@ internal fun parseSearchSuggestions(root: JsonElement, typed: String): SearchSug
 internal fun searchTopResult(cards: List<ProviderHomeCard>, filter: String): ProviderHomeCard? =
     cards.firstOrNull()?.takeIf { filter == "All" && it.kind in setOf(CatalogKind.Artist, CatalogKind.Album) }
 
+private val SEARCH_WORD = Regex("[\\p{L}\\p{N}]+")
+private fun searchWords(text: String) = SEARCH_WORD.findAll(text.lowercase()).map { it.value }.toSet()
+
+/**
+ * An "All" search can miss the song asked for ("all the stars" without Kendrick Lamar's, 5 Nov), and the Songs filter
+ * has it first. The first of the Songs answer's top rows that holds every word of the query goes first; an artist or
+ * album that is exactly what was typed keeps the top. The same list comes back when there is nothing to change.
+ */
+internal fun searchWithBestSong(all: List<ProviderHomeCard>, songs: List<ProviderHomeCard>, query: String): List<ProviderHomeCard> {
+    val wanted = searchWords(query)
+    if (wanted.isEmpty()) return all
+    val song = songs.take(3).firstOrNull { it.videoId != null && searchWords(it.title + " " + it.subtitle).containsAll(wanted) } ?: return all
+    val rest = all.filterNot { it.videoId == song.videoId }
+    val keepsTop = all.firstOrNull()?.takeIf { it.kind in setOf(CatalogKind.Artist, CatalogKind.Album) && lyricsNormalize(it.title) == lyricsNormalize(query) } != null
+    val merged = if (keepsTop) rest.take(1) + song + rest.drop(1) else listOf(song) + rest
+    return if (merged.map { it.videoId to it.browseId } == all.map { it.videoId to it.browseId }) all else merged
+}
+
 private const val SUGGESTION_PREFS = "search_history"
 internal fun searchSuggestionsOn(context: Context) = context.applicationContext
     .getSharedPreferences(SUGGESTION_PREFS, Context.MODE_PRIVATE).getBoolean("suggestions", true)
