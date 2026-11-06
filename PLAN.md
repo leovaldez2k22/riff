@@ -372,12 +372,13 @@ Unless a task says otherwise, it also runs **Unit** before closing. The phases i
   - **Verification Step:** `git log -- desktop` shows the commit, `git status` still lists Android's files as modified, and `.\gradlew.bat -PriffDesktop=true :desktop:compileKotlin --offline` still passes.
   - **Done 6 November 2026:** commit `a010fd9` on `desktop/foundation`, 475 files, not pushed. Android's changes were already committed in 0.21.0, so there were none to leave out. `NOTICE.md`, `AGENTS.md`, the desktop note in the feature plan and `scripts/quality/test_desktop_smoke.py` were added too. Gradle must use the project's `.toolchain/jdk-21*` and `.toolchain/gradle-user-home` (as `verify.py` does); with those, compile passes offline and **Unit** gives 258 desktop tests with 1 failure (`TokenParityContractTest`, fixed by Task 1.5) and 41 data tests passing.
 
-- **[ ] Task 1.2: Evidence manifest**
+- **[x] Task 1.2: Evidence manifest**
   - **Goal:** Make the ignored evidence in `artifacts/` recoverable and verifiable (needs D2).
   - **Files to Create / Modify / Delete:** Create `scripts/desktop/evidence-manifest.py`, `docs/desktop/evidence-manifest.json`.
   - **Key Classes, Interfaces & Signatures:** `python scripts/desktop/evidence-manifest.py {write|check}`.
   - **Implementation Details:** Record path, size and SHA-256 for `result.json`, receipts and logs under `artifacts/desktop`, skipping corpus audio and runtime copies. No personal paths in the JSON.
   - **Verification Step:** `write` then `check` passes. Changing a copied test file makes `check` fail.
+  - **Done 6 November 2026:** 576 files (30.1 MB) recorded. A soak `runtime-*` folder keeps its `evidence/`, where the eight-hour results are; only its `lib`, `classes` and `native` copies are skipped. `check` passed on the real tree and failed on an edited copy. 7 new script tests; all 184 script tests pass. The script finds the main checkout through git, so it works from a worktree. Where to keep a copy of the files themselves is still D2.
 
 - **[ ] Task 1.3: Add a desktop lane to the quality script**
   - **Goal:** Make desktop breakage visible.
