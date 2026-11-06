@@ -6,6 +6,7 @@
     python scripts/quality/verify.py --lane device --allow-install --serial <id> --tier R|L [--mode live]
     python scripts/quality/verify.py --lane benchmark --allow-install --serial <id> --tier R|L
     python scripts/quality/verify.py --lane packaging [--allow-install --previous-apk old.apk]
+    python scripts/quality/verify.py --lane desktop                               read-only, the Windows app
     python scripts/quality/verify.py --lane pr --checks script-tests,static          only some steps
     python scripts/quality/verify.py --tools                                       where the tools were found
 
@@ -23,6 +24,10 @@ Lanes
   packaging  A source archive of the tracked files with its contents checked, the release APK's identity and
              certificate, SHA256SUMS, and, with --allow-install and --previous-apk on an emulator, an in-place
              upgrade from the previous APK (install -r, never an uninstall).
+  desktop    The Windows app (desktop/, desktop-data/, built with -PriffDesktop=true): compile, unit tests read from
+             their JUnit results, and :desktop:verifyProviderJvm. Opens no window and plays no audio. The tests kept
+             out of it (DESKTOP_EXCLUDED_TESTS) and any a test skipped itself are listed in the summary. The pr lane
+             does not include it.
 
 Each lane has a fixed list of required gates. The summary (lane-summary.json in the evidence directory) holds
 every one of them: a gate that did not run is BLOCKED with the reason, and one that is missing is FAIL. Nothing
@@ -112,6 +117,26 @@ LANES = {
     "device": ["device", "pairing", "install", "instrumentation"],
     "benchmark": ["device", "benchmark"],
     "packaging": ["source-archive", "release-identity", "checksums", "upgrade"],
+    "desktop": ["compile", "unit", "provider-jvm"],
+}
+
+# The Windows app (desktop/, desktop-data/), included in the build only with -PriffDesktop=true.
+DESKTOP_PROJECTS = (":desktop", ":desktop-data")
+# Tests the desktop lane does not run, each with its reason. They are kept out of `test` in the build files; the
+# lane lists them in its summary so nothing is skipped silently. test_desktop_lane.py checks this table against the
+# build files, so a new exclusion must be placed here on purpose.
+DESKTOP_EXCLUDED_TESTS = {
+    ":desktop": {
+        "NativeAudioIntegrationTest": "needs the native audio library and the test corpus; run by :desktop:nativeBackgroundTest",
+        "DownloadIntegrationTest": "needs the native audio library and the test corpus; run by :desktop:nativeBackgroundTest",
+        "NativeAudioIntegrationTest.actualDualDeckPipelineReachesWindowsLoopback":
+            "plays through the Windows audio device and records it; left out of nativeBackgroundTest too, run by hand",
+        "CodecAcceptanceTest": "needs the codec corpus; run by :desktop:nativeCodecTest",
+        "AutomixRecordedIntegrationTest": "needs the recorded Automix corpus; run by :desktop:automixRecordedTest",
+    },
+    ":desktop-data": {
+        "EncoreLoadAcceptanceTest": "a timed 100k-play load acceptance; run by :desktop-data:encoreLoadAcceptance",
+    },
 }
 INSTALLING = {"emulator", "device", "benchmark"}
 
@@ -174,8 +199,21 @@ def executable(path, windows=os.name == "nt"):
     return None
 
 
+def main_checkout(root):
+    """The main checkout when root is a git worktree, else None. Local tools (.toolchain) live only there."""
+    try:
+        common = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], cwd=root,
+                                capture_output=True, text=True, timeout=30, check=False).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    main = Path(common).parent if common else None
+    return main if main and main.resolve() != Path(root).resolve() else None
+
+
 def tool_environment(root=ROOT, env=None):
     env = dict(os.environ if env is None else env)
+    if not (root / ".toolchain").is_dir():
+        root = main_checkout(root) or root
     sdk, java = find_sdk(root, env), find_java(root, env)
     if sdk:
         env["ANDROID_HOME"] = env["ANDROID_SDK_ROOT"] = str(sdk)
@@ -364,6 +402,10 @@ class Lane:
         lines = [f"# {summary['lane']} lane: {summary['status']}", ""] + [
             f"- {name}: {gate['status']}" + (f" ({gate['reason']})" if gate.get("reason") else "")
             for name, gate in summary["gates"].items()]
+        for name, item in summary["other"].items():
+            if isinstance(item, dict) and "tests" in item:
+                lines += ["", f"## {name}: {item.get('note', '')}".rstrip(": ")] + [
+                    f"- {test}: {reason}" for test, reason in item["tests"].items()]
         (self.evidence / "lane-summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
         print("\n".join(lines), flush=True)
         return summary
@@ -397,6 +439,49 @@ class Lane:
         self.gate("apk", lambda: self.run([self.python, "scripts/quality/check_performance.py", "apk", "--apk", self.release_apk()], "apk-check.log"))
         self.gate("solver-seam", lambda: self.run([self.python, "scripts/quality/check_solver_seam.py", "--mapping",
                                                    self.root / "app/build/outputs/mapping/release/mapping.txt"], "solver-seam.log"))
+
+    # -------------------------------------------------------------- desktop
+
+    def desktop_gradle(self, *tasks):
+        command = [gradle(self.root), *tasks, "-PriffDesktop=true", "--console=plain"]
+        return command + (["--offline"] if self.args.offline else [])
+
+    def desktop(self):
+        """The Windows app: compile, unit tests, and the provider graph check. Opens no window, plays no audio."""
+        self.gates["excluded-tests"] = dict(
+            note="not run by this lane, each run by its own task", tests={
+                f"{project}:{name}": reason for project, names in DESKTOP_EXCLUDED_TESTS.items()
+                for name, reason in names.items()})
+        def step(log, done, *tasks):
+            self.run(self.desktop_gradle(*tasks), log)
+            return done
+        self.gate("compile", lambda: step("desktop-compile.log", "main and test sources compile",
+                                          *[f"{p}:{t}" for p in DESKTOP_PROJECTS for t in ("compileKotlin", "compileTestKotlin")]))
+        self.gate("unit", self.desktop_unit)
+        self.gate("provider-jvm", lambda: step("desktop-provider-jvm.log", "no Android AAR; the desktop provider is present",
+                                               ":desktop:verifyProviderJvm"))
+
+    def desktop_unit(self):
+        results = [self.root / p.strip(":") / "build/test-results/test" for p in DESKTOP_PROJECTS]
+        for folder in results:  # old results would hide a test that no longer runs
+            for old in folder.glob("TEST-*.xml") if folder.is_dir() else ():
+                old.unlink()
+        code = self.run(self.desktop_gradle(*[f"{p}:test" for p in DESKTOP_PROJECTS], "--continue"),
+                        "desktop-unit.log", check=False)
+        counts = junit_results(results)
+        (self.evidence / "desktop-unit.json").write_text(json.dumps(counts, indent=2) + "\n", encoding="utf-8")
+        if counts["failed"]:
+            names = counts["failures"]
+            raise Failed(f"{len(names)} of {counts['tests']} tests failed: " + ", ".join(names[:10]) +
+                         (", ..." if len(names) > 10 else "") + " (see desktop-unit.log)")
+        if code:
+            raise Failed(f"Gradle exited {code} with no failed test recorded (see desktop-unit.log)")
+        if not counts["tests"]:
+            raise Failed("no test results were written")
+        if counts["skipped"]:
+            self.gates["skipped-tests"] = dict(note="skipped by the tests themselves",
+                                               tests={name: "skipped" for name in counts["skippedNames"]})
+        return dict(tests=counts["tests"], skipped=counts["skipped"], suites=counts["suites"])
 
     def release_apk(self):
         apks = sorted((self.root / "app/build/outputs/apk/release").glob("*.apk"))
@@ -659,6 +744,26 @@ class Lane:
             self.gates["upgrade"] = dict(status="BLOCKED", reason="installs on an emulator: run again with --allow-install and --previous-apk")
 
 
+def junit_results(folders):
+    """Counts and names from the JUnit XML files Gradle writes (TEST-*.xml) in the given folders."""
+    import xml.etree.ElementTree as ElementTree
+    counts = dict(suites=0, tests=0, failed=0, skipped=0, failures=[], skippedNames=[])
+    for folder in folders:
+        for path in sorted(Path(folder).glob("TEST-*.xml")) if Path(folder).is_dir() else ():
+            suite = ElementTree.parse(path).getroot()
+            counts["suites"] += 1
+            for case in suite.iter("testcase"):
+                name = f"{case.get('classname', '').rsplit('.', 1)[-1]}.{case.get('name', '')}"
+                counts["tests"] += 1
+                if case.find("failure") is not None or case.find("error") is not None:
+                    counts["failed"] += 1
+                    counts["failures"].append(name)
+                elif case.find("skipped") is not None:
+                    counts["skipped"] += 1
+                    counts["skippedNames"].append(name)
+    return counts
+
+
 def check_source_archive(path):
     """What must and must not be in a source archive. Returns the problems found."""
     problems = []
@@ -706,6 +811,8 @@ def main(argv=None):
         lane.device_lane(emulator=False)
     elif args.lane == "benchmark":
         lane.benchmark()
+    elif args.lane == "desktop":
+        lane.desktop()
     else:
         lane.packaging()
     summary = lane.write_summary()

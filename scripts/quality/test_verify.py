@@ -54,7 +54,7 @@ class SummaryTest(unittest.TestCase):
         self.assertNotIn("10ABCDEF123", json.dumps(summary))
 
     def test_every_lane_has_required_gates(self):
-        self.assertEqual({"pr", "emulator", "device", "benchmark", "packaging"}, set(verify.LANES))
+        self.assertEqual({"pr", "emulator", "device", "benchmark", "packaging", "desktop"}, set(verify.LANES))
         self.assertTrue(all(verify.LANES.values()))
 
 

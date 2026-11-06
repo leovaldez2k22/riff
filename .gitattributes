@@ -5,3 +5,5 @@ gradlew text eol=lf
 # (core.autocrlf=true) would change them and fail the test on a fresh Windows clone.
 app/src/test/resources/quality/**/*.json text eol=lf
 app/src/androidTest/assets/quality/**/*.json text eol=lf
+# Signed desktop update vectors: the signatures and digests cover the exact bytes, so they are never converted.
+desktop/src/test/resources/update-v1/** -text

@@ -15,6 +15,7 @@ How Riff is tested, what each layer needs and how to rerun it. Written for 0.10.
 | Physical device | the same suite, `--lane device` | The same, on real hardware | An authorized phone, named by serial |
 | Benchmarks | `:benchmark` | Cold start, first audio, scrolling, the player, jank; Baseline Profile generation | A tier R or L phone. Emulator timings are refused |
 | Packaging | `--lane packaging` | Source archive contents, release identity and certificate, checksums, in-place upgrade over the previous APK | A signed candidate; an emulator for the upgrade |
+| Desktop | `--lane desktop` | The Windows app: compile, `:desktop:test` and `:desktop-data:test`, `:desktop:verifyProviderJvm`; excluded and skipped tests listed in the summary | JDK 21 and the Gradle cache. No window, no audio |
 | Provider canary | `scripts/quality/provider_canary.py`, `provider-canary.yml` | A few well-known public songs and albums, read without an account, to notice a provider change early | Network. Never an account |
 | Stress | `scripts/stress/scenarios.py` | Targeted scenarios on the `stress` build type over adb: crashes, ANRs, exit records per scenario | A device and approval to install |
 

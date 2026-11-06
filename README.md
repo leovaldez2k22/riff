@@ -93,6 +93,7 @@ python scripts/quality/verify.py --lane pr
 | Physical device | `verify.py --lane device --allow-install --serial <id> --tier R\|L` | An authorized test phone, named explicitly |
 | Benchmarks | `verify.py --lane benchmark --allow-install --serial <id> --tier R\|L` | A phone; emulator timings are refused |
 | Packaging | `verify.py --lane packaging [--allow-install --previous-apk <apk>]` | A signed candidate; an emulator for the upgrade check |
+| Desktop | `verify.py --lane desktop` | Nothing installed: the Windows app's compile, unit tests and provider graph check |
 
 Without `--allow-install` nothing touches a device. See [testing](docs/quality/testing.md) and [CI lanes](docs/quality/ci-lanes.md).
 

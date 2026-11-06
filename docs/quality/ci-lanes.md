@@ -11,6 +11,7 @@ One entry point, `scripts/quality/verify.py` (or `scripts/quality/verify.ps1` on
 | Physical device | `verify.py --lane device --allow-install --serial <id> --tier R\|L` | the same pair, on the named phone | locally, on an authorized test phone |
 | Benchmarks | `verify.py --lane benchmark --allow-install --serial <id> --tier R\|L` | the benchmark build (its own package id) | locally, on a phone of that tier |
 | Packaging | `verify.py --lane packaging [--allow-install --previous-apk <apk>]` | with the flags, the previous APK and then the candidate, on an emulator | locally, for a candidate |
+| Desktop | `verify.py --lane desktop` | nothing | locally (CI comes with PLAN.md Task 1.4) |
 
 What each lane holds:
 
@@ -19,6 +20,7 @@ What each lane holds:
 - **Physical device.** The same suite on a phone named by `--serial`. A phone is never picked automatically, even when it is the only one connected. `--mode live` only labels the run: any account on the phone stays there, and nothing here supplies credentials.
 - **Benchmarks.** `:benchmark:connectedBenchmarkReleaseAndroidTest` on a tier R or L phone, read by `check_performance.py summary`. An emulator is refused: hosted or emulator timings are not evidence (Q14).
 - **Packaging.** A source archive built from the tracked files and checked (no build output, local settings, key, credential or evidence file; the build files present), the release APK's identity and certificate (an unsigned APK is BLOCKED for the certificate, never passed), `SHA256SUMS`, and an in-place upgrade from `--previous-apk` with `adb install -r` (a reinstall, or a refusal for a certificate or version code, fails; nothing is ever uninstalled).
+- **Desktop.** The Windows app (`desktop/`, `desktop-data/`, built with `-PriffDesktop=true`): `compile` (main and test sources), `unit` (`:desktop:test` and `:desktop-data:test` with `--continue`, read case by case from their JUnit XML, which is cleared first so an old result cannot pass; the counts and failed names go to `desktop-unit.json`) and `provider-jvm` (`:desktop:verifyProviderJvm`: no Android AAR in the provider graph). It opens no window and plays no audio. The tests the build files keep out of `test` (`DESKTOP_EXCLUDED_TESTS` in `verify.py`, among them `NativeAudioIntegrationTest.actualDualDeckPipelineReachesWindowsLoopback`) and any test that skipped itself are listed in the summary with their reasons; `test_desktop_lane.py` fails if that table and the build files disagree. The pull-request lane does not include it.
 
 ## Results
 
@@ -43,6 +45,8 @@ In this order:
 - SDK: `ANDROID_HOME`, `ANDROID_SDK_ROOT`, `sdk.dir` in `local.properties`, then the project's own `.toolchain/sdk`.
 - JDK: `JAVA_HOME`, then `.toolchain/jdk-*`.
 - Gradle's cache: `GRADLE_USER_HOME`, then `.toolchain/gradle-user-home`.
+
+In a git worktree, which has no `.toolchain` of its own, the main checkout's `.toolchain` is used.
 
 `verify.py --tools` prints what was found. Paths are taken from the script's own location, so the project can be anywhere.
 
