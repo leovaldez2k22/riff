@@ -96,12 +96,27 @@ class WindowHitTestContractTest {
     }
 }
 
+/** The tokens are generated from Android's file (:desktop:generateCanonicalTokens, PLAN.md Task 1.5). */
 class TokenParityContractTest {
-    @kotlin.test.Test fun canonicalObjectsRemainVerbatim() {
-        val android=java.io.File("../app/src/main/java/com/musicglass/personal/DesignTokens.kt").readText().replace("\r\n","\n")
-        val desktop=java.io.File("src/main/kotlin/com/musicglass/desktop/CanonicalTokens.kt").readText().replace("\r\n","\n")
+    private val android=File("../app/src/main/java/com/musicglass/personal/DesignTokens.kt").readText().replace("\r\n","\n")
+    private val generated=File("build/generated/riffTokens/com/musicglass/desktop/CanonicalTokens.kt").readText()
+    private fun names(text:String)=Regex("""(?m)^(?:internal object|internal fun|\s+val) (\w+)""").findAll(text)
+        .map { it.groupValues[1] }.toList()
+
+    @Test fun generatedTokensHaveEveryAndroidToken() {
         val end=android.lastIndexOf("/**",android.indexOf(" * The one theme"))
-        kotlin.test.assertTrue(desktop.contains(android.substring(android.indexOf("internal object RiffSpace"),end).trim()))
-        kotlin.test.assertTrue(desktop.contains(android.substring(android.indexOf("internal object RiffContrast")).trim()))
+        val canonical=android.substring(android.indexOf("internal object RiffSpace"),end)+android.substring(android.indexOf("internal object RiffContrast"))
+        assertEquals(names(canonical),names(generated))
+        assertTrue(generated.contains(android.substring(android.indexOf("internal object RiffSpace"),end).trim()))
+        assertTrue(generated.contains(android.substring(android.indexOf("internal object RiffContrast")).trim()))
+        assertTrue(generated.lines().any { it=="package com.musicglass.desktop" })
+        assertFalse(Regex("(?m)^import android\\.").containsMatchIn(generated))
+        assertFalse(generated.contains("RiffTheme"))
+    }
+
+    @Test fun theNewestTokensResolve() {
+        assertEquals(40f,RiffQueue.buttonHeight.value)
+        assertEquals(216f,RiffSleep.listMax.value)
+        assertEquals(RiffMenu.corner/2,RiffSleep.chipCorner)
     }
 }
