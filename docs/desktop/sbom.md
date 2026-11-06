@@ -52,7 +52,7 @@ This is a manually maintained inventory, not a complete generated/audited SBOM. 
 
 ## Phase 1 runtime additions
 
-SQLDelight 2.1.0 / Xerial SQLite JDBC 3.51.3.0, Ktor 3.5.2 and InnerTubeX desktop 0.7.2 now belong to the real runtime graph. Native FFmpeg is `n8.1.3-32-g760d10603e-20261102`, with avformat62, avcodec62, avutil60 and swresample6, LGPL-3.0. Archive SHA-256/size pins are in `native/riff-audio/dependencies.json`; build and source details are in `native/riff-audio/README.md`. Zig 0.15.2 is build-only and not distributed. This inventory remains manually maintained and does not close the Phase 5 corresponding-source/transitive-license gate.
+SQLDelight 2.1.0 / Xerial SQLite JDBC 3.51.3.0, Ktor 3.5.2 and InnerTubeX desktop 0.7.2 now belong to the real runtime graph (Ktor and InnerTubeX superseded on 6 November; see "Provider version" below). Native FFmpeg is `n8.1.3-32-g760d10603e-20261102`, with avformat62, avcodec62, avutil60 and swresample6, LGPL-3.0. Archive SHA-256/size pins are in `native/riff-audio/dependencies.json`; build and source details are in `native/riff-audio/README.md`. Zig 0.15.2 is build-only and not distributed. This inventory remains manually maintained and does not close the Phase 5 corresponding-source/transitive-license gate.
 
 
 ## Phase 2/3 additions
@@ -63,3 +63,17 @@ SQLDelight 2.1.0 / Xerial SQLite JDBC 3.51.3.0, Ktor 3.5.2 and InnerTubeX deskto
 ## SoundTouch Float32 tempo engine (3 November 2026)
 
 SoundTouch 2.4.1, Olli Parviainen and contributors, LGPL-2.1-or-later, official source https://www.surina.net/soundtouch/soundtouch-2.4.1.tar.gz . SHA-256: e07abf20ce8f95850c280132e1f61ad400fc1f4011b7fac698a503de6aab6733 (607,365 bytes). Unmodified source archive: `native/riff-audio/vendor/soundtouch-2.4.1.tar.gz`; full license: `licenses/SOUNDTOUCH-LGPL-2.1.txt`. The bridge compiles the pinned Float32 source into riff_audio.dll; no extra platform DLL is introduced. Native source pins live in `native/riff-audio/dependencies.json`, not Maven verification metadata. The build rechecks the archive and extracts only regular required header/library-source entries. The unused Linux example symlink is never extracted. Source/license are copied into the distribution's native license directory. The archive contains no audio test media.
+
+## Provider version (6 November 2026, desktop PLAN.md Task 1.7)
+
+`:desktop:dependencyInsight` shows desktop resolving **InnerTubeX 0.11.2** (`innertubex-desktop-0.11.2.jar`), not 0.7.2. It moved on 5 November, when Android's playback commit `93814ac` raised the shared catalog entry `innertubex`; nothing on the desktop side noticed. The owner chose to keep 0.11.2. Desktop now has its own entry, `desktop-innertubex` in `gradle/libs.versions.toml`, and `:desktop:verifyProviderJvm` fails unless both the provider probe and `:desktop`'s `runtimeClasspath` resolve exactly the version that entry names.
+
+The provider's runtime graph on 0.11.2 (`desktop/build/reports/provider-jvm.txt`) adds or changes:
+
+| Component | Version | License (from its POM) | Note |
+| :--- | :--- | :--- | :--- |
+| InnerTubeX desktop | 0.11.2 | GPL-3.0 | Was 0.7.2. |
+| QuackJS JVM | 0.1.2 | GPL-3.0-only | New with 0.11.2; replaces QuickJS. The jar holds no native library (no DLL). |
+| Ktor client (core, CIO, websockets, SSE and the rest) | 3.6.0 | Apache-2.0 | Was 3.5.2; `:desktop` also declares 3.6.0 directly. |
+
+Live provider evidence recorded before this date ran on 0.7.2 (every frozen soak runtime lists `innertubex-desktop-0.7.2`); see the capability matrix for what that leaves unproven on 0.11.2.

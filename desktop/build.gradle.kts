@@ -19,7 +19,7 @@ dependencies {
     implementation("app.cash.sqldelight:sqlite-driver:2.1.0")
     implementation("app.cash.sqldelight:coroutines-extensions:2.1.0")
     implementation("org.xerial:sqlite-jdbc:3.51.3.0")
-    implementation(libs.innertubex)
+    implementation(libs.desktop.innertubex)
     implementation("io.ktor:ktor-client-cio:3.6.0")
     implementation("io.ktor:ktor-client-content-negotiation:3.6.0")
     implementation("io.ktor:ktor-serialization-kotlinx-json:3.6.0")
@@ -124,15 +124,27 @@ val providerProbe = configurations.create("providerProbe") {
             org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.jvm)
     }
 }
-dependencies { add(providerProbe.name, libs.innertubex) }
+dependencies { add(providerProbe.name, libs.desktop.innertubex) }
+// PLAN.md Task 1.7: desktop's provider version is its own catalog entry. Check the probe and the real runtime graph
+// both resolve exactly that version, so a transitive or Android-side change can't move it unnoticed.
+val desktopProviderVersion = libs.desktop.innertubex.get().version
 tasks.register("verifyProviderJvm") {
     val probeFiles = providerProbe
+    val runtimeFiles = configurations.named("runtimeClasspath")
+    val expected = "innertubex-desktop-$desktopProviderVersion.jar"
     val report = layout.buildDirectory.file("reports/provider-jvm.txt")
     outputs.file(report)
+    outputs.upToDateWhen { false }
     doLast {
         val files = probeFiles.resolve()
         check(files.none { it.extension == "aar" }) { "Android AAR leaked into the desktop provider graph" }
         check(files.any { it.name.startsWith("innertubex-desktop-") }) { "No desktop provider artifact" }
+        for ((graph, resolved) in listOf("providerProbe" to files, "runtimeClasspath" to runtimeFiles.get().resolve())) {
+            val providers = resolved.map { it.name }.filter { it.startsWith("innertubex-desktop-") }
+            check(providers == listOf(expected)) {
+                "$graph resolves $providers, but gradle/libs.versions.toml desktop-innertubex says $expected"
+            }
+        }
         report.get().asFile.apply { parentFile.mkdirs(); writeText(files.map { it.name }.sorted().joinToString("\n")) }
     }
 }
