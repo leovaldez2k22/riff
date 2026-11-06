@@ -1,0 +1,76 @@
+# Riff desktop CI: the desktop lane of scripts/quality/verify.py on Windows (PLAN.md Task 1.4): the Windows app
+# compiles, its unit tests pass (read case by case from the JUnit XML), and :desktop:verifyProviderJvm finds no
+# Android AAR in the provider graph. Unit tests only: the native audio, codec, Automix corpus and load tests need the
+# local corpus and audio device, and stay in the local lanes (the summary lists them). It opens no window, needs no
+# Android SDK and no secret, and publishes nothing.
+name: Desktop
+
+on:
+  push:
+    branches: [main, 'fix/**', 'codex/**', 'desktop/**']
+    paths: ['desktop/**', 'desktop-data/**', 'gradle/**', 'gradlew.bat', 'settings.gradle.kts', 'build.gradle.kts',
+            'gradle.properties', 'scripts/quality/**', '.gitattributes', '.github/workflows/desktop.yml']
+  pull_request:
+    paths: ['desktop/**', 'desktop-data/**', 'gradle/**', 'gradlew.bat', 'settings.gradle.kts', 'build.gradle.kts',
+            'gradle.properties', 'scripts/quality/**', '.gitattributes', '.github/workflows/desktop.yml']
+  workflow_dispatch:
+
+# Read-only token. Actions are pinned to the same reviewed commits as ci.yml (docs/quality/security-review.md).
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+# Dependency verification stays strict: gradle/verification-metadata.xml already lists the Windows artifacts the
+# desktop build resolves (Skiko, sqlite-jdbc). If a hosted run reports one without a checksum, add it from a
+# reviewed run; do not turn verification off.
+
+jobs:
+  desktop-unit:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Caches Gradle and validates the wrapper; the build uses gradlew.bat (Gradle 8.13).
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      # Every required gate of the lane is in lane-summary.json; a gate that did not run is BLOCKED and fails the job.
+      - name: Desktop lane
+        run: python scripts/quality/verify.py --lane desktop --evidence-dir artifacts/quality/lanes/desktop
+
+      - name: Lane summary
+        if: always()
+        shell: bash
+        run: cat artifacts/quality/lanes/desktop/lane-summary.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      # The summary and the test counts only: no build output, no corpus, no signing file.
+      - name: Upload lane summary
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-lane-summary
+          path: |
+            artifacts/quality/lanes/desktop/lane-summary.*
+            artifacts/quality/lanes/desktop/desktop-unit.json
+          retention-days: 14
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-reports
+          path: |
+            artifacts/quality/lanes/desktop/*.log
+            desktop/build/reports/tests/
+            desktop/build/test-results/
+            desktop-data/build/reports/tests/
+            desktop-data/build/test-results/
+          retention-days: 14

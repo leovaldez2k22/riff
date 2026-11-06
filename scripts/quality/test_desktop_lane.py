@@ -142,5 +142,37 @@ class ExcludedTestsTest(unittest.TestCase):
         self.assertEqual(["A.bad", "A.broken"], counts["failures"])
 
 
+class WorkflowTest(unittest.TestCase):
+    """.github/workflows/desktop.yml, the desktop lane in CI (PLAN.md Task 1.4)."""
+    TEXT = (REPO / ".github/workflows/desktop.yml").read_text(encoding="utf-8")
+    CI = (REPO / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    def test_it_runs_the_desktop_lane_on_windows_with_jdk_21(self):
+        self.assertIn("  desktop-unit:\n    runs-on: windows-latest\n", self.TEXT)
+        self.assertIn("java-version: '21'", self.TEXT)
+        self.assertRegex(self.TEXT, r"run: python scripts/quality/verify\.py --lane desktop --evidence-dir \S+")
+        self.assertNotIn("--checks", self.TEXT)  # every gate, never a partial run
+
+    def test_actions_are_pinned_to_the_commits_ci_uses(self):
+        uses = re.findall(r"uses: (\S+)@(\S+)", self.TEXT)
+        self.assertTrue(uses)
+        pinned = dict(re.findall(r"uses: (\S+)@(\S+)", self.CI))
+        for action, ref in uses:
+            self.assertRegex(ref, r"^[0-9a-f]{40}$", action)
+            self.assertEqual(pinned.get(action), ref, action)
+
+    def test_it_needs_no_secret_cannot_write_and_installs_no_sdk(self):
+        self.assertNotIn("secrets.", self.TEXT)
+        self.assertIn("permissions:\n  contents: read", self.TEXT)
+        self.assertNotIn("setup-android", self.TEXT)
+        self.assertNotIn("\t", self.TEXT)
+
+    def test_a_change_to_the_lane_or_the_workflow_runs_it(self):
+        for trigger in ("push:", "pull_request:"):
+            block = re.split(r"\n  \S", self.TEXT.split(f"\n  {trigger}\n", 1)[1], maxsplit=1)[0]
+            for path in ("'desktop/**'", "'desktop-data/**'", "'scripts/quality/**'", "'.github/workflows/desktop.yml'"):
+                self.assertIn(path, block, trigger)
+
+
 if __name__ == "__main__":
     unittest.main()

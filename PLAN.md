@@ -394,6 +394,7 @@ Unless a task says otherwise, it also runs **Unit** before closing. The phases i
   - **Key Classes, Interfaces & Signatures:** Job `desktop-unit` on `windows-latest`, JDK 21.
   - **Implementation Details:** Unit tests only, no native corpus. Native-dependent tests stay in the local lane. Pin actions the way the existing workflows do.
   - **Verification Step:** Validate the YAML locally. After the owner's approval, the first remote run is green.
+  - **Local part done 6 November 2026:** `.github/workflows/desktop.yml` with job `desktop-unit` (`windows-latest`, Temurin 21, the same pinned action commits as `ci.yml`, read-only token, no secret). It runs `verify.py --lane desktop` when desktop, Gradle, `scripts/quality` or workflow files change. The Android SDK is not installed because the desktop build doesn't need it (checked locally with `ANDROID_HOME` unset). The unit tests use no local corpus or `.toolchain` file. The YAML parses with SnakeYAML 2.6 from the project's Gradle cache (no actionlint here). 4 workflow tests in `test_desktop_lane.py`; all 198 script tests pass. **Still open:** pushing, which needs the owner's yes (D3). The first remote run will be red until Task 1.5 fixes the token test. The two load-sensitive tests from Task 1.3, especially the 10 ms FTS budget, may also fail on a shared hosted runner. If they do, the owner decides whether to make them deterministic or move them out of `test`.
 
 - **[ ] Task 1.5: Generate tokens from Android**
   - **Goal:** Fix today's failing test and remove token drift for good.

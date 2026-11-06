@@ -11,7 +11,7 @@ One entry point, `scripts/quality/verify.py` (or `scripts/quality/verify.ps1` on
 | Physical device | `verify.py --lane device --allow-install --serial <id> --tier R\|L` | the same pair, on the named phone | locally, on an authorized test phone |
 | Benchmarks | `verify.py --lane benchmark --allow-install --serial <id> --tier R\|L` | the benchmark build (its own package id) | locally, on a phone of that tier |
 | Packaging | `verify.py --lane packaging [--allow-install --previous-apk <apk>]` | with the flags, the previous APK and then the candidate, on an emulator | locally, for a candidate |
-| Desktop | `verify.py --lane desktop` | nothing | locally (CI comes with PLAN.md Task 1.4) |
+| Desktop | `verify.py --lane desktop` | nothing | CI on Windows when desktop files change (`desktop.yml`, not yet pushed), and locally |
 
 What each lane holds:
 
@@ -52,7 +52,7 @@ In a git worktree, which has no `.toolchain` of its own, the main checkout's `.t
 
 ## CI
 
-`ci.yml` runs the pull-request lane on pushes to `main`, `fix/**` and `codex/**`, and on pull requests. `emulator.yml` runs the emulator lane on API 31, 33 and 36 after a push to `main` or `codex/**`, and on request. Both:
+`ci.yml` runs the pull-request lane on pushes to `main`, `fix/**` and `codex/**`, and on pull requests. `emulator.yml` runs the emulator lane on API 31, 33 and 36 after a push to `main` or `codex/**`, and on request. `desktop.yml` runs the desktop lane on `windows-latest` with JDK 21 (job `desktop-unit`, no Android SDK) on pushes to `main`, `fix/**`, `codex/**` and `desktop/**` and on pull requests, but only when the desktop projects, the Gradle files, `scripts/quality` or the workflow itself change. It runs unit tests only: the native, codec, Automix corpus and load tests need local files and the audio device, and stay in the local lanes. `test_desktop_lane.py` checks that it runs the whole lane, needs no secret and pins the same action commits as `ci.yml`. All three:
 - cancel a superseded run of the same branch;
 - use a read-only token and no secret;
 - pin each action to a reviewed commit;
