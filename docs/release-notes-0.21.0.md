@@ -22,7 +22,7 @@ Checked on the owner's phone (vivo I2217, Android 16), on Debug builds, mostly b
 
 - **Opening Riff can use a little data.** If the paused song is only partly on the phone, Riff fetches what the player buffers ahead while readying it, an estimated 1 to 2 MB once per song. The media notification also appears as Riff opens.
 - **Search ranking on one account.** On one of the owner's accounts, YouTube's signed-in answer to a Songs search left the original songs out (seen for "electric love" and "slipping through my fingers"). The owner's main account gets them, and Riff shows what YouTube sends.
-- **Not yet tested on the new stream library:** signed-out playback, SABR and age-restricted songs.
+- **Not yet tested on the new stream library:** signed-out playback and SABR. Age-restricted songs play: the owner has had no problems with them.
 - The limits listed for [0.20.0](release-notes-0.20.0.md) still apply.
 
 ## Candidate (6 November 2026)
