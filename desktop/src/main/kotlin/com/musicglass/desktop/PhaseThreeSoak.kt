@@ -9,6 +9,7 @@ import kotlinx.serialization.json.*
 
 /** Eight-hour production host + separate worker test. Real encoded files and WASAPI; explicitly muted. */
 internal object PhaseThreeSoak {
+    private const val HEARTBEAT_SECONDS=30L
     private interface Power:StdCallLibrary{fun SetThreadExecutionState(flags:Int):Int}
     @JvmStatic fun main(args:Array<String>)=runBlocking{
         require(args.size in 3..4);val recordStalls=args.getOrNull(3)=="--record-stalls";require(args.size==3||recordStalls)
@@ -25,9 +26,19 @@ internal object PhaseThreeSoak {
         var nextSeek=started+17_000_000_000;var nextFade=started+180_000_000_000
         var speedChanges=0;var equalizerChanges=0;var nextSpeed=Long.MAX_VALUE;var nextEqualizer=Long.MAX_VALUE
         var seeks=0;var maxHostHeap=0L;var maxWorkerHeap=0L;var maxHandles=0;var initialHandles:Int?=null;var finalHandles=0;var underruns=0L
-        fun writeStatus(status:String,error:String?=null){report.writeText(buildJsonObject{
-            put("status",status);put("recordStalls",recordStalls);put("speedChanges",speedChanges);put("equalizerChanges",equalizerChanges);put("muted",true);put("warmupSeconds",60);put("secondsRequested",seconds);put("elapsedSeconds",(System.nanoTime()-started)/1_000_000_000);put("hardwarePresentedFrames",heard);put("seekActions",seeks);put("workerHeapPeak",maxWorkerHeap);put("hostHeapPeak",maxHostHeap);put("workerHandlePeak",maxHandles);put("workerInitialHandles",initialHandles?:0);put("workerFinalHandles",finalHandles);put("workerUnderruns",underruns);put("protocol",AudioProtocol.BUILD_ID);error?.let{put("error",it)}
-        }.toString())}
+        // Liveness for scripts/desktop/soak-status.py: a RUNNING file is believed only while this exact process
+        // (PID plus start time, so a reused PID doesn't count) is alive and the heartbeat is fresh.
+        val self=ProcessHandle.current();val processStartMs=self.info().startInstant().map{it.toEpochMilli()}.orElse(0L)
+        var nextHeartbeat=Long.MAX_VALUE
+        fun writeStatus(status:String,error:String?=null){
+            val text=buildJsonObject{
+            put("status",status);put("pid",self.pid());put("processStartMs",processStartMs);put("heartbeatEpochMs",System.currentTimeMillis());put("heartbeatIntervalSeconds",HEARTBEAT_SECONDS);put("recordStalls",recordStalls);put("speedChanges",speedChanges);put("equalizerChanges",equalizerChanges);put("muted",true);put("warmupSeconds",60);put("secondsRequested",seconds);put("elapsedSeconds",(System.nanoTime()-started)/1_000_000_000);put("hardwarePresentedFrames",heard);put("seekActions",seeks);put("workerHeapPeak",maxWorkerHeap);put("hostHeapPeak",maxHostHeap);put("workerHandlePeak",maxHandles);put("workerInitialHandles",initialHandles?:0);put("workerFinalHandles",finalHandles);put("workerUnderruns",underruns);put("protocol",AudioProtocol.BUILD_ID);error?.let{put("error",it)}
+            }.toString()
+            // Replace atomically so a reader never sees half a file.
+            val staging=File(output,"result.json.tmp");staging.writeText(text)
+            java.nio.file.Files.move(staging.toPath(),report.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING,java.nio.file.StandardCopyOption.ATOMIC_MOVE)
+            nextHeartbeat=System.nanoTime()+HEARTBEAT_SECONDS*1_000_000_000
+        }
         try{DesktopHost(directory=profile).use{host->
             suspend fun await(test:()->Boolean){withTimeout(60000){while(!test())delay(50)}}
             await{host.snapshot.initialized}
@@ -83,6 +94,7 @@ internal object PhaseThreeSoak {
             writeStatus("RUNNING")
             while(System.nanoTime()<deadline){
                 delay(100);val now=System.nanoTime();val anchor=host.clockAnchor.value
+                if(now>=nextHeartbeat)writeStatus("RUNNING")
                 if(anchor!=null){val previous=last;if(previous!=null&&previous.timelineEpoch==anchor.timelineEpoch&&anchor.samplesRendered>=previous.samplesRendered){val delta=anchor.samplesRendered-previous.samplesRendered;heard+=delta;if(delta>0)lastProgress=now};last=anchor}
                 check(host.snapshot.notificationMessage?.contains("failed",true)!=true){host.snapshot.notificationMessage.orEmpty()}
                 if(now-lastProgress>=15_000_000_000)progressFailure("No genuine hardware progress for 15 seconds")

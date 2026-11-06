@@ -87,6 +87,10 @@ Verify emitted bytes equal release-corpus/valid/envelope.json. Then invoke the r
 
 The explicit `:desktop:stageSoakRuntime` diagnostic task freezes runtime files and hashes. JFR is initialized with jcmd after a healthy worker handshake and before any playback, bounded to 32 MiB and ten minutes of history. JVM StartFlightRecording startup logging was observed on stdout despite an Xlog warning/stderr setting, so that startup option is not passed into the binary-IPC worker. The standalone eight-hour process is muted and fails on the first observed underrun; it does not change endpoint/master volume or substitute elapsed time for hardware presentation.
 
+## Soak status
+
+`python scripts/desktop/soak-status.py <result.json or evidence directory>` prints `RUNNING`, `STALE`, `PASS` or `FAIL`. A file that says `RUNNING` is believed only while the process named by its `pid` and `processStartMs` is alive and `heartbeatEpochMs` is at most 2 minutes old (the soak refreshes it every 30 s); otherwise the run is `STALE`. `--json` prints one JSON object. Exit code 0 for RUNNING or PASS, 1 for STALE or FAIL, 2 if the file can't be read.
+
 ## Evidence manifest
 
 `artifacts/` is not in git. `python scripts/desktop/evidence-manifest.py write` records the desktop evidence files (relative path, size, SHA-256) in `docs/desktop/evidence-manifest.json`. `check` reports any recorded file that is missing or changed and exits 1 if so; newer files are listed but don't fail it. Run `write` again after adding evidence you want kept.

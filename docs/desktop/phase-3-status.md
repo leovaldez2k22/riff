@@ -1,6 +1,6 @@
 # Phase 3: real codec, transport, playback, lyrics and parity acceptance
 
-Updated 4 November 2026. **In progress.** The latest evidence and unresolved gates are in the final dated section; older dated receipts retain their original scope. Full-phase completion remains the objective. The following register explicitly separates connected components from accepted end-to-end behavior.
+Updated 6 November 2026 (soak status, last section). **In progress.** The latest evidence and unresolved gates are in the final dated section; older dated receipts retain their original scope. Full-phase completion remains the objective. The following register explicitly separates connected components from accepted end-to-end behavior.
 
 | Task | Implemented production path / evidence | Still required |
 |---|---|---|
@@ -279,3 +279,13 @@ The required PR lane and the newly added headless late-position restart reproduc
 Do not expose the private Smart/Automix engine as finished by adding a settings toggle alone. Remaining integration must bind immutable plans to the **hardware-presented** spans/checkpoints, restore both real deck positions and echo/filter context, and translate outgoing audio ownership versus incoming UI identity correctly. The current engine continues presenting the outgoing entry until its tail ends; Android's blend changes the main presentation at incoming playback start. Queue identity, lyrics start, visual artwork/title handoff, seek/next semantics, history provenance and restart must be verified together against the actual Android behavior. No new app-level Smart/Automix feature is accepted by the engine-only receipts.
 
 At the latest observed current endurance sample the frozen 2.7 run remained RUNNING with 52 real seeks, three speed changes, three EQ changes, zero underruns and bounded monitored heaps/handles. Its final eight-hour receipt still does not exist. Full Phase 3 and the complete screen suite remain open; Phase 4 remains unstarted under the owner's expired before-07:00 condition.
+
+## Soak status corrected (6 November 2026, PLAN.md Task 1.6)
+
+**The 4 November protocol-2.7 eight-hour run stopped. Its cause is undetermined. It is not a PASS and not a measured FAIL.** Process 22232 is gone. Its `runtime-5831788170898189794/evidence-eight-hour/result.json` still says `RUNNING` at 2,600 elapsed seconds (147 seeks, 8 speed and 10 EQ changes, zero underruns, handles 688 to 679), and `soak/active-run.json` still says `RUNNING`/active. Nothing was written after 2,600 s, so whatever ended the process also prevented the `FAIL` write in the harness's `catch` block: a killed process, a restart or a power event would all look like this, and no evidence picks one. Both files are left unchanged, as the evidence manifest requires. The older `runtime-27187615590799096/evidence/result.json` also still says `RUNNING`; that run's failure is recorded above (3 November). **The only eight-hour PASS is still the frozen protocol-2.5 run.** A new run needs the owner's go-ahead and the machine to itself.
+
+So that a dead run can't read as RUNNING again:
+
+- `PhaseThreeSoak` now writes `pid`, `processStartMs` and `heartbeatEpochMs` (and `heartbeatIntervalSeconds`) into every `result.json`, and refreshes the heartbeat every 30 s while measuring, as well as at each 60 s sample. The file is replaced atomically, so a reader never sees half of it. The warmup still writes nothing until measurement starts.
+- `python scripts/desktop/soak-status.py <result.json or evidence directory>` reports `RUNNING`, `STALE`, `PASS` or `FAIL`. A written `RUNNING` stays `RUNNING` only if a process with that PID is alive, its start time matches `processStartMs` (so a reused PID doesn't count), and the heartbeat is at most 2 minutes old. Anything else is `STALE`, including any `RUNNING` file without these fields. On the existing evidence it reports both RUNNING files above as `STALE` and the 2.5 run as `PASS`. Java's `ProcessHandle` start time and the script's Windows `GetProcessTimes` reading were compared on a live JVM: identical to the millisecond.
+- Read a run's status through this script, never from `result.json` or `active-run.json` alone.
