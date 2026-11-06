@@ -25,6 +25,17 @@ Checked on the owner's phone (vivo I2217, Android 16), on Debug builds, mostly b
 - **Not yet tested on the new stream library:** signed-out playback, SABR and age-restricted songs.
 - The limits listed for [0.20.0](release-notes-0.20.0.md) still apply.
 
+## Candidate (6 November 2026)
+
+Built from commit `3c71594` in a clean worktree with `scripts/build-release-candidate.ps1 -Offline -Preview`: tests, lint and the release build passed, and the PR lane on the same commit passed (`pr-20261106T021458Z`).
+
+| File | Package | Size | SHA-256 |
+|---|---|---|---|
+| `riff-0.21.0.apk` | `com.musicglass.personal` 0.21.0 (35) | 44.3 MiB | `101075ac4aa0ba1e58c76f8b5c1e9df64f651d9b88e99c0645487deac15ee4fe` |
+| `riff-0.21.0-preview.apk` | `com.musicglass.personal.preview` 0.21.0-preview (35) | | `318cdf35570a6ea22167e1e1a54d46ce88d034525091f3758a45be1dded94ff5` |
+
+Both are signed with the certificate above (APK Signature Scheme v2). The R8 mapping is `riff-0.21.0-mapping.txt`, kept with the APK. No source archive has been made yet.
+
 ## Verifying a package
 
 Check the files against `SHA256SUMS.txt`, and the APK's certificate with `apksigner verify --print-certs` against the value above. The source archive builds with the commands in the [README](../README.md).
