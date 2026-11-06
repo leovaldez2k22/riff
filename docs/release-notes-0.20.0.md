@@ -1,6 +1,6 @@
 # Riff 0.20.0 (version code 34)
 
-**Status: prepared, not published.** Built from commit b859a40, signed with the release key and checked locally. Nothing has been uploaded or announced, and publishing needs the owner's explicit decision.
+**Status: published on GitHub on 31 October 2026** ([release v0.20.0](https://github.com/leovaldez2k22/riff/releases/tag/v0.20.0)). Superseded by [0.21.0](release-notes-0.21.0.md).
 
 Android 12 or later, 64-bit ARM phones. The APK is about 45 MB (0.10.0 was about 10 MB): most of the growth is the on-device beat model behind Automix and the runtime it needs.
 

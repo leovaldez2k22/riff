@@ -8,13 +8,13 @@ For people using Riff:
 
 - [Features and behavior](features.md)
 - [Privacy and permissions](privacy.md)
-- [Release notes for 0.21.0](release-notes-0.21.0.md) (prepared, not published), [for 0.20.0](release-notes-0.20.0.md) (published on GitHub, 31 October 2026), [for 0.10.0](release-notes-0.10.0.md) (published on GitHub, 24 October 2026) and the [changelog](../CHANGELOG.md)
+- [Release notes for 0.21.0](release-notes-0.21.0.md) (published on GitHub, 6 November 2026), [for 0.20.0](release-notes-0.20.0.md) (published on GitHub, 31 October 2026), [for 0.10.0](release-notes-0.10.0.md) (published on GitHub, 24 October 2026) and the [changelog](../CHANGELOG.md)
 - [Security policy](../SECURITY.md)
 
 For people building or changing it:
 
 - [README](../README.md): build, phones, check lanes
-- [Contributing](../CONTRIBUTING.md), [release signing](release-signing.md), [0.20.0 handover](handover-0.20.0.md) (the release in progress, moved to another laptop on 30 October 2026)
+- [Contributing](../CONTRIBUTING.md), [release signing](release-signing.md), [0.20.0 handover](handover-0.20.0.md) (moved to another laptop on 30 October 2026; 0.20.0 was published on 31 October, and its laptop setup notes still apply)
 - [Dependency license inventory](dependency-license-inventory.md) and its [CSV](dependency-license-audit.csv); [third-party notices](../NOTICE.md); [asset provenance](../licenses/placeholder-art.md)
 - The plan the current work follows: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md)
 - [Idle playback investigation and implementation plan](idle-playback-investigation-plan-2026-11-01.md): signed-in mini-player resume after ten minutes, evidence, staged fixes and device acceptance

@@ -2,9 +2,9 @@
 
 Android music player (Kotlin, Compose, Media3), one `:app` module plus `:benchmark`. Build, checks and lanes: [README.md](README.md). Documentation index: [docs/README.md](docs/README.md).
 
-## Release 0.20.0 in progress
+## Releases
 
-The 0.20.0 release was moved to another laptop part-way through on 30 October 2026. Before anything else, read [docs/handover-0.20.0.md](docs/handover-0.20.0.md): the owner's decisions, what is done, the open questions, the remaining steps in order, and how to set up a new laptop (the signing password must be restored there by the owner).
+The latest release is 0.21.0, published on GitHub on 6 November 2026 ([release notes](docs/release-notes-0.21.0.md)); 0.20.0 was published on 31 October. For how a release is built, signed and published, the owner's standing decisions, and how to set up a new laptop (the signing password must be restored there by the owner), read [docs/handover-0.20.0.md](docs/handover-0.20.0.md).
 
 ## Implementing new features
 

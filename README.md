@@ -10,7 +10,7 @@ Riff is an independent personal project and is not affiliated with Google or You
 
 ## Availability
 
-**Riff 0.20.0** (version code 34) is the latest release, published on 31 October 2026: [download it from GitHub Releases](https://github.com/leovaldez2k22/riff/releases/tag/v0.20.0) and read the [release notes](docs/release-notes-0.20.0.md). Android 12 or later, 64-bit ARM. It is signed with a **new certificate** (SHA-256 `e45ac43b9d1c658c03ace002abb4c482cc3d63214a5f8509c801e404c91ff798`), so it does not install over 0.10.0 or earlier: uninstall the old app first. From 0.10.0, Backup on this phone keeps your data in Documents/Riff Backup and 0.20.0 offers to restore it; downloads are lost. The previous release, 0.10.0, was published on 24 October 2026.
+**Riff 0.21.0** (version code 35) is the latest release, published on 6 November 2026: [download it from GitHub Releases](https://github.com/leovaldez2k22/riff/releases/tag/v0.21.0) and read the [release notes](docs/release-notes-0.21.0.md). Android 12 or later, 64-bit ARM. It is signed with the same certificate as 0.20.0 (SHA-256 `e45ac43b9d1c658c03ace002abb4c482cc3d63214a5f8509c801e404c91ff798`), so it **updates 0.20.0 in place** and keeps downloads, the queue and settings. It does not install over 0.10.0 or earlier, which used an older certificate: uninstall the old app first. From 0.10.0, Backup on this phone keeps your data in Documents/Riff Backup and Riff offers to restore it; downloads are lost. Earlier releases: [0.20.0](docs/release-notes-0.20.0.md) (31 October 2026) and 0.10.0 (24 October 2026).
 
 This repository continues the project under **leovaldez2k22** with its Git history. Older documents may name earlier accounts.
 

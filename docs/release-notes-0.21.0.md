@@ -1,6 +1,6 @@
 # Riff 0.21.0 (version code 35)
 
-**Status: prepared, not published.** Signed with the release key and checked locally. Nothing has been uploaded or announced, and publishing needs the owner's explicit decision.
+**Status: published on GitHub on 6 November 2026** ([release v0.21.0](https://github.com/leovaldez2k22/riff/releases/tag/v0.21.0), tag on commit `3c71594`), with the APK, the source archive and `SHA256SUMS.txt`.
 
 Android 12 or later, 64-bit ARM phones. Signed with the same certificate as 0.20.0 (SHA-256 `e45ac43b9d1c658c03ace002abb4c482cc3d63214a5f8509c801e404c91ff798`), so it **updates 0.20.0 in place**: downloads, the queue, history and settings are kept.
 
@@ -34,7 +34,7 @@ Built from commit `3c71594` in a clean worktree with `scripts/build-release-cand
 | `riff-0.21.0.apk` | `com.musicglass.personal` 0.21.0 (35) | 44.3 MiB | `101075ac4aa0ba1e58c76f8b5c1e9df64f651d9b88e99c0645487deac15ee4fe` |
 | `riff-0.21.0-preview.apk` | `com.musicglass.personal.preview` 0.21.0-preview (35) | | `318cdf35570a6ea22167e1e1a54d46ce88d034525091f3758a45be1dded94ff5` |
 
-Both are signed with the certificate above (APK Signature Scheme v2). The R8 mapping is `riff-0.21.0-mapping.txt`, kept with the APK. No source archive has been made yet.
+Both are signed with the certificate above (APK Signature Scheme v2). The R8 mapping is `riff-0.21.0-mapping.txt`, kept with the APK (not published). The source archive `riff-0.21.0-source.zip`, made from the same commit, has SHA-256 `97c2835f1cc4912450a4900ed3d1bdf8c9ad605c34f507fe27faff82bdef36b6`. The Preview APK was not published.
 
 ## Verifying a package
 

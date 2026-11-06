@@ -2,7 +2,7 @@
 
 Newest first. Release candidates before 0.9.0-rc16 were recorded only in the README; their text is kept here unchanged. Detailed implementation and verification records are in `docs/`.
 
-## 0.21.0 (code 35), prepared, not published
+## 0.21.0 (code 35), published 6 November 2026
 
 Release notes: `docs/release-notes-0.21.0.md`. Signed with the same certificate as 0.20.0, so it updates 0.20.0 in place. The "What's new" sheet is written for version code 35.
 
