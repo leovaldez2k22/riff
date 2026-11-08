@@ -262,7 +262,7 @@ private sealed interface ExportState {
     var progress by remember { mutableFloatStateOf(0f) }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/mp4")) { uri: Uri? ->
         if (uri == null) { state = null; return@rememberLauncherForActivityResult }
-        if (!exportGate.tryLock()) { state = null; onNotice(context.getString(R.string.m4a_busy)); return@rememberLauncherForActivityResult }
+        if (!exportGate.tryLock()) { state = null; onNotice(string(R.string.m4a_busy)); return@rememberLauncherForActivityResult }
         state = ExportState.Working(0f); progress = 0f
         // Atomic: the gate taken above is given back even if the screen goes before the export starts.
         job = work.launch(start = kotlinx.coroutines.CoroutineStart.ATOMIC) {
@@ -285,28 +285,28 @@ private sealed interface ExportState {
                 else (if (cleaned) R.string.m4a_failed else R.string.m4a_failed_left)
             } finally { staged?.delete(); exportGate.unlock() }
             job = null; state = null
-            if (outcome == null) { uiHaptic(HapticCue.Confirm); onNotice(context.getString(R.string.m4a_done, track.title)) }
-            else { uiHaptic(HapticCue.Reject); onNotice(context.getString(outcome)) }
+            if (outcome == null) { uiHaptic(HapticCue.Confirm); onNotice(string(R.string.m4a_done, track.title)) }
+            else { uiHaptic(HapticCue.Reject); onNotice(string(outcome)) }
         }
     }
     when (state) {
         null -> Unit
-        ExportState.Asking -> FrostedAlertDialog(onDismissRequest = { state = null }, title = { Text(context.getString(R.string.m4a_title)) },
+        ExportState.Asking -> FrostedAlertDialog(onDismissRequest = { state = null }, title = { Text(string(R.string.m4a_title)) },
             text = { Column(Modifier.testTag("m4a_dialog")) {
-                Text(context.getString(when (convert) { true -> R.string.m4a_convert_warning; false -> R.string.m4a_copy_note; null -> R.string.m4a_unsupported }),
+                Text(string(when (convert) { true -> R.string.m4a_convert_warning; false -> R.string.m4a_copy_note; null -> R.string.m4a_unsupported }),
                     modifier = Modifier.testTag("m4a_note"))
-                if (hasLyrics) SettingsToggleRow(context.getString(R.string.m4a_lyrics), lyrics, { lyrics = it }, Icons.Rounded.Lyrics, "m4a_lyrics")
+                if (hasLyrics) SettingsToggleRow(string(R.string.m4a_lyrics), lyrics, { lyrics = it }, Icons.Rounded.Lyrics, "m4a_lyrics")
             } },
             confirmButton = { TextButton(enabled = convert != null, modifier = Modifier.testTag("m4a_choose"), onClick = {
-                uiHaptic(); runCatching { pick.launch(m4aFileName(track)) }.onFailure { state = null; onNotice(context.getString(R.string.m4a_no_picker)) }
-            }) { Text(context.getString(if (convert == true) R.string.m4a_convert_choose else R.string.m4a_choose)) } },
-            dismissButton = { TextButton({ state = null }) { Text(context.getString(R.string.cancel)) } })
-        is ExportState.Working -> FrostedAlertDialog(onDismissRequest = {}, title = { Text(context.getString(R.string.m4a_title)) },
+                uiHaptic(); runCatching { pick.launch(m4aFileName(track)) }.onFailure { state = null; onNotice(string(R.string.m4a_no_picker)) }
+            }) { Text(string(if (convert == true) R.string.m4a_convert_choose else R.string.m4a_choose)) } },
+            dismissButton = { TextButton({ state = null }) { Text(string(R.string.cancel)) } })
+        is ExportState.Working -> FrostedAlertDialog(onDismissRequest = {}, title = { Text(string(R.string.m4a_title)) },
             text = { Column(Modifier.testTag("m4a_working")) {
-                Text(context.getString(if (convert == true) R.string.m4a_converting else R.string.m4a_copying))
+                Text(string(if (convert == true) R.string.m4a_converting else R.string.m4a_copying))
                 LinearProgressIndicator({ progress }, Modifier.fillMaxWidth().padding(top = RiffSpace.item))
             } },
-            confirmButton = { TextButton({ job?.cancel() }, modifier = Modifier.testTag("m4a_cancel")) { Text(context.getString(R.string.cancel)) } })
+            confirmButton = { TextButton({ job?.cancel() }, modifier = Modifier.testTag("m4a_cancel")) { Text(string(R.string.cancel)) } })
     }
     return {
         state = ExportState.Asking; convert = null; lyrics = false

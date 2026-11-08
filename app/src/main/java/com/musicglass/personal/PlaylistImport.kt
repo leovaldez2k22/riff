@@ -175,7 +175,7 @@ internal fun readSpotifyJsonImport(root: JsonElement): List<ImportedList> {
 /** Reads a picked file by what it holds; an empty list when it is none of the kinds above or holds nothing. */
 internal fun readImportFile(fileName: String, bytes: ByteArray): List<ImportedList> {
     if (bytes.size > IMPORT_MAX_BYTES) return emptyList()
-    val text = bytes.toString(Charsets.UTF_8).removePrefix("﻿")
+    val text = bytes.toString(Charsets.UTF_8).removePrefix("\uFEFF")
     val name = field(fileName.substringBeforeLast('.')).ifBlank { "Imported" }
     val lower = fileName.lowercase(Locale.ROOT)
     val trimmed = text.trimStart()
