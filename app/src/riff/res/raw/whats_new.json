@@ -2,18 +2,23 @@
   "version": 36,
   "cards": [
     {
-      "title": "A lighter Riff",
-      "body": "Crossfade, Smart, lyrics and downloads stay together in the smaller edition.",
+      "title": "Lyrics in your language",
+      "body": "Translations show under the lines when the source has them. Tap the source's name to choose another for this song.",
+      "action": "player"
+    },
+    {
+      "title": "Never play, everywhere",
+      "body": "Block a song or an artist from its menu. Radio and the queue skip it, and YouTube Music hears it's not for you.",
       "action": "settings"
     },
     {
-      "title": "All of Encore",
-      "body": "Your listening statistics, stories, genres and Encore widget are available in both editions.",
-      "action": "encore"
+      "title": "Scrobble and import",
+      "body": "Send your plays to ListenBrainz or Last.fm, and bring playlists from Spotify, CSV or M3U into Phone playlists.",
+      "action": "settings"
     },
     {
-      "title": "Your settings travel with you",
-      "body": "Riff+ adds Automix, the app equalizer and Stats for nerds. About offers the other edition when its release is available. Saved Plus settings return when you move back.",
+      "title": "A lighter Riff",
+      "body": "Everyday playback and all of Encore in the smaller edition. Riff+ adds Automix, the equalizer, Sing and more; About offers it.",
       "action": "settings"
     }
   ]

@@ -48,7 +48,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
             text = {
                 Column(Modifier.testTag("update_install_prompt")) {
                     Text(string(R.string.update_install_body, size(state.target.asset.bytes)))
-                    if (state.metered) { Spacer(Modifier.height(8.dp)); Text(string(R.string.update_install_metered)) }
+                    if (state.metered) { Spacer(Modifier.height(RiffSpace.item)); Text(string(R.string.update_install_metered)) }
                 }
             },
             confirmButton = { TextButton(onClick = installer::confirm, modifier = Modifier.testTag("update_install_confirm")) {
@@ -72,11 +72,11 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
                     Column(Modifier.testTag("update_install_progress")) {
                         if (state is InstallState.Downloading && state.total != null && state.total > 0) {
                             LinearProgressIndicator(progress = { (state.done.toFloat() / state.total).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(RiffSpace.item))
                             Text(string(R.string.update_install_progress, size(state.done), size(state.total)))
                         } else {
                             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(RiffSpace.item))
                             Text(string(R.string.update_install_checking))
                         }
                     }

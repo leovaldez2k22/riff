@@ -265,12 +265,12 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                 }
                 val sourceNote = load.fallback?.let { reason -> load.choice?.let { string(if (reason == LyricsFallback.Miss) R.string.lyrics_source_missed else R.string.lyrics_source_unreachable, it) } }
                 when {
-                    sourceNote != null -> Text(sourceNote,color = Muted,fontSize = 11.sp,maxLines = 2,modifier = Modifier.weight(1f).testTag("lyrics_source_note"))
-                    loading && songLyrics != null -> Text(string(R.string.finding_finer_timing),color = Muted,fontSize = 11.sp,modifier = Modifier.weight(1f))
+                    sourceNote != null -> Text(sourceNote,color = Muted,fontSize = RiffType.caption,maxLines = 2,modifier = Modifier.weight(1f).testTag("lyrics_source_note"))
+                    loading && songLyrics != null -> Text(string(R.string.finding_finer_timing),color = Muted,fontSize = RiffType.caption,modifier = Modifier.weight(1f))
                     else -> Spacer(Modifier.weight(1f))
                 }
                 // Feature 25: the source opens "Source for this song"; its page is one choice there.
-                if (songLyrics != null || load.choice != null) Text(songLyrics?.source ?: load.choice.orEmpty(),color = Muted,fontSize = 11.sp,maxLines = 1,
+                if (songLyrics != null || load.choice != null) Text(songLyrics?.source ?: load.choice.orEmpty(),color = Muted,fontSize = RiffType.caption,maxLines = 1,
                     modifier = Modifier.clickable(onClickLabel = string(R.string.lyrics_source_title)) { uiHaptic(); sourcePicker = true }
                         .testTag("lyrics_source"))
             }

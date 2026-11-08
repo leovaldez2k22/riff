@@ -104,7 +104,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     // Feature 7: lyrics search reads only this phone's downloads; the phrase is never sent or kept in history.
     val lyricsMode=model.searchFilter==LYRICS_SEARCH_FILTER
     var lyricHits by remember { mutableStateOf<List<LyricsSearchHit>?>(null) }
-    val downloadsRevision by remember(context) { OfflineMusicStore.get(context).revision }.collectAsState()
+    val downloadsRevision by remember(context) { OfflineMusicStore.get(context).revision }.collectAsStateWithLifecycle()
     LaunchedEffect(model.searchQuery,lyricsMode,downloadsRevision) {
         if(!lyricsMode || model.searchQuery.isBlank()) { lyricHits=null;return@LaunchedEffect }
         delay(250);lyricHits=withContext(Dispatchers.IO) {LyricsSearchIndex.search(context,model.searchQuery)}
@@ -159,10 +159,10 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
                 else -> R.string.search_lyrics_none })) }
             else items(hits,key={"lyrics:${it.track.videoId}"}) {hit->
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(RiffRadius.artwork)).clickable { uiHaptic();keyboard?.hide()
-                    scope.launch {playRealTrack(provider,playback,hit.track,onNotice)} }.padding(vertical=10.dp).testTag("lyrics_hit")) {
+                    scope.launch {playRealTrack(provider,playback,hit.track,onNotice)} }.padding(vertical=RiffSpace.rowPad).testTag("lyrics_hit")) {
                     Text(hit.track.title,color=White,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
                     Text(playerArtistLabel(hit.track.artist),color=Muted,fontSize=RiffType.detail,maxLines=1,overflow=TextOverflow.Ellipsis)
-                    Text("“${hit.excerpt}”",color=White.copy(alpha=.8f),fontSize=RiffType.body,maxLines=2,overflow=TextOverflow.Ellipsis,modifier=Modifier.padding(top=4.dp))
+                    Text("“${hit.excerpt}”",color=White.copy(alpha=.8f),fontSize=RiffType.body,maxLines=2,overflow=TextOverflow.Ellipsis,modifier=Modifier.padding(top=RiffSpace.tight))
                 }
             }
             return@ScreenList

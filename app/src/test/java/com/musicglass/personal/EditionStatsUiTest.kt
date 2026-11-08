@@ -49,12 +49,15 @@ class EditionStatsUiTest {
         }
         compose.onNodeWithTag("player_more").performClick()
         compose.waitForIdle()
-        for (label in listOf("Equalizer", "Stats for nerds")) {
-            if (Edition.plus) compose.onNodeWithText(label).assertExists()
-            else compose.onNodeWithText(label).assertDoesNotExist()
-        }
+        if (Edition.plus) compose.onNodeWithText("Stats for nerds").assertExists()
+        else compose.onNodeWithText("Stats for nerds").assertDoesNotExist()
+        // Owner, 9 November 2026: the library has its own tab; the sound tools sit under Playback tools.
+        compose.onNodeWithText("Library shortcuts").assertDoesNotExist()
+        compose.onNodeWithText("Playback tools").performClick()
+        compose.waitForIdle()
+        if (Edition.plus) compose.onNodeWithText("Equalizer").assertExists()
+        else compose.onNodeWithText("Equalizer").assertDoesNotExist()
         compose.onNodeWithText("Playback speed").assertExists()
-        compose.onNodeWithText("Library shortcuts").assertExists()
     }
 
     @Test fun localSongMenuContainsOnlyThisEditionsActions() = checkPlayerMenu("On this phone")

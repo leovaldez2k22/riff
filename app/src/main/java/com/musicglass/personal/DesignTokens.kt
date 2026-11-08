@@ -31,6 +31,14 @@ internal object RiffSpace {
     val item = 8.dp
     /** Between a title and the line under it. */
     val tight = 4.dp
+    /** Between chips or small buttons in a row. */
+    val chipGap = 6.dp
+    /** Above and below a dense row's words. */
+    val rowPad = 10.dp
+    /** Above a section heading inside a screen. */
+    val section = 20.dp
+    /** A two-line row that is not a list row with artwork. */
+    val compactRow = 56.dp
     /** Inside a card or a message, and between unrelated blocks. */
     val block = 16.dp
     /** The least height and width of anything that can be pressed. */
@@ -339,6 +347,27 @@ internal object RiffText {
     const val TABULAR = "tnum"
 }
 
+/** Feature 4 (Riff+): the most-replayed mark on the seek bar. */
+internal object RiffReplayPeak {
+    val mark = androidx.compose.ui.unit.DpSize(2.dp, 10.dp)
+    val markCorner = 1.dp
+}
+
+/** Feature 10 (Riff+): the visualizer's strip of bars. */
+internal object RiffVisualizer {
+    val height = 36.dp
+    val gap = 3.dp
+    val leastBar = 2.dp
+}
+
+/** Riff+'s headphone profile search and its curve. */
+internal object RiffHeadphoneProfile {
+    val field = 24.dp
+    val curve = 120.dp
+    val stroke = 2.dp
+    val midLine = 1.dp
+}
+
 internal object RiffType {
     val screenTitle = 34.sp
     val screenTitleLine = 40.sp
@@ -346,6 +375,10 @@ internal object RiffType {
     val message = 16.sp
     val body = 14.sp
     val detail = 12.sp
+    /** A note under a detail: a source, a hint. */
+    val caption = 11.sp
+    /** A heading inside a screen, under its title. */
+    val heading = 17.sp
     /** The title of a settings row. */
     val rowTitle = 15.sp
 }

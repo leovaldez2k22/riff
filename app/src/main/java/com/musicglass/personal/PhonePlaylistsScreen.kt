@@ -120,7 +120,7 @@ private fun readPicked(context: android.content.Context, uri: Uri): Pair<String,
         item { ScreenTitle(string(R.string.phone_playlists), string(R.string.phone_playlists_detail)) }
         item(key = "import") { ToolLink(if (reading) string(R.string.loading) else string(R.string.import_playlist)) {
             if (!reading) { uiHaptic(); runCatching { pick.launch(arrayOf("text/*", "application/json", "audio/x-mpegurl", "audio/mpegurl", "application/vnd.apple.mpegurl", "application/octet-stream")) } } } }
-        item { Text(string(R.string.import_kinds), color = Muted, fontSize = 12.sp) }
+        item { Text(string(R.string.import_kinds), color = Muted, fontSize = RiffType.detail) }
         item(key = "blend") { Edition.BlendWithFriend(provider, playback, onNotice) }
         if (lists.isEmpty()) item(key = "empty") { ContentEmpty(string(R.string.phone_playlists_empty)) }
         items(lists.asReversed(), key = { it.id }) { list -> PhonePlaylistRow(list, provider.signedIn,
@@ -131,12 +131,12 @@ private fun readPicked(context: android.content.Context, uri: Uri): Pair<String,
 
 @Composable private fun PhonePlaylistRow(list: PhonePlaylist, signedIn: Boolean, onPlay: (Boolean) -> Unit, onCopy: () -> Unit, onDelete: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).clickable { onPlay(false) }.testTag("phone_playlist_row"), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min = RiffSpace.listRow).clickable { onPlay(false) }.testTag("phone_playlist_row"), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(list.name, color = White, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(list.name, color = White, fontSize = RiffType.rowTitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(listOfNotNull(quantity(R.plurals.n_songs, list.songs.size),
                 if (list.remoteId != null) string(if (list.copied.size >= list.songs.size) R.string.phone_playlist_on_youtube_music else R.string.phone_playlist_copy_unfinished) else null)
-                .joinToString(" · "), color = Muted, fontSize = 12.sp)
+                .joinToString(" · "), color = Muted, fontSize = RiffType.detail)
         }
         Box {
             IconButton({ uiHaptic(); menu = true }, modifier = Modifier.testTag("phone_playlist_menu")) {
@@ -161,9 +161,9 @@ private fun readPicked(context: android.content.Context, uri: Uri): Pair<String,
         if (w.picked == null) {
             item { Text(string(R.string.import_choose_list), color = Muted) }
             items(w.lists, key = { "list:${it.name}:${it.rows.size}:${w.lists.indexOf(it)}" }) { list ->
-                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { uiHaptic(); onPick(list) }.testTag("import_list"), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().heightIn(min = RiffSpace.compactRow).clickable { uiHaptic(); onPick(list) }.testTag("import_list"), verticalAlignment = Alignment.CenterVertically) {
                     Text(list.name, color = White, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(quantity(R.plurals.n_songs, list.rows.size), color = Muted, fontSize = 12.sp)
+                    Text(quantity(R.plurals.n_songs, list.rows.size), color = Muted, fontSize = RiffType.detail)
                 }
             }
             return@ScreenList
@@ -178,7 +178,7 @@ private fun readPicked(context: android.content.Context, uri: Uri): Pair<String,
             item { Text(string(R.string.import_summary, strong, unsure, missing), color = White, modifier = Modifier.testTag("import_summary")) }
             w.picked?.let { if (it.unreadable > 0 || it.cut) item { Text(listOfNotNull(
                 if (it.unreadable > 0) quantity(R.plurals.n_import_rows_unreadable, it.unreadable) else null,
-                if (it.cut) string(R.string.import_cut, IMPORT_MAX_ROWS) else null).joinToString(" "), color = Muted, fontSize = 12.sp) } }
+                if (it.cut) string(R.string.import_cut, IMPORT_MAX_ROWS) else null).joinToString(" "), color = Muted, fontSize = RiffType.detail) } }
             if (failed > 0) item { ToolLink(quantity(R.plurals.n_import_retry, failed), onRetry) }
             item { OutlinedTextField(w.name, { w.name = it.take(PLAYLIST_TITLE_LIMIT) }, singleLine = true, label = { Text(string(R.string.playlist_name)) },
                 modifier = Modifier.fillMaxWidth().testTag("import_name")) }
@@ -194,9 +194,9 @@ private fun readPicked(context: android.content.Context, uri: Uri): Pair<String,
 
 /** One row: what the file said, what will be saved, and the choices (another close song, or skip). */
 @Composable private fun ImportRowView(match: ImportMatch, onChange: (ImportMatch) -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("import_row")) {
+    Column(Modifier.fillMaxWidth().padding(vertical = RiffSpace.tight).testTag("import_row")) {
         Text("${match.row.position}. ${match.row.title}" + (match.row.artist.takeIf(String::isNotBlank)?.let { " · $it" } ?: ""),
-            color = White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            color = White, fontSize = RiffType.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
         val state = when {
             match.chosen != null -> string(R.string.import_will_save, match.chosen.title, playerArtistLabel(match.chosen.artist))
             match.failed -> string(R.string.import_search_failed)
@@ -204,14 +204,14 @@ private fun readPicked(context: android.content.Context, uri: Uri): Pair<String,
             match.status == ImportStatus.Missing -> string(R.string.import_not_found)
             else -> string(R.string.import_skipped)
         }
-        Text(state, color = if (match.chosen != null) Muted else Pink, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(state, color = if (match.chosen != null) Muted else Pink, fontSize = RiffType.detail, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(RiffSpace.chipGap)) {
             match.options.filter { it.videoId != match.chosen?.videoId }.take(3).forEach { option ->
                 TextButton({ uiHaptic(HapticCue.Selection); onChange(match.copy(chosen = option)) }, modifier = Modifier.testTag("import_option")) {
-                    Text(option.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp, color = Pink) }
+                    Text(option.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = RiffType.detail, color = Pink) }
             }
             if (match.chosen != null) TextButton({ uiHaptic(HapticCue.Selection); onChange(match.copy(chosen = null)) }, modifier = Modifier.testTag("import_skip")) {
-                Text(string(R.string.import_skip), fontSize = 12.sp, color = Muted) }
+                Text(string(R.string.import_skip), fontSize = RiffType.detail, color = Muted) }
         }
     }
 }

@@ -42,8 +42,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 internal const val REPLAY_LOOKUP_AFTER_MS = 5_000L
 /** Buckets that start this early are left out: every play starts there, so the opening always looks replayed. */
 internal const val REPLAY_SKIP_OPENING_MS = 10_000L
-private const val REPLAY_RESPONSE_LIMIT = 4_000_000L
-private const val REPLAY_MISS_RETRY_MS = 10 * 60_000L
 private val REPLAY_VIDEO_ID = Regex("[A-Za-z0-9_-]{11}")
 
 /** One heatmap bucket: from [startMs] for [durationMs], with YouTube's 0–1 score. */
@@ -86,61 +84,6 @@ internal fun replayPeakMs(buckets: List<ReplayBucket>): Long? {
     return candidates.first { it.intensity == top }.startMs
 }
 
-/** What is known for a song: its peak, or a miss that may be asked again after [REPLAY_MISS_RETRY_MS] (null peak). */
-private data class ReplayAnswer(val peakMs: Long?, val atMs: Long)
-
-internal object ReplayPeaks {
-    private val client by lazy {
-        // Its own client: no cookie jar, so no YouTube account cookie is ever sent with this request.
-        OkHttpClient.Builder().connectTimeout(8, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS)
-            .callTimeout(20, TimeUnit.SECONDS).cookieJar(CookieJar.NO_COOKIES).build()
-    }
-    private val answers = object : LinkedHashMap<String, ReplayAnswer>(16, .75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ReplayAnswer>?) = size > 64
-    }
-    private fun now() = android.os.SystemClock.elapsedRealtime()
-    /** The known peak, or null; [known] says whether asking again is pointless for now. */
-    fun cached(videoId: String): Pair<Long?, Boolean> = synchronized(answers) {
-        answers[videoId]?.let { it.peakMs to (it.peakMs != null || now() - it.atMs < REPLAY_MISS_RETRY_MS) } ?: (null to false)
-    }
-
-    suspend fun lookup(context: Context, videoId: String, durationMs: Long, fetch: suspend (String) -> String? = ::request,
-        online: () -> Boolean = { context.getSystemService(ConnectivityManager::class.java)?.activeNetwork != null }): Long? {
-        cached(videoId).let { (peak, known) -> if (known) return peak }
-        if (!online()) return null
-        val body = runCatching { fetch(videoId) }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it; null }
-        val peak = withContext(Dispatchers.Default) {
-            body?.let { runCatching { parseReplayHeatmap(Json.parseToJsonElement(it), videoId, durationMs) }.getOrNull() }?.let(::replayPeakMs)
-        }
-        synchronized(answers) { answers[videoId] = ReplayAnswer(peak, now()) }
-        return peak
-    }
-
-    private suspend fun request(videoId: String): String? {
-        val payload = buildJsonObject {
-            put("context", buildJsonObject { put("client", buildJsonObject {
-                put("clientName", "WEB"); put("clientVersion", "2.20251015.01.00"); put("hl", "en"); put("gl", "US") }) })
-            put("videoId", videoId)
-        }.toString()
-        val request = Request.Builder().url("https://www.youtube.com/youtubei/v1/next?prettyPrint=false")
-            .header("Origin", "https://www.youtube.com").header("User-Agent", "Mozilla/5.0 (Android) Riff")
-            .post(payload.toRequestBody("application/json".toMediaType())).build()
-        return suspendCancellableCoroutine { continuation ->
-            val call = client.newCall(request)
-            continuation.invokeOnCancellation { call.cancel() }
-            call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) { if (continuation.isActive) continuation.resumeWithException(e) }
-                override fun onResponse(call: Call, response: Response) {
-                    val text = runCatching { response.use { r ->
-                        if (!r.isSuccessful) null
-                        else r.body.source().let { source -> source.request(REPLAY_RESPONSE_LIMIT + 1); if (source.buffer.size > REPLAY_RESPONSE_LIMIT) null else source.buffer.readUtf8() }
-                    } }.getOrNull()
-                    if (continuation.isActive) continuation.resume(text)
-                }
-            })
-        }
-    }
-}
 
 /** The public song id of a media id, or null for phone-only files and anything else. */
 internal fun replayVideoId(mediaId: String): String? = mediaId.takeIf { it.startsWith("yt:") }?.removePrefix("yt:")?.takeIf(REPLAY_VIDEO_ID::matches)
@@ -174,7 +117,7 @@ internal fun ReplayPeakBar(playback: PlaybackGateway, mediaId: String, durationM
             slider()
             if (peak != null) Box(Modifier.matchParentSize().padding(horizontal = RiffPlayer.seekThumbSpace)) {
                 Box(Modifier.fillMaxWidth((peak.toFloat() / durationMs).coerceIn(0f, 1f)).align(Alignment.CenterStart)) {
-                    Box(Modifier.align(Alignment.CenterEnd).size(2.dp, 10.dp).background(Pink.copy(alpha = .9f), RoundedCornerShape(1.dp))
+                    Box(Modifier.align(Alignment.CenterEnd).size(RiffReplayPeak.mark).background(Pink.copy(alpha = .9f), RoundedCornerShape(RiffReplayPeak.markCorner))
                         .testTag("replay_peak_mark"))
                 }
             }

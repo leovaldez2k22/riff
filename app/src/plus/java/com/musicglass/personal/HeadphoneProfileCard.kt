@@ -95,7 +95,7 @@ private data class ProfilePreview(val fit: AutoEqFit, val target: FloatArray? = 
                 fontSize = RiffType.detail, modifier = Modifier.testTag("headphone_profile_applied"))
         }
         Text(string(R.string.autoeq_help), color = Muted, fontSize = RiffType.detail, modifier = Modifier.padding(top = RiffSpace.tight))
-        OutlinedTextField(query, { query = it.take(80) }, singleLine = true, shape = RoundedCornerShape(24.dp),
+        OutlinedTextField(query, { query = it.take(80) }, singleLine = true, shape = RoundedCornerShape(RiffHeadphoneProfile.field),
             label = { Text(string(R.string.autoeq_search), fontSize = RiffType.detail) },
             leadingIcon = { Icon(Icons.Rounded.Search, null, tint = White.copy(alpha = .65f)) },
             trailingIcon = { if (query.isNotEmpty()) IconButton({ query = "" }) { Icon(Icons.Rounded.Close, string(R.string.clear_search), tint = White) } },
@@ -142,7 +142,7 @@ private data class ProfilePreview(val fit: AutoEqFit, val target: FloatArray? = 
 
 /** The profile (white, faint; only for an imported file) and what the seven bands make of it (pink), each about its own middle. */
 @Composable private fun FitPreview(target: FloatArray?, fitted: FloatArray) {
-    Canvas(Modifier.fillMaxWidth().height(120.dp).padding(vertical = RiffSpace.item)) {
+    Canvas(Modifier.fillMaxWidth().height(RiffHeadphoneProfile.curve).padding(vertical = RiffSpace.item)) {
         val mid = size.height / 2; val range = 15f
         fun draw(curve: FloatArray, colour: Color) {
             val judged = curve.indices.filter { eqProbeFrequencies[it] <= 10_000f }
@@ -152,9 +152,9 @@ private data class ProfilePreview(val fit: AutoEqFit, val target: FloatArray? = 
                 val y = mid - ((db - mean).coerceIn(-range, range) / range) * mid; val x = i / (curve.size - 1f) * size.width
                 if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
             }
-            drawPath(path, colour, style = Stroke(2.dp.toPx()))
+            drawPath(path, colour, style = Stroke(RiffHeadphoneProfile.stroke.toPx()))
         }
-        drawLine(White.copy(alpha = .12f), Offset(0f, mid), Offset(size.width, mid), 1.dp.toPx())
+        drawLine(White.copy(alpha = .12f), Offset(0f, mid), Offset(size.width, mid), RiffHeadphoneProfile.midLine.toPx())
         target?.let { draw(it, White.copy(alpha = .45f)) }; draw(fitted, Pink)
     }
 }

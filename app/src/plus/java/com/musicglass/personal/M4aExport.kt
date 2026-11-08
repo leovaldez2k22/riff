@@ -193,25 +193,25 @@ internal fun m4aVerified(file: File, tag: Mp4Tag, durationMs: Long): Boolean = r
         if (tag.cover != null && reader.embeddedPicture == null) return false
     } finally { reader.release() }
     // A second of audio, decoded.
-    val extractor = MediaExtractor(); var decoder: MediaCodec? = null
+    val demuxer = MediaExtractor(); var decoder: MediaCodec? = null
     try {
-        extractor.setDataSource(file.absolutePath)
-        val format = extractor.getTrackFormat(0)
+        demuxer.setDataSource(file.absolutePath)
+        val format = demuxer.getTrackFormat(0)
         if (format.getString(MediaFormat.KEY_MIME) != MediaFormat.MIMETYPE_AUDIO_AAC) return false
-        extractor.selectTrack(0)
+        demuxer.selectTrack(0)
         decoder = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_AUDIO_AAC).apply { configure(format, null, null, 0); start() }
         val info = MediaCodec.BufferInfo(); var heard = 0L; var tries = 0
         while (heard < 1_000_000 && tries++ < 400) {
             decoder.dequeueInputBuffer(10_000).takeIf { it >= 0 }?.let { i ->
-                val size = extractor.readSampleData(decoder.getInputBuffer(i)!!, 0)
+                val size = demuxer.readSampleData(decoder.getInputBuffer(i)!!, 0)
                 if (size < 0) decoder.queueInputBuffer(i, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                else { decoder.queueInputBuffer(i, 0, size, extractor.sampleTime, 0); extractor.advance() } }
+                else { decoder.queueInputBuffer(i, 0, size, demuxer.sampleTime, 0); demuxer.advance() } }
             val o = decoder.dequeueOutputBuffer(info, 10_000)
             if (o >= 0) { if (info.size > 0) heard = maxOf(heard, info.presentationTimeUs); decoder.releaseOutputBuffer(o, false)
                 if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break }
         }
         heard > 0
-    } finally { extractor.release(); runCatching { decoder?.stop() }; runCatching { decoder?.release() } }
+    } finally { demuxer.release(); runCatching { decoder?.stop() }; runCatching { decoder?.release() } }
 }.getOrDefault(false)
 
 /** The tags of a download: its own title, artist and album, cover, and plain lyrics when asked for. */

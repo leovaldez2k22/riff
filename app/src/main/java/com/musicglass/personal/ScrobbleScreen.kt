@@ -56,7 +56,7 @@ private fun serviceName(service: ScrobbleService) = when (service) {
         confirmButton = { TextButton(enabled = !busy && token.isNotBlank(), modifier = Modifier.testTag("scrobble_token_connect"), onClick = {
             busy = true
             scope.launch {
-                val user = withContext(Dispatchers.IO) { runCatching { ListenBrainzClient().validate(token) } }
+                val user = withContext(Dispatchers.IO) { suspendCatching { ListenBrainzClient().validate(token) } }
                 busy = false
                 when {
                     user.isFailure -> onNotice(string(R.string.scrobble_not_reached, serviceName(ScrobbleService.ListenBrainz)))
@@ -76,7 +76,7 @@ private fun serviceName(service: ScrobbleService) = when (service) {
             confirmButton = { TextButton(enabled = !busy, modifier = Modifier.testTag("scrobble_lastfm_done"), onClick = {
                 busy = true
                 scope.launch {
-                    val session = withContext(Dispatchers.IO) { runCatching { LastFmClient().session(pending) } }
+                    val session = withContext(Dispatchers.IO) { suspendCatching { LastFmClient().session(pending) } }
                     busy = false
                     val got = session.getOrNull()
                     when {
@@ -126,7 +126,7 @@ private fun serviceName(service: ScrobbleService) = when (service) {
                                 busy = true
                                 scope.launch {
                                     val client = LastFmClient()
-                                    val request = withContext(Dispatchers.IO) { runCatching { client.requestToken() }.getOrNull() }
+                                    val request = withContext(Dispatchers.IO) { suspendCatching { client.requestToken() }.getOrNull() }
                                     busy = false
                                     if (request == null) onNotice(string(R.string.scrobble_not_reached, serviceName(service)))
                                     else if (openWebPage(context, client.authorizeUrl(request), listOf("www.last.fm"))) lastFmToken = request

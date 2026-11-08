@@ -379,7 +379,7 @@ internal class LastFmClient(private val key: String = BuildConfig.LASTFM_KEY, pr
     }
 
     override suspend fun nowPlaying(token: String, play: ScrobblePlay) {
-        runCatching { call(mapOf("method" to "track.updateNowPlaying", "sk" to token, "artist" to play.artist, "track" to play.title,
+        suspendCatching { call(mapOf("method" to "track.updateNowPlaying", "sk" to token, "artist" to play.artist, "track" to play.title,
             "duration" to (play.durationMs / 1000).toString()) + (if (play.album.isNotBlank()) mapOf("album" to play.album) else emptyMap())) }
     }
 }

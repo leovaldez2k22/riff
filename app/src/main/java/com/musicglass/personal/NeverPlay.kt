@@ -143,14 +143,14 @@ internal fun neverPlayLabel(context: Context, entry: NeverPlayEntry): String =
 
 /** Settings → Library → Not interested: the never-play list of the current account, each with Undo. */
 internal fun LazyListScope.neverPlayItems(entries: List<NeverPlayEntry>, onRemove: (NeverPlayEntry) -> Unit) {
-    item { Text(string(R.string.never_play_heading), color = White, fontSize = 17.sp, modifier = Modifier.padding(top = 20.dp).testTag("never_play_heading")) }
-    item { Text(string(R.string.never_play_explained), color = Muted, fontSize = 12.sp) }
+    item { Text(string(R.string.never_play_heading), color = White, fontSize = RiffType.heading, modifier = Modifier.padding(top = RiffSpace.section).testTag("never_play_heading")) }
+    item { Text(string(R.string.never_play_explained), color = Muted, fontSize = RiffType.detail) }
     if (entries.isEmpty()) item { Text(string(R.string.never_play_empty), color = Muted) }
     items(entries.asReversed(), key = { "never:${it.artist}:${it.key}" }) { entry ->
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("never_play_row"), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().heightIn(min = RiffSpace.compactRow).testTag("never_play_row"), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(entry.name.ifBlank { entry.key }, color = White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(string(if (entry.artist) R.string.artist else R.string.song), color = Muted, fontSize = 12.sp)
+                Text(entry.name.ifBlank { entry.key }, color = White, fontSize = RiffType.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(string(if (entry.artist) R.string.artist else R.string.song), color = Muted, fontSize = RiffType.detail)
             }
             TextButton({ uiHaptic(HapticCue.Confirm); onRemove(entry) }, modifier = Modifier.testTag("never_play_undo")) { Text(string(R.string.undo), color = Pink) }
         }

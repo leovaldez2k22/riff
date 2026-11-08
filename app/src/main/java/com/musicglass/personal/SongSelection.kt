@@ -100,7 +100,7 @@ internal suspend fun addTracksToPlaylist(reader: ProviderCatalogReader, mutation
     Box(Modifier.fillMaxSize()) {
         CompositionLocalProvider(LocalSongSelection provides selection) { content() }
         if (selection.active) SongSelectionBar(selection, provider, playback, onNotice,
-            Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp))
+            Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = RiffSpace.rowGap, vertical = RiffSpace.item))
     }
 }
 
@@ -111,7 +111,7 @@ internal suspend fun addTracksToPlaylist(reader: ProviderCatalogReader, mutation
     var picking by remember { mutableStateOf<List<ProviderTrack>?>(null) }
     picking?.let { PlaylistPicker(it, { picking = null }, onNotice) }
     val count = selection.count
-    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(RiffRadius.pill)).background(Raised).padding(start = 4.dp, end = 8.dp)
+    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(RiffRadius.pill)).background(Raised).padding(start = RiffSpace.tight, end = RiffSpace.item)
         .testTag("selection_bar"), verticalAlignment = Alignment.CenterVertically) {
         IconButton({ uiHaptic(); selection.clear() }, modifier = Modifier.testTag("selection_close")) {
             Icon(Icons.Rounded.Close, string(R.string.selection_clear), tint = White) }

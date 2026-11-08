@@ -153,7 +153,7 @@ private const val VISUALIZER_FALL = .85f
     if (!shown) return
     val state = playback.state
     val motion = LocalMotionPolicy.current
-    val strip = modifier.fillMaxWidth().height(36.dp).testTag("visualizer")
+    val strip = modifier.fillMaxWidth().height(RiffVisualizer.height).testTag("visualizer")
     if (state.remote) { Box(strip, contentAlignment = Alignment.Center) { Text(string(R.string.visualizer_cast), color = Muted, fontSize = RiffType.detail) }; return }
     if (motion.reduced) {
         // Reduced motion: a still picture, the same each time, so nothing moves.
@@ -191,9 +191,9 @@ private const val VISUALIZER_FALL = .85f
 
 @Composable private fun Bars(levels: FloatArray, modifier: Modifier, alpha: Float) {
     Canvas(modifier) {
-        val gap = 3.dp.toPx(); val width = (size.width - gap * (levels.size - 1)) / levels.size
+        val gap = RiffVisualizer.gap.toPx(); val width = (size.width - gap * (levels.size - 1)) / levels.size
         levels.forEachIndexed { i, level ->
-            val h = (size.height * level).coerceAtLeast(2.dp.toPx())
+            val h = (size.height * level).coerceAtLeast(RiffVisualizer.leastBar.toPx())
             drawRoundRect(Pink.copy(alpha = alpha * (.45f + .55f * level)), Offset(i * (width + gap), size.height - h), Size(width, h), CornerRadius(width / 2))
         }
     }

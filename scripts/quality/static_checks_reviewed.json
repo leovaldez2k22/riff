@@ -6,7 +6,8 @@
     {"file": "PlaybackGateway.kt", "contains": "} catch (_: Exception) {", "reason": "A listener on a command future, run on the main executor. There is no coroutine here to cancel."},
     {"file": "LegacyStateMigration.kt", "contains": "} catch (error: Exception) {", "reason": "The migration steps are ordinary blocking functions; nothing in them suspends. The names they share with suspending functions are the stores' blocking calls."},
     {"file": "LocalDataTransfer.kt", "contains": "catch (error: Exception) { return ImportOutcome.Failed(", "reason": "An import runs under NonCancellable so that it never stops between two stores. It is stopped through the caller's flag, which is checked between records."},
-    {"file": "SolverService.kt", "contains": "val result: Result<String?> = runCatching {", "reason": "A Binder transaction in the solver process. The reply must always be written; the caller's own timeout ends the wait."}
+    {"file": "SolverService.kt", "contains": "val result: Result<String?> = runCatching {", "reason": "A Binder transaction in the solver process. The reply must always be written; the caller's own timeout ends the wait."},
+    {"file": "M4aExport.kt", "contains": "} catch (e: Throwable) {", "reason": "The export job's own outermost catch: a cancellation is the user's Stop, reported as such after the unfinished document is removed under NonCancellable; nothing runs after it in the job."}
   ],
   "blocking": [
     {"file": "PlaybackPersistence.kt", "contains": "runBlocking { withTimeoutOrNull(FLUSH_WAIT_MS)", "reason": "Lifecycle handoff in onTaskRemoved and onDestroy: Android gives no later moment to finish the write. Bounded to 1.5 s; the write itself runs on the IO dispatcher."},
@@ -25,7 +26,8 @@
     {"file": "RiffApp.kt", "contains": "derivedStateOf { sceneHasChrome && (paned || playerMorph.position.value < .999f", "reason": "Inside derivedStateOf: the shell recomposes only when the result flips, not on every frame of the drag."},
     {"file": "RiffApp.kt", "contains": "derivedStateOf { paned || model.sheet.isNotEmpty() || playerMorph.position.value > MORPH_SHOWN }", "reason": "Inside derivedStateOf: the shell recomposes only when the result flips, not on every frame of the drag."},
     {"file": "RiffApp.kt", "contains": "miniMorph = { playerMorph.position.value },", "reason": "Passed as a lambda and read in the mini player's draw and layout phases, so the shell is not recomposed."},
-    {"file": "RiffApp.kt", "contains": "PlayerMorphHost(if (paned) {{ 1f }} else {{ playerMorph.position.value }},", "reason": "Passed as a lambda and read where the player is drawn, so the shell and the screens under it are not recomposed."}
+    {"file": "RiffApp.kt", "contains": "PlayerMorphHost(if (paned) {{ 1f }} else {{ playerMorph.position.value }},", "reason": "Passed as a lambda and read where the player is drawn, so the shell and the screens under it are not recomposed."},
+    {"file": "ReplayPeak.kt", "contains": "snapshotFlow { playback.state.playing && playback.positionMs >= REPLAY_LOOKUP_AFTER_MS }", "reason": "Read inside a snapshotFlow in an effect, not in composition; it only waits for the song to have played a few seconds before the lookup."}
   ],
   "strings": [
     {"file": "LibraryHistoryScreens.kt", "contains": "Text(\"YouTube Music\")", "reason": "The provider's name, the same in every language."}

@@ -3,18 +3,28 @@
   "cards": [
     {
       "title": "Meet Riff+",
-      "body": "Automix and its on-device beat analysis now live in Riff+, alongside Stats for nerds. Both editions are free.",
+      "body": "Everything in Riff, plus Automix, the app equalizer and Stats for nerds. Both editions are free.",
       "action": "player"
     },
     {
-      "title": "Your app equalizer",
-      "body": "The tone pad, seven manual bands, presets and balance are part of Riff+. Your saved settings stay with you when changing editions.",
+      "title": "Sing",
+      "body": "Remove the vocals from a song, right on the phone. Find it under Playback tools in the player's menu.",
+      "action": "player"
+    },
+    {
+      "title": "Blend with a friend",
+      "body": "Scan each other's QR code and both get one playlist from your 100 most-played songs. Library → Phone playlists.",
+      "action": ""
+    },
+    {
+      "title": "Your headphones, tuned",
+      "body": "Pick your headphones from thousands of AutoEq profiles, and change a song's key, on the Equalizer screen.",
       "action": "equalizer"
     },
     {
-      "title": "All of Encore",
-      "body": "Listening statistics, stories, genres and the Encore widget are available in both Riff and Riff+.",
-      "action": "encore"
+      "title": "Mixes made from Encore",
+      "body": "On repeat, Time of day, Heating up and more on Home, built on the phone from what you play.",
+      "action": ""
     }
   ]
 }
