@@ -219,6 +219,35 @@ internal object RiffEncore {
     val storyShare = 52.dp
 }
 
+/** Riff+'s mixes from Encore (feature 13) on Home: the card and its title. */
+internal object RiffMixes {
+    val card = 150.dp
+    val title = 13.sp
+}
+
+/** Riff+'s Appearance page (feature 21): the chosen icon's ring and the colour swatches. */
+internal object RiffAppearance {
+    val iconRing = 2.dp
+    val iconCorner = 18.dp
+    val swatch = 36.dp
+    val swatchRing = 3.dp
+}
+
+/** Riff+'s DJ order (feature 18): the preview of the new order scrolls past this height. */
+internal object RiffDjOrder {
+    val previewMax = 320.dp
+}
+
+/** Feature 24: Blend with a friend, the preview of the songs a code carries. */
+internal object RiffBlend {
+    val previewMax = 280.dp
+}
+
+/** Riff+'s "About this song" panel (feature 17): it scrolls past this height. */
+internal object RiffBackgroundPanel {
+    val maxHeight = 520.dp
+}
+
 internal object RiffNerdStats {
     /** The label column, wide enough for "Network estimate". */
     val label = 128.dp

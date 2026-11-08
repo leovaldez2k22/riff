@@ -48,7 +48,8 @@ internal fun Modifier.frostedBackdropSource(backdrop:FrostedBackdrop):Modifier =
 
 /** Feature 2: [cornerRadius] is the popup's own corner, for the Menu lens's rim. */
 @Composable internal fun Modifier.frostedPopupBackground(cornerRadius:Dp=RiffGlassPopup.corner):Modifier {
-    val backdrop=LocalFrostedBackdrop.current
+    // Android 11 has no blur: no page to read, so the popup takes its opaque tint, as with nothing beneath (Q18-046).
+    val backdrop=LocalFrostedBackdrop.current.takeIf {GLASS_CAN_BLUR}
     val intensity=LocalFrostedIntensity.current
     val density=LocalDensity.current.density
     val blurred=rememberGraphicsLayer()

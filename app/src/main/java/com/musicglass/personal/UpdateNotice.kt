@@ -15,15 +15,17 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.longOrNull
 import okhttp3.Call
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Request
 import java.io.IOException
 
 /**
  * The update notice (Q12A). Riff is installed from a file, so nothing else tells a user that a fix exists. Once a
  * day, while the app is open, it asks the public release feed for the newest version and says so when that is newer
- * than the one installed. It only tells: it never downloads or installs anything, and the only action is opening
- * the release page in the browser. The request carries no account, device or install detail.
+ * than the one installed. The request carries no account, device or install detail. This file only reads the feed:
+ * downloading and installing, after the user asks, is feature 3's UpdateInstaller.kt.
  */
 
 /** A version as releases are numbered (Q01): 0.10.0, or 0.10.0-rc1 for a candidate, which ranks below 0.10.0. */
@@ -49,7 +51,9 @@ internal data class ReleaseVersion(val major: Int, val minor: Int, val patch: In
 }
 
 /** One entry of the feed that passed every check: a version and an HTTPS page on an allowed host. */
-internal data class PublishedRelease(val version: ReleaseVersion, val page: String)
+internal data class PublishedRelease(val version: ReleaseVersion, val page: String, val assets: List<ReleaseAsset> = emptyList()) {
+    fun asset(edition: ReleaseEdition): ReleaseAsset? = assets.singleOrNull { it.name == edition.assetName(version) }
+}
 
 /** Largest feed answer read. A list of ten releases with long notes stays well under it. */
 internal const val MAX_UPDATE_FEED_BYTES = 256 * 1024
@@ -74,9 +78,46 @@ internal fun parseReleaseFeed(body: String, pageHosts: Collection<String>, insta
         val version = ReleaseVersion.parseTag(fields.text("tag_name")) ?: return@mapNotNull null
         if ((fields.flag("prerelease") || version.prerelease) && !installed.prerelease) return@mapNotNull null
         val page = httpsAddressOn(fields.text("html_url"), pageHosts) ?: return@mapNotNull null
-        PublishedRelease(version, page.toString())
+        PublishedRelease(version, page.toString(), releaseAssets(fields["assets"], version))
     }
 }
+
+/** Only the two APK names are relevant; malformed, oversized and ambiguous entries fail closed. */
+private fun releaseAssets(value: JsonElement?, version: ReleaseVersion): List<ReleaseAsset> =
+    (value as? JsonArray)?.take(32).orEmpty().mapNotNull { element ->
+        val fields = element as? JsonObject ?: return@mapNotNull null
+        val name = fields.text("name") ?: return@mapNotNull null
+        if (ReleaseEdition.entries.none { name == it.assetName(version) }) return@mapNotNull null
+        val size = (fields["size"] as? JsonPrimitive)?.takeUnless { it.isString }?.longOrNull
+            ?.takeIf { it in 1L..512L * 1024 * 1024 } ?: return@mapNotNull null
+        // Feature 3: an address is kept only when it is this asset's own GitHub release path; a digest only when well formed.
+        val url = releaseAssetAddress(fields.text("browser_download_url") ?: fields.text("url"), name, version)
+        val sha256 = (fields.text("digest") ?: fields.text("sha256"))?.removePrefix("sha256:")?.lowercase()?.takeIf { it.matches(SHA256) }
+        ReleaseAsset(name, size, url, sha256)
+    }
+
+private val SHA256 = Regex("[0-9a-f]{64}")
+
+/**
+ * Feature 3: https://github.com/<owner>/<repo>/releases/download/<tag>/<name>, exactly, for this name and version.
+ * Anything else (another host, a user part, a port, an extra segment, a tag for another version) is not an address.
+ */
+internal fun releaseAssetAddress(text: String?, name: String, version: ReleaseVersion): String? {
+    val url = text?.toHttpUrlOrNull() ?: return null
+    if (url.scheme != "https" || url.host != "github.com" || url.port != 443 || url.username.isNotEmpty() ||
+        url.password.isNotEmpty() || url.query != null || url.fragment != null) return null
+    val path = url.pathSegments
+    if (path.size != 6 || path[2] != "releases" || path[3] != "download" || path[5] != name) return null
+    if (ReleaseVersion.parseTag(path[4]) != version || path[0].isEmpty() || path[1].isEmpty()) return null
+    return url.toString()
+}
+
+private fun encodeReleaseAssets(release: PublishedRelease): String = JsonArray(release.assets.map { asset ->
+    JsonObject(buildMap {
+        put("name", JsonPrimitive(asset.name)); put("size", JsonPrimitive(asset.bytes))
+        asset.url?.let { put("url", JsonPrimitive(it)) }; asset.sha256?.let { put("sha256", JsonPrimitive(it)) }
+    })
+}).toString()
 
 private fun JsonObject.text(key: String) = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 private fun JsonObject.flag(key: String) = (this[key] as? JsonPrimitive)?.booleanOrNull == true
@@ -101,8 +142,9 @@ internal sealed interface UpdateResult {
 internal enum class UpdateFailure { Offline, Unreachable, Refused, RateLimited, TooLarge, Malformed }
 
 /** The result of a check for a given install, from the releases a feed listed. */
-internal fun updateResult(releases: List<PublishedRelease>, installed: ReleaseVersion, releaseBuild: Boolean): UpdateResult {
-    val newest = releases.maxByOrNull { it.version }
+internal fun updateResult(releases: List<PublishedRelease>, installed: ReleaseVersion, releaseBuild: Boolean,
+    edition: ReleaseEdition = ReleaseEdition.current): UpdateResult {
+    val newest = releases.filter { it.asset(edition) != null }.maxByOrNull { it.version }
     return when {
         newest != null && newest.version > installed -> UpdateResult.Newer(newest)
         !releaseBuild -> UpdateResult.LocalBuild(newest?.version)
@@ -143,6 +185,7 @@ internal class UpdateChecker(
     private val dataSaver: () -> Boolean,
     private val io: CoroutineDispatcher,
     private val log: (DiagnosticEvent) -> Unit,
+    private val edition: ReleaseEdition = ReleaseEdition.current,
 ) {
     private val installed = ReleaseVersion.parseInstalled(installedVersion)
     /** Whether this build can check at all: a feed address and a version to compare. */
@@ -156,9 +199,18 @@ internal class UpdateChecker(
     var enabled by mutableStateOf(prefs.getBoolean(KEY_ENABLED, true)); private set
     /** The newest release known to be newer than the install, from the last answer. Kept across restarts. */
     var available by mutableStateOf(storedRelease()); private set
+    private var switchRelease by mutableStateOf(storedSwitchRelease())
     private var noticed by mutableStateOf(prefs.getString(KEY_NOTICED, null))
     /** [available], when its notice has not been shown yet. Each version gets one notice. */
-    val pendingNotice get() = available?.takeIf { it.version.toString() != noticed }
+    val pendingNotice get() = available?.takeIf { enabled && it.version.toString() != noticed }
+    /** A switch never also updates the version, and never appears for a local/preview build. */
+    val switchAvailable: EditionSwitch? get() {
+        if (!enabled || !configured || !isReleaseBuild(identity)) return null
+        val release = switchRelease?.takeIf { it.version == installed } ?: return null
+        val target = edition.other
+        val asset = release.asset(target) ?: return null
+        return EditionSwitch(release, target, asset.bytes)
+    }
 
     fun updateEnabled(value: Boolean) {
         enabled = value
@@ -212,33 +264,81 @@ internal class UpdateChecker(
         lastAskedMonotonic = clocks.monotonicMillis()
         prefs.edit().putLong(KEY_LAST_ASKED, clocks.wallTimeMillis()).apply()
         if (!conditions.validated) return failed(UpdateFailure.Offline)
-        val request = Request.Builder().url(feed).get()
+        val body = when (val answer = read(feed)) {
+            is FeedRead.Body -> answer.text
+            FeedRead.NotFound -> null // No release has been published yet.
+            is FeedRead.Failure -> return failed(answer.reason)
+        }
+        val releases = if (body == null) emptyList() else parseReleaseFeed(body, pageHosts, version) ?: return failed(UpdateFailure.Malformed)
+        val result = updateResult(releases, version, isReleaseBuild(identity), edition)
+        val newer = (result as? UpdateResult.Newer)?.release
+        fun switchable(release: PublishedRelease) = release.version == version && release.asset(edition.other) != null
+        // Feature 3: the switch needs the installed version itself. When every listed release is newer, the installed
+        // one fell off the bounded list; it is asked for by its tag, once, on the same host. A failure only hides the switch.
+        val sameVersion = releases.firstOrNull(::switchable) ?: if (isReleaseBuild(identity) && releases.isNotEmpty() &&
+            releases.all { it.version > version }) tagAddress(version)?.let { address ->
+            (read(address) as? FeedRead.Body)?.let { parseReleaseFeed(it.text, pageHosts, version) }?.firstOrNull(::switchable)
+        } else null
+        storeReleases(newer, sameVersion)
+        log(DiagnosticEvent.parse("update_check result=${result::class.simpleName} count=${releases.size}"))
+        return result
+    }
+
+    private sealed interface FeedRead {
+        data class Body(val text: String) : FeedRead
+        data object NotFound : FeedRead
+        data class Failure(val reason: UpdateFailure) : FeedRead
+    }
+
+    /** One bounded HTTPS read of the feed host, with the same two headers every time. */
+    private fun read(address: String): FeedRead {
+        val request = Request.Builder().url(address).get()
             .header("Accept", "application/vnd.github+json").header("User-Agent", "Riff-update-check").build()
-        val body = try {
+        return try {
             calls.newCall(request).execute().use { response ->
                 when {
-                    !response.request.url.isHttps -> return failed(UpdateFailure.Refused)
-                    response.code == 403 || response.code == 429 -> return failed(UpdateFailure.RateLimited)
-                    response.code == 404 -> null // No release has been published yet.
-                    !response.isSuccessful -> return failed(UpdateFailure.Refused)
-                    response.body.contentLength() > MAX_UPDATE_FEED_BYTES -> return failed(UpdateFailure.TooLarge)
+                    !response.request.url.isHttps -> FeedRead.Failure(UpdateFailure.Refused)
+                    response.code == 403 || response.code == 429 -> FeedRead.Failure(UpdateFailure.RateLimited)
+                    response.code == 404 -> FeedRead.NotFound
+                    !response.isSuccessful -> FeedRead.Failure(UpdateFailure.Refused)
+                    response.body.contentLength() > MAX_UPDATE_FEED_BYTES -> FeedRead.Failure(UpdateFailure.TooLarge)
                     else -> {
                         val source = response.body.source()
                         source.request(MAX_UPDATE_FEED_BYTES + 1L)
-                        if (source.buffer.size > MAX_UPDATE_FEED_BYTES) return failed(UpdateFailure.TooLarge)
-                        source.buffer.readUtf8()
+                        if (source.buffer.size > MAX_UPDATE_FEED_BYTES) FeedRead.Failure(UpdateFailure.TooLarge)
+                        else FeedRead.Body(source.buffer.readUtf8())
                     }
                 }
             }
         } catch (_: IOException) {
-            return failed(UpdateFailure.Unreachable)
+            FeedRead.Failure(UpdateFailure.Unreachable)
         }
-        val releases = if (body == null) emptyList() else parseReleaseFeed(body, pageHosts, version) ?: return failed(UpdateFailure.Malformed)
-        val result = updateResult(releases, version, isReleaseBuild(identity))
-        val newer = (result as? UpdateResult.Newer)?.release
-        storeRelease(newer)
-        log(DiagnosticEvent.parse("update_check result=${result::class.simpleName} count=${releases.size}"))
-        return result
+    }
+
+    /** The feed's own release list (…/releases) turned into …/releases/tags/v<version>; any other feed has no lookup. */
+    private fun tagAddress(version: ReleaseVersion): String? {
+        val url = feed.toHttpUrlOrNull() ?: return null
+        if (url.pathSegments.lastOrNull() != "releases") return null
+        return url.newBuilder().query(null).addPathSegment("tags").addPathSegment("v$version").build().toString()
+    }
+
+    /** Feature 3: the installer works for a release build only; a local or modified one keeps the release page. */
+    val installs: Boolean get() = enabled && configured && isReleaseBuild(identity)
+
+    /** The newer release as something the installer can fetch: this edition's asset with a verified address. */
+    val updateTarget: InstallTarget? get() {
+        if (!installs) return null
+        val release = available ?: return null
+        val asset = release.asset(edition)?.takeIf { it.url != null } ?: return null
+        return InstallTarget(InstallKind.Update, edition, release.version, asset, release.page)
+    }
+
+    /** The same version in the other edition, likewise. */
+    val switchTarget: InstallTarget? get() {
+        if (!installs) return null
+        val switch = switchAvailable ?: return null
+        val asset = switch.release.asset(switch.edition)?.takeIf { it.url != null } ?: return null
+        return InstallTarget(InstallKind.Switch, switch.edition, switch.release.version, asset, switch.release.page)
     }
 
     private fun failed(reason: UpdateFailure): UpdateResult {
@@ -246,21 +346,38 @@ internal class UpdateChecker(
         return UpdateResult.Failed(reason)
     }
 
-    private fun storeRelease(release: PublishedRelease?) {
-        prefs.edit().apply {
-            if (release == null) remove(KEY_VERSION).remove(KEY_PAGE)
-            else putString(KEY_VERSION, release.version.toString()).putString(KEY_PAGE, release.page)
-        }.apply()
-        available = release
+    private fun storeReleases(newer: PublishedRelease?, sameVersion: PublishedRelease?) {
+        val editor = prefs.edit()
+        fun store(release: PublishedRelease?, versionKey: String, pageKey: String, assetsKey: String) {
+            if (release == null) editor.remove(versionKey).remove(pageKey).remove(assetsKey)
+            else editor.putString(versionKey, release.version.toString()).putString(pageKey, release.page)
+                .putString(assetsKey, encodeReleaseAssets(release))
+        }
+        store(newer, KEY_VERSION, KEY_PAGE, KEY_ASSETS)
+        store(sameVersion, KEY_SWITCH_VERSION, KEY_SWITCH_PAGE, KEY_SWITCH_ASSETS)
+        editor.apply()
+        available = newer
+        switchRelease = sameVersion
     }
 
-    /** The stored release, checked again: a stored page must still pass, and the install may have been updated since. */
-    private fun storedRelease(): PublishedRelease? {
-        val version = ReleaseVersion.parseTag(prefs.getString(KEY_VERSION, null)) ?: return null
-        val page = httpsAddressOn(prefs.getString(KEY_PAGE, null), pageHosts) ?: return null
-        val current = installed ?: return null
-        return PublishedRelease(version, page.toString()).takeIf { version > current }
+    /** Old caches with no edition asset proof are deliberately ignored. */
+    private fun stored(versionKey: String, pageKey: String, assetsKey: String): PublishedRelease? {
+        val version = ReleaseVersion.parseTag(prefs.getString(versionKey, null)) ?: return null
+        val page = httpsAddressOn(prefs.getString(pageKey, null), pageHosts) ?: return null
+        val assetText = prefs.getString(assetsKey, null)?.takeIf { it.length <= 8192 } ?: return null
+        val value = runCatching { Json.parseToJsonElement(assetText) }.getOrNull() ?: return null
+        return PublishedRelease(version, page.toString(), releaseAssets(value, version))
     }
+
+    private fun storedRelease(): PublishedRelease? {
+        val current = installed ?: return null
+        return stored(KEY_VERSION, KEY_PAGE, KEY_ASSETS)?.takeIf { it.version > current && it.asset(edition) != null }
+    }
+
+    private fun storedSwitchRelease(): PublishedRelease? = listOfNotNull(
+        stored(KEY_SWITCH_VERSION, KEY_SWITCH_PAGE, KEY_SWITCH_ASSETS),
+        stored(KEY_VERSION, KEY_PAGE, KEY_ASSETS),
+    ).firstOrNull { it.version == installed && it.asset(edition.other) != null }
 
     companion object {
         const val PREFS = "update_check"
@@ -269,6 +386,10 @@ internal class UpdateChecker(
         private const val KEY_VERSION = "newer_version"
         private const val KEY_PAGE = "newer_page"
         private const val KEY_NOTICED = "noticed_version"
+        private const val KEY_ASSETS = "newer_assets"
+        private const val KEY_SWITCH_VERSION = "switch_version"
+        private const val KEY_SWITCH_PAGE = "switch_page"
+        private const val KEY_SWITCH_ASSETS = "switch_assets"
 
         fun android(context: Context, runtime: RuntimeDependencies, log: (DiagnosticEvent) -> Unit): UpdateChecker {
             val app = context.applicationContext

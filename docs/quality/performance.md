@@ -130,7 +130,7 @@ a tier.
 | 2,000 entry queue prepared, p95 | 2 s | 4 s | 10 runs, IO and main phases apart | `ActionBenchmark.queueOfTwoThousand` |
 | Complete local bundle to first audio, p95 | 500 ms | 800 ms | 20 starts | `ActionBenchmark.firstAudioLocalBundle` |
 | Controlled online first audio, p95 | 3 s | 5 s | 20 starts, 100 ms latency, 5 Mbit/s | `ActionBenchmark.firstAudioOnline` |
-| Standard release APK | 64 MiB (40 MiB until 0.20.0, which carries ONNX Runtime and the beat model) | 64 MiB | every release build | `check_performance.py apk` |
+| Release APK, by edition | Riff 16 MiB; Riff+ no limit (owner, 8 Nov 2026) | same per-edition rule | every release build | `check_performance.py apk --edition riff\|plus` |
 | App-owned network on the main thread | none | none | warmed journey | `MainThreadAudit` |
 | Avoidable disk access on the main thread, warmed journey | none | none | warmed journey | `MainThreadAudit` |
 | Retained memory growth | max(10%, 20 MiB) | same | short run here; the soaks are the real test | `MemoryCheck`, and the soaks |
@@ -152,7 +152,7 @@ from these numbers, with the network it was taken on.
 
 ## The Baseline Profile
 
-`app/src/release/generated/baselineProfiles/baseline-prof.txt`, 31,341 rules, committed as source. It was
+`app/src/main/generated/baselineProfiles/baseline-prof.txt`, 31,341 rules, committed as source. It was
 collected by `BaselineProfileGenerator` (`BaselineProfileRule`) over: cold start to the usable shell, a Home
 scroll, the invented playlist opening, playing and scrolling, the mini player expanding to the full player,
 the queue opening and scrolling, and both closing. Fixture content only.
@@ -301,3 +301,5 @@ use the network once to fetch AGP's test runner.
 
 `MainThreadAudit` and `MemoryCheck` run the same way by class name; install `app-nonMinifiedRelease.apk` for
 the audit.
+
+Edition split (7 November): the existing collected Baseline Profile is shared through `mergeIntoMain = true`. Generate future rules from Plus with `-PriffBenchmarkEdition=plus` and `:app:generatePlusReleaseBaselineProfile`. The synthetic build types remain `benchmarkRelease` and `nonMinifiedRelease`; the actual app variants are `riffBenchmarkRelease` / `plusBenchmarkRelease` and `riffNonMinifiedRelease` / `plusNonMinifiedRelease`. The benchmark module selects Riff by default through its missing-dimension strategy.

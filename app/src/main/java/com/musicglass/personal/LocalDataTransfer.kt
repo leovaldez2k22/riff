@@ -30,10 +30,13 @@ internal enum class OwnerKind(val word: String) { Device("device"), Guest("guest
 
 /** How much of each kind of data. The same shape counts what is kept, what a file holds and what was added. */
 internal data class SectionCounts(val settings: Int = 0, val hidden: Int = 0, val saved: Int = 0, val recents: Int = 0,
-    val searches: Int = 0, val plays: Int = 0, val downloads: Int = 0, val pins: Int = 0) {
-    val total get() = settings + hidden + saved + recents + searches + plays + downloads + pins
+    val searches: Int = 0, val plays: Int = 0, val downloads: Int = 0, val pins: Int = 0,
+    /** 0.30.0: the never-play list, and playlists on this phone with their songs. */
+    val neverPlay: Int = 0, val phoneLists: Int = 0, val phoneSongs: Int = 0) {
+    val total get() = settings + hidden + saved + recents + searches + plays + downloads + pins + neverPlay + phoneLists + phoneSongs
     operator fun plus(o: SectionCounts) = SectionCounts(settings + o.settings, hidden + o.hidden, saved + o.saved, recents + o.recents,
-        searches + o.searches, plays + o.plays, downloads + o.downloads, pins + o.pins)
+        searches + o.searches, plays + o.plays, downloads + o.downloads, pins + o.pins,
+        neverPlay + o.neverPlay, phoneLists + o.phoneLists, phoneSongs + o.phoneSongs)
 }
 
 /** One owner whose data can be put in a file. [key] is where the stores keep it; it is not written to the file. */
@@ -109,6 +112,11 @@ internal sealed interface DataRecord {
     data class Play(val entry: HistoryEntry) : DataRecord
     data class Download(val track: ProviderTrack) : DataRecord
     data class Pin(val card: ProviderHomeCard) : DataRecord // A speed-dial pin: the device's, like hidden items.
+    /** 0.30.0: an owner's never-play entry. */
+    data class NeverPlay(val entry: NeverPlayEntry) : DataRecord
+    /** 0.30.0: a playlist on this phone, then each of its songs in order, in records of their own (a line is short). */
+    data class PhoneList(val id: String, val name: String, val createdAt: Long) : DataRecord
+    data class PhoneSong(val listId: String, val track: ProviderTrack) : DataRecord
 }
 
 // ---- settings that travel
@@ -130,7 +138,7 @@ private val SETTINGS = listOf(
     SettingSpec("accessibility_display", "haptic_feedback", acceptBool), SettingSpec("accessibility_display", "solid_controls", acceptBool),
     SettingSpec("accessibility_display", "reduce_motion", acceptBool), SettingSpec("accessibility_display", "frosted_glass", acceptBool),
     SettingSpec("accessibility_display", "glass_intensity", acceptFloat(0f..1.5f)), SettingSpec("accessibility_display", "frosted_intensity", acceptFloat(0f..1.5f)),
-    SettingSpec(AUDIO_BOOST_PREFS, "enabled", acceptBool), SettingSpec(AUDIO_BOOST_PREFS, "percent", acceptInt { it in 100..300 }), SettingSpec(AUDIO_BOOST_PREFS, NORMALIZE_KEY, acceptBool), SettingSpec(AUDIO_BOOST_PREFS, SKIP_END_SILENCE_KEY, acceptBool), SettingSpec(AUDIO_BOOST_PREFS, SKIP_ALL_SILENCE_KEY, acceptBool),
+    SettingSpec(AUDIO_BOOST_PREFS, "enabled", acceptBool), SettingSpec(AUDIO_BOOST_PREFS, "percent", acceptInt { it in 100..300 }), SettingSpec(AUDIO_BOOST_PREFS, NORMALIZE_KEY, acceptBool), SettingSpec(AUDIO_BOOST_PREFS, SKIP_END_SILENCE_KEY, acceptBool), SettingSpec(AUDIO_BOOST_PREFS, SKIP_ALL_SILENCE_KEY, acceptBool), SettingSpec(AUDIO_BOOST_PREFS, BT_RESUME_KEY, acceptBool), SettingSpec(AUDIO_BOOST_PREFS, MUTE_PAUSE_KEY, acceptBool),
     *equalizerSettingSpecs().map { (key, accept) -> SettingSpec(EQUALIZER_PREFS, key, accept) }.toTypedArray(),
     SettingSpec(CROSSFADE_PREFS, "enabled", acceptBool), SettingSpec(CROSSFADE_PREFS, "seconds", acceptInt { it in 1..12 }), SettingSpec(CROSSFADE_PREFS, SMART_CROSSFADE_KEY, acceptBool), SettingSpec(CROSSFADE_PREFS, BLEND_MODE_KEY, acceptWord(BlendMode.entries.map { it.wire }.toSet())),
     SettingSpec(DATA_SAVER_PREFS, "enabled", acceptBool), SettingSpec(DATA_SAVER_PREFS, SONG_QUALITY_KEY, acceptWord(SongQuality.entries.map { it.key }.toSet())), *listOf(SONG_QUALITY_UNMETERED_KEY, SONG_QUALITY_METERED_KEY).map { SettingSpec(DATA_SAVER_PREFS, it, acceptWord(SongQuality.entries.map { q -> q.key }.toSet())) }.toTypedArray(),
@@ -144,6 +152,9 @@ private const val RETENTION_NAME = "music_collections.$RETENTION_KEY"
 private val VIDEO_ID = Regex("[A-Za-z0-9_-]{11}")
 private val PROVIDER_ID = Regex("[A-Za-z0-9_-]{1,64}")
 private val HIDDEN_KEY = Regex("[A-Za-z0-9_-]{1,128}")
+private val PHONE_LIST_ID = Regex("[A-Za-z0-9-]{1,64}")
+/** Most songs of all the phone playlists of one section that are read. */
+private const val PHONE_SONG_CAP = 200_000
 private val SCOPE_DIGEST = Regex("s2_[0-9a-f]{64}|[0-9a-f]{32}")
 private val LISTS = mapOf("favorites" to "online_favorites", "playlist" to "online_playlist", "recents" to "online_history")
 private const val DAY_MS = 86_400_000L
@@ -182,6 +193,12 @@ internal fun encodeRecord(record: DataRecord): String = when (record) {
             if (!record.entry.music) o.put("music", false)
         }
     is DataRecord.Pin -> pinRecord(record.card)
+    is DataRecord.NeverPlay -> JSONObject().put("t", "never_play").put("key", record.entry.key).put("artist", record.entry.artist)
+        .put("name", record.entry.name.take(180)).put("at", record.entry.at.coerceAtLeast(0))
+    is DataRecord.PhoneList -> JSONObject().put("t", "phone_list").put("pid", record.id).put("name", record.name.take(300)).put("at", record.createdAt.coerceAtLeast(0))
+    is DataRecord.PhoneSong -> JSONObject().put("t", "phone_song").put("pid", record.listId).put("id", record.track.videoId)
+        .put("title", record.track.title.take(180)).put("artist", record.track.artist.take(180))
+        .also { o -> record.track.artistId?.takeIf(PROVIDER_ID::matches)?.let { o.put("artistId", it) } }
     is DataRecord.Download -> trackObject("download", record.track).also { o ->
         record.track.artistId?.takeIf(PROVIDER_ID::matches)?.let { o.put("artistId", it) }
         record.track.albumId?.takeIf(PROVIDER_ID::matches)?.let { o.put("albumId", it) }
@@ -226,6 +243,13 @@ internal fun parseRecord(kind: OwnerKind, o: JSONObject, now: Long): DataRecord?
         if (at != null && at in 1..now + DAY_MS && validHistoryEvent(entry) && entry.mediaId.startsWith(ownPrefix)) DataRecord.Play(entry) else null
     }
     "download" -> parseTrack(o)?.takeIf { kind != OwnerKind.Device && !it.isLive }?.let(DataRecord::Download)
+    // The never-play list and phone playlists belong to an account or to signed-out listening, never to the device.
+    "never_play" -> if (kind == OwnerKind.Device) null else NeverPlayEntry(o.text("key", 64), o.flag("artist", false), o.text("name"),
+        (o.whole("at") ?: 0L).coerceIn(0L, now + DAY_MS)).takeIf(::neverPlayValid)?.let(DataRecord::NeverPlay)
+    "phone_list" -> if (kind == OwnerKind.Device) null else o.text("pid", 64).takeIf(PHONE_LIST_ID::matches)?.let { id ->
+        DataRecord.PhoneList(id, o.text("name", 300).filter { it >= ' ' }.trim().ifBlank { "Playlist" }, (o.whole("at") ?: 0L).coerceIn(0L, now + DAY_MS)) }
+    "phone_song" -> if (kind == OwnerKind.Device) null else o.text("pid", 64).takeIf(PHONE_LIST_ID::matches)?.let { id ->
+        parseTrack(o)?.takeIf { !it.isLive }?.let { DataRecord.PhoneSong(id, it) } }
     else -> null
 }
 
@@ -293,6 +317,9 @@ private class Admission {
             is DataRecord.Hidden -> "hidden" to LOCAL_DATA_LIST_CAP
             is DataRecord.Pin -> "pin" to SPEED_DIAL_PIN_LIMIT
             is DataRecord.Setting -> "setting" to SETTINGS.size * 4
+            is DataRecord.NeverPlay -> "never_play" to NEVER_PLAY_LIMIT
+            is DataRecord.PhoneList -> "phone_list" to PHONE_PLAYLISTS_LIMIT
+            is DataRecord.PhoneSong -> "phone_song" to PHONE_SONG_CAP
         }
         val count = (seen["$section/$name"] ?: 0) + 1
         seen["$section/$name"] = count
@@ -348,6 +375,9 @@ private fun SectionCounts.with(record: DataRecord) = when (record) {
     is DataRecord.Search -> copy(searches = searches + 1)
     is DataRecord.Play -> copy(plays = plays + 1)
     is DataRecord.Download -> copy(downloads = downloads + 1)
+    is DataRecord.NeverPlay -> copy(neverPlay = neverPlay + 1)
+    is DataRecord.PhoneList -> copy(phoneLists = phoneLists + 1)
+    is DataRecord.PhoneSong -> copy(phoneSongs = phoneSongs + 1)
 }
 
 /**
@@ -365,6 +395,8 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
     private val owner: () -> CurrentOwner, private val io: CoroutineDispatcher, private val wallTime: () -> Long,
     private val gate: Mutex = Mutex(), private val event: (String) -> Unit = {}, private val checkpoint: (String) -> Unit = {},
     private val maxBytes: Long = LOCAL_DATA_MAX_BYTES, private val historyCap: Int = HISTORY_ROW_CAP,
+    private val neverPlay: () -> NeverPlayStore = { NeverPlayStore.get(context) },
+    private val phoneLists: () -> PhonePlaylistStore = { PhonePlaylistStore.get(context) },
     private val pins: () -> SpeedDialPins = { SpeedDialPins.get(context) }) {
     private val app = context.applicationContext
     private val work = File(app.cacheDir, "local-data-transfer")
@@ -394,7 +426,9 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
         OwnerKind.Device -> SectionCounts(settings = storedSettings().size, hidden = hidden().entries.size, plays = history.count(key), pins = pins().cards.size)
         else -> SectionCounts(saved = storedCollection(app, key, "online_favorites").size + storedCollection(app, key, "online_playlist").size,
             recents = storedCollection(app, key, "online_history").size, searches = searches().count(key),
-            plays = history.count(key), downloads = downloads().downloadList(key).size)
+            plays = history.count(key), downloads = downloads().downloadList(key).size,
+            neverPlay = neverPlay().entries(key).size,
+            phoneLists = phoneLists().lists(key).size, phoneSongs = phoneLists().lists(key).sumOf { it.songs.size })
     }
 
     /**
@@ -404,7 +438,8 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
     suspend fun inventory(): List<ExportOwner> = withContext(io) {
         val collectionKey = Regex("account_(.+)_online_(?:favorites|playlist|history)")
         val keys = history.scopes() + downloads().scopes() + searches().owners() +
-            prefs("music_collections").all.keys.mapNotNull { collectionKey.matchEntire(it)?.groupValues?.get(1) }
+            prefs("music_collections").all.keys.mapNotNull { collectionKey.matchEntire(it)?.groupValues?.get(1) } +
+            neverPlay().owners() + phoneLists().owners()
         val active = owner().key
         val accounts = keys.filter { kindOf(it) == OwnerKind.Provider && it != UNVERIFIED_SCOPE_KEY }.distinct().sortedBy { it != active }
         (listOf(DEVICE_LOCAL_SCOPE_KEY, GUEST_SCOPE_KEY) + accounts).map { ExportOwner(it, kindOf(it), counts(it)) }
@@ -445,6 +480,12 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
                             LISTS.values.forEach { list -> storedCollection(app, source.key, list).forEach { put(DataRecord.Saved(list, it)) } }
                             searches().stored(source.key).forEach { put(DataRecord.Search(it)) }
                             downloads().downloadList(source.key).forEach { put(DataRecord.Download(it)) }
+                            neverPlay().entries(source.key).forEach { put(DataRecord.NeverPlay(it)) }
+                            // A playlist's YouTube Music copy stays out: it names that account's playlist.
+                            phoneLists().lists(source.key).forEach { list ->
+                                put(DataRecord.PhoneList(list.id, list.name, list.createdAt))
+                                list.songs.forEach { put(DataRecord.PhoneSong(list.id, it.track)) }
+                            }
                         }
                         // Newest first, so a reader that stops at a limit keeps the most recent plays.
                         var cursor: HistoryCursor? = null
@@ -545,6 +586,10 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
         val hidden = mutableListOf<NotInterestedEntry>()
         val pins = mutableListOf<ProviderHomeCard>()
         val settings = LinkedHashMap<String, Any>()
+        val neverPlay = LinkedHashMap<String, MutableList<NeverPlayEntry>>()
+        /** By owner, then by the playlist's id in the file; a song before its playlist's record has nowhere to go. */
+        val phoneLists = LinkedHashMap<String, LinkedHashMap<String, PhonePlaylist>>()
+        val phoneSongs = HashMap<Pair<String, String>, MutableList<PhonePlaylistSong>>()
         var plays = 0; var present = 0; var expired = 0; var full = 0; var left = 0
     }
 
@@ -614,6 +659,13 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
                         is DataRecord.Hidden -> got.hidden += record.entry
                         is DataRecord.Pin -> got.pins += record.card
                         is DataRecord.Setting -> got.settings[record.name] = record.value
+                        is DataRecord.NeverPlay -> got.neverPlay.getOrPut(to) { mutableListOf() } += record.entry
+                        is DataRecord.PhoneList -> got.phoneLists.getOrPut(to) { LinkedHashMap() }
+                            .getOrPut(record.id) { PhonePlaylist(record.id, record.name, record.createdAt, emptyList()) }
+                        is DataRecord.PhoneSong -> {
+                            val songs = if (got.phoneLists[to]?.containsKey(record.listId) == true) got.phoneSongs.getOrPut(to to record.listId) { mutableListOf() } else null
+                            if (songs != null && songs.size < IMPORT_MAX_ROWS) songs += PhonePlaylistSong(java.util.UUID.randomUUID().toString(), record.track) else got.full++
+                        }
                     }
                 }.also { checkpoint("history_written"); if (cancelled()) throw Stopped() }
             }
@@ -654,6 +706,17 @@ internal class LocalDataTransfer(context: Context, private val db: LibraryStateD
         store("speed dial pins", got.pins.isNotEmpty()) {
             val result = pins().addAll(got.pins) ?: return@store false
             added = added.copy(pins = result.added); present += result.present; full += result.full; true
+        }
+        store("never-play list", got.neverPlay.isNotEmpty()) {
+            val count = neverPlay().addAll(got.neverPlay) ?: return@store false
+            added = added.copy(neverPlay = count); present += got.neverPlay.values.sumOf { it.size } - count
+            true
+        }
+        store("playlists on this phone", got.phoneLists.isNotEmpty()) {
+            val lists = got.phoneLists.mapValues { (to, byId) -> byId.values.map { it.copy(songs = got.phoneSongs[to to it.id].orEmpty()) } }
+            val result = phoneLists().importAll(lists) ?: return@store false
+            added = added.copy(phoneLists = result.added); present += result.present; full += result.full
+            true
         }
         store("settings", got.settings.isNotEmpty()) {
             val (applied, left, complete) = applySettings(got.settings)

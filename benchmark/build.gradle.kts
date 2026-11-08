@@ -15,6 +15,9 @@ android {
     compileSdk = 37
 
     defaultConfig {
+        val edition = providers.gradleProperty("riffBenchmarkEdition").orNull ?: "riff"
+        require(edition in setOf("riff", "plus")) { "riffBenchmarkEdition must be riff or plus" }
+        missingDimensionStrategy("edition", edition)
         minSdk = 31
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

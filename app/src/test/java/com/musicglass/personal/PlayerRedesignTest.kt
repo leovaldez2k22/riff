@@ -1,6 +1,5 @@
 package com.musicglass.personal
 
-import android.os.Bundle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -9,7 +8,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Feature 34: the backdrop's mesh, the lyric row and the stats line. */
+/** Feature 34: the backdrop's mesh, the lyric row. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class PlayerRedesignTest {
@@ -63,10 +62,5 @@ class PlayerRedesignTest {
         assertNull(playerLyricRow(null, 0))
     }
 
-    @Test fun theStatsLineReadsLikeBitChords() {
-        val stats = Bundle().apply { putString("mime", "audio/opus"); putInt("sampleRate", 48_000); putInt("formatBitrate", 270_000); putInt("channels", 2) }
-        assertEquals("Opus · 48.0 kHz · 270 kbps · Stereo", nerdStatsLine(stats))
-        assertNull(nerdStatsLine(Bundle()))
-        assertEquals("AAC", codecName("audio/mp4a-latm"))
-    }
+
 }

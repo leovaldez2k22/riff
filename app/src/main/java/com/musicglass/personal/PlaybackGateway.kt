@@ -22,6 +22,8 @@ internal data class PlaybackUiState(
     val sleepDeadlineMs:Long=0,
     /** Feature 15: the player's speed, 1 normally. */
     val speed:Float=1f,
+    /** Feature 23: the player's pitch as a ratio, 1 normally; [remote] while a speaker plays (Cast). */
+    val pitch:Float=1f, val remote:Boolean=false,
     val ready: Boolean = false,
     val index: Int = 0,
     val playing: Boolean = false,
@@ -59,10 +61,16 @@ internal interface PlaybackGateway {
     fun setSleepTimerSongs(songs:Int) {}
     /** Feature 15: plays faster or slower without changing pitch; songs and episodes each keep their own speed. */
     fun setPlaybackSpeed(speed:Float) {}
+    /** Feature 23 (Riff+): the songs' pitch in semitones, apart from speed; 0 puts it back. */
+    fun setPitchSteps(steps:Int) {}
     /** Q18-096: the open queue reached its last song; asks for more recommendations. */
     fun loadMoreQueue() {}
     /** The whole queue in a new order, around the song playing. */
     fun reshuffleQueue() {}
+    /** Feature 18 (Riff+): the entries put to play next, which keep their place in a new order; null with no player. */
+    suspend fun queuePinned(): Set<String>? = null
+    /** Feature 18 (Riff+): [order] in place of the queue, only if it is still [expected]; false when it was not applied. */
+    suspend fun reorderQueue(expected: List<String>, order: List<String>): Boolean = false
     /** Feature 16: the format-level figures of what is playing, or null with no player. */
     suspend fun nerdStats(): Bundle? = null
     fun pause()
@@ -251,6 +259,8 @@ internal class MusicPlaybackGateway(context: Context,
             playback = typed,
             sleepDeadlineMs=player.sessionExtras.getLong("sleepDeadlineMs"),
             speed=player.playbackParameters.speed,
+            pitch=player.playbackParameters.pitch,
+            remote=player.deviceInfo.playbackType==androidx.media3.common.DeviceInfo.PLAYBACK_TYPE_REMOTE,
             ready = true,
             index = player.currentMediaItemIndex.coerceAtLeast(0),
             playing = if((embeddedId!=null && embeddedId==player.currentMediaItem?.mediaId)) embeddedPlaying
@@ -314,10 +324,24 @@ internal class MusicPlaybackGateway(context: Context,
         player.sendCustomCommand(SessionCommand(RETRY_PLAYBACK, Bundle.EMPTY), Bundle().apply { putString("entry", player.currentMediaItem?.entryId().orEmpty()) })
     }
     override fun retry() { transport(true); withPlayer { commandError = null; start(it) } }
+    private suspend fun reorderCommand(args: Bundle): SessionResult? {
+        val player = controller ?: return null
+        return kotlinx.coroutines.suspendCancellableCoroutine { done ->
+            val command = player.sendCustomCommand(SessionCommand(REORDER_QUEUE, Bundle.EMPTY), args)
+            command.addListener({ done.resumeWith(Result.success(runCatching { command.get() }.getOrNull())) }, appContext.mainExecutor)
+            done.invokeOnCancellation { command.cancel(false) }
+        }
+    }
+    override suspend fun queuePinned(): Set<String>? =
+        reorderCommand(Bundle.EMPTY)?.takeIf { it.resultCode == SessionResult.RESULT_SUCCESS }?.extras?.getStringArrayList("pinned")?.toSet()
+    override suspend fun reorderQueue(expected: List<String>, order: List<String>): Boolean =
+        reorderCommand(Bundle().apply { putStringArrayList("expected", ArrayList(expected)); putStringArrayList("order", ArrayList(order)) })
+            ?.resultCode == SessionResult.RESULT_SUCCESS
     override suspend fun nerdStats(): Bundle? {
+        val action = Edition.statsCommand ?: return null
         val player = controller ?: return null
         val result = kotlinx.coroutines.suspendCancellableCoroutine<SessionResult?> { done ->
-            val command = player.sendCustomCommand(SessionCommand(GET_NERD_STATS, Bundle.EMPTY), Bundle.EMPTY)
+            val command = player.sendCustomCommand(SessionCommand(action, Bundle.EMPTY), Bundle.EMPTY)
             command.addListener({ done.resumeWith(Result.success(runCatching { command.get() }.getOrNull())) }, appContext.mainExecutor)
             done.invokeOnCancellation { command.cancel(false) }
         }
@@ -328,6 +352,8 @@ internal class MusicPlaybackGateway(context: Context,
     override fun setSleepTimer(minutes:Int) = withPlayer {it.sendCustomCommand(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY),Bundle().apply {putInt("minutes",minutes)})}
     override fun setSleepTimerSongs(songs:Int) = withPlayer {it.sendCustomCommand(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY),Bundle().apply {putInt("songs",songs)})}
     override fun setPlaybackSpeed(speed:Float) = withPlayer {it.setPlaybackSpeed(playbackSpeedStep(speed))}
+    override fun setPitchSteps(steps:Int) = withPlayer {
+        if(it.deviceInfo.playbackType!=androidx.media3.common.DeviceInfo.PLAYBACK_TYPE_REMOTE) it.playbackParameters=androidx.media3.common.PlaybackParameters(it.playbackParameters.speed,pitchRatio(steps))}
     override fun pause() { transport(false); withPlayer { it.pause();if(state.embedded) embeddedControl?.invoke(false) } }
     override fun resume() { transport(true); withPlayer { start(it) } }
     // Timed only when there is a next entry: Next on a queue's last song changes nothing on screen, so its section stayed
@@ -389,6 +415,8 @@ internal class MusicPlaybackGateway(context: Context,
     override fun playCollection(tracks:List<ProviderTrack>,index:Int,title:String,shuffle:Boolean) {embeddedControl?.invoke(false);embeddedId=null;embeddedPlaying=false;sendCatalogQueue(tracks,index,true,title,shuffle)}
     override fun playSong(track:ProviderTrack) {embeddedControl?.invoke(false);embeddedId=null;embeddedPlaying=false;sendCatalogQueue(listOf(track),0,true,automatic=true)}
     fun enqueueSong(track:ProviderTrack) {sendCatalogQueue(listOf(track),0,true,enqueueNext=true)}
+    /** Feature 22: several songs to play next, in this order, in one request. */
+    fun enqueueSongs(tracks:List<ProviderTrack>) {if(tracks.isNotEmpty()) sendCatalogQueue(tracks,0,true,enqueueNext=true)}
     override fun restoreQueueEntry(entry: QueueEntry, index: Int) {
         val id = entry.mediaId.removePrefix("yt:").takeIf { entry.mediaId.startsWith("yt:") } ?: return
         sendCatalogQueue(listOf(ProviderTrack(id, entry.title, entry.artist, entry.artworkUrl)),0,false,enqueueNext=false,insertAt=index)

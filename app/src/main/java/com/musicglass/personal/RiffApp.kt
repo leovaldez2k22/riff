@@ -79,7 +79,19 @@ internal val Raised = Color(0xFF181A22)
 
 internal val Muted = Color(0xFFADB0BF)
 
-internal val Pink = Color(0xFFFF5EAC)
+/** Riff's own accent. */
+internal val RiffPink = Color(0xFFFF5EAC)
+
+/**
+ * Feature 21: the accent Riff+ tints the app with (actions, switches, selections), changed only by Riff+'s
+ * Appearance; Riff never changes it. Kept in snapshot state, so screens recolour when it changes.
+ */
+internal object RiffAccent {
+    var ui by androidx.compose.runtime.mutableStateOf(RiffPink)
+}
+
+/** What can be pressed: Riff's pink, or the accent Riff+ was given. */
+internal val Pink: Color get() = RiffAccent.ui
 
 internal val White = Color(0xFFF9F8FC)
 
@@ -173,10 +185,7 @@ internal fun RiffApp() {
         onDispose { UndoNotices.listener = null }
     }
     // Feature 13: a YouTube Music link opened in Riff (tapped, or shared to it).
-    val pendingLink by SharedLinkInbox.pending.collectAsStateWithLifecycle()
-    LaunchedEffect(pendingLink) {
-        val target = pendingLink ?: return@LaunchedEffect
-        SharedLinkInbox.pending.value = null
+    LaunchedEffect(Unit) { drainInbox(SharedLinkInbox.pending) { target ->
         when (target) {
             is SharedTarget.Collection -> { model.sheet = ""; model.openCollection(target.browseId, "") }
             is SharedTarget.Song -> provider.resolve(target.videoId).fold(onSuccess = { stream ->
@@ -185,12 +194,9 @@ internal fun RiffApp() {
                 playback.playProvider(track, stream, target.startMs)
             }, onFailure = { snackbar.showSnackbar(it.message ?: string(R.string.link_could_not_open)) })
         }
-    }
+    } }
     // Feature 27: app shortcuts and the Quick Settings tile; Resume names the song that is loaded.
-    val pendingShortcut by SharedLinkInbox.shortcut.collectAsStateWithLifecycle()
-    LaunchedEffect(pendingShortcut) {
-        val which = pendingShortcut ?: return@LaunchedEffect
-        SharedLinkInbox.shortcut.value = null
+    LaunchedEffect(Unit) { drainInbox(SharedLinkInbox.shortcut) { which ->
         model.sheet = ""
         when (which) {
             AppShortcut.Search -> { model.select("Search"); model.searchFocusRequest++ }
@@ -203,7 +209,7 @@ internal fun RiffApp() {
             AppShortcut.Resume -> if (playback.state.queue.isNotEmpty()) playback.resume() else playback.restoreSavedQueue { if (it) playback.resume() }
             AppShortcut.Encore -> model.push(Route.Encore)
         }
-    }
+    } }
     val resumeTitle = playback.state.title
     LaunchedEffect(resumeTitle) { withContext(Dispatchers.IO) { publishAppShortcuts(context, resumeTitle) } }
     val scope = rememberCoroutineScope()
@@ -240,15 +246,23 @@ internal fun RiffApp() {
     LaunchedEffect(playback.state.notice) {
         playback.state.notice?.let { snackbar.showSnackbar(it) }
     }
-    // Q12A: one notice per newer version, which the user can dismiss; its action opens the release page.
+    // Q12A: one notice per newer version, which the user can dismiss. Feature 3: in a release build its action offers
+    // the in-app download; otherwise it opens the release page.
     val updates = remember(context) { AppContainer.get(context).updates }
+    val installer = remember(context) { AppContainer.get(context).installer }
+    LaunchedEffect(installer) { installer.reconcile() }
+    UpdateInstallHost(installer, updates.pageHosts)
     val updateNotice = updates.pendingNotice
     LaunchedEffect(updateNotice) {
         val release = updateNotice ?: return@LaunchedEffect
         updates.noticeShown(release)
+        val target = updates.updateTarget?.takeIf { it.version == release.version }
         val result = snackbar.showSnackbar(string(R.string.riff_version_is_available, release.version.toString()),
-            actionLabel = string(R.string.view_release), withDismissAction = true, duration = SnackbarDuration.Long)
-        if (result == SnackbarResult.ActionPerformed) openWebPage(context, release.page, updates.pageHosts)
+            actionLabel = string(if (target != null) R.string.update_action else R.string.view_release), withDismissAction = true,
+            duration = SnackbarDuration.Long)
+        if (result == SnackbarResult.ActionPerformed) {
+            if (target != null) installer.offer(target) else openWebPage(context, release.page, updates.pageHosts)
+        }
     }
     val density = LocalDensity.current.density
     val compact = LocalWindowInfo.current.containerSize.width / density < 390f ||

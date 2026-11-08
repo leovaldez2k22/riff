@@ -11,6 +11,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         removeRetiredContent(this)
+        Edition.onActivityCreate(this)
         AppContainer.get(this).stateReady // Starts on IO; nothing here waits for it.
         AppContainer.get(this).prefetchHome()
         configureArtworkLoader(this)
@@ -22,7 +23,7 @@ class MainActivity : ComponentActivity() {
         deliverIntent(intent)
         val panel=display
         val uiRate=panel?.let {p->preferredUiRefreshRate(p.supportedModes.filter {it.physicalWidth==p.mode.physicalWidth && it.physicalHeight==p.mode.physicalHeight}.map {it.refreshRate})}?:60f
-        setContent { androidx.compose.runtime.CompositionLocalProvider(LocalUiRefreshRate provides uiRate) {StartupLogo(savedInstanceState==null) { RiffApp() }} }
+        setContent { androidx.compose.runtime.CompositionLocalProvider(LocalUiRefreshRate provides uiRate) {StartupLogo(savedInstanceState==null, Edition.startupLook(this)) { RiffApp() }} }
     }
 
     /** Features 13 and 27: Riff runs singleTask, so a link or a shortcut used while it is open arrives here. */

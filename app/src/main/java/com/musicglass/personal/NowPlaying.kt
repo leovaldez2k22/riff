@@ -163,6 +163,8 @@ internal fun SeekControl(playback: PlaybackGateway, mediaId: String, durationMs:
     val position = if(live) 0f else if (dragging) preview else playback.positionMs
         .coerceIn(0L, duration).toFloat()
     Column {
+        Edition.Visualizer(playback)
+        Edition.ReplayPeakSeek(playback, mediaId, durationMs) {
         ThinSlider(value=position.coerceIn(0f,duration.toFloat()),
             onValueChange={dragging=true;preview=it},onValueChangeFinished={
                 if(dragging) playback.seekTo(preview.toLong());dragging=false
@@ -172,6 +174,7 @@ internal fun SeekControl(playback: PlaybackGateway, mediaId: String, durationMs:
                 contentDescription=string(R.string.position)
                 stateDescription=if(live) LIVE_SEEK_EXPLANATION else string(R.string.position_x_of_x, playerClock(position.toLong()), playerClock(duration))
             })
+        }
         // Feature 34: times at 55 % in figures of one width, the quality streams ask for between them.
         val timeStyle = TextStyle(fontFamily = InterFamily, fontSize = RiffPlayer.time, fontFeatureSettings = RiffText.TABULAR)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -216,20 +219,17 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
     var speedVisible by remember {mutableStateOf(false)}
     if(speedVisible) PlaybackSpeedDialog(playback) {speedVisible=false}
     var nerdStatsVisible by remember {mutableStateOf(false)}
-    if(nerdStatsVisible) NerdStatsDialog(playback,onNotice) {nerdStatsVisible=false}
+    if(nerdStatsVisible) Edition.statsUi?.Panel(playback,onNotice) {nerdStatsVisible=false}
     var moreExpanded by remember(state.mediaId) { mutableStateOf(false) }
     var moreAnchor by remember { mutableStateOf<androidx.compose.ui.unit.IntRect?>(null) }
     var creditsVisible by remember(state.mediaId) { mutableStateOf(false) }
+    var backgroundVisible by remember(state.mediaId) { mutableStateOf(false) }
+    var singVisible by remember { mutableStateOf(false) }
+    var toolsExpanded by remember(state.mediaId) { mutableStateOf(false) }
+    var shareVisible by remember(state.mediaId) { mutableStateOf(false) }
     fun providerTrack() = ProviderTrack(state.mediaId.removePrefix("yt:"),
         state.title,state.artist,state.artworkUrl,state.artistId,state.albumId,state.album,state.live,state.music)
     val pins = remember(context) { SpeedDialPins.get(context) }
-    // Q18-083: Riff's own list on this phone, apart from the YouTube like: added and removed here, never sent anywhere.
-    val keptOnPhone = collections.onlineFavorites.any { it.videoId == videoId }
-    fun keepOnPhone(keep: Boolean) {
-        collections.setOnlineFavorite(providerTrack(), keep)
-        uiHaptic(HapticCue.Confirm)
-        onNotice(string(if (keep) R.string.added_to_saved_on_this_phone else R.string.removed_from_saved_on_this_phone))
-    }
     fun share(text: String) {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
@@ -350,7 +350,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     SeekNudgeOverlay(seekNudge)
                 }
             }
-            PlayerStatsLine(playback, preferences.playerStats && interactive && !queueOpen,
+            Edition.statsUi?.Line(playback, preferences.playerStats && interactive && !queueOpen,
                 Modifier.align(Alignment.BottomCenter).padding(bottom = RiffSpace.item))
             // No fade over the artwork (Q18-002, the owner's choice): the close button and the heading carry their own shadows.
             CompositionLocalProvider(LocalLightPicture provides lightPicture) {
@@ -438,35 +438,41 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                     if(state.source=="YouTube Music") DownloadSongAction(providerTrack(),onNotice,onDismiss={moreExpanded=false})
                     // Encore keys a play by its media id, so a file on the phone has a history too; live radio has none.
                     if(!state.live) EncoreHistoryAction(EncoreKind.SONG,state.mediaId,state.title) {moreExpanded=false}
+                    // Owner, 9 November 2026: the star, the queue and the library have their own buttons; one Share asks
+                    // which link; Never play also tells YouTube Music; the sound tools sit together under Playback tools.
                     val options = if (state.source == "YouTube Music")
-                        listOf("View credits", "Add to playlist", "Share song", "View album", "View artist", "Favorite", "Add to queue", if(keptOnPhone) "Remove from Saved on this phone" else "Save on this phone", "Library shortcuts", "Sleep timer", "Playback speed", "Equalizer", "Stats for nerds", if(providerTrack().videoId in pins) "Unpin from speed dial" else "Pin to speed dial") + (if(hasQueue) listOf("Remove from queue") else emptyList()) + (if(state.live) emptyList() else listOf("Not interested"))
-                        else listOf("Library shortcuts", "View credits", "Sleep timer", "Playback speed", "Equalizer", "Stats for nerds")
-                    options.forEach { option ->
-                        SongActionItem(if(option=="Sleep timer" && state.sleepDeadlineMs>0) string(R.string.sleep_timer_x_min, sleepMinutesRemaining(state.sleepDeadlineMs,android.os.SystemClock.elapsedRealtime())) else option, onClick = { 
+                        listOf("About this song", "Add to playlist", "Share song", "View album", "View artist", "Playback tools", "Stats for nerds",
+                            if(providerTrack().videoId in pins) "Unpin from speed dial" else "Pin to speed dial") + nowPlayingNeverPlay(context,state).map { neverPlayLabel(context,it) }
+                        else listOf("About this song", "Playback tools", "Stats for nerds")
+                    editionPlayerOptions(options).filter { it != "Share song" || songShareText("", "", providerTrack().videoId) != null }.forEach { option ->
+                        SongActionItem(option, onClick = {
                             moreExpanded = false
                             when (option) {
-                                "Favorite" -> if(!provider.capabilities.like.available) onNotice(provider.capabilities.like.reason?:CHECKING_ACCOUNT_NOTICE) else scope.launch {
-                                    provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);unlikedOffPhone(collections,providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))})
-                                }
-                                "Remove from queue" -> playback.removeQueueItemWithUndo(state.index)
-                                "Not interested" -> scope.launch {markNotInterested(context,provider,playback,NotInterestedEntry(videoId,state.title,state.artist,state.artworkUrl),null,onNotice)}
+                                "Never play this song", "Play this song again", "Never play this artist", "Play this artist again" ->
+                                    nowPlayingNeverPlay(context,state).firstOrNull { neverPlayLabel(context,it) == option }?.let { entry -> scope.launch {
+                                        neverPlayEverywhere(context, provider, playback, entry, NotInterestedEntry(videoId,state.title,state.artist,state.artworkUrl), null, onNotice) } }
                                 "View artist" -> onArtist()
                                 "View album" -> onAlbum()
-                                "Add to queue" -> scope.launch {
-                                    provider.resolve(videoId,state.live).fold(onSuccess={playback.enqueueProvider(providerTrack(),it);onNotice(string(R.string.added_to_queue))},onFailure={onNotice(it.message?:string(R.string.could_not_add_to_queue))})
-                                }
-                                "Save on this phone" -> if (collectionsCanSave(collections)) keepOnPhone(true)
-                                    else onNotice(saveUnavailableNotice(provider.accountScope()))
-                                "Remove from Saved on this phone" -> keepOnPhone(false)
                                 "Add to playlist" -> playlistTrack=providerTrack()
+                                "Playback tools" -> toolsExpanded = true
+                                "Stats for nerds" -> nerdStatsVisible=true
+                                "Share song" -> shareVisible = true
+                                "About this song" -> if (Edition.songBackground) backgroundVisible = true else creditsVisible = true
+                                "Pin to speed dial", "Unpin from speed dial" -> toggleSpeedDialPin(context, providerTrack().homeCard(), onNotice)
+                            }
+                        })
+                    }
+                }
+                PlayerActionMenu(expanded = toolsExpanded, onDismissRequest = { toolsExpanded = false }, anchorBounds = moreAnchor,
+                    paneTitle = string(R.string.playback_tools)) {
+                    editionPlayerOptions(listOf("Sleep timer", "Playback speed", singOption(state), "Equalizer")).forEach { option ->
+                        SongActionItem(if(option=="Sleep timer" && state.sleepDeadlineMs>0) string(R.string.sleep_timer_x_min, sleepMinutesRemaining(state.sleepDeadlineMs,android.os.SystemClock.elapsedRealtime())) else option, onClick = {
+                            toolsExpanded = false
+                            when (option) {
                                 "Sleep timer" -> sleepTimerVisible=true
                                 "Playback speed" -> speedVisible=true
-                                "Stats for nerds" -> nerdStatsVisible=true
+                                "Sing" -> singVisible = true
                                 "Equalizer" -> onEqualizer()
-                                "Library shortcuts" -> onLibrary()
-                                "Share song" -> share("${state.title} \u00B7 ${state.artist}\nhttps://music.youtube.com/watch?v=${providerTrack().videoId}")
-                                "View credits" -> creditsVisible = true
-                                "Pin to speed dial", "Unpin from speed dial" -> toggleSpeedDialPin(context, providerTrack().homeCard(), onNotice)
                             }
                         })
                     }
@@ -511,8 +517,11 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
         }
     }
     }
+    if (backgroundVisible) Edition.SongBackgroundPanel(state.title, state.artist) { backgroundVisible = false }
+    if (singVisible) Edition.SingPanel(playback) { singVisible = false }
+    if (shareVisible) ShareSongChoice(state.title, state.artist, videoId, { share(it) }) { shareVisible = false }
     if (creditsVisible) FrostedAlertDialog(onDismissRequest = { creditsVisible = false },
-        title = { Text(string(R.string.credits), color = White) },
+        title = { Text(string(R.string.about_this_song), color = White) },
         text = {
             Text(string(R.string.x_x_full_contributor_credits_are_unavailable, state.title, state.artist),
                 color = White)
@@ -521,8 +530,6 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             Text(string(R.string.done), color = Pink)
         } })
 }
-
-private fun collectionsCanSave(collections: LocalCollections) = collections.canSave
 
 /**
  * What recovery tells the user (Q07): a notice while it waits for a connection, or a failure with

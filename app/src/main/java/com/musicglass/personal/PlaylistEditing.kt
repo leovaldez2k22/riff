@@ -59,7 +59,10 @@ internal suspend fun addTrackToPlaylist(reader:ProviderCatalogReader,mutations:P
             else -> mutations.addPlaylistSong(id,track.videoId)
         }
     },onFailure={Result.failure(it)})
-@Composable internal fun PlaylistPicker(track:ProviderTrack,onDismiss:()->Unit,onNotice:(String)->Unit) {
+@Composable internal fun PlaylistPicker(track:ProviderTrack,onDismiss:()->Unit,onNotice:(String)->Unit)=PlaylistPicker(listOf(track),onDismiss,onNotice)
+/** Feature 22: [tracks] in the order picked, to every playlist chosen; songs already in a playlist are left alone. */
+@Composable internal fun PlaylistPicker(tracks:List<ProviderTrack>,onDismiss:()->Unit,onNotice:(String)->Unit) {
+    val track=tracks.first()
     val provider=YouTubeMusicProvider.shared(LocalContext.current)
     val scope=rememberCoroutineScope()
     var pages by remember {mutableStateOf<List<ProviderHomeCard>>(emptyList())}
@@ -73,7 +76,7 @@ internal suspend fun addTrackToPlaylist(reader:ProviderCatalogReader,mutations:P
         busy=true;error=null;progress=name;val revision=provider.authRevision
         scope.launch {
             val result=if(provider.authRevision!=revision) Result.failure(IllegalStateException(string(R.string.account_changed)))
-                else newPlaylistWith(provider,name,track)
+                else if(tracks.size==1) newPlaylistWith(provider,name,track) else newPlaylistWithAll(provider,name,tracks)
             busy=false;provider.refreshLibraryIndex()
             result.fold(onSuccess={uiHaptic(HapticCue.Confirm);onNotice(string(R.string.added_to_new_playlist_x,name));onDismiss()},
                 onFailure={uiHaptic(HapticCue.Reject);error=it.message;naming=false;newName="";retry++})
@@ -85,7 +88,7 @@ internal suspend fun addTrackToPlaylist(reader:ProviderCatalogReader,mutations:P
     }
     FrostedAlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(string(R.string.add_to_playlists))},
         text={Column(Modifier.testTag("playlist_picker")) {
-            Text(track.title,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text(if(tracks.size==1) track.title else string(R.string.selection_songs,tracks.size),maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             if(loading || busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             if(busy) Text(progress)
             error?.let {Text(it,color=Pink);if(pages.isEmpty()) TextButton({retry++}) {Text(string(R.string.retry))}}
@@ -108,14 +111,17 @@ internal suspend fun addTrackToPlaylist(reader:ProviderCatalogReader,mutations:P
         }},confirmButton={TextButton(enabled=selected.isNotEmpty() && !busy && !loading,onClick={
             busy=true;error=null;val revision=provider.authRevision;val requested=selected
             scope.launch {
+                var alreadyThere=0
                 val result=addToSelectedPlaylists(requested) {id->
                     progress=pages.firstOrNull {it.browseId==id}?.title.orEmpty()
                     if(provider.authRevision!=revision) Result.failure(IllegalStateException(string(R.string.account_changed)))
-                    else addTrackToPlaylist(provider,provider,id,progress,track)
+                    else if(tracks.size==1) addTrackToPlaylist(provider,provider,id,progress,track)
+                    else addTracksToPlaylist(provider,provider,id,progress,tracks) {provider.authRevision==revision}.map {alreadyThere+=it.alreadyThere}
                 }
                 selected=selected-result.completed;busy=false
                 if(result.completed.isNotEmpty()) provider.refreshLibraryIndex()
-                if(result.failures.isEmpty()) {uiHaptic(HapticCue.Confirm);onNotice(string(R.string.song_saved_in_x_playlists, result.completed.size));onDismiss()}
+                if(result.failures.isEmpty()) {uiHaptic(HapticCue.Confirm);onNotice(listOfNotNull(string(R.string.song_saved_in_x_playlists, result.completed.size),
+                    if(alreadyThere>0) quantity(R.plurals.n_songs_already_there,alreadyThere) else null).joinToString(" "));onDismiss()}
                 else {uiHaptic(HapticCue.Reject);error=result.summary()}
             }
         }) {Text(if(busy) string(R.string.saving) else string(R.string.add_to_x_playlists, selected.size))}},

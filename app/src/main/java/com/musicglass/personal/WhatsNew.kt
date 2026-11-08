@@ -92,7 +92,7 @@ internal var whatsNewShowing by mutableStateOf(WhatsNewShow.None)
 internal fun tryWhatsNew(action: String, model: ShellModel) {
     when (action) {
         "encore" -> model.push(Route.Encore)
-        "equalizer" -> model.push(Route.Settings(SettingsSection.Equalizer))
+        "equalizer" -> model.push(Route.Settings(if (Edition.plus) SettingsSection.Equalizer else SettingsSection.Sound))
         "settings" -> model.push(Route.Settings())
         "player" -> if (model.sheet.isEmpty()) model.sheet = "mini"
     }
@@ -138,8 +138,3 @@ internal fun WhatsNewSheet(model: ShellModel) {
     }
 }
 
-/** Feature 13's switch: Android's "Open by default" page for Riff. */
-private fun openLinkSettings(context: Context) {
-    try { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS,
-        android.net.Uri.parse("package:${context.packageName}"))) } catch (_: android.content.ActivityNotFoundException) {}
-}

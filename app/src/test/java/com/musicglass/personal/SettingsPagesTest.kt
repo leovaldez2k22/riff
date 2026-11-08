@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import org.junit.After
+import org.junit.Before
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -24,6 +25,11 @@ class SettingsPagesTest {
     @get:Rule val compose = createComposeRule()
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
     private var world: ProviderWorld? = null
+    /** Robolectric replaces the application between tests; process-owned settings must follow it. */
+    @Before fun freshBlendSettings() {
+        CrossfadeSettings::class.java.getDeclaredField("instance").apply { isAccessible = true }.set(null, null)
+        context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+    }
     @After fun close() { world?.close() }
 
     private val sections = listOf("sound" to SettingsSection.Sound, "look" to SettingsSection.Look, "lyrics" to SettingsSection.Lyrics,
@@ -39,6 +45,7 @@ class SettingsPagesTest {
                 LocalMotionPolicy provides MotionPolicy(reduced = section != null, scale = 1f)) {
                 RiffTheme {
                     if (section == null) SettingsScreen(model, 0.dp, provider, LocalCollections(context)) {}
+                    else if (section == SettingsSection.Equalizer) Edition.EqualizerPage(model, 0.dp, null)
                     else SettingsSectionScreen(model, section, 0.dp) {}
                 }
             }
@@ -61,14 +68,42 @@ class SettingsPagesTest {
     }
 
     @Test fun theQuickSwitchesTurnTheirSettingsOnAndOff() {
+        context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        CrossfadeSettings.get(context).reload()
+        assertFalse("quick-switch fixture starts disabled", CrossfadeSettings.get(context).enabled)
         context.getSharedPreferences(DATA_SAVER_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
         show()
         compose.onNodeWithTag("settings_quick_saver").performClick(); settle()
         assertTrue(DataSaverSettings(context).enabled)
+        assertFalse("Data saver must not enable blending", CrossfadeSettings.get(context).enabled)
         compose.onNodeWithTag("settings_quick_automix").performClick(); settle()
-        assertTrue(CrossfadeSettings.get(context).enabled); assertEquals(BlendMode.Automix, CrossfadeSettings.get(context).mode)
+        assertTrue(CrossfadeSettings.get(context).enabled); assertEquals(if (Edition.plus) BlendMode.Automix else BlendMode.Crossfade, CrossfadeSettings.get(context).mode)
         compose.onNodeWithTag("settings_quick_saver").performClick(); settle()
         assertFalse(DataSaverSettings(context).enabled)
+    }
+
+    @Test fun theSoundPageOffersOnlyTheEditionsBlendModesAndKeepsStoredAutomix() {
+        val prefs = context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE)
+        prefs.edit().putString(BLEND_MODE_KEY, "automix").putBoolean("enabled", true).commit()
+        CrossfadeSettings.get(context).reload()
+        assertEquals("imported preference read before UI", if (Edition.plus) BlendMode.Automix else BlendMode.Smart, CrossfadeSettings.get(context).mode)
+        show(section = SettingsSection.Sound)
+        scrollTo("settings_blend_smart")
+        assertTrue(has("settings_blend_crossfade"))
+        assertTrue(has("settings_blend_smart"))
+        assertEquals(Edition.plus, has("settings_blend_automix"))
+        compose.onNodeWithTag(if (Edition.plus) "settings_blend_automix" else "settings_blend_smart").assertIsSelected()
+        assertEquals("automix", prefs.getString(BLEND_MODE_KEY, null))
+    }
+
+    @Test fun automixSearchIsAvailableOnlyInPlus() {
+        show()
+        compose.onNodeWithTag("settings_search").performTextInput("automix"); settle()
+        compose.onNodeWithTag("settings_group_sound").assert(SemanticsMatcher.expectValue(SettingsSearchMatch, Edition.plus))
+        if (!Edition.plus) {
+            compose.onNodeWithTag("settings_search").performTextReplacement("beat"); settle()
+            compose.onNodeWithTag("settings_group_sound").assert(SemanticsMatcher.expectValue(SettingsSearchMatch, false))
+        }
     }
 
     @Test fun searchingLeavesTheMatchingSectionsAndClears() {
@@ -81,8 +116,8 @@ class SettingsPagesTest {
 
     @Test fun soundHoldsItsRowsAndTheBlendChoiceIsTheTabBarsPill() {
         show(section = SettingsSection.Sound)
-        for (tag in listOf("settings_crossfade", "settings_volume_boost", "settings_equalizer", "settings_normalize_volume",
-            "settings_skip_end_silence", "settings_skip_all_silence")) { scrollTo(tag); assertTrue(tag, has(tag)) }
+        for (tag in listOf("settings_crossfade", "settings_volume_boost", if (Edition.plus) "settings_equalizer" else "settings_phone_equalizer", "settings_normalize_volume",
+            "settings_skip_end_silence", "settings_skip_all_silence", "settings_bluetooth_resume", "settings_pause_on_mute")) { scrollTo(tag); assertTrue(tag, has(tag)) }
         val crossfade = CrossfadeSettings.get(context)
         scrollTo("settings_blend_smart")
         compose.onNodeWithTag("settings_blend_smart").performClick(); settle()
@@ -93,6 +128,30 @@ class SettingsPagesTest {
         scrollTo("settings_crossfade_length"); assertTrue(has("settings_crossfade_length"))
     }
 
+    @Test fun aRestoredEqualizerRouteShowsOnlyThisEditionsControls() {
+        show(section = SettingsSection.Equalizer)
+        if (Edition.plus) {
+            scrollTo("equalizer_switch")
+            assertTrue(has("equalizer_switch"))
+            assertFalse(has("settings_crossfade"))
+        } else {
+            scrollTo("settings_phone_equalizer")
+            assertTrue(has("settings_phone_equalizer"))
+            assertFalse(has("equalizer_switch"))
+            assertFalse(has("settings_equalizer"))
+        }
+    }
+
+    @Test fun unsupportedEqualizerSettingsDoNotAppearInTheSoundSummaryOrSearch() {
+        EqualizerSettings.write(EqualizerSettings.prefs(context), EqualizerConfig(enabled = true))
+        show()
+        compose.onNodeWithTag("settings_search").performTextInput("bass"); settle()
+        compose.onNodeWithTag("settings_group_sound").assert(SemanticsMatcher.expectValue(SettingsSearchMatch, Edition.plus))
+        if (!Edition.plus) {
+            compose.onNodeWithText(string(R.string.settings_eq_on), substring = true).assertDoesNotExist()
+        }
+    }
+
     @Test fun lookAndLyricsHoldTheirSwitches() {
         show(section = SettingsSection.Look)
         for (tag in listOf("settings_glass_intensity", "settings_frosted_intensity", "settings_frosted_glass", "settings_reduce_motion",
@@ -100,6 +159,21 @@ class SettingsPagesTest {
     }
 
     /** Q18-099: Song quality, now the tab bar's pill per network, starts at Medium, keeps a choice, and says when Data saver wins. */
+    @Test fun lookSettingsKeepTheStoredStatsChoiceAndShowItOnlyInPlus() {
+        val prefs = context.getSharedPreferences("accessibility_display", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("player_stats", true).commit()
+        show(section = SettingsSection.Look)
+        scrollTo("settings_haptics")
+        assertEquals(Edition.plus, has("settings_player_stats"))
+        assertTrue(prefs.getBoolean("player_stats", false))
+    }
+
+    @Test fun statsSearchIsAvailableOnlyInPlus() {
+        show()
+        compose.onNodeWithTag("settings_search").performTextInput("stats"); settle()
+        compose.onNodeWithTag("settings_group_look").assert(SemanticsMatcher.expectValue(SettingsSearchMatch, Edition.plus))
+    }
+
     @Test fun songQualityIsChosenPerNetworkAndSaysWhenDataSaverWins() {
         context.getSharedPreferences(DATA_SAVER_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
         show(section = SettingsSection.Downloads)

@@ -1,8 +1,0 @@
-{
-  "version": 35,
-  "cards": [
-    {"title": "Shuffle, then Reshuffle", "body": "Shuffle now mixes the queue once, so the list shows what plays next. Reshuffle in the queue mixes the rest again without stopping the song.", "action": "player"},
-    {"title": "Add to queue plays next", "body": "Songs you add play right after this one, in the order you added them. Play next is gone; this does its job.", "action": "player"},
-    {"title": "Faster back to your music", "body": "When you open Riff, the song you left paused is ready, so Play starts almost at once.", "action": "player"}
-  ]
-}

@@ -4,7 +4,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
@@ -19,11 +22,11 @@ import androidx.compose.ui.unit.dp
     val icon=when(label) {
         "View artist"->Icons.Rounded.Person;"View album"->Icons.Rounded.Album
         "Add to queue"->Icons.Rounded.QueueMusic
-        "Add to playlist"->Icons.Rounded.PlaylistAdd;"Share song","Share"->Icons.Rounded.Share
-        "Sleep timer"->Icons.Rounded.Bedtime;"Playback speed"->Icons.Rounded.Speed;"Stats for nerds"->Icons.Rounded.Analytics;"Equalizer"->Icons.Rounded.Equalizer;"View credits"->Icons.Rounded.Info;"Favorite"->Icons.Rounded.StarBorder
+        "Add to playlist"->Icons.Rounded.PlaylistAdd;"Share song","Share song.link","Share YouTube Music link","Share"->Icons.Rounded.Share;"Playback tools"->Icons.Rounded.Tune
+        "Sleep timer"->Icons.Rounded.Bedtime;"Playback speed"->Icons.Rounded.Speed;"Stats for nerds"->Icons.Rounded.Analytics;"Show visualizer","Hide visualizer"->Icons.Rounded.GraphicEq;"Equalizer"->Icons.Rounded.Equalizer;"View credits"->Icons.Rounded.Info;"About this song"->Icons.Rounded.AutoStories;"Favorite"->Icons.Rounded.StarBorder
         "Download details"->Icons.Rounded.Info;"Resume download","Retry missing assets"->Icons.Rounded.Refresh
         "Keep downloaded"->Icons.Rounded.DownloadDone;"Pause download"->Icons.Rounded.Pause;"Remove download"->Icons.Rounded.DeleteOutline
-        "Download song"->Icons.Rounded.Download;"Not interested"->Icons.Rounded.Block;"Open"->Icons.Rounded.OpenInNew;"Remove from queue"->Icons.Rounded.DeleteOutline
+        "Download song"->Icons.Rounded.Download;"Not interested","Never play this song","Never play this artist"->Icons.Rounded.Block;"Play this song again","Play this artist again"->Icons.AutoMirrored.Rounded.Undo;"Open"->Icons.Rounded.OpenInNew;"Select"->Icons.Rounded.CheckCircleOutline;"Set as ringtone"->Icons.Rounded.RingVolume;"Export as M4A"->Icons.Rounded.IosShare;"Shuffle"->Icons.Rounded.Shuffle;"Copy to YouTube Music"->Icons.Rounded.CloudUpload;"Remove from this phone"->Icons.Rounded.DeleteOutline;"Remove from queue"->Icons.Rounded.DeleteOutline
         "Your history with this"->Icons.Rounded.History;"Play"->Icons.Rounded.PlayArrow;"Pin to speed dial"->Icons.Rounded.PushPin;"Unpin from speed dial"->Icons.Rounded.PushPin;else->Icons.Rounded.LibraryMusic
     }
     // The pop-out look (RiffMenu): the icon leads, the words are regular, and rows are not ruled one from the next.
@@ -37,3 +40,19 @@ import androidx.compose.ui.unit.dp
 /** A hairline between groups of rows, as the reference has. */
 @Composable internal fun SongActionDivider() =
     HorizontalDivider(color=RiffMenu.dividerColor,modifier=Modifier.padding(horizontal=RiffMenu.dividerInset,vertical=4.dp))
+
+/**
+ * One "Share song" in every menu (owner, 9 November 2026): this asks which link. A song with only one kind of link
+ * shares it straight away.
+ */
+@Composable internal fun ShareSongChoice(title: String, artist: String, videoId: String, onShare: (String) -> Unit, onDismiss: () -> Unit) {
+    val music = songShareText(title, artist, videoId)
+    val anyApp = songShareText(title, artist, videoId, universal = true)
+    if (music == null || anyApp == null) { LaunchedEffect(Unit) { onDismiss(); (music ?: anyApp)?.let(onShare) }; return }
+    FrostedAlertDialog(onDismissRequest = onDismiss, title = { Text(string(R.string.share_song)) }, text = {
+        Column(Modifier.testTag("share_song_choice")) {
+            SongActionItem("Share YouTube Music link") { onDismiss(); onShare(music) }
+            SongActionItem("Share song.link") { onDismiss(); onShare(anyApp) }
+        }
+    }, confirmButton = { TextButton({ uiHaptic(); onDismiss() }) { Text(string(R.string.cancel)) } })
+}

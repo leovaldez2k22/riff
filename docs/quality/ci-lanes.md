@@ -10,15 +10,15 @@ One entry point, `scripts/quality/verify.py` (or `scripts/quality/verify.ps1` on
 | Emulator | `verify.py --lane emulator --allow-install` | the debug app and its test APK on one emulator | CI on API 31, 33 and 36 after a push to `main` or `codex/**` (`emulator.yml`), and locally |
 | Physical device | `verify.py --lane device --allow-install --serial <id> --tier R\|L` | the same pair, on the named phone | locally, on an authorized test phone |
 | Benchmarks | `verify.py --lane benchmark --allow-install --serial <id> --tier R\|L` | the benchmark build (its own package id) | locally, on a phone of that tier |
-| Packaging | `verify.py --lane packaging [--allow-install --previous-apk <apk>]` | with the flags, the previous APK and then the candidate, on an emulator | locally, for a candidate |
+| Packaging | `verify.py --lane packaging --allow-install --previous-apk artifacts/release/riff-0.21.0.apk --probe-apk artifacts/quality/packaging-probe/edition-switch-probe.apk` | signed 0.21.0, both candidates and signed test probe on a fresh disposable emulator | locally, for a candidate |
 
 What each lane holds:
 
-- **Pull request.** The quality script tests, the static checks, the JVM and Compose tests, release lint, an unsigned shrunk release build with its build identity, the release content check (the merged manifest's backup, cleartext, exported components and permissions, and no test, fixture, benchmark or key file), the 64 MiB ceiling (40 MiB until 0.20.0 put ONNX Runtime and the beat model in the release) and the packaged Baseline Profile, and the solver seam in the R8 mapping.
+- **Pull request.** Both editions must pass independently. The quality script tests, the static checks, the JVM and Compose tests, release lint, an unsigned shrunk release build with its build identity, the release content check (the merged manifest's backup, cleartext, exported components and permissions, and no test, fixture, benchmark or key file), Riff's 16 MiB ceiling (Riff+ has no size limit, owner 8 November 2026) and the packaged Baseline Profile, and the solver seam in the R8 mapping.
 - **Emulator.** The fixture suite (`FIXTURE_CLASSES` in `verify.py`: account transitions, the legacy upgrade, local data and its export, playback, order, crossfade, normalization, recovery, downloads, and the lyrics renderer drawing a synthetic word-timed song, and the player and its morph drawn with a fixture song). The network inside the emulator is turned off first and the run fails if it still answers. No Google account is used.
 - **Physical device.** The same suite on a phone named by `--serial`. A phone is never picked automatically, even when it is the only one connected. `--mode live` only labels the run: any account on the phone stays there, and nothing here supplies credentials.
 - **Benchmarks.** `:benchmark:connectedBenchmarkReleaseAndroidTest` on a tier R or L phone, read by `check_performance.py summary`. An emulator is refused: hosted or emulator timings are not evidence (Q14).
-- **Packaging.** A source archive built from the tracked files and checked (no build output, local settings, key, credential or evidence file; the build files present), the release APK's identity and certificate (an unsigned APK is BLOCKED for the certificate, never passed), `SHA256SUMS`, and an in-place upgrade from `--previous-apk` with `adb install -r` (a reinstall, or a refusal for a certificate or version code, fails; nothing is ever uninstalled).
+- **Packaging.** One source ZIP checked for forbidden/duplicate/unsafe entries and exact current APK fingerprint inputs, a matching release source identity and pinned certificate, and both APK checksums. The emulator-only installation gates use the signed platform-API probe for 0.21.0 → Plus → Riff → Plus and compare saved settings, Encore, queue, download, analysis and rendered widget state. Existing Riff installations are refused. An unsigned APK, absent previous release or absent probe stays blocked as appropriate; a refused install or changed data fails and is never repaired by uninstalling. See [the packaging procedure](testing.md#edition-packaging-trial).
 
 ## Results
 
@@ -64,6 +64,8 @@ Dependency verification is strict in CI as it is locally. `gradle/verification-m
 ## Not verified here
 
 - Neither workflow has run on GitHub: nothing was pushed. The first hosted run of each is the check that the Linux side works.
-- The emulator lane was run locally on API 31 only (the system image that is installed). API 33 and 36 need their images: `sdkmanager "system-images;android-33;google_apis;x86_64" "system-images;android-36;google_apis;x86_64"`, an AVD for each, then the emulator lane against each.
+- Historical Q16/Q18 local results cover API 31/33. During the edition split, fresh owned API 36 emulators passed both full flavor lanes: 73 tests each, zero failures/errors/skips (`artifacts/quality/stage9-api36-runtime-summary.json`, source `f0ae993d13c4…`). The later supported-floor source uses Android 12 / API 31 minimum; its final verification is recorded in the [split log](../riff-plus-split-plan-2026-11-07.md#implementation-log). Hosted workflows remain unrun.
 - The physical-device and benchmark lanes need an authorized phone and were not run.
-- The packaging lane's upgrade gate needs the last distributed APK and a candidate signed with the same key.
+- The packaging upgrade gate needs the signed 0.21.0 APK, both current candidates and the matching signed probe; edition switching alone does not prove upgrade.
+
+The edition split adds compiled model/native/bytecode exclusion checks for Riff and required presence checks for Plus. Both retain Encore's widget and recap service. Source checks cover `main`, `riff` and `plus`; runtime imports outside `src/plus` fail. PR always checks both editions; other lanes take `--edition riff|plus` (default Riff).

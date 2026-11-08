@@ -8,6 +8,7 @@ import androidx.compose.ui.draw.blur
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -58,6 +59,12 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
     var loading by remember(track) { mutableStateOf(true) }
     var failed by remember(track) { mutableStateOf(false) }
     var refresh by remember(track) { mutableIntStateOf(0) }
+    // Feature 25: the source picked for this song, why it isn't shown, and the sources that had nothing.
+    var load by remember(track) { mutableStateOf(LyricsLoadState()) }
+    var sourcePicker by remember { mutableStateOf(false) }
+    // Feature 1: which of the song's translation languages is shown, when translations are on.
+    var translationIndex by rememberSaveable(state.mediaId) { mutableIntStateOf(0) }
+    val youtubeLyrics: suspend () -> LyricsDocument? = { provider.lyricsFor(track.mediaId.removePrefix("yt:"),track.durationMs) }
     var follow by rememberSaveable(state.mediaId) { mutableStateOf(true) }
     var offsetMs by rememberSaveable(state.mediaId) { mutableLongStateOf(DEFAULT_LYRICS_OFFSET_MS) }
     var timingDialog by remember { mutableStateOf(false) }
@@ -75,9 +82,8 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
     LaunchedEffect(dragged) { if (dragged) follow = false }
     LaunchedEffect(state.mediaId) { list.scrollToItem(0); follow = true }
     LaunchedEffect(track,refresh) {
-        repository.observe(track,force = refresh > 0) {
-            provider.lyricsFor(track.mediaId.removePrefix("yt:"),track.durationMs)
-        }.collect { result -> document=result.document; loading=result.loading; failed=result.failed }
+        repository.observe(track,force = refresh > 0,youtubeLyrics)
+            .collect { result -> load = result; document=result.document; loading=result.loading; failed=result.failed }
     }
     val owner = LocalLifecycleOwner.current
     var position by remember(state.mediaId) { mutableLongStateOf(playback.currentPositionMs()) }
@@ -95,6 +101,11 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
     // Feature 32: instrumental stretches marked for display; the stored lyrics stay as the source gave them.
     val songLyrics = remember(document) { document?.let { it.copy(lines = withInstrumentalGaps(it.lines)) } }
     val canRomanize = remember(songLyrics) { songLyrics != null && lyricsCanRomanize(songLyrics.lines) }
+    val locales = androidx.compose.ui.platform.LocalConfiguration.current.locales
+    val languages = remember(songLyrics,locales) {
+        lyricsTranslationOrder(songLyrics?.translationLanguages.orEmpty(),(0 until locales.size()).map { locales[it] }) }
+    val accessibilitySettings = LocalAccessibilitySettings.current
+    val translationLanguage = if (accessibilitySettings.lyricsTranslation) languages.getOrNull(translationIndex) ?: languages.firstOrNull() else null
     // Every line being sung now: two voices can overlap (Q16A). The list only changes when a line starts or ends.
     val activeLines by remember(songLyrics) { derivedStateOf {
         if (songLyrics?.timed == true) activeLyricLines(songLyrics.lines,position+shownOffsetMs) else emptyList()
@@ -191,16 +202,18 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                                             longPressLabel = string(R.string.share_lyrics))
                                     // Feature 25: the Latin form of the line, from the source or made on the phone.
                                     val roman = remember(line,romanMode) { if (romanMode == LyricsRomanMode.Original) null else lyricRomanized(line) }
-                                    if (roman == null) KaraokeLine(line,active && !sharing,backingActive && !sharing,{ position+shownOffsetMs },motion,"lyric_backing_$index",
+                                    val translation = translationLanguage?.let { line.translations[it] }
+                                    val lit = active && !sharing
+                                    if (roman == null && translation == null) KaraokeLine(line,lit,backingActive && !sharing,{ position+shownOffsetMs },motion,"lyric_backing_$index",
                                         modifier = lineModifier)
                                     else Column(lineModifier) {
-                                        // Word timing belongs to the original letters; the romanized line lights as a whole.
-                                        if (romanMode == LyricsRomanMode.Both) KaraokeLine(line,active && !sharing,backingActive && !sharing,{ position+shownOffsetMs },motion,"lyric_backing_$index")
-                                        Text(roman,color = White.copy(alpha = if (active && !sharing) (if (romanMode == LyricsRomanMode.Both) RiffLyrics.romanUnderAlpha else 1f) else .4f),
-                                            fontSize = if (romanMode == LyricsRomanMode.Both) RiffLyrics.romanUnder else RiffLyrics.text,
-                                            lineHeight = if (romanMode == LyricsRomanMode.Both) RiffLyrics.romanUnderLine else RiffLyrics.textLine,
-                                            fontWeight = if (romanMode == LyricsRomanMode.Both) FontWeight.SemiBold else FontWeight.Bold,
-                                            modifier = Modifier.testTag("lyric_roman_$index"))
+                                        // Word timing belongs to the original letters; the romanized line and the
+                                        // translation light as a whole. Order (owner, Q1): original, translation, romanization.
+                                        val under = romanMode == LyricsRomanMode.Both || roman == null
+                                        if (under) KaraokeLine(line,lit,backingActive && !sharing,{ position+shownOffsetMs },motion,"lyric_backing_$index")
+                                        else LyricAid(roman!!,lit,false,"lyric_roman_$index")
+                                        if (translation != null) LyricAid(translation,lit,true,"lyric_translation_$index")
+                                        if (roman != null && under) LyricAid(roman,lit,true,"lyric_roman_$index")
                                     }
                                 }
                             }
@@ -237,10 +250,28 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                             .clickable(onClickLabel = string(R.string.lyrics_script_x, modeName)) { uiHaptic(); accessibility.updateLyricsRoman(accessibility.lyricsRoman.next) }
                             .padding(horizontal = RiffSpace.rowGap, vertical = RiffSpace.tight).testTag("lyrics_script"))
                 }
-                if (loading && songLyrics != null) Text(string(R.string.finding_finer_timing),color = Muted,fontSize = 11.sp,
-                    modifier = Modifier.weight(1f)) else Spacer(Modifier.weight(1f))
-                if (songLyrics != null) Text(songLyrics.source,color = Muted,fontSize = 11.sp,maxLines = 1,
-                    modifier = Modifier.clickable { uiHaptic();  runCatching { uri.openUri(songLyrics.sourceUrl) } }
+                if (languages.isNotEmpty()) {
+                    // Feature 1: off, then each language the song has (the app's or phone's first), then off again.
+                    val name = translationLanguage?.let { lyricLanguageName(it) } ?: string(R.string.lyrics_translation)
+                    Text(name,color = if (translationLanguage != null) White else Muted,fontSize = RiffType.detail,maxLines = 1,
+                        modifier = Modifier.riffGlass(GlassRole.Button,backdrop = lyricsGlass).clip(RoundedCornerShape(RiffRadius.pill)).background(White.copy(alpha = .05f))
+                            .clickable(onClickLabel = string(R.string.lyrics_translation_x, translationLanguage?.let { lyricLanguageName(it) } ?: string(R.string.lyrics_script_original))) {
+                                uiHaptic()
+                                val shown = translationLanguage?.let(languages::indexOf) ?: -1
+                                if (shown + 1 < languages.size) { translationIndex = shown + 1; accessibilitySettings.updateLyricsTranslation(true) }
+                                else { translationIndex = 0; accessibilitySettings.updateLyricsTranslation(false) }
+                            }
+                            .padding(horizontal = RiffSpace.rowGap, vertical = RiffSpace.tight).testTag("lyrics_translation"))
+                }
+                val sourceNote = load.fallback?.let { reason -> load.choice?.let { string(if (reason == LyricsFallback.Miss) R.string.lyrics_source_missed else R.string.lyrics_source_unreachable, it) } }
+                when {
+                    sourceNote != null -> Text(sourceNote,color = Muted,fontSize = 11.sp,maxLines = 2,modifier = Modifier.weight(1f).testTag("lyrics_source_note"))
+                    loading && songLyrics != null -> Text(string(R.string.finding_finer_timing),color = Muted,fontSize = 11.sp,modifier = Modifier.weight(1f))
+                    else -> Spacer(Modifier.weight(1f))
+                }
+                // Feature 25: the source opens "Source for this song"; its page is one choice there.
+                if (songLyrics != null || load.choice != null) Text(songLyrics?.source ?: load.choice.orEmpty(),color = Muted,fontSize = 11.sp,maxLines = 1,
+                    modifier = Modifier.clickable(onClickLabel = string(R.string.lyrics_source_title)) { uiHaptic(); sourcePicker = true }
                         .testTag("lyrics_source"))
             }
             if (sharing) Button(hapticClick { shareSheet = true },
@@ -264,6 +295,48 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
     if (shareSheet && shareLines.isNotEmpty()) LyricShareSheet(shareLines,state.title,playerArtistLabel(state.artist),artworkTone) {
         shareSheet = false; shareRange = null }
     if (timingDialog) LyricsTimingDialog(offsetMs, { offsetMs = it }) { timingDialog = false }
+    if (sourcePicker) LyricsSourceDialog(lyricsSourceChoices(track),load.choice,load.missed,
+        onPage = songLyrics?.sourceUrl?.let { url -> { runCatching { uri.openUri(url) }; Unit } },
+        onChoose = { repository.choose(track,it,youtubeLyrics); sourcePicker = false }) { sourcePicker = false }
+}
+
+/** Feature 1 and 25: a translation or romanization under the line, lit as a whole while the line is sung. */
+@Composable
+private fun LyricAid(text: String, lit: Boolean, under: Boolean, tag: String) {
+    Text(text,color = White.copy(alpha = if (lit) (if (under) RiffLyrics.romanUnderAlpha else 1f) else .4f),
+        fontSize = if (under) RiffLyrics.romanUnder else RiffLyrics.text,
+        lineHeight = if (under) RiffLyrics.romanUnderLine else RiffLyrics.textLine,
+        fontWeight = if (under) FontWeight.SemiBold else FontWeight.Bold,
+        modifier = Modifier.testTag(tag))
+}
+
+/** Feature 1: a language tag as its name in the app's language ("en-US" → "English"). */
+internal fun lyricLanguageName(tag: String): String = java.util.Locale.forLanguageTag(tag).let { locale ->
+    locale.getDisplayLanguage(java.util.Locale.getDefault()).replaceFirstChar { it.titlecase(java.util.Locale.getDefault()) }.ifBlank { tag } }
+
+/**
+ * Feature 25: "Source for this song". Automatic is the default; a source that already said it has nothing for this
+ * song is not offered again. The source's own page stays one tap away.
+ */
+@Composable
+internal fun LyricsSourceDialog(sources: List<String>, choice: String?, missed: Set<String>, onPage: (() -> Unit)?,
+    onChoose: (String?) -> Unit, onDismiss: () -> Unit) {
+    FrostedAlertDialog(onDismissRequest = onDismiss,title = { Text(string(R.string.lyrics_source_title)) },text = {
+        Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+            (listOf<String?>(null) + sources).forEach { source ->
+                val enabled = source == null || source !in missed
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(enabled = enabled) { uiHaptic(); onChoose(source) }
+                    .testTag("lyrics_source_${source ?: "automatic"}"),verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = source == choice,onClick = null,enabled = enabled)
+                    Spacer(Modifier.width(RiffSpace.item))
+                    Text(source ?: string(R.string.lyrics_source_automatic),color = if (enabled) White else Muted)
+                    if (!enabled) Text(string(R.string.lyrics_source_no_match),color = Muted,fontSize = 12.sp,modifier = Modifier.padding(start = RiffSpace.item))
+                }
+            }
+        }
+    },confirmButton = { TextButton(onClick = { uiHaptic(); onDismiss() }) { Text(string(R.string.done)) } },
+        dismissButton = onPage?.let { open -> { TextButton(onClick = { uiHaptic(); open() },modifier = Modifier.testTag("lyrics_source_page")) {
+            Text(string(R.string.lyrics_source_page)) } } })
 }
 
 internal const val LYRICS_OFFSET_STEP_MS = 100L

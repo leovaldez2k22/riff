@@ -62,46 +62,78 @@ internal class LyricsRepository(private val directory: File,
     private val json = Json { ignoreUnknownKeys = true }
 
     private val scope = CoroutineScope(SupervisorJob()+Dispatchers.IO)
-    private data class Entry(val state: kotlinx.coroutines.flow.MutableStateFlow<LyricsLoadState>, var job: Job? = null)
+    /** [choice] (feature 25): the source picked for this song, or null for Automatic; kept while the song's entry is. */
+    private data class Entry(val state: kotlinx.coroutines.flow.MutableStateFlow<LyricsLoadState>, var job: Job? = null, var choice: String? = null)
     private val loads = linkedMapOf<String,Entry>()
     private var offlineReader:((LyricsTrack)->LyricsDocument?)?=null
     fun observe(track: LyricsTrack, force: Boolean = false, youtube: suspend () -> LyricsDocument?): kotlinx.coroutines.flow.StateFlow<LyricsLoadState> = synchronized(loads) {
         val key = cacheKey(track)
         val entry = loads.getOrPut(key) { Entry(kotlinx.coroutines.flow.MutableStateFlow(LyricsLoadState())) }
-        if (force || entry.job == null) {
-            entry.job?.cancel()
-            val generation = entry.state.value.generation+1
-            entry.state.value = LyricsLoadState(entry.state.value.document, loading=true, generation=generation)
-            entry.job = scope.launch {
-                try {
-                    lyrics(track,force,youtube).collect { doc ->
-                        hear(track.mediaId, doc)
-                        entry.state.update {current -> if(current.generation==generation) LyricsLoadState(doc,loading=true,generation=generation) else current}
-                    }
-                    entry.state.update {current -> if(current.generation==generation) current.copy(loading=false) else current}
-                } catch(e: CancellationException) { throw e }
-                catch(_: Exception) { entry.state.update {current -> if(current.generation==generation) current.copy(loading=false,failed=true) else current} }
-            }
-        }
+        if (force || entry.job == null) load(entry,track,force,youtube)
         if(loads.size>8) loads.entries.firstOrNull {it.key!=key && it.value.job?.isActive!=true}?.let {loads.remove(it.key)}
         entry.state
     }
+    /**
+     * Feature 25: asks [source] alone for this song, or with null goes back to Automatic. What is shown stays while it
+     * looks. A miss, a timeout or no connection falls back to the automatic search, saved lyrics included.
+     */
+    fun choose(track: LyricsTrack, source: String?, youtube: suspend () -> LyricsDocument?): Unit = synchronized(loads) {
+        val entry = loads.getOrPut(cacheKey(track)) { Entry(kotlinx.coroutines.flow.MutableStateFlow(LyricsLoadState())) }
+        // Leaving a chosen source drops its lyrics, so the automatic answer (or none) is what shows.
+        if (entry.choice != null && source == null) entry.state.update { it.copy(document = null) }
+        entry.choice = source
+        load(entry,track,false,youtube)
+    }
+    private fun load(entry: Entry, track: LyricsTrack, force: Boolean, youtube: suspend () -> LyricsDocument?) {
+        entry.job?.cancel()
+        val previous = entry.state.value
+        val generation = previous.generation+1
+        val choice = entry.choice
+        entry.state.value = LyricsLoadState(previous.document, loading=true, generation=generation, choice=choice, missed=previous.missed)
+        // A late answer after the song or the source changed belongs to an older generation and is dropped.
+        fun update(change: (LyricsLoadState) -> LyricsLoadState) = entry.state.update { current -> if (current.generation==generation) change(current) else current }
+        entry.job = scope.launch {
+            try {
+                if (choice != null) {
+                    var found = false
+                    val fallback = try {
+                        lyrics(track,true,choice,youtube).collect { doc -> found = true; hear(track.mediaId,doc); update { it.copy(document=doc) } }
+                        if (found) null else LyricsFallback.Miss
+                    } catch (e: CancellationException) { throw e }
+                    catch (_: LyricsChoiceMiss) { LyricsFallback.Miss }
+                    catch (_: Exception) { LyricsFallback.Unreachable }
+                    if (fallback == null) { update { it.copy(loading=false) }; return@launch }
+                    update { it.copy(fallback=fallback, missed = if (fallback == LyricsFallback.Miss) it.missed + choice else it.missed) }
+                }
+                lyrics(track,force && choice == null,youtube = youtube).collect { doc ->
+                    hear(track.mediaId, doc)
+                    update { it.copy(document=doc) }
+                }
+                update { it.copy(loading=false) }
+            } catch(e: CancellationException) { throw e }
+            catch(_: Exception) { update { it.copy(loading=false,failed=true) } }
+        }
+    }
     fun preload(track: LyricsTrack, youtube: suspend () -> LyricsDocument?) { observe(track,youtube=youtube) }
 
+    /**
+     * [only] (feature 25): ask that source alone, accept the best it finds whatever its timing, and keep it out of the
+     * saved lyrics; a confirmed miss throws [LyricsChoiceMiss], a timeout or no connection an IOException.
+     */
     fun lyrics(track: LyricsTrack, force: Boolean = false,
-        youtube: suspend () -> LyricsDocument?): Flow<LyricsDocument> = channelFlow {
+        only: String? = null, youtube: suspend () -> LyricsDocument?): Flow<LyricsDocument> = channelFlow {
         if (track.title.isBlank() || track.artist.isBlank() || track.durationMs <= 0) return@channelFlow
         val key = cacheKey(track)
-        val offline = offlineReader?.invoke(track)?.withoutTitleLine(track)
+        val offline = if (only != null) null else offlineReader?.invoke(track)?.withoutTitleLine(track)?.placeholderAsInstrumental()
         offline?.let { send(it) }
         var known: LyricsDocument? = offline
         val guestTitle = lyricsTitleNamesGuest(track.title)
         if (!force && offline?.timed != true && offline?.instrumental != true) {
-            val cached = withContext(Dispatchers.IO) { readCache(key) }?.withoutTitleLine(track)
+            val cached = withContext(Dispatchers.IO) { readCache(key) }?.withoutTitleLine(track)?.placeholderAsInstrumental()
             if (cached != null) { send(cached); known = cached }
         } else if (!force && offline?.timed == true) {
             // A download's line-timed lyrics may have been bettered since (Q18-003).
-            withContext(Dispatchers.IO) { readCache(key) }?.withoutTitleLine(track)?.takeIf { it.quality > offline.quality ||
+            withContext(Dispatchers.IO) { readCache(key) }?.withoutTitleLine(track)?.placeholderAsInstrumental()?.takeIf { it.quality > offline.quality ||
                 (guestTitle && offline.source in LYRICS_UNCHECKED_SOURCES && it.source !in LYRICS_UNCHECKED_SOURCES) }?.let { send(it); known = it }
         }
         // Lyrics saved from a source that doesn't say which version it found may be the song without its guest, so they
@@ -124,16 +156,20 @@ internal class LyricsRepository(private val directory: File,
         val running = mutableListOf<Source>()
         val settled = kotlinx.coroutines.flow.MutableStateFlow(0)
         fun canStillOutrank(source: Source): Boolean {
+            if (only != null) return true
             val shown = best ?: return true
             if (guestTitle && shown.source in LYRICS_UNCHECKED_SOURCES && source.name !in LYRICS_UNCHECKED_SOURCES) return true
             return source.bestTier > shown.quality || (source.bestTier == shown.quality &&
                 lyricsProviderPriority(source.name) < lyricsProviderPriority(shown.source) && clock() - shownAt <= swapWindowMs)
         }
         fun cancelOutranked() = synchronized(running) { running.filter { it.job?.isActive == true && !canStillOutrank(it) }.forEach { it.job?.cancel() } }
-        suspend fun offer(doc: LyricsDocument?) {
+        suspend fun offer(found: LyricsDocument?) {
+            val doc = found?.placeholderAsInstrumental()
             if (doc == null || (!doc.instrumental && doc.lines.isEmpty())) return
             ranking.withLock {
-                if (lyricsReplaces(doc, best, clock() - shownAt, swapWindowMs, guestTitle)) { best = doc; shownAt = clock(); send(doc) }
+                val replaces = if (only != null) best.let { it == null || doc.quality > it.quality }
+                    else lyricsReplaces(doc, best, clock() - shownAt, swapWindowMs, guestTitle)
+                if (replaces) { best = doc; shownAt = clock(); send(doc) }
             }
             cancelOutranked(); settled.update { it + 1 }
         }
@@ -202,6 +238,13 @@ internal class LyricsRepository(private val directory: File,
         } else null)
         // This provider supplies plain text, so it is asked only when nothing synced was found.
         val plain = Source("Lyrics.ovh", 0) { offer(ovh(track,::request)) }
+        if (only != null) {
+            val chosen = (wordSources + lineSources + plain).firstOrNull { it.name == only } ?: throw LyricsChoiceMiss()
+            coroutineScope { start(chosen); awaitSources() }
+            if (best == null) throw if (chosen.timedOut || lyricsUnreachable(errors.get(),answered.get()))
+                IOException("Lyrics source could not be reached") else LyricsChoiceMiss()
+            return@channelFlow
+        }
         coroutineScope {
             wordSources.forEach { start(it) }
             if (!upgrading || versionUnsure) {
@@ -386,6 +429,7 @@ internal fun encodeLyricsDocument(doc: LyricsDocument): JsonObject = buildJsonOb
         put("start",line.startMs); put("end",line.endMs); put("text",line.text)
         if (line.knownEnd) put("knownEnd",true)
         line.romanized?.let { put("romanized",it) }
+        if (line.translations.isNotEmpty()) put("translations",buildJsonObject { line.translations.forEach { (language,text) -> put(language,text) } })
         put("parts",encodeLyricParts(line.parts))
         line.backing?.let { backing -> put("backing",buildJsonObject {
             put("start",backing.startMs); put("end",backing.endMs); put("text",backing.text)
@@ -402,10 +446,27 @@ internal fun decodeLyricsDocument(raw: JsonObject): LyricsDocument = LyricsDocum
                 backing.getValue("end").jsonPrimitive.long,backing.getValue("text").jsonPrimitive.content,
                 decodeLyricParts(backing["parts"])) },
             knownEnd = line["knownEnd"]?.jsonPrimitive?.booleanOrNull ?: false,
-            romanized = line["romanized"]?.jsonPrimitive?.contentOrNull?.take(1000))
+            romanized = line["romanized"]?.jsonPrimitive?.contentOrNull?.take(1000),
+            // Feature 1: files written before translations simply have none, and stay readable.
+            translations = (line["translations"] as? JsonObject).orEmpty().entries.mapNotNull { (language,text) ->
+                val tag = lyricLanguageTag(language) ?: return@mapNotNull null
+                (text as? JsonPrimitive)?.contentOrNull?.take(LYRIC_TRANSLATION_CHARS)?.takeIf(String::isNotBlank)?.let { tag to it }
+            }.take(LYRIC_TRANSLATIONS_MAX).toMap())
     },raw["instrumental"]?.jsonPrimitive?.booleanOrNull ?: false)
 
-internal data class LyricsLoadState(val document: LyricsDocument? = null,val loading: Boolean = true,val failed: Boolean = false,val generation: Long = 0)
+/**
+ * [choice]: the source picked for this song (feature 25), null for Automatic; [fallback]: why its lyrics are not the
+ * ones shown; [missed]: sources that confirmed they have nothing for this song, which the picker no longer offers.
+ */
+internal data class LyricsLoadState(val document: LyricsDocument? = null,val loading: Boolean = true,val failed: Boolean = false,val generation: Long = 0,
+    val choice: String? = null,val fallback: LyricsFallback? = null,val missed: Set<String> = emptySet())
+internal enum class LyricsFallback { Miss, Unreachable }
+/** Feature 25: the chosen source answered and has nothing for this song. */
+internal class LyricsChoiceMiss : IOException("The chosen lyrics source has no match")
+/** Feature 25: the sources the picker offers, in the automatic order; YouTube Music only for its own songs. */
+internal fun lyricsSourceChoices(track: LyricsTrack): List<String> = listOf("Better Lyrics", "Better Lyrics · QQ", LRC_RED_SOURCE,
+    "NetEase Cloud Music", "Better Lyrics · Kugou", "LRCLIB", "YouTube Music", "Lyrics.ovh")
+    .filter { it != "YouTube Music" || track.mediaId.startsWith("yt:") }
 
 /** Better Lyrics answers lookups without a key from its cache only; a song not in it answers 401 "API key required". */
 internal class LyricsCacheMiss : IOException("Not in the lyrics cache")

@@ -182,6 +182,8 @@ internal class AppContainer(context: Context, val runtime: RuntimeDependencies =
     }
     /** The once-a-day question to the release feed (Q12A). Asks nothing in a build without a feed. */
     val updates: UpdateChecker by lazy { UpdateChecker.android(app, runtime, eventLog::append) }
+    /** Feature 3: downloads and installs an update or the other edition, only when the user asks. */
+    val installer: UpdateInstaller by lazy { UpdateInstaller.android(app, runtime, stateScope, eventLog::append) }
     private val stateScope = CoroutineScope(SupervisorJob() + runtime.dispatchers.io)
 
     /**

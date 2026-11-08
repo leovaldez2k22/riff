@@ -18,13 +18,15 @@ internal fun netEaseMatchScore(row: JsonObject, track: LyricsTrack): Double {
 
 internal fun netEaseLyrics(row: JsonObject?, durationMs: Long, id: String): LyricsDocument? {
     val url = "https://music.163.com/song?id=$id"
+    fun field(name: String) = (row?.get(name) as? JsonObject)?.get("lyric")?.jsonPrimitive?.contentOrNull
     // Some NetEase responses include YRC. Use supplied word durations, never interpolate them.
-    (row?.get("yrc") as? JsonObject)?.get("lyric")?.jsonPrimitive?.contentOrNull
-        ?.let { parseNetEaseYrc(it,durationMs,url) }?.let { return it }
-    (row?.get("lrc") as? JsonObject)?.get("lyric")?.jsonPrimitive?.contentOrNull
-        ?.let { parseLrc(it,durationMs,"NetEase Cloud Music",url) }?.let { return it }
-    return null
+    val doc = field("yrc")?.let { parseNetEaseYrc(it,durationMs,url) }
+        ?: field("lrc")?.let { parseLrc(it,durationMs,"NetEase Cloud Music",url) } ?: return null
+    // Feature 1: tlyric is NetEase's Chinese translation, timed like its lrc; it joins only the line at its time.
+    val translation = field("tlyric")?.let { parseLrc(it,durationMs,"NetEase Cloud Music",url) } ?: return doc
+    return withTimedTranslations(doc,translation.lines,NETEASE_TRANSLATION_LANGUAGE)
 }
+internal const val NETEASE_TRANSLATION_LANGUAGE = "zh-Hans"
 
 internal fun parseNetEaseYrc(raw: String, durationMs: Long, url: String): LyricsDocument? {
     val header = Regex("^\\[(\\d+),(\\d+)\\]")

@@ -121,7 +121,7 @@ internal object TrackAnalysis {
      */
     fun envelope(context: Context, source: Uri, fromMs: Long, lengthMs: Long, beatModel: Boolean): TrackEnvelope? =
         envelope({ PlatformDemuxer(MediaExtractor().also { it.setDataSource(context, source, null) }) }, fromMs, lengthMs, null,
-            if (beatModel) BeatModel.get(context) else null)
+            if (beatModel) Edition.beatAnalysis(context) else null)
 
     /**
      * A cached stream's tail. Read with Media3's extractor, which goes to the tail by the container's index; the
@@ -130,10 +130,27 @@ internal object TrackAnalysis {
      */
     fun envelope(context: Context, cached: CachedTail, knownDurationMs: Long?, head: Boolean = false, beatModel: Boolean): TrackEnvelope? = cached.source.use { bytes ->
         envelope({ Media3Demuxer(MediaExtractorCompat(context).also { it.setDataSource(bytes) }) }, if (head) 0 else -cached.tailMs, cached.tailMs, knownDurationMs,
-            if (beatModel) BeatModel.get(context) else null)
+            if (beatModel) Edition.beatAnalysis(context) else null)
     }
 
-    private fun envelope(open: () -> Demuxer, fromMs: Long, lengthMs: Long, knownDurationMs: Long?, model: BeatLogits?): TrackEnvelope? {
+    /**
+     * Feature 18 (Riff+): [lengthMs] of a song on the phone, from [atShare] of its length (0 to 1), decoded and handed to
+     * the [sink] made for its rate, channels and start. The song's length, or null when nothing could be decoded.
+     */
+    fun window(context: Context, source: Uri, atShare: Double, lengthMs: Long, sink: (rate: Int, channels: Int, startMs: Long) -> PcmSink): Long? =
+        decode({ PlatformDemuxer(MediaExtractor().also { it.setDataSource(context, source, null) }) },
+            { duration -> (duration * atShare.coerceIn(0.0, 1.0)).toLong().coerceAtMost((duration - lengthMs).coerceAtLeast(0)) }, lengthMs, null, sink)
+
+    private fun envelope(open: () -> Demuxer, fromMs: Long, lengthMs: Long, knownDurationMs: Long?, model: BeatAnalysis?): TrackEnvelope? {
+        var builder: EnvelopeBuilder? = null
+        val duration = decode(open, { duration -> if (fromMs < 0) duration + fromMs else fromMs }, lengthMs, knownDurationMs) { rate, channels, at ->
+            EnvelopeBuilder(rate, channels, at, model).also { builder = it }.let { b -> PcmSink(b::add) }
+        } ?: return null
+        return builder?.build(duration)
+    }
+
+    private fun decode(open: () -> Demuxer, from: (durationMs: Long) -> Long, lengthMs: Long, knownDurationMs: Long?,
+                       makeSink: (rate: Int, channels: Int, startMs: Long) -> PcmSink): Long? {
         var extractor: Demuxer? = null
         var codec: MediaCodec? = null
         try {
@@ -142,12 +159,12 @@ internal object TrackAnalysis {
                 ?: return null
             val format = extractor.format(track); extractor.select(track)
             val durationMs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) / 1_000 else knownDurationMs ?: return null
-            val startMs = (if (fromMs < 0) durationMs + fromMs else fromMs).coerceIn(0, durationMs)
+            val startMs = from(durationMs).coerceIn(0, durationMs)
             val endMs = minOf(durationMs, startMs + lengthMs)
             extractor.seekTo(startMs * 1_000)
             val decoder = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!).also { codec = it }
             decoder.configure(format, null, null, 0); decoder.start()
-            var builder: EnvelopeBuilder? = null
+            var sink: PcmSink? = null
             val info = MediaCodec.BufferInfo(); var inputDone = false; var samples = ShortArray(0); var turns = 0
             while (true) {
                 if (++turns > 200_000) return null // A decoder that never ends its stream.
@@ -162,7 +179,7 @@ internal object TrackAnalysis {
                 if (info.size > 0 && atMs >= startMs) {
                     val output = decoder.outputFormat
                     if (output.containsKey(MediaFormat.KEY_PCM_ENCODING) && output.getInteger(MediaFormat.KEY_PCM_ENCODING) != AudioFormat.ENCODING_PCM_16BIT) return null
-                    val b = builder ?: EnvelopeBuilder(output.getInteger(MediaFormat.KEY_SAMPLE_RATE), output.getInteger(MediaFormat.KEY_CHANNEL_COUNT), atMs, model).also { builder = it }
+                    val b = sink ?: makeSink(output.getInteger(MediaFormat.KEY_SAMPLE_RATE), output.getInteger(MediaFormat.KEY_CHANNEL_COUNT), atMs).also { sink = it }
                     val shorts = decoder.getOutputBuffer(out)!!.apply { position(info.offset); limit(info.offset + info.size) }.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
                     if (samples.size < shorts.remaining()) samples = ShortArray(shorts.remaining())
                     val count = shorts.remaining(); shorts.get(samples, 0, count); b.add(samples, count)
@@ -170,7 +187,7 @@ internal object TrackAnalysis {
                 decoder.releaseOutputBuffer(out, false)
                 if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
             }
-            return builder?.build(durationMs)
+            return if (sink != null) durationMs else null
         } catch (e: kotlinx.coroutines.CancellationException) { throw e
         } catch (e: Exception) {
             return null // A file the platform cannot decode is a song without a smart blend.
@@ -179,6 +196,9 @@ internal object TrackAnalysis {
         }
     }
 }
+
+/** Decoded 16-bit PCM, interleaved, handed over a piece at a time. */
+internal fun interface PcmSink { fun add(samples: ShortArray, count: Int) }
 
 /** The few calls an envelope makes of an extractor: the platform's for a file, Media3's for a cached stream. */
 private interface Demuxer {

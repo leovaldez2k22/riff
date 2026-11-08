@@ -32,7 +32,7 @@ class LocalDataTransferTest {
     private val opened = mutableListOf<LibraryStateDb>()
     private var hook: (String) -> Unit = {}
     private val preferenceFiles = listOf("music_collections", "search_history", "not_interested", "accessibility_display", AUDIO_BOOST_PREFS,
-        CROSSFADE_PREFS, DATA_SAVER_PREFS, "offline_settings", "account_scopes", "speed_dial_pins")
+        CROSSFADE_PREFS, DATA_SAVER_PREFS, "offline_settings", "account_scopes", "speed_dial_pins", "never_play", "phone_playlists")
     private fun prefs(name: String) = context.getSharedPreferences(name, Context.MODE_PRIVATE)
     @After fun close() { opened.forEach { it.close() } }
 
@@ -45,8 +45,10 @@ class LocalDataTransferTest {
         val searches = SearchHistory(context, Dispatchers.Unconfined)
         val hidden = NotInterestedStore(context)
         val pins = SpeedDialPins(context)
+        val neverPlay = NeverPlayStore(context)
+        val phoneLists = PhonePlaylistStore(context)
         val transfer = LocalDataTransfer(context, db, history, { store }, { searches }, { hidden }, { current }, Dispatchers.Unconfined,
-            clock::wallTimeMillis, Mutex(), events::add, { hook(it) }, maxBytes, historyCap) { pins }
+            clock::wallTimeMillis, Mutex(), events::add, { hook(it) }, maxBytes, historyCap, { neverPlay }, { phoneLists }) { pins }
     }
     private fun wipe() {
         preferenceFiles.forEach { prefs(it).edit().clear().commit() }
@@ -544,5 +546,35 @@ class LocalDataTransferTest {
         assertEquals(3, phone.events.size)
         val allowed = Regex("local_data action=(export|import_open|import) result=[a-z]+( [a-z_]+=[0-9]+)*")
         phone.events.forEach { assertTrue(it, allowed.matches(it)) }
+    }
+
+    @Test fun theNeverPlayListAndPhonePlaylistsTravelWithTheirAccount() {
+        // 0.30.0: both belong to the account; a playlist arrives without its YouTube Music copy, and again adds nothing.
+        wipe()
+        val source = Phone()
+        source.neverPlay.add(accountA, NeverPlayEntry(id(1), false, "Song 1", 5))
+        source.neverPlay.add(accountA, NeverPlayEntry("UC" + "x".repeat(22), true, "Artist", 6))
+        val list = source.phoneLists.create(accountA, "Road trip", listOf(track(2), track(3), track(2)))!!
+        source.phoneLists.update(accountA, list.id) { it.copy(remoteId = "PLcopied", copied = it.songs.take(1).mapTo(HashSet()) { s -> s.occurrence }) }
+        val bytes = source.exported(accountA)
+        val text = bytes.toString(Charsets.UTF_8)
+        assertFalse("The account's playlist id stays out", "PLcopied" in text)
+        wipe()
+        val fresh = Phone()
+        val plan = fresh.plan(bytes)
+        assertEquals(SectionCounts(neverPlay = 2, phoneLists = 1, phoneSongs = 3), plan.sections.single().counts.copy(plays = 0, searches = 0))
+        val report = fresh.report(bytes)
+        assertEquals(2, report.added.neverPlay); assertEquals(1, report.added.phoneLists)
+        assertTrue(fresh.neverPlay.contains(accountA, id(1), false) && fresh.neverPlay.contains(accountA, "UC" + "x".repeat(22), true))
+        val arrived = fresh.phoneLists.lists(accountA).single()
+        assertEquals(list.id, arrived.id); assertEquals("Road trip", arrived.name)
+        assertEquals(listOf(id(2), id(3), id(2)), arrived.songs.map { it.track.videoId })
+        assertEquals(3, arrived.songs.map { it.occurrence }.distinct().size)
+        assertNull(arrived.remoteId); assertTrue(arrived.copied.isEmpty())
+        val again = fresh.report(bytes)
+        assertEquals(0, again.added.neverPlay + again.added.phoneLists)
+        assertEquals(1, fresh.phoneLists.lists(accountA).size)
+        // Neither is the device's: a device section with them is not read.
+        assertTrue(fresh.plan(file("""{"t":"owner","kind":"device"}""", """{"t":"never_play","key":"${id(9)}","artist":false}""")).malformed > 0)
     }
 }

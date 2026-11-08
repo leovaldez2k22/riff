@@ -49,6 +49,29 @@ class AnalysisStoreTest {
         assertNotNull(plain.read("yt:p:tail"))
     }
 
+    @Test fun switchingToLightReusesTheEnvelopeAndPreservesModelBytesForTheReturn() {
+        val key = "yt:shared:tail"
+        val plus = AnalysisStore(folder.root, version = ANALYSIS_VERSION_MODEL)
+        plus.write(key, envelope())
+        val file = folder.root.listFiles()!!.single()
+        val original = file.readBytes()
+        val riff = AnalysisStore(folder.root, version = ANALYSIS_VERSION)
+        val light = riff.read(key, beatModel = false)!!
+        assertArrayEquals(envelope().loudnessDb, light.loudnessDb, 0f)
+        assertNull("the light reader uses the envelope without learned beats", light.beats)
+        assertArrayEquals("reading never rewrites the model analysis", original, file.readBytes())
+        assertNotNull("returning to Plus still has its beat grid", plus.read(key)!!.beats)
+    }
+
+    @Test fun anUnsupportedModelRequestDoesNotDeleteAValidOtherEditionCache() {
+        val key = "yt:shared:head"
+        AnalysisStore(folder.root, version = ANALYSIS_VERSION_MODEL).write(key, envelope())
+        val riff = AnalysisStore(folder.root)
+        assertNull(riff.read(key, beatModel = true))
+        assertNotNull(riff.read(key, beatModel = false))
+        assertNotNull(AnalysisStore(folder.root, version = ANALYSIS_VERSION_MODEL).read(key))
+    }
+
     @Test fun missingOtherKeysAndOtherVersionsReadAsNothing() {
         val store = AnalysisStore(folder.root)
         assertNull(store.read("yt:none:tail"))

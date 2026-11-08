@@ -14,15 +14,31 @@ Design reference images and retired prototype assets are not bundled in the APK.
 The app bundles [Inter 4.1](https://github.com/rsms/inter) (the variable font), copyright The Inter Project Authors,
 under the SIL Open Font License 1.1. See [licenses/INTER-OFL.txt](licenses/INTER-OFL.txt).
 
-Automix's beat model is [Beat This!](https://github.com/CPJKU/beat_this)'s `small0`, converted to ONNX and its
+From the 0.30.0 edition split, Riff+ alone bundles Automix's beat model, [Beat This!](https://github.com/CPJKU/beat_this) `small0`, converted to ONNX and its
 weights quantized to int8 (`assets/automix/beat-this-small0-int8.onnx`), copyright 2024 Institute of Computational
 Perception, JKU Linz, Austria, under the MIT License. See [licenses/BEAT-THIS-MIT.txt](licenses/BEAT-THIS-MIT.txt).
 `BeatModel.kt` ports its pre- and post-processing from that code.
 
-The app bundles [ONNX Runtime 1.31.1](https://github.com/microsoft/onnxruntime) for Android, copyright Microsoft
+Riff+ bundles the 2-stems model of [Spleeter](https://github.com/deezer/spleeter) (release v1.4.0), copyright 2019-present
+Deezer SA, under the MIT License, for Sing: its weights converted to ONNX at full precision (`assets/sing/spleeter-2stems.onnx`,
+[scripts/sing](scripts/sing/convert_spleeter.py)). See [licenses/SPLEETER-MIT.txt](licenses/SPLEETER-MIT.txt). `SingDsp.kt` ports
+its transform from Spleeter's code. Spleeter is described in Hennequin, Khlif, Voituret and Moussallam, "Spleeter: a fast and
+efficient music source separation tool with pre-trained models", Journal of Open Source Software 5(50), 2154 (2020),
+doi:10.21105/joss.02154. As its authors ask: separate only music you have the rights to use; Sing keeps what it makes on
+your phone and never shares it.
+
+Riff+ bundles [ONNX Runtime 1.31.1](https://github.com/microsoft/onnxruntime) for Android, copyright Microsoft
 Corporation, under the MIT License. See [licenses/ONNXRUNTIME-MIT.txt](licenses/ONNXRUNTIME-MIT.txt). Its native library
 contains third-party components listed in ONNX Runtime's
 [ThirdPartyNotices.txt](https://github.com/microsoft/onnxruntime/blob/v1.31.1/ThirdPartyNotices.txt).
+
+Riff+ bundles headphone profiles from [AutoEq](https://github.com/jaakkopasanen/AutoEq) (results at commit 7ae0f56,
+20 July 2025), copyright 2018-2022 Jaakko Pasanen, under the MIT License; see [licenses/AUTOEQ-MIT.txt](licenses/AUTOEQ-MIT.txt),
+which is also carried inside the list (`assets/autoeq/profiles.tsv`). Riff fitted each profile to its seven bands
+([scripts/autoeq](scripts/autoeq/README.md)). The measurements behind them are those AutoEq credits, named in the app on every
+profile: oratory1990, crinacle, Innerfidelity, Rtings, Headphone.com Legacy, HypetheSonics, Super Review, Kuulokenurkka,
+Auriculares Argentina, Bakkwatan, DHRME, Fahryst, Filk, Harpo, Hi End Portable, Jaytiss, Kazi, Regan Cipher, RikudouGoku,
+Ted's Squig Hoard, ToneDeafMonk, freeryder05 and kr0mka.
 
 YouTube Music and YouTube are trademarks of Google LLC. This is an independent client and is
 not affiliated with or endorsed by Google or YouTube.
@@ -32,8 +48,8 @@ not affiliated with or endorsed by Google or YouTube.
 
 Every other runtime dependency, its version and its declared license is listed in
 [docs/dependency-license-audit.csv](docs/dependency-license-audit.csv) and summarized in
-[docs/dependency-license-inventory.md](docs/dependency-license-inventory.md): Apache-2.0 for AndroidX, Kotlin,
-Ktor, OkHttp, Okio, Coil and Guava, MIT for SLF4J, and Google's Android SDK terms for the
+[docs/dependency-license-inventory.md](docs/dependency-license-inventory.md): Apache-2.0 for AndroidX (CameraX too, Riff+ only), Kotlin,
+Ktor, OkHttp, Okio, Coil, Guava and ZXing (Riff+ only, for the blend code), MIT for SLF4J, and Google's Android SDK terms for the
 Google Play services parts Cast uses (closed source, distributed by Google). That inventory is declared metadata, not a
 legal review.
 

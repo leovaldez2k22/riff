@@ -4,6 +4,7 @@ import android.graphics.RenderEffect
 import android.graphics.RuntimeShader
 import android.graphics.Shader
 import android.os.Build
+import androidx.annotation.ChecksSdkIntAtLeast
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -189,9 +190,11 @@ internal class GlassPiece {
     val layer = rememberGraphicsLayer()
     val piece = remember { GlassPiece() }
     val solid = style.quality == GlassQuality.Solid
+    // Android 11 has no blur: the glass reads nothing and draws its tinted fill, as it does with no page beneath.
+    val page = backdrop.takeIf { GLASS_CAN_BLUR }
     val view = LocalView.current
-    DisposableEffect(backdrop, solid, view) {
-        val reading = backdrop.takeUnless { solid }
+    DisposableEffect(page, solid, view) {
+        val reading = page.takeUnless { solid }
         reading?.let { it.readers++ }
         // Before every frame the window draws (and only then: a still screen draws none), the piece reads the page again.
         val refresh = android.view.ViewTreeObserver.OnPreDrawListener { reading?.let { piece.read(layer, it) }; true }
@@ -210,7 +213,7 @@ internal class GlassPiece {
             drawContent(); return@drawWithContent
         }
         val path = Path().apply { addRoundRect(shape) }
-        if (backdrop == null) drawPath(path, Color(0xFF171C27).copy(alpha = .9f))
+        if (page == null) drawPath(path, Color(0xFF171C27).copy(alpha = .9f))
         else {
             val blur = spec.blur * density
             // A rim that reads outward reads as far out as it bends.
@@ -218,7 +221,7 @@ internal class GlassPiece {
             val area = IntSize(ceil(size.width + 2 * reach).toInt(), ceil(size.height + 2 * reach).toInt())
             layer.renderEffect = glassEffect(piece, spec, blur, reach, size.width, size.height, radius, density, zoom())
             piece.area = area; piece.reach = reach; piece.density = Density(density, fontScale)
-            piece.read(layer, backdrop)
+            piece.read(layer, page)
             clipPath(path) { translate(-reach, -reach) { drawLayer(layer) } }
         }
         drawPath(path, spec.tint)
@@ -229,8 +232,13 @@ internal class GlassPiece {
     }
 }
 
+/** RenderEffect, and with it every blur the glass draws, arrived in Android 12 (API 31). */
+@get:ChecksSdkIntAtLeast(api = 31)
+internal val GLASS_CAN_BLUR: Boolean = Build.VERSION.SDK_INT >= 31
+
 internal fun glassEffect(piece: GlassPiece, spec: GlassSpec, blur: Float, reach: Float, width: Float, height: Float,
     radius: Float, density: Float, zoom: Float): androidx.compose.ui.graphics.RenderEffect? {
+    if (!GLASS_CAN_BLUR) return null
     val blurEffect = if (blur > 0f) RenderEffect.createBlurEffect(blur, blur, Shader.TileMode.CLAMP) else null
     if (!spec.lens || Build.VERSION.SDK_INT < 33) return blurEffect?.asComposeRenderEffect()
     val lens = (piece.lens as? GlassLens) ?: GlassLens().also { piece.lens = it }

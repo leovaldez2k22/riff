@@ -113,7 +113,7 @@ class PlayerFixesDeviceTest {
      */
     @Test fun aSlowSlideUpShowsOneTitle() = slowSlideUp(solid = false)
 
-    /** Q18-068: with solid controls (Riff Lite's default) the mini player's border is brighter, and the morph's was not. */
+    /** Q18-068: with solid controls enabled the mini player's border is brighter, and the morph's was not. */
     @Test fun aSlowSlideUpShowsOneTitleWithSolidControls() = slowSlideUp(solid = true)
 
     private fun slowSlideUp(solid: Boolean) {

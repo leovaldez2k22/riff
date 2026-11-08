@@ -259,4 +259,15 @@ class ProviderMutationTest {
         val result=addTrackToPlaylist(large.provider,large.provider,owned,"Fixture list",track(absent))
         assertEquals("Fixture list is too large for Riff to check for this song",result.exceptionOrNull()?.message);assertEquals(0,large.edits())
     }
+
+    @Test fun severalSongsGoInOnceEachAfterOneRead()=runBlocking {
+        // Feature 22: songs already there, or picked twice, are left alone and counted.
+        val w=world();w.script {ok("edit-succeeded.json")}
+        fun track(id:String)=ProviderTrack(id,"Fixture","Fixture Artist")
+        val result=addTracksToPlaylist(w.provider,w.provider,owned,"Fixture list",listOf(track(absent),track(present),track(absent))).getOrThrow()
+        assertEquals(PlaylistSongsResult(1,2),result);assertEquals(1,w.edits())
+        assertEquals("Fixture list is read-only",addTracksToPlaylist(w.provider,w.provider,public,"Fixture list",listOf(track(absent))).exceptionOrNull()?.message)
+        assertTrue("An account switch stops it",addTracksToPlaylist(w.provider,w.provider,owned,"Fixture list",listOf(track("fxsong00008"))) {false}.isFailure)
+        assertEquals(1,w.edits())
+    }
 }

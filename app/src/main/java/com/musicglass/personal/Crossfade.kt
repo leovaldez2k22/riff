@@ -80,6 +80,11 @@ internal fun blendMode(wire: String?, smart: Boolean): BlendMode =
     BlendMode.entries.firstOrNull { it.wire == wire } ?: if (smart) BlendMode.Smart else BlendMode.Crossfade
 internal fun blendMode(prefs: SharedPreferences): BlendMode = blendMode(prefs.getString(BLEND_MODE_KEY, null), prefs.getBoolean(SMART_CROSSFADE_KEY, false))
 
+/** Interpret a stored choice without changing it, so returning to Plus restores Automix. */
+internal fun effectiveBlendMode(stored: BlendMode): BlendMode =
+    if (stored in Edition.blendModes) stored else BlendMode.Smart
+internal fun effectiveBlendMode(prefs: SharedPreferences): BlendMode = effectiveBlendMode(blendMode(prefs))
+
 internal fun crossfadeSkipsItem(item:MediaItem):Boolean {
     val extras=item.mediaMetadata.extras
     // Audio items also carry videoUri=null. Presence of the key does not mean there is a video.
@@ -99,10 +104,11 @@ internal class CrossfadeSettings(context: Context) {
     var seconds by mutableIntStateOf(crossfadeSeconds(prefs.getInt("seconds", 6))); private set
     fun updateEnabled(value: Boolean) { enabled = value; prefs.edit { putBoolean("enabled", value) } }
     fun updateSeconds(value: Int) { seconds = crossfadeSeconds(value); prefs.edit { putInt("seconds", seconds) } }
-    var mode by mutableStateOf(blendMode(prefs)); private set
-    fun updateMode(value: BlendMode) { mode = value; prefs.edit { putString(BLEND_MODE_KEY, value.wire) } }
+    private var storedMode by mutableStateOf(blendMode(prefs))
+    val mode: BlendMode get() = effectiveBlendMode(storedMode)
+    fun updateMode(value: BlendMode) { storedMode = value; prefs.edit { putString(BLEND_MODE_KEY, value.wire) } }
     /** Reads the stored values again, after an import wrote them. */
-    fun reload() { enabled = prefs.getBoolean("enabled", false); seconds = crossfadeSeconds(prefs.getInt("seconds", 6)); mode = blendMode(prefs) }
+    fun reload() { enabled = prefs.getBoolean("enabled", false); seconds = crossfadeSeconds(prefs.getInt("seconds", 6)); storedMode = blendMode(prefs) }
 }
 
 /** Equal-power curves keep the blend about as loud as either song: (outgoing, incoming). */
@@ -220,9 +226,9 @@ internal class Crossfader(private val context: Context, private val scope: Corou
     /** Feature 9, Path A: where the outgoing song's sound ends, so the plain blend finishes there and not in its silence. */
     private val audibleEnd:(MediaItem)->Long?={null},
     /** Sets how far the outgoing (tail) and incoming (main) players' equalizers cut the bass and what is above it. */
-    private val shelves:(Shelves,Shelves)->Unit={_,_->},
+    private val shelves:((Shelves,Shelves)->Unit)?=null,
     /** Report 1.5: arms (or, with null, disarms) the outgoing (tail) player's echo-out. */
-    private val echo:(EchoOut?)->Unit={},private val log: (String) -> Unit) {
+    private val echo:((EchoOut?)->Unit)?=null,private val log: (String) -> Unit) {
     private val prefs = context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE)
     private var monitor: Job? = null
     private var fade: Job? = null
@@ -286,7 +292,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                 val nextIndex=main.nextMediaItemIndex
                 val skipNext=nextIndex<0 || crossfadeSkipsItem(main.getMediaItemAt(nextIndex))
                 // Automix stage 1: the analysed end and outro move the blend; without them it is the plain one, with the bass swap.
-                val blend=if(nextIndex>=0 && !skipNext && blendMode(prefs)!=BlendMode.Crossfade) smart(item,main.getMediaItemAt(nextIndex)) else null
+                val blend=if(nextIndex>=0 && !skipNext && effectiveBlendMode(prefs)!=BlendMode.Crossfade) smart(item,main.getMediaItemAt(nextIndex)) else null
                 val plan=blend?.plan?.takeIf {main.duration>0 && it.endMs<=main.duration}
                 val fadeMs = plan?.blendMs ?: (crossfadeSeconds(prefs.getInt("seconds", 6)) * 1_000L)
                 val endMs = plan?.endMs ?: audibleEnd(item)?.takeIf {main.duration>0 && it<=main.duration} ?: main.duration
@@ -333,7 +339,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
             log("crossfade_prepared")
             // Armed now, in the song's own time: the player processes its audio well ahead of what is heard, so arming
             // it at the blend would miss the start of the send.
-            plan?.echo?.let(echo)
+            plan?.echo?.let { echo?.invoke(it) }
             var bufferedSince:Long?=null
             while(endMs-main.currentPosition>fadeMs+12_000 || !main.isPlaying) {
                 if(abandoned() || main.playerError!=null || main.playbackState==Player.STATE_ENDED) {log("crossfade_skipped reason=left_before_warmup");return}
@@ -462,7 +468,8 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                 val levels=owner.levels(held,clock(),main.isPlaying,tail.isPlaying)?:break
                 // Where the outgoing song is: the swap and the trim are placed in its time.
                 val songAt=endMs-overlap+(levels.progress*overlap).toLong()
-                if(smart && echoOut==null) {
+                // Bass compensation requires the matching filters. Riff keeps equal-power levels and Smart timing.
+                if(smart && echoOut==null && shelves!=null) {
                     // Report 1.1: the bass leaves the fade; each player plays at the louder of its body and its bass.
                     val share=bassShare(songAt,swap)
                     val outgoing=deckLevel(levels.outgoing,if(held.outgoingEnded) 0f else held.base*(1-share))
@@ -471,7 +478,7 @@ internal class Crossfader(private val context: Context, private val scope: Corou
                     val trim=dbToGain(plan?.trimAt(songAt)?:0f)
                     tail.volume = (outgoing.volume*trim).coerceAtMost(1f)
                     main.volume = (incoming.volume*trim).coerceAtMost(1f)
-                    shelves(outgoing.shelves,incoming.shelves)
+                    shelves.invoke(outgoing.shelves,incoming.shelves)
                 } else {
                     tail.volume = levels.outgoing
                     main.volume = levels.incoming
@@ -484,8 +491,8 @@ internal class Crossfader(private val context: Context, private val scope: Corou
         catch (e: Exception) { log("crossfade_failed type=${e::class.simpleName}") }
         finally {
             runCatching { tail.volume=0f }
-            if(smart) shelves(Shelves(),Shelves())
-            if(plan?.echo!=null) echo(null)
+            if(smart) shelves?.invoke(Shelves(),Shelves())
+            if(plan?.echo!=null) echo?.invoke(null)
             // Only a blend that still holds the level puts it back; cancel() may already have, once.
             owner.release(grant)?.let {clearVisualBlend();main.volume=it}
             if(activeTail===tail) activeTail=null
@@ -502,8 +509,8 @@ internal class Crossfader(private val context: Context, private val scope: Corou
     fun cancel() {
         // Coroutine cleanup runs later: mute and pause now so user actions cannot leave overlap.
         activeTail?.let {it.volume=0f;it.pause()}
-        shelves(Shelves(),Shelves())
-        echo(null)
+        shelves?.invoke(Shelves(),Shelves())
+        echo?.invoke(null)
         expectedTransition=null
         expectedSeek=null
         // Restore synchronously before a sleep timer or another volume owner captures the level.

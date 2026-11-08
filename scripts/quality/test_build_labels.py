@@ -28,7 +28,11 @@ class BuildLabelsTest(unittest.TestCase):
         gradle = (APP.parent / "build.gradle.kts").read_text(encoding="utf-8")
         for source_set, (placeholder, name) in PLACEHOLDERS.items():
             self.assertEqual("${" + placeholder + "}", label_ref(source_set))
-            self.assertIn(f'manifestPlaceholders["{placeholder}"] = if (sideBySide) "{name}"', gradle)
+            resource = f"{source_set}_app_name"
+            self.assertIn(f'manifestPlaceholders["{placeholder}"] = if (sideBySide) "@string/{resource}"', gradle)
+            for edition, prefix in (("riff", "Riff"), ("plus", "Riff+")):
+                strings = (APP / edition / "res/values/edition.xml").read_text(encoding="utf-8")
+                self.assertIn(f'<string name="{resource}">{prefix} {source_set.title()}</string>', strings)
 
     def test_no_two_names_alike_and_none_is_riff(self):
         names = list(OWN_LABELS.values()) + [name for _, name in PLACEHOLDERS.values()]

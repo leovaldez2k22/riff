@@ -192,12 +192,15 @@ internal fun earlierDataSummary(earlier: UnassignedInventory): String {
 }
 
 /** Settings → Library → Not interested: everything hidden with "Not interested", each with Undo. */
-@Composable internal fun NotInterestedScreen(model: ShellModel, bottom: Dp, onNotice: (String) -> Unit) {
+@Composable internal fun NotInterestedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGateway, onNotice: (String) -> Unit) {
     val context = LocalContext.current
     val store = remember(context) { NotInterestedStore.get(context) }
     val provider = remember(context) { YouTubeMusicProvider.shared(context) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val entries = store.entries.asReversed()
+    val never = remember(context) { NeverPlayStore.get(context) }
+    val scopeKey = OfflineMusicStore.get(context).currentScope
+    val blocked = never.revision.let { never.entries(scopeKey) }
     ScreenList(model, bottom) {
         item { BackHeading(string(R.string.settings), model::back) }
         item { ScreenTitle(string(R.string.not_interested), string(R.string.riff_hides_these_from_home_and_autoplay)) }
@@ -224,5 +227,6 @@ internal fun earlierDataSummary(earlier: UnassignedInventory): String {
             Text(string(R.string.youtube_music_keeps_its_own_record_of), color = Muted, fontSize = 12.sp,
                 modifier = Modifier.padding(top = 8.dp))
         }
+        neverPlayItems(blocked) { entry -> toggleNeverPlay(context, playback, entry, onNotice) }
     }
 }

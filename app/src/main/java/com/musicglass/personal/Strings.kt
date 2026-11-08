@@ -60,18 +60,22 @@ internal object DefaultStrings {
         (R.string::class.java.fields.asSequence() + R.plurals::class.java.fields.asSequence()).associate { it.getInt(null) to it.name }
     }
     private val entries: Map<String, Map<String, String>> by lazy {
-        val stream = checkNotNull(DefaultStrings::class.java.classLoader?.getResourceAsStream("strings.xml")) { "Strings were asked for before the application started" }
-        val root = stream.use { DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(it).documentElement }
-        val nodes = root.childNodes
+        val loader = DefaultStrings::class.java.classLoader
+        val shared = checkNotNull(loader?.getResourceAsStream("strings.xml")) { "Strings were asked for before the application started" }
+        val streams = listOfNotNull(shared, loader.getResourceAsStream("edition.xml"))
         buildMap {
-            for (i in 0 until nodes.length) {
-                val node = nodes.item(i) as? Element ?: continue
-                when (node.tagName) {
-                    "string" -> put(node.getAttribute("name"), mapOf("other" to unescape(node.textContent)))
-                    "plurals" -> put(node.getAttribute("name"), buildMap {
-                        val items = node.getElementsByTagName("item")
-                        for (j in 0 until items.length) (items.item(j) as Element).let { put(it.getAttribute("quantity"), unescape(it.textContent)) }
-                    })
+            for (stream in streams) {
+                val root = stream.use { DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(it).documentElement }
+                val nodes = root.childNodes
+                for (i in 0 until nodes.length) {
+                    val node = nodes.item(i) as? Element ?: continue
+                    when (node.tagName) {
+                        "string" -> put(node.getAttribute("name"), mapOf("other" to unescape(node.textContent)))
+                        "plurals" -> put(node.getAttribute("name"), buildMap {
+                            val items = node.getElementsByTagName("item")
+                            for (j in 0 until items.length) (items.item(j) as Element).let { put(it.getAttribute("quantity"), unescape(it.textContent)) }
+                        })
+                    }
                 }
             }
         }

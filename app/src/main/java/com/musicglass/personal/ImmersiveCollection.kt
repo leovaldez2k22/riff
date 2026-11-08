@@ -17,6 +17,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
@@ -188,9 +189,17 @@ import kotlinx.coroutines.launch
         if(!artist) itemsIndexed(visible,key={_,entry->"album:${entry.index}:${entry.value.key()}"}) {_,entry->
             val index=entry.index;val card=entry.value
             var menu by remember {mutableStateOf(false)}
+            val selection=LocalSongSelection.current;val occurrence="album:$index:${card.key()}"
+            val track=remember(card) {card.track()?.takeIf {!it.isLive}}
+            val pick:(()->Unit)?=if(selection!=null && track!=null) ({uiHaptic(HapticCue.Selection);selection.toggle(occurrence,track)}) else null
+            val picking=pick!=null && selection?.active==true;val picked=pick!=null && selection?.contains(occurrence)==true
             Column(Modifier.padding(horizontal=20.dp)) {
                 HorizontalDivider(color=White.copy(alpha=.1f))
-                Row(Modifier.fillMaxWidth().heightIn(min=if(playlist) 58.dp else 48.dp).clickable { uiHaptic(); play(index)}.testTag("album_track_$index"),verticalAlignment=Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().heightIn(min=if(playlist) 58.dp else 48.dp)
+                    .then(if(picked) Modifier.background(Pink.copy(alpha=.16f)) else Modifier)
+                    .then(if(pick==null) Modifier else Modifier.semantics {selected=picked
+                        customActions=listOf(CustomAccessibilityAction(string(if(picked) R.string.selection_unselect else R.string.selection_select)) {pick();true})})
+                    .combinedClickable(onLongClick=pick,onClick=if(picking) pick!! else ({ uiHaptic(); play(index)})).testTag("album_track_$index"),verticalAlignment=Alignment.CenterVertically) {
                     Text(if(playback.state.mediaId=="yt:${card.videoId}") "\u2022" else if(provider.songLikes[card.videoId]==true) "★" else "",
                         color=White.copy(alpha=.7f),modifier=Modifier.width(if(playlist) 0.dp else 18.dp))
                     if(!playlist) Text("${index+1}",color=White.copy(alpha=.65f),fontSize=18.sp,modifier=Modifier.width(34.dp))

@@ -28,7 +28,7 @@ internal val builtInMoods = listOf(
 
 /** Whether [now] is what [mood] sets: the length counts only for the plain crossfade, Data saver only when it sets it. */
 internal fun moodMatches(mood: MoodValues, now: MoodValues): Boolean =
-    mood.blend == now.blend && (!mood.blend || mood.mode == now.mode) &&
+    mood.blend == now.blend && (!mood.blend || effectiveBlendMode(mood.mode) == effectiveBlendMode(now.mode)) &&
         (!mood.blend || mood.mode != BlendMode.Crossfade || mood.seconds == now.seconds) &&
         mood.boost == now.boost && mood.normalize == now.normalize && (mood.dataSaver == null || mood.dataSaver == now.dataSaver)
 

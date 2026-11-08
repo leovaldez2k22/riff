@@ -159,6 +159,7 @@ internal suspend fun requestCollectionDownload(context:Context,tracks:List<Provi
             finally {clearingCache=false}
         }},modifier=Modifier.testTag("confirm_clear_cache")) {Text(if(cacheFailure==null) string(R.string.clear_cache) else string(R.string.try_again),color=Pink)}},
         dismissButton={TextButton(enabled=!clearingCache,onClick={confirmClearCache=false;cacheFailure=null}) {Text(if(cacheFailure==null) string(R.string.cancel) else string(R.string.close))}})
+    Edition.SingStorageRow(onNotice)
 }
 
 private data class DownloadDisplay(val song:OfflineSong,val ready:Boolean,val artwork:String?)
@@ -260,6 +261,11 @@ private data class DownloadListing(val entries:List<DownloadDisplay>,val used:Lo
         itemsIndexed(visible,key={_,entry->entry.song.track.videoId}) {index,entry->
             val song=entry.song;var menu by remember(song.track.videoId) {mutableStateOf(false)}
             val active=song.status?.pending==true
+            // Feature 9 and 15: a finished download of the account in use, as a ringtone or (Riff+) an M4A file.
+            val own=entry.ready && !active && song.scope==store.currentScope
+            var ringtone by remember(song.track.videoId) {mutableStateOf(false)}
+            if(ringtone) RingtoneDialog(song.track,song.scope,song.durationMs,{ringtone=false},onNotice)
+            val export=if(own) Edition.downloadExport(song.track,song.scope,song.durationMs,onNotice) else null
             Column(Modifier.padding(horizontal=20.dp).testTag("download_${song.track.videoId}")) {
                 HorizontalDivider(color=White.copy(alpha=.1f))
                 Row(Modifier.fillMaxWidth().heightIn(min=60.dp).clickable {if(entry.ready) play(song.track.videoId) else {uiHaptic();detailsId=song.track.videoId}}
@@ -280,6 +286,8 @@ private data class DownloadListing(val entries:List<DownloadDisplay>,val used:Lo
                             if(song.status==DownloadState.Failed || song.status==DownloadState.Paused || song.status==null || song.artworkState=="failed" || song.lyricsState=="failed")
                                 SongActionItem(downloadRetryLabel(entry.ready),onClick={menu=false;scope.launch {requestSongDownload(context,song.track,onNotice)}})
                             if(!song.pinned && entry.ready) SongActionItem("Keep downloaded",onClick={menu=false;scope.launch {requestSongDownload(context,song.track,onNotice)}})
+                            if(own && song.durationMs>=RINGTONE_MIN_MS) SongActionItem("Set as ringtone",onClick={menu=false;ringtone=true})
+                            export?.let {start->SongActionItem("Export as M4A",onClick={menu=false;start()})}
                             if(active) SongActionItem("Pause download",onClick={menu=false;scope.launch {withContext(Dispatchers.IO) {store.pause(song.scope,song.track.videoId)}}})
                             SongActionItem("Remove download",onClick={menu=false;scope.launch {requestSongRemoval(context,song.track,onNotice,song.scope)}})
                         }

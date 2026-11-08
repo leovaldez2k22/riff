@@ -1,6 +1,6 @@
 # Riff CI: the deterministic pull-request lane of scripts/quality/verify.py (Q16): script tests, static checks,
 # JVM and Compose tests, release lint, an unsigned shrunk release with its build identity, the release content
-# check, the 40 MiB ceiling and the solver seam. The signing key never comes here: release builds are unsigned.
+# check, the 16 MiB Riff ceiling (Riff+ has no size limit) and the solver seam. The signing key never comes here: release builds are unsigned.
 # The emulator lane is emulator.yml; physical-device, benchmark and live lanes run locally (docs/quality/ci-lanes.md).
 name: CI
 
@@ -26,7 +26,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -40,7 +40,7 @@ jobs:
         with:
           packages: 'platforms;android-37.0 build-tools;36.0.0 platform-tools'
 
-      # Caches Gradle and validates the wrapper; the build uses ./gradlew (Gradle 8.13).
+      # Caches Gradle and validates the wrapper; the build uses ./gradlew (Gradle 9.8.2).
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
       # Robolectric downloads android-all jars into the Maven local repository.

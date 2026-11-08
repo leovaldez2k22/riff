@@ -61,7 +61,7 @@ internal class TrackEnvelope(val startMs: Long, val loudnessDb: FloatArray, val 
 /** Builds a [TrackEnvelope] from 16-bit PCM, fed in pieces as it is decoded. */
 internal class EnvelopeBuilder(private val sampleRate: Int, private val channels: Int, private val startMs: Long,
     /** Automix stage 4: when there is one, the beats are the model's, from the window kept here as one channel. */
-    private val model: BeatLogits? = null) {
+    private val model: BeatAnalysis? = null) {
     private val blockFrames = (sampleRate * ENVELOPE_BLOCK_MS / 1_000).coerceAtLeast(1)
     // Two one-pole low-passes at 150 Hz: a gentle split, enough to tell where the kick and bass are.
     private val lowCoefficient = (1 - exp(-2 * PI * 150 / sampleRate)).toFloat()
@@ -92,7 +92,7 @@ internal class EnvelopeBuilder(private val sampleRate: Int, private val channels
 
     /** The model's beats when there is a model and it found a pulse, else stage 2's. */
     private fun beats(): BeatGrid? = model?.let { m ->
-        try { modelBeats(window.copyOf(windowSize), sampleRate, startMs, m) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
+        try { m.beats(window.copyOf(windowSize), sampleRate, startMs) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
     } ?: onsets.beats()
 }
 

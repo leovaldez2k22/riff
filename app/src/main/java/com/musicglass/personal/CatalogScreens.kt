@@ -37,6 +37,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -98,7 +101,16 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     // A page that could not be added stays said on screen, next to the button that tries it again.
     var moreError by remember { mutableStateOf<String?>(null) }
     var retry by remember { mutableIntStateOf(0) }
+    // Feature 7: lyrics search reads only this phone's downloads; the phrase is never sent or kept in history.
+    val lyricsMode=model.searchFilter==LYRICS_SEARCH_FILTER
+    var lyricHits by remember { mutableStateOf<List<LyricsSearchHit>?>(null) }
+    val downloadsRevision by remember(context) { OfflineMusicStore.get(context).revision }.collectAsState()
+    LaunchedEffect(model.searchQuery,lyricsMode,downloadsRevision) {
+        if(!lyricsMode || model.searchQuery.isBlank()) { lyricHits=null;return@LaunchedEffect }
+        delay(250);lyricHits=withContext(Dispatchers.IO) {LyricsSearchIndex.search(context,model.searchQuery)}
+    }
     LaunchedEffect(model.searchQuery,model.searchFilter,provider.authRevision,retry) {
+        if(lyricsMode) { cards=emptyList();next=null;error=null;loading=false;return@LaunchedEffect }
         if(retry==0 && model.searchSnapshot?.let {it.query==model.searchQuery && it.filter==model.searchFilter && it.authRevision==provider.authRevision && it.cards===cards}==true) return@LaunchedEffect
         cards=emptyList();next=null;error=null;moreError=null;pageTokens=PageTokens()
         if(model.searchQuery.isBlank()) { loading=false;return@LaunchedEffect }
@@ -119,11 +131,11 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
     var suggestions by remember { mutableStateOf(SearchSuggestions()) }
     val suggestionsOn=remember(context) {searchSuggestionsOn(context)}
     LaunchedEffect(model.searchQuery,typing,provider.authRevision) {
-        if(!typing || !suggestionsOn || model.searchQuery.isBlank()) { suggestions=SearchSuggestions();return@LaunchedEffect }
+        if(!typing || !suggestionsOn || lyricsMode || model.searchQuery.isBlank()) { suggestions=SearchSuggestions();return@LaunchedEffect }
         delay(SEARCH_SUGGESTIONS_DEBOUNCE_MS)
         provider.searchSuggestions(model.searchQuery).onSuccess {suggestions=it}
     }
-    fun searchFor(query:String) {history.record(query);model.searchQuery=query;keyboard?.hide();focusManager.clearFocus()}
+    fun searchFor(query:String) {if(!lyricsMode) history.record(query);model.searchQuery=query;keyboard?.hide();focusManager.clearFocus()}
     ScreenList(model,bottom) {
         item { ScreenTitle(string(R.string.search),string(R.string.songs_albums_artists_and_playlists)) }
         item { OutlinedTextField(model.searchQuery,{ model.searchQuery=it.take(160) },singleLine=true,shape=RoundedCornerShape(28.dp),
@@ -137,7 +149,24 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
             listOf("All","Songs","Albums","Artists","Playlists","Podcasts","Videos").forEach { kind ->
                 GlassCategoryChip(kind,"search:$kind",model.searchFilter==kind) {model.searchFilter=kind}
             }
+            GlassCategoryChip(string(R.string.search_lyrics),"search:$LYRICS_SEARCH_FILTER",lyricsMode,tag="search_lyrics") {model.searchFilter=LYRICS_SEARCH_FILTER}
         } }
+        if(lyricsMode) {
+            val hits=lyricHits
+            if(hits.isNullOrEmpty()) item(key="lyrics:state") { ContentEmpty(string(when {
+                model.searchQuery.isBlank() -> R.string.search_lyrics_hint
+                hits==null -> R.string.searching
+                else -> R.string.search_lyrics_none })) }
+            else items(hits,key={"lyrics:${it.track.videoId}"}) {hit->
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(RiffRadius.artwork)).clickable { uiHaptic();keyboard?.hide()
+                    scope.launch {playRealTrack(provider,playback,hit.track,onNotice)} }.padding(vertical=10.dp).testTag("lyrics_hit")) {
+                    Text(hit.track.title,color=White,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    Text(playerArtistLabel(hit.track.artist),color=Muted,fontSize=RiffType.detail,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    Text("“${hit.excerpt}”",color=White.copy(alpha=.8f),fontSize=RiffType.body,maxLines=2,overflow=TextOverflow.Ellipsis,modifier=Modifier.padding(top=4.dp))
+                }
+            }
+            return@ScreenList
+        }
         if(model.searchQuery.isBlank() && history.entries.isNotEmpty()) {
             item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                 Text(string(R.string.recent_searches),color=White,modifier=Modifier.weight(1f));TextButton(hapticClick(history::clear)) {Text(string(R.string.clear_all))}
@@ -287,6 +316,7 @@ internal fun openCatalogCard(model: ShellModel, card: ProviderHomeCard, play: (P
         item(key="encore") {EncoreLibraryCard(model,provider)}
         if(!provider.signedIn) item {ToolLink(string(R.string.sign_in_to_youtube_music)){model.push(Route.Account)}}
         if(provider.signedIn && kind=="Playlists") item(key="new_playlist") {ToolLink(string(R.string.new_playlist)) {uiHaptic();newPlaylist=true}}
+        if(kind=="Playlists" || !provider.signedIn) item(key="phone_playlists") {ToolLink(string(R.string.phone_playlists)) {uiHaptic();model.push(Route.PhonePlaylists)}}
         if(loading && cards.isEmpty()) item(key="state:loading") {ListSkeleton(string(R.string.loading_your_library))}
         error?.let {item(key="state:problem") {ContentProblem(it,onRetry={retry++},onSignIn={model.push(Route.Account)})}}
         items(cards,key={it.key()}) {card->CatalogCardRow(card,onEnqueue={scope.launch{enqueueRealTrack(provider,playback,card,onNotice)}}){open(card)}}

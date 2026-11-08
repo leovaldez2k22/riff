@@ -64,10 +64,10 @@ import kotlinx.coroutines.withContext
     val smartDownloads=remember(storeRevision) {store.smartEnabled}
     val hidden=remember(context) {NotInterestedStore.get(context)}
     val moods=remember(context) {MoodStore.get(context)}
-    val equalizerOn=remember(context) {EqualizerSettings.read(EqualizerSettings.prefs(context)).enabled}
+    val equalizerOn=remember(context) {Edition.plus && EqualizerSettings.read(EqualizerSettings.prefs(context)).enabled}
     var query by rememberSaveable {mutableStateOf("")}
     val mood=activeMood(builtInMoods+moods.kept,currentMoodValues(crossfade,audio,dataSaver),moods.chosen)
-    val automix=crossfade.enabled && crossfade.mode==BlendMode.Automix
+    val automix=crossfade.enabled && (!Edition.plus || crossfade.mode==BlendMode.Automix)
     val tiles=listOf(
         SettingsTile(SettingsSection.Sound,"sound",R.string.settings_sound,Icons.Rounded.GraphicEq,Pink,R.string.settings_keywords_sound,
             listOf(if(!crossfade.enabled) string(R.string.summary_no_crossfade) else when(crossfade.mode) {
@@ -91,8 +91,8 @@ import kotlinx.coroutines.withContext
         item {BentoHeading(string(R.string.settings_quick))}
         item {
             Row(Modifier.fillMaxWidth().bentoEnter(1),horizontalArrangement=Arrangement.spacedBy(RiffSpace.item)) {
-                QuickTile(string(R.string.quick_automix),Icons.Rounded.ShuffleOn,automix,"settings_quick_automix",Modifier.weight(1f)) {on->
-                    if(on) {crossfade.updateMode(BlendMode.Automix);crossfade.updateEnabled(true)} else crossfade.updateEnabled(false)}
+                QuickTile(string(if (Edition.plus) R.string.quick_automix else R.string.quick_blend),Icons.Rounded.ShuffleOn,automix,"settings_quick_automix",Modifier.weight(1f)) {on->
+                    if(on) {if (Edition.plus) crossfade.updateMode(BlendMode.Automix);crossfade.updateEnabled(true)} else crossfade.updateEnabled(false)}
                 QuickTile(string(R.string.quick_boost),Icons.AutoMirrored.Rounded.VolumeUp,audio.enabled,"settings_quick_boost",Modifier.weight(1f),audio::updateEnabled)
                 QuickTile(string(R.string.quick_saver),Icons.Rounded.DataSaverOn,dataSaver.enabled,"settings_quick_saver",Modifier.weight(1f),dataSaver::updateEnabled)
                 QuickTile(string(R.string.quick_haptics),Icons.Rounded.Vibration,preferences.hapticFeedback,"settings_quick_haptics",Modifier.weight(1f),preferences::updateHapticFeedback)
@@ -125,6 +125,8 @@ import kotlinx.coroutines.withContext
     }
 }
 
+internal val SettingsSearchMatch = androidx.compose.ui.semantics.SemanticsPropertyKey<Boolean>("SettingsSearchMatch")
+
 /** One of the opening page's section tiles: its icon in its colour, its name, and what is set inside. */
 private class SettingsTile(val section:SettingsSection,val id:String,val title:Int,val icon:ImageVector,val tint:Color,val keywords:Int,val summary:String)
 
@@ -132,7 +134,7 @@ private class SettingsTile(val section:SettingsSection,val id:String,val title:I
     val motion=LocalMotionPolicy.current
     // While searching, the sections that match stand out and the rest fall back.
     val shown by animateFloatAsState(if(match) 1f else .25f,GlassMotion.timed(GlassMotion.selectionMs,motion),label="section match")
-    BentoTile(modifier.graphicsLayer {alpha=shown},lit=searching && match,tint=tile.tint,onClick=onOpen,tag="settings_group_${tile.id}") {
+    BentoTile(modifier.graphicsLayer {alpha=shown}.semantics { this[SettingsSearchMatch] = match },lit=searching && match,tint=tile.tint,onClick=onOpen,tag="settings_group_${tile.id}") {
         Box(Modifier.size(RiffSettings.badge).clip(CircleShape).background(tile.tint.copy(alpha=.18f)),contentAlignment=Alignment.Center) {
             Icon(tile.icon,null,tint=tile.tint,modifier=Modifier.size(RiffSettings.badgeIcon))
         }

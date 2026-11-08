@@ -1,6 +1,6 @@
 # Documentation
 
-Current as of 0.10.0 (version code 33), 24 October 2026. Anything not listed under "Current" is a historical record, kept as written and marked as such at its top.
+Updated 7 November 2026. Published release: 0.21.0 (35). Working Android source: unreleased 0.30.0 (36). Anything not listed under "Current" is a historical record, kept as written and marked as such at its top.
 
 ## Current
 
@@ -16,7 +16,12 @@ For people building or changing it:
 - [README](../README.md): build, phones, check lanes
 - [Contributing](../CONTRIBUTING.md), [release signing](release-signing.md), [0.20.0 handover](handover-0.20.0.md) (moved to another laptop on 30 October 2026; 0.20.0 was published on 31 October, and its laptop setup notes still apply)
 - [Dependency license inventory](dependency-license-inventory.md) and its [CSV](dependency-license-audit.csv); [third-party notices](../NOTICE.md); [asset provenance](../licenses/placeholder-art.md)
-- The plan the current work follows: [Riff excellence implementation plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md)
+- The active Android plan: [0.30.0 feature implementation](feature-implementation-plan-0.30.0-2026-11-07.md). The [excellence plan](RIFF_EXCELLENCE_IMPLEMENTATION_PLAN.md) is an earlier implementation record.
+- [Riff and Riff+: the split plan](riff-plus-split-plan-2026-11-07.md): two editions from one codebase, what goes where, switching, release and checks, in stages; implementation and gate evidence are recorded in its log. Decisions behind it: [feature picks, 6 November](feature-picks-2026-11-06.md)
+- [Riff 0.30.0 feature implementation plan](feature-implementation-plan-0.30.0-2026-11-07.md): Phase 0 split prerequisite, 24 feature designs, owner decisions and phased verification.
+- [Implementation handoff](handoff-0.30.0-implementation-2026-11-07.md), with the implementation logs taking precedence after work resumed
+- [Unreleased 0.30.0 development notes](release-notes-0.30.0.md)
+- [Handoff for the feature plans of 0.30.0](handoff-feature-plans-2026-11-07.md): everything decided on 6–7 November, for the AI that writes the next plan
 - [Idle playback investigation and implementation plan](idle-playback-investigation-plan-2026-11-01.md): signed-in mini-player resume after ten minutes, evidence, staged fixes and device acceptance
 - [Owner's bug batch, 5 November](quality/owner-bug-batch-2026-11-05.md): search, Encore artists and pill, adaptive fade, sleep timer, guest-title lyrics, QQ's heading.
 - [Android startup and warm-resume audit/fixes](quality/playback-startup-warm-resume-2026-11-04.md): pipeline, reference research, hypothesis verdicts, implementation and verification

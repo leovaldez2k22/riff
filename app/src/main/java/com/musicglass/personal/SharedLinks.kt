@@ -3,6 +3,8 @@ package com.musicglass.personal
 import android.content.Intent
 import android.net.Uri
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
 
 /**
  * Feature 13: YouTube Music and YouTube links opened in Riff, by tapping one (once the owner allows it in Android's
@@ -64,8 +66,32 @@ internal object SharedLinkInbox {
     val shortcut = MutableStateFlow<AppShortcut?>(null)
 }
 
+/**
+ * Takes each request put in [inbox] and handles it to the end. The owner's bug (8 Nov): a tapped song link opened Riff
+ * and then sometimes stayed on Home. The shell emptied the inbox and then resolved the song, but emptying it changed the
+ * LaunchedEffect's key, which cancelled the resolving; only a song that resolved within a frame played. Here the empty
+ * inbox is never seen, so only a newer request cancels one still being handled.
+ */
+internal suspend fun <T : Any> drainInbox(inbox: MutableStateFlow<T?>, handle: suspend (T) -> Unit) {
+    inbox.filterNotNull().collectLatest { request ->
+        inbox.compareAndSet(request, null)
+        handle(request)
+    }
+}
+
 /** What MainActivity reads from any intent it is started or brought forward with. */
 internal fun deliverIntent(intent: Intent?) {
     sharedTargetOf(intent)?.let { SharedLinkInbox.pending.value = it }
     appShortcutOf(intent)?.let { SharedLinkInbox.shortcut.value = it }
+}
+
+/**
+ * Feature 8 (owner, Q8): the text both song menus share. The YouTube Music link as before, or with [universal] the
+ * song.link landing page for it, built here without asking any service: a recipient who opens it sees the song on
+ * their own app. Null for anything that isn't a public song id (a phone-only file has no page to share).
+ */
+internal fun songShareText(title: String, artist: String, videoId: String, universal: Boolean = false): String? {
+    if (!VIDEO_ID.matches(videoId)) return null
+    val link = "https://music.youtube.com/watch?v=$videoId"
+    return "$title · $artist\n" + if (universal) "https://song.link/$link" else link
 }

@@ -112,6 +112,9 @@ internal class LocalDataController(context: Context, private val history: Histor
             // Raises the owner's counter: a save prepared before this cannot bring the queue back.
             part("saved queue", if (runCatching { snapshots.delete(owner) }.getOrNull() == StoreOutcome.Done) 0 else null)
             part("saved tracks", runCatching { clearCollectionScope(app, owner) }.getOrNull())
+            part("never-play list", runCatching { NeverPlayStore.get(app).clear(owner) }.getOrNull())
+            part("playlists on this phone", runCatching { PhonePlaylistStore.get(app).clear(owner) }.getOrNull())
+            part("plays not yet sent", runCatching { ScrobbleOutbox.get(app).clearScope(owner) }.getOrNull())
             val files = runCatching { downloads().deleteScope(owner) }.getOrNull()
             when {
                 files == null -> remaining += "downloads"

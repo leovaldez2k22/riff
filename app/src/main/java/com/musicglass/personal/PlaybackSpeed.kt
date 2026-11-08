@@ -31,6 +31,15 @@ internal fun playbackSpeedStep(speed: Float): Float =
 internal fun playbackSpeedLabel(speed: Float): String =
     string(R.string.speed_x, if (speed % 1f == 0f) speed.toInt().toString() else playbackSpeedStep(speed).toString().trimEnd('0'))
 
+/** Feature 23 (Riff+, owner Q23): pitch in whole semitones, −6 to +6, apart from speed. */
+internal const val PITCH_MIN_STEPS = -6
+internal const val PITCH_MAX_STEPS = 6
+internal fun pitchRatio(steps: Int): Float = Math.pow(2.0, steps.coerceIn(PITCH_MIN_STEPS, PITCH_MAX_STEPS) / 12.0).toFloat()
+internal fun pitchSteps(ratio: Float): Int =
+    if (ratio <= 0f) 0 else Math.round(12 * Math.log(ratio.toDouble()) / Math.log(2.0)).toInt().coerceIn(PITCH_MIN_STEPS, PITCH_MAX_STEPS)
+/** "+2", "−3", "0". */
+internal fun pitchLabel(steps: Int) = when { steps > 0 -> "+$steps"; steps < 0 -> "−${-steps}"; else -> "0" }
+
 /**
  * Feature 15: songs and episodes keep separate speeds. An episode's speed is kept on the phone (podcast listeners
  * set it once); a song's lasts while Riff runs and starts at 1× again after a restart.
@@ -38,6 +47,10 @@ internal fun playbackSpeedLabel(speed: Float): String =
 internal class PlaybackSpeeds(private val context: Context) {
     private val prefs get() = context.applicationContext.getSharedPreferences("playback_speed", Context.MODE_PRIVATE)
     var songs = 1f; private set
+    /** Feature 23: the songs' pitch, for this run of Riff only; episodes always play at their own pitch. */
+    var songPitch = 1f; private set
+    fun pitchFor(music: Boolean): Float = if (music && Edition.plus) songPitch else 1f
+    fun rememberPitch(music: Boolean, pitch: Float) { if (music) songPitch = pitchRatio(pitchSteps(pitch)) }
     fun forKind(music: Boolean): Float = if (music) songs else playbackSpeedStep(prefs.getFloat("episodes", 1f))
     fun remember(music: Boolean, speed: Float) {
         val step = playbackSpeedStep(speed)

@@ -142,6 +142,7 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
             QueueModeButton(state.shuffle,true,Icons.Rounded.Shuffle,string(R.string.shuffle),glass,hapticClick(playback::toggleShuffle))
             QueueModeButton(state.repeat!=0,true,if(state.repeat==1) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,string(R.string.repeat),glass,hapticClick(playback::cycleRepeat))
             QueueReshuffleButton(state.queue.size>1,glass) {reshuffled=true;uiHaptic(HapticCue.Confirm);playback.reshuffleQueue()}
+            Edition.QueueOrderAction(playback,glass,Modifier.weight(1f))
         }
         Row(Modifier.fillMaxWidth().padding(top=6.dp,bottom=4.dp),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -214,11 +215,16 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
 }
 
 /** The same glass pill, but something to press and not a mode: the whole queue again, around the song playing. */
-@Composable private fun RowScope.QueueReshuffleButton(enabled:Boolean,glass:RiffBackdrop?,onClick:()->Unit) {
-    Box(Modifier.weight(1f).height(RiffQueue.buttonHeight).riffGlass(GlassRole.Button,backdrop=glass).clip(RoundedCornerShape(50))
-        .clickable(enabled=enabled,role=androidx.compose.ui.semantics.Role.Button,onClickLabel=string(R.string.reshuffle_queue),onClick=onClick)
-        .semantics {contentDescription=string(R.string.reshuffle_queue)}.testTag("queue_reshuffle"),contentAlignment=Alignment.Center) {
-        Icon(Icons.Rounded.Autorenew,null,tint=White.copy(alpha=if(enabled) 1f else .5f),modifier=Modifier.size(RiffQueue.buttonIcon))
+@Composable private fun RowScope.QueueReshuffleButton(enabled:Boolean,glass:RiffBackdrop?,onClick:()->Unit) =
+    QueueActionPill(enabled,glass,string(R.string.reshuffle_queue),Icons.Rounded.Autorenew,"queue_reshuffle",Modifier.weight(1f),onClick)
+
+/** A glass pill in the queue's row of modes that does something once (Reshuffle; Riff+'s DJ order). */
+@Composable internal fun QueueActionPill(enabled:Boolean,glass:RiffBackdrop?,label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,tag:String,
+    modifier:Modifier,onClick:()->Unit) {
+    Box(modifier.height(RiffQueue.buttonHeight).riffGlass(GlassRole.Button,backdrop=glass).clip(RoundedCornerShape(50))
+        .clickable(enabled=enabled,role=androidx.compose.ui.semantics.Role.Button,onClickLabel=label,onClick=onClick)
+        .semantics {contentDescription=label}.testTag(tag),contentAlignment=Alignment.Center) {
+        Icon(icon,null,tint=White.copy(alpha=if(enabled) 1f else .5f),modifier=Modifier.size(RiffQueue.buttonIcon))
     }
 }
 

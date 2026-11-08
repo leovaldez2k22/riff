@@ -197,7 +197,7 @@ def run_jvm(root=ROOT, offline=False):
     with tempfile.TemporaryDirectory() as folder:
         out = Path(folder) / "phases.json"
         command = [str(wrapper)] + (["--offline"] if offline else []) + [
-            ":app:testDebugUnitTest", "--tests", "com.musicglass.personal.ProviderCanaryLive", "-PriffCanaryOut=" + str(out)]
+            ":app:testRiffDebugUnitTest", "--tests", "com.musicglass.personal.ProviderCanaryLive", "-PriffCanaryOut=" + str(out)]
         done = subprocess.run(command, cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
         if not out.exists():
             return None, done.returncode

@@ -366,4 +366,35 @@ class QueueCoordinatorTest {
         until("status") { player.playlistMetadata.subtitle?.toString()?.startsWith("Couldn't load recommendations") == true }
         assertEquals(1, player.mediaItemCount)
     }
+
+    private fun addAll(vararg ids: String) = queue.playCatalogQueue(player, Bundle().apply { putBoolean("enqueueNext", true) }, saved(*ids), ticket(false)) { false }
+
+    @Test fun severalPickedSongsPlayNextOnceInTheOrderTapped() {
+        // Feature 22: after what the user already added next, in tap order; queued songs and repeats are left out.
+        queue.playCatalogQueue(player, Bundle().apply { putBoolean("autoplay", false) }, saved("yt:fxsong00001", "yt:fxsong00002", "yt:fxsong00003"), ticket()) { false }
+        add("yt:fxsong00009")
+        addAll("yt:fxsong00006", "yt:fxsong00004", "yt:fxsong00006", "yt:fxsong00002", "yt:fxsong00005")
+        assertEquals(listOf("yt:fxsong00001", "yt:fxsong00009", "yt:fxsong00006", "yt:fxsong00004", "yt:fxsong00005", "yt:fxsong00002", "yt:fxsong00003"), ids())
+        assertEquals("The current song stays", 0, player.currentMediaItemIndex)
+        assertEquals(1, resets)
+    }
+
+    @Test fun aBlockedSongIsPassedOverButTheOneTheUserStartedPlays() {
+        // Feature 5: the never-play list of the account playing.
+        val owner = OfflineMusicStore.get(context).currentScope
+        val never = NeverPlayStore.get(context)
+        val blocked = listOf("fxsong00001", "fxsong00002")
+        blocked.forEach { never.add(owner, NeverPlayEntry(it, false)) }
+        try {
+            queue.playCatalogQueue(player, Bundle().apply { putBoolean("autoplay", false) }, saved("yt:fxsong00001", "yt:fxsong00002", "yt:fxsong00003"), ticket()) { false }
+            queue.passNeverPlay(player)
+            assertEquals("Chosen: it plays once", 0, player.currentMediaItemIndex)
+            player.seekTo(1, 0); queue.passNeverPlay(player)
+            assertEquals(2, player.currentMediaItemIndex)
+            never.add(owner, NeverPlayEntry("fxsong00003", false))
+            player.seekTo(1, 0); player.playWhenReady = true; queue.passNeverPlay(player)
+            assertFalse("Nothing left that may play: it pauses", player.playWhenReady)
+            assertEquals(context.getString(R.string.never_play_all_blocked), player.playlistMetadata.subtitle?.toString())
+        } finally { (blocked + "fxsong00003").forEach { never.remove(owner, it, false) } }
+    }
 }

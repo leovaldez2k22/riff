@@ -1,5 +1,6 @@
 param(
     [string]$Milestone = 'M00',
+    [ValidateSet('riff','plus')][string]$Edition = 'riff',
     [switch]$AllowInstall,
     [string]$Python = 'python',
     [string]$Serial,
@@ -15,20 +16,20 @@ $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 . (Join-Path $PSScriptRoot 'quality\Tools.ps1'); $sdk = Resolve-RiffSdk $project
 $adb = Join-Path $sdk 'platform-tools\adb.exe'
 $wrapper = Join-Path $project 'gradlew.bat'
-$localGradle = Join-Path $project '.toolchain\gradle-8.13\bin\gradle.bat'
-$gradle = if (Test-Path -LiteralPath $localGradle) { $localGradle } else { $wrapper }
+$gradle = $wrapper
 $versionLine = Get-Content (Join-Path $project 'app\build.gradle.kts') |
     Select-String 'versionName\s*=\s*"([^"]+)"' | Select-Object -First 1
 if (-not $versionLine) { throw 'Cannot determine versionName from app/build.gradle.kts.' }
 $versionName = $versionLine.Matches[0].Groups[1].Value
+$releasePrefix = if ($Edition -eq 'plus') { 'riff-plus' } else { 'riff' }
 $apk = if ($BuildVariant -eq 'Release') {
-    Join-Path $project "artifacts\release\riff-$versionName.apk"
+    Join-Path $project "artifacts\release\$releasePrefix-$versionName.apk"
 } else {
-    Join-Path $project 'app\build\outputs\apk\debug\app-debug.apk'
+    Join-Path $project "app\build\outputs\apk\$Edition\debug\app-$Edition-debug.apk"
 }
 
 if (-not (Test-Path -LiteralPath $adb)) { throw "ADB missing at $adb. Install project-local Android platform-tools." }
-if (-not (Test-Path -LiteralPath $gradle)) { throw "Gradle missing: checked $localGradle and $wrapper." }
+if (-not (Test-Path -LiteralPath $gradle)) { throw "Gradle wrapper missing: $wrapper." }
 
 $devices = & $adb devices -l
 if ($LASTEXITCODE -ne 0) { throw 'adb devices failed.' }
@@ -56,7 +57,7 @@ try {
         & (Join-Path $project 'scripts\build-release-candidate.ps1') -SkipClean -Python $Python 2>&1 |
             Tee-Object -FilePath (Join-Path $out 'logs\build.txt')
     } else {
-        & $Python (Join-Path $PSScriptRoot 'quality/collect_results.py') --variant debug 2>&1 |
+        & $Python (Join-Path $PSScriptRoot 'quality/collect_results.py') --variant debug --edition $Edition 2>&1 |
             Tee-Object -FilePath (Join-Path $out 'logs\build.txt')
     }
     if ($LASTEXITCODE -ne 0) { throw 'Build or lint failed. See logs/build.txt.' }

@@ -235,11 +235,35 @@ def check(path, findings, suspending):
         findings.site("size", path, 1, path.name, "%d lines, over %d" % (len(lines), SIZE_CEILING))
 
 
+def edition_boundaries(root=ROOT):
+    source = root / "app/src"
+    files = sorted(source.rglob("*.kt"))
+    issues = []
+    declaration = re.compile(r"\b(?:class|object|interface)\s+(\w+)")
+    symbols = {}
+    for edition in ("main", "riff", "plus"):
+        symbols[edition] = {name for path in (source / edition / "java").rglob("*.kt")
+                            for name in declaration.findall(strip_comments(path.read_text(encoding="utf-8")))}
+    plus_only = symbols["plus"] - symbols["main"] - symbols["riff"]
+    for path in files:
+        code = strip_comments(path.read_text(encoding="utf-8"))
+        edition = path.relative_to(source).parts[0]
+        if edition != "plus" and re.search(r"^\s*import\s+ai\.onnxruntime\b", code, re.M):
+            issues.append(f"edition  {path.relative_to(root)} imports ONNX outside src/plus")
+        if edition == "riff":
+            for name in sorted(plus_only):
+                if re.search(r"\b" + re.escape(name) + r"\b", code):
+                    issues.append(f"edition  {path.relative_to(root)} refers to Plus-only {name}")
+    return issues
+
+
 def main():
     reviewed = json.loads(REVIEWED.read_text(encoding="utf-8")) if REVIEWED.exists() else {}
     measures = json.loads(MEASURES.read_text(encoding="utf-8")) if MEASURES.exists() else {}
     findings = Findings(reviewed, {name: count for name, count in measures.items() if not name.startswith("_")})
-    files = sorted(SOURCES.rglob("*.kt"))
+    files = sorted(path for edition in ("main", "riff", "plus")
+                   for path in (ROOT / "app/src" / edition / "java").rglob("*.kt"))
+    findings.items.extend(edition_boundaries())
     declared = set()
     for path in files:
         declared.update(SUSPEND_DECL.findall(strip_comments(path.read_text(encoding="utf-8"))))

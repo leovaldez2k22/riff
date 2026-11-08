@@ -36,7 +36,7 @@ internal data class ExitRecord(val hour: Long, val role: ProcessRole, val reason
  *  and an update are not. */
 internal val FAILURE_REASONS = setOf("crash", "crash_native", "anr", "low_memory", "excessive_resource_usage", "init_failure", "dependency_died")
 
-/** The package the app's code is in. Lite and benchmark builds have another application id, not another package. */
+/** The package the app's code is in. Preview and benchmark builds have another application id, not another package. */
 internal val CODE_PACKAGE: String = ExitStore::class.java.name.substringBeforeLast('.')
 
 internal const val HOUR_MS = 60 * 60 * 1000L

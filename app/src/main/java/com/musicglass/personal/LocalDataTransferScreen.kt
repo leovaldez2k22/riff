@@ -65,7 +65,8 @@ internal fun describeCounts(c: SectionCounts): String = listOfNotNull(
     c.settings.takeIf { it > 0 }?.let { quantity(R.plurals.n_settings, it) }, c.hidden.takeIf { it > 0 }?.let { quantity(R.plurals.n_hidden_items, it) },
     c.saved.takeIf { it > 0 }?.let { quantity(R.plurals.n_saved_tracks, it) }, c.recents.takeIf { it > 0 }?.let { quantity(R.plurals.n_recently_played, it) },
     c.searches.takeIf { it > 0 }?.let { quantity(R.plurals.n_searches, it) }, c.plays.takeIf { it > 0 }?.let { quantity(R.plurals.n_plays, it) },
-    c.downloads.takeIf { it > 0 }?.let { quantity(R.plurals.n_download_names, it) }, c.pins.takeIf { it > 0 }?.let { quantity(R.plurals.n_speed_dial_pins, it) }).joinToString(", ").ifEmpty { string(R.string.nothing) }
+    c.downloads.takeIf { it > 0 }?.let { quantity(R.plurals.n_download_names, it) }, c.pins.takeIf { it > 0 }?.let { quantity(R.plurals.n_speed_dial_pins, it) },
+    c.neverPlay.takeIf { it > 0 }?.let { quantity(R.plurals.n_never_play, it) }, c.phoneLists.takeIf { it > 0 }?.let { quantity(R.plurals.n_phone_playlists, it) }).joinToString(", ").ifEmpty { string(R.string.nothing) }
 
 internal fun rejectText(reason: RejectReason): String = when (reason) {
     RejectReason.NotRiff -> string(R.string.this_is_not_a_riff_data_file)

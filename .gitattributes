@@ -5,3 +5,5 @@ gradlew text eol=lf
 # (core.autocrlf=true) would change them and fail the test on a fresh Windows clone.
 app/src/test/resources/quality/**/*.json text eol=lf
 app/src/androidTest/assets/quality/**/*.json text eol=lf
+# The bundled AutoEq list (Riff+): the same bytes in every checkout, so the APK does not depend on core.autocrlf.
+app/src/plus/assets/autoeq/profiles.tsv text eol=lf

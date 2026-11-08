@@ -144,9 +144,13 @@ class LocalDataControllerTest {
         collections.edit().putBoolean("history_enabled", false).putInt("history_retention_days", 90).commit()
         val order = mutableListOf<String>()
         val preparedQueueSave = snapshots.ticket(a)
+        // 0.30.0: the never-play list and the playlists on this phone go too.
+        NeverPlayStore.get(context).add(a, NeverPlayEntry("fixtureA009", false))
+        PhonePlaylistStore.get(context).create(a, "Mix", listOf(ProviderTrack("fixtureA009", "Song", "Artist")))
         val result = data.deleteAccountData(a) { order += "quiesce plays=${history.count(a)}" }
-        // 3 plays, 2 searches, 4 saved tracks, 2 download rows.
-        assertEquals(DataActionResult.Done(11), result)
+        // 3 plays, 2 searches, 4 saved tracks, 1 never-play entry, 1 phone playlist, 2 download rows.
+        assertEquals(DataActionResult.Done(13), result)
+        assertTrue(NeverPlayStore.get(context).entries(a).isEmpty()); assertTrue(PhonePlaylistStore.get(context).lists(a).isEmpty())
         assertEquals("playback is stopped before anything is removed", listOf("quiesce plays=3"), order)
         assertEquals(LocalDataSummary(devicePlays = 1), data.summary(a))
         assertTrue(store.rows(a).isEmpty()); assertFalse(store.directory(a, "fixtureD001").parentFile!!.exists())

@@ -9,12 +9,12 @@ How Riff is tested, what each layer needs and how to rerun it. Written for 0.10.
 | Script tests | `scripts/quality/test_*.py` | The lane runner, the result collector, the static checks, release-content, solver-seam, performance and canary scripts | Python 3.10+ |
 | Static checks | `scripts/quality/static_checks.py` | Cancellation, blocking calls, dependency direction, lifecycle, per-frame position reads, file size (700 lines), raw measures, user-visible strings | Python |
 | JVM and Robolectric | `app/src/test` (helpers in `app/src/testSupport`) | Logic, stores, migrations, the provider against recorded-shape fixtures (`ProviderWorld`), the download engine end to end, screens drawn with native graphics (pixel checks, accessibility sweep at four font scales, both directions, three window shapes) | JDK 21, the SDK, the Gradle cache. About 990 tests in 110 suites |
-| Lint | `:app:lintDebug`, `:app:lintRelease` | Android lint; the collector compares warnings with the previous run | as above |
-| Release content | `scripts/quality/check_release_content.py`, `check_solver_seam.py`, `check_performance.py apk` | The shrunk release: no backup, no cleartext, exported components and permissions as reviewed, no test, fixture, benchmark or key file, the Baseline Profile, the solver seam, the 40 MiB ceiling | a release build |
+| Lint | `:app:lintRiffDebug`, `:app:lintRiffRelease` | Android lint; the collector compares warnings with the previous run | as above |
+| Release content | `scripts/quality/check_release_content.py`, `check_solver_seam.py`, `check_performance.py apk` | The shrunk release: no backup, no cleartext, exported components and permissions as reviewed, no test, fixture, benchmark or key file, the Baseline Profile, the solver seam, Riff's 16 MiB ceiling (Riff+ has no size limit) | a release build |
 | Emulator fixture suite | `app/src/androidTest`, the classes in `FIXTURE_CLASSES` (`verify.py`) | Account switching, the legacy upgrade, local data and its export, playback from a loopback server, play order, crossfade, normalization, recovery, downloads, the lyrics renderer, the player and its open and close morph. Synthetic identities and generated audio; the emulator's network is off | An emulator. 51 tests |
 | Physical device | the same suite, `--lane device` | The same, on real hardware | An authorized phone, named by serial |
 | Benchmarks | `:benchmark` | Cold start, first audio, scrolling, the player, jank; Baseline Profile generation | A tier R or L phone. Emulator timings are refused |
-| Packaging | `--lane packaging` | Source archive contents, release identity and certificate, checksums, in-place upgrade over the previous APK | A signed candidate; an emulator for the upgrade |
+| Packaging | `--lane packaging` | Source correspondence, pinned signed identities, checksums, 0.21.0 upgrade and both edition switches with preserved fixture data | Both signed candidates and test probe; a fresh disposable emulator |
 | Provider canary | `scripts/quality/provider_canary.py`, `provider-canary.yml` | A few well-known public songs and albums, read without an account, to notice a provider change early | Network. Never an account |
 | Stress | `scripts/stress/scenarios.py` | Targeted scenarios on the `stress` build type over adb: crashes, ANRs, exit records per scenario | A device and approval to install |
 
@@ -45,16 +45,16 @@ python scripts/quality/verify.py --lane device --allow-install --serial <id> --t
 ```
 
 ```bash
-python scripts/quality/verify.py --lane packaging --allow-install --serial emulator-5580 --previous-apk <previous.apk>
+python scripts/quality/verify.py --lane packaging --allow-install --serial emulator-5580 --previous-apk artifacts/release/riff-0.21.0.apk --probe-apk artifacts/quality/packaging-probe/edition-switch-probe.apk
 ```
 
 Gradle directly (add `--offline` once the cache is filled):
 
 ```bash
-./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:testRiffDebugUnitTest :app:lintRiffRelease :app:assembleRiffDebug :app:assembleRiffDebugAndroidTest
 ```
 
-One test class: `./gradlew :app:testDebugUnitTest --tests com.musicglass.personal.LyricsTest`. One device class: `adb -s <serial> shell am instrument -w -r -e class com.musicglass.personal.LyricsKaraokeDeviceTest com.musicglass.personal.test/androidx.test.runner.AndroidJUnitRunner`.
+One test class: `./gradlew :app:testRiffDebugUnitTest --tests com.musicglass.personal.LyricsTest`. One device class: `adb -s <serial> shell am instrument -w -r -e class com.musicglass.personal.LyricsKaraokeDeviceTest com.musicglass.personal.test/androidx.test.runner.AndroidJUnitRunner`.
 
 Evidence runs go through `scripts/quality/collect_results.py --variant debug|release`, which runs the suite and lint, rejects an incomplete or stale result, and writes a manifest binding the results to the source digest and the APK hashes. See [build identity and evidence](build-identity-and-evidence.md).
 
@@ -63,7 +63,7 @@ Evidence runs go through `scripts/quality/collect_results.py --variant debug|rel
 | Device | Used for | Status |
 |---|---|---|
 | Disposable emulator `riff_q02_fixture`, API 31, x86_64, port 5580, network off | Emulator lane, development of device tests, the packaging upgrade | In use. Created for this work; holds no account |
-| Emulator `riff_q18_api33`, API 33 (emulator-5554) | Emulator lane for Q18 and Q19, 69 tests | In use; the stable local lane. API 36 (`riff_q18_api36`) crashed repeatedly (exit 139) and is not used. Hosted CI not run |
+| Emulator `riff_q18_api33`, API 33 (emulator-5554) | Emulator lane for Q18 and Q19, 69 tests | Historical stable Q18 lane. Its API 36 attempt crashed (exit 139); a fresh owned API 36 AVD with emulator 37.1.11 later passed both split editions, 73 tests each. See the split log. Hosted CI not run |
 | Tier R phone: the owner's vivo I2217 (Android 16, ARM64) | Device lane (63 tests), benchmarks, MemoryCheck, soaks, battery, checks with the owner | Lent from 18 October 2026; every install was asked; Riff Debug and Riff Preview beside the main app, which is never touched by tests |
 | Tier L phone (4 GB of RAM or less) | Benchmarks | Not available |
 
@@ -81,3 +81,21 @@ Never install on a personal phone without that confirmation, never uninstall the
 - A flaky result is not a pass. Rerun the one class alone to tell a load timeout from a fault, fix the cause or record it, then run the full collector again.
 - Delete stale APKs and lint reports before a collector run (`app/build/outputs/apk/*/`, `app/build/reports/lint-results-*`); the collector refuses outputs older than its run.
 - A BLOCKED gate stays BLOCKED until it runs on what it needs. Each BLOCKED item in the ledger carries its rerun steps.
+
+The PR lane runs both `riff` and `plus` edition tests, release lint, assembly and APK inspections. The commands above select Riff; replace `Riff` with `Plus` to target Riff+. Device, packaging and benchmark lanes accept `--edition riff|plus` (default Riff). Both flavors use the same package and version; changing editions replaces the installed app.
+
+## Edition packaging trial
+
+Build both signed releases with the candidate script and build its matching sidecar:
+
+```powershell
+./scripts/quality/build-packaging-probe.ps1 -AppApk artifacts/quality/stage7-candidate/riff-plus-0.30.0.apk
+```
+
+The sidecar contains only platform-API fixture code and a generated WebM test tone. It is separately signed with the existing release key so it can instrument a shrunk, non-debuggable release. It is absent from the production APKs. Its metadata binds it to the candidate source and the probe source bytes.
+
+Use a fresh disposable emulator with no installed Riff package. The packaging lane refuses an existing installation, disables the emulator network and takes its device lock. Before installing, it checks both release identities, exact packages, minimum API, pinned certificates, the probe target and source metadata. API 36's installed Google image advertises ARM64 translation; verify the running image supports the release ABI. The supported floor is Android 12 / API 31; API 30 is outside the release target (owner, 8 November).
+
+With the signed 0.21.0 APK, the path is 0.21.0 → Riff+ 0.30.0 → Riff 0.30.0 → Riff+ 0.30.0. The probe seeds Automix/EQ/Mood/stats choices, Encore history and totals, a saved queue, real download bytes/metadata, model-analysis bytes and a bound Encore widget. Each replacement checks installed APK bytes, unchanged firstInstallTime, matching state hashes and a newly rendered widget history view. A data, certificate, version, source or install failure stops the path. Nothing is uninstalled to recover. Without a previous APK, only the edition-switch gate can pass; upgrade remains blocked.
+
+This is separate from emulator playback journeys, real-phone listening/routing and benchmark evidence. A partial lane stays blocked overall. Phone actions require the owner's separate authorization under the implementation plan.

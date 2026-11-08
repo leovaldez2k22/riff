@@ -47,15 +47,26 @@ def sha256(path):
     return digest.hexdigest()
 
 
+SOURCE_INPUT_FILES = (
+    "app/build.gradle.kts", "app/proguard-rules.pro", "build.gradle.kts",
+    "settings.gradle.kts", "gradle.properties", "gradlew", "gradlew.bat")
+
+
+def is_source_input(name):
+    return name.startswith(("app/src/", "gradle/")) or name in SOURCE_INPUT_FILES
+
+
+def source_inputs(root=ROOT):
+    paths = list((root / "app/src").rglob("*"))
+    paths += [root / name for name in SOURCE_INPUT_FILES]
+    paths += list((root / "gradle").rglob("*"))
+    return sorted({p for p in paths if p.is_file()}, key=lambda p: p.relative_to(root).as_posix())
+
+
 def source_digest(root=ROOT):
     # Same sorted, framed relative paths/raw bytes as app/build.gradle.kts.
-    paths = list((root / "app/src").rglob("*"))
-    paths += [root / name for name in (
-        "app/build.gradle.kts", "app/proguard-rules.pro", "build.gradle.kts",
-        "settings.gradle.kts", "gradle.properties", "gradlew", "gradlew.bat")]
-    paths += list((root / "gradle").rglob("*"))
     digest = hashlib.sha256()
-    for path in sorted({p for p in paths if p.is_file()}, key=lambda p: p.relative_to(root).as_posix()):
+    for path in source_inputs(root):
         digest.update(path.relative_to(root).as_posix().encode("utf-8"))
         digest.update(b"\0")
         digest.update(path.read_bytes())
@@ -353,8 +364,11 @@ def run(args):
     source_id = expected["revision"] + "-" + expected["sourceState"] + "-" + expected["sourceDigest"][:12]
     output = root / "artifacts/quality" / source_id / run_id
     output.mkdir(parents=True, exist_ok=False)  # Preserve failures; never overwrite a previous run.
-    title = args.variant.capitalize()
-    tasks = [":app:testDebugUnitTest", f":app:lint{title}", f":app:assemble{title}"]
+    edition = getattr(args, "edition", None)
+    variant = edition + args.variant.capitalize() if edition else args.variant
+    title = variant[0].upper() + variant[1:]
+    test_title = edition.capitalize() + "Debug" if edition else "Debug"
+    tasks = [f":app:test{test_title}UnitTest", f":app:lint{title}", f":app:assemble{title}"]
     wrapper = root / ("gradlew.bat" if os.name == "nt" else "gradlew")
     # Freshness checks require the report and APK producers to run, not only aggregate tasks.
     command = [str(wrapper), *tasks, "--rerun-tasks", "--continue", "--console=plain"]
@@ -374,15 +388,18 @@ def run(args):
         end = now()
         if "BUILD SUCCESSFUL" not in (output / "build.log").read_text(encoding="utf-8"):
             code = code or 1
-    apk_dir = root / "app/build/outputs/apk" / args.variant
+    apk_dir = root / "app/build/outputs/apk"
+    if edition:
+        apk_dir /= edition
+    apk_dir /= args.variant
     # An unsigned baseline may coexist with old signed outputs: never choose by directory order.
     candidates = [path for path in apk_dir.glob("*.apk") if path.stat().st_mtime >= utc(start).timestamp() - 2]
     apk = args.apk if args.collect_only else (
         candidates[0] if len(candidates) == 1 else apk_dir / "missing-or-ambiguous.apk")
-    junit_dir = args.junit_dir or root / "app/build/test-results/testDebugUnitTest"
+    junit_dir = args.junit_dir or root / f"app/build/test-results/test{test_title}UnitTest"
     junit_paths = [] if args.checks_skipped else sorted(junit_dir.glob("TEST-*.xml"))
-    lint_path = args.lint_report or root / f"app/build/reports/lint-results-{args.variant}.xml"
-    result = collect(root, output, apk, args.variant, start, end, code,
+    lint_path = args.lint_report or root / f"app/build/reports/lint-results-{variant}.xml"
+    result = collect(root, output, apk, variant, start, end, code,
                      [args.command or "collect-only: independently revalidated reports and artifact" if args.collect_only else " ".join(command)],
                      junit_paths, lint_path,
                      expected, args.instrumentation,
@@ -396,6 +413,7 @@ def run(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--variant", choices=("debug", "release", "stress"), default="debug")
+    parser.add_argument("--edition", choices=("riff", "plus"), default="riff")
     parser.add_argument("--offline", action="store_true")
     parser.add_argument("--collect-only", action="store_true")
     parser.add_argument("--checks-skipped", action="store_true")

@@ -46,7 +46,7 @@ internal fun moodName(mood: Mood): String = mood.builtIn?.let { string(it) } ?: 
 
 /** What a mood sets, in a line: "Automix · Boost 150% · Even loudness". */
 internal fun moodSummary(values: MoodValues): String = listOfNotNull(
-    if (!values.blend) string(R.string.summary_no_crossfade) else when (values.mode) {
+    if (!values.blend) string(R.string.summary_no_crossfade) else when (effectiveBlendMode(values.mode)) {
         BlendMode.Crossfade -> string(R.string.summary_crossfade_x, values.seconds)
         BlendMode.Smart -> string(R.string.smart_crossfade)
         else -> string(R.string.blend_automix_short)

@@ -147,6 +147,12 @@ internal object RiffWidgets {
             views.setContentDescription(R.id.widget_shuffle,string(if(state.shuffle) R.string.shuffle_on else R.string.shuffle_off))
         }
         if(riffWidgetPresets[preset].progress) showProgress(views,preset,progress)
+        // Feature 21: Riff+'s accent, when it tints the app, on what is pink: the bar, a filled heart, shuffle on.
+        Edition.widgetAccent(context)?.let { accent ->
+            if(riffWidgetPresets[preset].progress) views.setColorStateList(R.id.widget_progress,"setProgressTintList",android.content.res.ColorStateList.valueOf(accent))
+            if(liking && state.liked==true) views.setInt(R.id.widget_like,"setColorFilter",accent)
+            if(shuffling && state.shuffle) views.setInt(R.id.widget_shuffle,"setColorFilter",accent)
+        }
         val open=PendingIntent.getActivity(context,id,Intent(context,MainActivity::class.java).apply {flags=Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP},PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         views.setOnClickPendingIntent(R.id.widget_root,open)
         val controls=buildList {

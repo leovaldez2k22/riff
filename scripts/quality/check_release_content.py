@@ -36,6 +36,14 @@ EXPORTED = {
     # Feature 27: only the system, holding this permission, can bind a Quick Settings tile.
     "com.musicglass.personal.PlaybackTile": "android.permission.BIND_QUICK_SETTINGS_TILE",
 }
+# Feature 21 (Riff+): one launcher entry per icon style and colour, all opening MainActivity without a permission, exactly
+# as MainActivity's own launcher entry did. Riff+ ships all of them, with only A/Rose enabled by default; Riff ships none.
+LAUNCHER_ALIASES = {f"com.musicglass.personal.Launcher{style}{colour}" for style in "ACD"
+                    for colour in ("Rose", "Violet", "Blue", "Teal", "Green", "Amber", "Coral", "Silver")}
+LAUNCHER_DEFAULT = "com.musicglass.personal.LauncherARose"
+# Feature 24 (Riff+ only): the camera that scans a blend code. check_edition_components requires it in Riff+ and
+# refuses it in Riff; check_manifest leaves it to that check.
+PLUS_PERMISSIONS = {"android.permission.CAMERA"}
 PERMISSIONS = {
     "android.permission.RECORD_AUDIO", "android.permission.FOREGROUND_SERVICE",
     "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK", "android.permission.INTERNET",
@@ -43,6 +51,10 @@ PERMISSIONS = {
     "android.permission.FOREGROUND_SERVICE_DATA_SYNC", "android.permission.POST_NOTIFICATIONS",
     "android.permission.READ_MEDIA_AUDIO", "android.permission.READ_EXTERNAL_STORAGE",
     "android.permission.WAKE_LOCK", "{package}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
+    # Feature 3: a checked APK goes to Android's installer, which asks the user (docs/quality/update-notice.md).
+    "android.permission.REQUEST_INSTALL_PACKAGES",
+    # Feature 9: special access the user grants in Android's settings when setting a ringtone (owner, Q9).
+    "android.permission.WRITE_SETTINGS",
 }
 # Q18-043: the one provider that may grant URI access, the lyric card's share (F2): androidx's FileProvider at
 # <package>.files, not exported, whose paths file names only the shared_lyrics folder of the cache.
@@ -172,14 +184,21 @@ def check_manifest(manifest, package, rules, share_paths=None):
 
     components = [item for kind in ("activity", "activity-alias", "service", "receiver", "provider") for item in manifest.all(kind)]
     exported = {}
+    aliases = set()
     for item in components:
         # A component with an intent filter and no explicit value was exported by default before API 31;
         # the build refuses that now, and this check refuses it too.
         value = item.get("exported")
         if value is None and item.all("intent-filter"):
             add(False, "exported is stated on " + str(item.get("name")))
-        if value == "true":
+        if value == "true" and item.name == "activity-alias" and item.get("name") in LAUNCHER_ALIASES:
+            aliases.add(item.get("name"))
+            add(item.get("permission") is None and item.get("targetActivity") in (".MainActivity", "com.musicglass.personal.MainActivity"),
+                "launcher entry opens MainActivity unguarded, as before: " + str(item.get("name")))
+        elif value == "true":
             exported[item.get("name")] = item.get("permission")
+    add(aliases in (set(), LAUNCHER_ALIASES), f"launcher entries are none or the reviewed {len(LAUNCHER_ALIASES)}: " +
+        ("yes" if aliases in (set(), LAUNCHER_ALIASES) else f"found {len(aliases)}"))
     add(exported == EXPORTED, "exported components are the reviewed six: " +
         ("yes" if exported == EXPORTED else "found " + ", ".join(sorted(f"{k} [{v}]" for k, v in exported.items()))))
     providers = manifest.all("provider")
@@ -190,7 +209,7 @@ def check_manifest(manifest, package, rules, share_paths=None):
             f"{item.get('name')} [{item.get('authorities')}]" for item in granting) +
             (" (reviewed: cache/shared_lyrics only)" if len(granting) == 1 and is_reviewed_share(granting[0], package, share_paths) else " (not reviewed)")))
     wanted = {name.format(package=package) for name in PERMISSIONS}
-    asked = {item.get("name") for item in manifest.all("uses-permission") + manifest.all("uses-permission-sdk-23")}
+    asked = {item.get("name") for item in manifest.all("uses-permission") + manifest.all("uses-permission-sdk-23")} - PLUS_PERMISSIONS
     add(asked == wanted, "permissions are the reviewed list: " + ("yes" if asked == wanted else
         "added " + str(sorted(asked - wanted)) + " missing " + str(sorted(wanted - asked))))
     names = " ".join(str(item.get("name")) for item in components + manifest.all("meta-data")) + " " + " ".join(
@@ -266,6 +285,68 @@ def run(tool, *arguments):
     return done.stdout
 
 
+AUTOEQ_PROFILES = "assets/autoeq/profiles.tsv"
+# Riff+'s models: Automix's beat model and Sing's separation model (feature 20); Riff has none.
+PLUS_MODELS = {"assets/automix/beat-this-small0-int8.onnx", "assets/sing/spleeter-2stems.onnx"}
+
+
+def check_edition_payload(names, dex, edition, size):
+    """Verify compiled containment, including both native runtime libraries and the Java bindings."""
+    if edition not in ("riff", "plus"):
+        raise ContentError("unknown edition")
+    # Riff stays within 16 MiB. Riff+ has no size limit (owner, 8 November 2026): it exists to carry what Riff leaves out.
+    limit = 16 * 1024 * 1024 if edition == "riff" else None
+    native = sorted(name for name in names if name.startswith("lib/") and "onnxruntime" in name.lower())
+    models = sorted(name for name in names if name.startswith("assets/") and name.lower().endswith(".onnx"))
+    bindings = any(b"Lai/onnxruntime/" in blob for blob in dex)
+    headphones = sorted(name for name in names if name.startswith("assets/autoeq/"))
+    expected = edition == "plus"
+    return [
+        (limit is None or size <= limit,
+         f"{edition} APK at most {limit // (1024 * 1024)} MiB: {size} bytes" if limit else f"{edition} APK size (no limit): {size} bytes"),
+        (bool(native) == expected and (not expected or {"lib/arm64-v8a/libonnxruntime.so", "lib/arm64-v8a/libonnxruntime4j_jni.so"}.issubset(native)),
+         f"{edition} ONNX native libraries: " + (", ".join(native) or "absent")),
+        (set(models) == (PLUS_MODELS if expected else set()),
+         f"{edition} models (beat, Sing): " + (", ".join(models) or "absent")),
+        (headphones == ([AUTOEQ_PROFILES] if expected else []), f"{edition} AutoEq headphone profiles: " + (", ".join(headphones) or "absent")),
+        (bindings == expected, f"{edition} ONNX Java bindings: " + ("present" if bindings else "absent")),
+    ]
+
+
+def check_edition_components(manifest, edition):
+    names = {item.get("name") for kind in ("receiver", "service") for item in manifest.all(kind)}
+    required = {"com.musicglass.personal.EncoreWidget", "com.musicglass.personal.EncoreRecapJob"}
+    telemetry = any(item.get("name") == "ai.onnxruntime.TelemetryInitializer" for item in manifest.all("provider"))
+    aliases = {item.get("name"): item.get("enabled") for item in manifest.all("activity-alias") if item.get("name") in LAUNCHER_ALIASES}
+    launchers = sum(1 for item in manifest.all("activity") + manifest.all("activity-alias")
+                    if any(category.get("name") == "android.intent.category.LAUNCHER" for category in item.all("category"))
+                    and item.get("enabled") in (None, "true"))
+    if edition == "plus":
+        icons_ok = set(aliases) == LAUNCHER_ALIASES and launchers == 1 and aliases.get(LAUNCHER_DEFAULT) in (None, "true")
+        icons = f"plus has the {len(LAUNCHER_ALIASES)} icon entries, only A/Rose enabled: " + ("yes" if icons_ok else f"{len(aliases)} entries, {launchers} enabled launchers")
+    else:
+        icons_ok = not aliases and launchers == 1
+        icons = "riff has one launcher entry and no icon entries: " + ("yes" if icons_ok else f"{len(aliases)} entries, {launchers} enabled launchers")
+    permissions = {item.get("name") for item in manifest.all("uses-permission") + manifest.all("uses-permission-sdk-23")}
+    camera_features = [item for item in manifest.all("uses-feature") if str(item.get("name") or "").startswith("android.hardware.camera")]
+    if edition == "plus":
+        camera_ok = PLUS_PERMISSIONS.issubset(permissions) and bool(camera_features) and all(item.get("required") == "false" for item in camera_features)
+        camera = "plus asks for the camera (blend scanner), never requiring one: " + ("yes" if camera_ok else "no")
+    else:
+        camera_ok = not (PLUS_PERMISSIONS & permissions) and not camera_features
+        camera = "riff has no camera permission or feature: " + ("yes" if camera_ok else "no")
+    return [(icons_ok, icons), (camera_ok, camera),
+            (required.issubset(names), f"{edition} keeps Encore widget and recap: " + ("yes" if required.issubset(names) else "missing")),
+            (not telemetry, f"{edition} ONNX telemetry initializer absent: " + ("no" if telemetry else "yes"))]
+
+
+def check_edition_label(badging, edition, build_type="release"):
+    expected = ("Riff+" if edition == "plus" else "Riff") + (" Preview" if build_type == "preview" else "")
+    labels = re.findall(r"^application-label(?:-[^:]*)?:'([^']*)'", badging, re.M)
+    return [(bool(labels) and all(label == expected for label in labels),
+             f"{edition} compiled launcher label is {expected}: " + (", ".join(sorted(set(labels))) or "missing"))]
+
+
 def audit(args):
     apk = Path(args.apk)
     manifest = parse_tree(run(args.aapt2, "dump", "xmltree", str(apk), "--file", "AndroidManifest.xml"))
@@ -285,6 +366,10 @@ def audit(args):
         share_paths = parse_tree(run(args.aapt2, "dump", "xmltree", str(apk), "--file",
                                      resource_file(run(args.aapt2, "dump", "resources", str(apk)), reference)))
     results = check_manifest(manifest, args.package, rules, share_paths) + check_files(names, dex)
+    if getattr(args, "edition", None):
+        results += check_edition_payload(names, dex, args.edition, apk.stat().st_size)
+        results += check_edition_components(manifest, args.edition)
+        results += check_edition_label(run(args.aapt2, "dump", "badging", str(apk)), args.edition, getattr(args, "build_type", "release"))
     pinned = pinned_certificate(Path(args.signing_doc).read_text(encoding="utf-8"))
     verified, output = run_status(args.apksigner, "verify", "--print-certs", str(apk)) if args.apksigner else (None, "")
     signed, problem = signature_state(is_signed(names), verified, output)
@@ -301,6 +386,8 @@ def main(argv=None):
     parser.add_argument("--aapt2", required=True)
     parser.add_argument("--apksigner")
     parser.add_argument("--signing-doc", default="docs/release-signing.md")
+    parser.add_argument("--edition", choices=("riff", "plus"))
+    parser.add_argument("--build-type", choices=("release", "preview"), default="release", help="expected launcher-label suffix")
     parser.add_argument("--package", default="com.musicglass.personal")
     args = parser.parse_args(argv)
     try:

@@ -1,0 +1,19 @@
+{
+  "source": "C:\\Volume D\\Riff\\reports\\Riff Windows production completion 2026-11-02.md",
+  "sourceSha256": "37efb583c7566a7b6b81e1a8cf2a48fde0cb11f2681c6d9f38673dfdc146e545",
+  "pdf": "C:\\Volume D\\Riff\\output\\pdf\\Riff Windows Production Completion Plan - 2026-11-02.pdf",
+  "pages": 47,
+  "bytes": 257175,
+  "blocks": {
+    "headings": 76,
+    "paragraphs": 254,
+    "tables": 14,
+    "codeBlocks": 16,
+    "diagrams": 1
+  },
+  "sourceTables": 14,
+  "textChecks": "PASS",
+  "renderReview": "PASS: all 47 pages rendered and visually reviewed; no text outside safety margins; tables, contents, diagram and code checked",
+  "downloadsPath": "C:\\Users\\KIIT0001\\Downloads\\Riff Windows Production Completion Plan - 2026-11-02.pdf",
+  "pdfSha256": "79bdd5597b9922d0182cd640eeb62225268fd5fe4ea99b7efffb6837567fb651"
+}

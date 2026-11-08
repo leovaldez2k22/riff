@@ -21,6 +21,11 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- Feature 3: in-app updates and the edition switch hand a checked APK to Android's installer, which asks the
+         user; Android also asks once for Riff's "Install unknown apps" access. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Feature 9: "Modify system settings", asked for only when the user sets a song as the ringtone. -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
     <application
         android:name=".RiffApplication"
         android:allowBackup="false"
@@ -32,15 +37,13 @@
         android:theme="@android:style/Theme.Material.NoActionBar"
         tools:ignore="MissingIntentFilterForMediaSearch"
         android:usesCleartextTraffic="false">
-        <!-- Automix stage 4 (in the release from 0.20.0): ONNX Runtime 1.31.1 starts its own telemetry (an HTTP client for Microsoft's usage events)
-             from this provider. Riff sends nothing of the kind, so the provider is removed; OrtBeatLogits also turns the
-             runtime's telemetry off. -->
-        <provider android:name="ai.onnxruntime.TelemetryInitializer"
-            android:authorities="${applicationId}.onnxruntime_telemetry_initializer" tools:node="remove" />
         <!-- Feature 14: Android Auto lists Riff as a media app. Its voice search reaches the media session
              (CarLibrary.queueFor reads the query), so no activity takes MEDIA_PLAY_FROM_SEARCH: asking the phone's
              Assistant to play in Riff is not built. -->
         <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />
+        <!-- Feature 3: which edition this APK is. Both editions share package and signer, so the installer reads this
+             from a downloaded APK before handing it to Android. -->
+        <meta-data android:name="com.musicglass.personal.EDITION" android:value="${riffEdition}" />
         <!-- Feature 19: Cast with Google's Default Media Receiver (RiffCastOptions). -->
         <meta-data android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME" android:value="com.musicglass.personal.RiffCastOptions" />
         <!-- Feature 19: Play services' Cast library reports its own use to Google through Firebase's data transport.
@@ -136,6 +139,8 @@
 <receiver android:name=".LargeRiffWidget" android:exported="false" android:label="@string/widget_large_name"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_large_info" /></receiver>
 <receiver android:name=".EncoreWidget" android:exported="false" android:label="@string/encore_widget_name"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_encore_info" /></receiver>
 <receiver android:name=".CircleRiffWidget" android:exported="false" android:label="@string/widget_circle_name"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_circle_info" /></receiver>
+        <!-- Feature 3: Android's installer reports a session here through Riff's own PendingIntent. -->
+        <receiver android:name=".UpdateInstallReceiver" android:exported="false" />
         <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.files"
             android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/shared_files" />

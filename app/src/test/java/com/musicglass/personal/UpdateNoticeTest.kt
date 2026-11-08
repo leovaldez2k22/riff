@@ -41,7 +41,7 @@ class UpdateNoticeTest {
         .code(code).message("fixture").body(body.toResponseBody("application/json".toMediaType())).build()
 
     private fun entry(tag: String, page: String = "https://github.com/example/riff/releases/tag/$tag", prerelease: Boolean = false, draft: Boolean = false) =
-        """{"tag_name":"$tag","html_url":"$page","prerelease":$prerelease,"draft":$draft,"body":"Fixes."}"""
+        """{"tag_name":"$tag","html_url":"$page","prerelease":$prerelease,"draft":$draft,"body":"Fixes.","assets":[{"name":"riff-${tag.removePrefix("v")}.apk","size":9000000},{"name":"riff-plus-${tag.removePrefix("v")}.apk","size":45000000}]}"""
     private fun releases(vararg tags: String) = tags.joinToString(",", "[", "]") { entry(it) }
 
     private fun checker(installed: String = "0.10.0", identity: BuildIdentity = release, feedAddress: String = feed) = UpdateChecker(
@@ -215,14 +215,27 @@ class UpdateNoticeTest {
         assertEquals("Riff-update-check", request.header("User-Agent"))
     }
 
-    @Test fun noCodePathDownloadsOrInstalls() {
+    /**
+     * Feature 3 replaced the old "never installs" rule with a narrower one: the feed reader still only reads, and
+     * installing happens in UpdateInstaller.kt through one PackageInstaller session after the user asks
+     * (UpdateInstallerTest has the security cases). No other route to an install exists.
+     */
+    @Test fun onlyTheInstallerInstallsAndOnlyThroughAPackageInstallerSession() {
         val source = File("src/main/java/com/musicglass/personal/UpdateNotice.kt").readText()
         for (forbidden in listOf("PackageInstaller", "DownloadManager", "ACTION_INSTALL_PACKAGE", "REQUEST_INSTALL_PACKAGES", ".apk", "FileOutputStream", "startActivity"))
             assertFalse(forbidden, forbidden in source)
+        val main = File("src/main/java/com/musicglass/personal").listFiles()!!.filter { it.extension == "kt" }
+        val installing = main.filter { "PackageInstaller" in it.readText() }.map { it.name }.toSet()
+        assertEquals(setOf("UpdateInstaller.kt", "UpdateInstallUi.kt"), installing)
+        for (file in main) for (forbidden in listOf("ACTION_INSTALL_PACKAGE", "DownloadManager", "application/vnd.android.package-archive"))
+            assertFalse("${file.name}: $forbidden", forbidden in file.readText())
         val manifest = File("src/main/AndroidManifest.xml").readText()
-        assertFalse("REQUEST_INSTALL_PACKAGES" in manifest)
+        assertTrue("REQUEST_INSTALL_PACKAGES" in manifest)
+        assertTrue(Regex("""<receiver android:name="\.UpdateInstallReceiver" android:exported="false" />""").containsMatchIn(manifest))
+        // The FileProvider still shares only the lyric cards: an APK is never exposed through it.
+        assertFalse("update" in File("src/main/res/xml/shared_files.xml").readText())
         // The release page opens through the Q15 check, which allows HTTPS on the listed hosts only.
         val shell = File("src/main/java/com/musicglass/personal/RiffApp.kt").readText() + File("src/main/java/com/musicglass/personal/SettingsSections.kt").readText()
-        assertEquals(2, Regex("""openWebPage\(context, ?\w+\.page, ?updates\.pageHosts\)""").findAll(shell).count())
+        assertEquals(3, Regex("""openWebPage\(context, ?(?:\w+\.)+page, ?updates\.pageHosts\)""").findAll(shell).count())
     }
 }

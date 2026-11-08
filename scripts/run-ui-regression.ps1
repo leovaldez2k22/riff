@@ -1,6 +1,7 @@
 # Builds and pairs stress APKs, then records strict instrumentation evidence.
 # Installation requires explicit -AllowInstall. Personal devices/accounts are not fixtures.
 param(
+    [ValidateSet('riff','plus')][string]$Edition = 'riff',
     [switch]$NoBuild,
     [switch]$AllowInstall,
     [string]$Serial,
@@ -8,6 +9,7 @@ param(
     [ValidateSet('R','L','emulator','unclassified')][string]$DeviceTier = 'unclassified'
 )
 $ErrorActionPreference = 'Stop'
+$editionTitle = (Get-Culture).TextInfo.ToTitleCase($Edition)
 if (-not $AllowInstall) { throw 'Installation requires -AllowInstall and an authorized test device/profile.' }
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $collector = Join-Path $PSScriptRoot 'quality/collect_results.py'
@@ -27,18 +29,18 @@ if (-not $NoBuild) {
     $env:GRADLE_USER_HOME = Join-Path $project '.toolchain/gradle-user-home'
     $jdk = Get-ChildItem (Join-Path $project '.toolchain') -Directory -Filter 'jdk-*' -ErrorAction SilentlyContinue | Select-Object -Last 1
     if (-not $env:JAVA_HOME -and $jdk) { $env:JAVA_HOME = $jdk.FullName }
-    & (Join-Path $project 'gradlew.bat') -p $project ':app:assembleStress' ':app:assembleStressAndroidTest' '-PriffTestBuildType=stress' '--console=plain'
+    & (Join-Path $project 'gradlew.bat') -p $project ":app:assemble$($editionTitle)Stress" ":app:assemble$($editionTitle)StressAndroidTest" '-PriffTestBuildType=stress' '--console=plain'
     if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
 }
-$app = Get-ChildItem (Join-Path $project 'app/build/outputs/apk/stress') -Filter '*.apk'
-$test = Get-ChildItem (Join-Path $project 'app/build/outputs/apk/androidTest/stress') -Filter '*.apk'
+$app = Get-ChildItem (Join-Path $project "app/build/outputs/apk/$Edition/stress") -Filter '*.apk'
+$test = Get-ChildItem (Join-Path $project "app/build/outputs/apk/androidTest/$Edition/stress") -Filter '*.apk'
 if (@($app).Count -ne 1 -or @($test).Count -ne 1) { throw 'Exactly one stress app/test APK pair is required.' }
 $appIdentityJson = & $Python $collector --inspect-apk $app.FullName
 if ($LASTEXITCODE -ne 0) { throw 'App APK has no build identity; rebuild it.' }
 $testIdentityJson = & $Python $collector --inspect-apk $test.FullName
 if ($LASTEXITCODE -ne 0 -or $appIdentityJson -ne $testIdentityJson) { throw 'App/test APK build identities do not match.' }
 $identity = $appIdentityJson | ConvertFrom-Json
-if ($identity.variant -ne 'stress') { throw 'Expected a stress APK pair.' }
+if ($identity.variant -ne "$($Edition)Stress") { throw 'Expected a stress APK pair.' }
 
 $runId = 'ui-' + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ') + '-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
 $raw = Join-Path $project "artifacts/quality/$($identity.revision)-$($identity.sourceState)-$($identity.sourceDigest.Substring(0,12))/$runId-raw"
@@ -56,6 +58,6 @@ $output | Set-Content -LiteralPath $log -Encoding utf8
 $output
 $api = (& $adb @adbArgs shell getprop ro.build.version.sdk).Trim()
 $model = (& $adb @adbArgs shell getprop ro.product.model).Trim()
-& $Python $collector --collect-only --checks-skipped --variant stress --apk $app.FullName --test-apk $test.FullName --instrumentation $log --start-utc $startUtc --end-utc $endUtc --exit-code $instrumentExit --run-id $runId --device-tier $DeviceTier --device-api $api --device-model $model --mode live --command 'adb instrumentation UiRegressionInstrumentation (serial omitted)'
+& $Python $collector --collect-only --checks-skipped --variant stress --edition $Edition --apk $app.FullName --test-apk $test.FullName --instrumentation $log --start-utc $startUtc --end-utc $endUtc --exit-code $instrumentExit --run-id $runId --device-tier $DeviceTier --device-api $api --device-model $model --mode live --command 'adb instrumentation UiRegressionInstrumentation (serial omitted)'
 if ($LASTEXITCODE -eq 1) { throw 'Instrumentation evidence failed validation.' }
 if ($LASTEXITCODE -eq 2) { Write-Warning 'Device evidence collected; JVM/lint checks were not run by this command and remain BLOCKED.' }

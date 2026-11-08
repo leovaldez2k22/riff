@@ -19,9 +19,8 @@ android {
         applicationId = "com.musicglass.personal"
         minSdk = 31
         targetSdk = 36
-        versionCode = 35
-        versionName = "0.21.0"
-        buildConfigField("boolean", "LITE", "false")
+        versionCode = 36
+        versionName = "0.30.0"
         buildConfigField("boolean", "STARTUP_TRACE_FILE", (providers.gradleProperty("riffStartupTraceFile").orNull == "true").toString())
         // Q12A: the public release feed the update check asks, and the hosts a release page may be on. No feed
         // (the default until releases are published) means the check does not exist in the build and sends
@@ -30,6 +29,10 @@ android {
             groovy.json.JsonOutput.toJson(providers.gradleProperty("riffUpdateFeed").orNull ?: ""))
         buildConfigField("String", "UPDATE_PAGES",
             groovy.json.JsonOutput.toJson(providers.gradleProperty("riffUpdatePages").orNull ?: "github.com"))
+        // Feature 2 (owner Q2): a registered Last.fm app's key and secret, from the owner's own Gradle properties. Empty
+        // (the default) means Last.fm is not offered; ListenBrainz needs neither.
+        buildConfigField("String", "LASTFM_KEY", groovy.json.JsonOutput.toJson(providers.gradleProperty("riffLastfmKey").orNull ?: ""))
+        buildConfigField("String", "LASTFM_SECRET", groovy.json.JsonOutput.toJson(providers.gradleProperty("riffLastfmSecret").orNull ?: ""))
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -52,6 +55,27 @@ android {
     sourceSets.getByName("test").resources.srcDir("src/androidTest/assets")
     // Q13: a test that runs without Android reads the default text from strings.xml itself (Strings.kt).
     sourceSets.getByName("test").resources.srcDir("src/main/res/values")
+
+    flavorDimensions += "edition"
+    productFlavors {
+        create("riff") {
+            dimension = "edition"
+            isDefault = true
+            buildConfigField("boolean", "PLUS", "false")
+            buildConfigField("String", "EDITION", "\"riff\"")
+            manifestPlaceholders["riffEdition"] = "riff"
+        }
+        create("plus") {
+            dimension = "edition"
+            buildConfigField("boolean", "PLUS", "true")
+            buildConfigField("String", "EDITION", "\"plus\"")
+            manifestPlaceholders["riffEdition"] = "plus"
+            proguardFile("src/plus/proguard-rules.pro")
+        }
+    }
+
+    sourceSets.maybeCreate("testRiff").resources.srcDir("src/riff/res/values")
+    sourceSets.maybeCreate("testPlus").resources.srcDir("src/plus/res/values")
 
     signingConfigs {
         create("localRelease") {
@@ -81,7 +105,7 @@ android {
                 applicationIdSuffix = ".debug"
                 versionNameSuffix = "-debug"
             }
-            manifestPlaceholders["riffDebugLabel"] = if (sideBySide) "Riff Debug" else "@string/app_name"
+            manifestPlaceholders["riffDebugLabel"] = if (sideBySide) "@string/debug_app_name" else "@string/app_name"
         }
         release {
             // R8 and resource shrinking (plan W4): the APK was 128.5 MiB, 61 MB of it unshrunk DEX.
@@ -89,7 +113,7 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // The target phones are 64-bit ARM; x86/x86_64 (emulators) and armeabi-v7a added ~52 MB of
-            // native code. Riff Lite (below) keeps armeabi-v7a for older phones; debug keeps every ABI.
+            // native code. Debug keeps every ABI for emulators.
             ndk { abiFilters += listOf("arm64-v8a") }
             // Unsigned when the key's environment variables are absent (CI never has the key).
             signingConfig = signingConfigs.getByName("localRelease").takeIf { it.storeFile != null }
@@ -108,22 +132,12 @@ android {
                 versionNameSuffix = "-stress"
                 if (signingConfig == null) signingConfig = signingConfigs.getByName("debug")
             }
-            manifestPlaceholders["riffStressLabel"] = if (sideBySide) "Riff Stress" else "@string/app_name"
+            manifestPlaceholders["riffStressLabel"] = if (sideBySide) "@string/stress_app_name" else "@string/app_name"
             // Not shrunk: AGP disables R8 optimisation for debuggable builds but still removes unused
             // code, which broke instrumentation (it uses the app's copy of the Kotlin stdlib). Check
             // shrinking with a real release build instead.
             isMinifyEnabled = false
             isShrinkResources = false
-            matchingFallbacks += "release"
-        }
-        // Separate app for low-RAM phones: own package id, so it installs beside Riff, never over it.
-        // Glass/blur off by default, half-size artwork, smaller image cache, large heap (src/lite).
-        create("lite") {
-            initWith(getByName("release"))
-            applicationIdSuffix = ".lite"
-            versionNameSuffix = "-lite"
-            buildConfigField("boolean", "LITE", "true")
-            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
             matchingFallbacks += "release"
         }
         // The release build under its own package id, to try a candidate on a phone beside an installed
@@ -145,9 +159,11 @@ android {
         compose = true
         buildConfig = true
     }
-    // Automix stage 4: ONNX Runtime's 32-bit copies (about 40 MB) are left out; the owner's phone is 64-bit ARM and
-    // the lane's emulator x86_64. On a 32-bit phone BeatModel.kt finds no runtime and stage 2's tracker is used.
+    // Automix stage 4: omit ONNX Runtime's 32-bit copies (about 40 MB); release is arm64 and
+    // the lane's emulator is x86_64.
     packaging { jniLibs.excludes += listOf("lib/armeabi-v7a/libonnxruntime*.so", "lib/x86/libonnxruntime*.so") }
+    // Feature 20: models stay uncompressed in the APK, so Sing maps its 79 MB model instead of copying it to the heap.
+    androidResources { noCompress += "onnx" }
     // Compose UI tests run on the JVM with Robolectric (plan W7.2).
     testOptions {
         unitTests {
@@ -188,9 +204,6 @@ androidComponents {
             res.setSrcDirs(listOf("src/benchmarkFeed/res")); assets.setSrcDirs(listOf("src/test/resources/quality/provider"))
             manifest.srcFile("src/benchmarkFeed/AndroidManifest.xml")
         }
-        for (derived in listOf("benchmarkLite", "nonMinifiedLite")) extension.sourceSets.getByName(derived).apply {
-            java.setSrcDirs(emptyList<String>()); kotlin.setSrcDirs(emptyList<String>())
-        }
     }
     // Q18C1: the instrumentations in src/androidTest name the package they test through this placeholder, so a
     // test APK always targets the app it was built with (com.musicglass.personal.debug for debug).
@@ -200,6 +213,7 @@ androidComponents {
 // Q14: the profile is generated on request (:app:generateReleaseBaselineProfile) and kept as source under
 // src/release/generated/baselineProfiles; an ordinary build only packages what is there.
 baselineProfile {
+    mergeIntoMain = true
     saveInSrc = true
     automaticGenerationDuringBuild = false
     // The fixture feed is in the build the profile is collected from and not in a release.
@@ -235,7 +249,12 @@ dependencies {
     debugImplementation(libs.compose.tooling)
     // Automix stage 4: ONNX Runtime as published. Debug only at first; on 30 Oct the owner asked for it and the model
     // in the release too (0.20.0), without waiting for a reduced build of the runtime: about +34 MB on arm64.
-    implementation(libs.onnxruntime.android)
+    "plusImplementation"(libs.onnxruntime.android)
+    // Feature 24: Blend with a friend by QR, Riff+ only; Riff's APK does not change.
+    "plusImplementation"(libs.zxing.core)
+    "plusImplementation"(libs.camera.camera2)
+    "plusImplementation"(libs.camera.lifecycle)
+    "plusImplementation"(libs.camera.view)
     // Q14: installs the Baseline Profile packaged with a release; the profile comes from :benchmark.
     implementation(libs.profileinstaller)
     baselineProfile(project(":benchmark"))

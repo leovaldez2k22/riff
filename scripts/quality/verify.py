@@ -12,7 +12,7 @@
 Lanes
   pr         Script tests, static checks, JVM and Compose tests, release lint, an unsigned shrunk release with
              its build identity, the release content check (merged manifest, components, permissions, leftovers),
-             the 64 MiB ceiling and Baseline Profile, and the solver seam in the R8 output. Installs nothing.
+             the 16 MiB Riff ceiling (Riff+ has no size limit) and Baseline Profile, and the solver seam in the R8 output. Installs nothing.
   emulator   The fixture suite (FIXTURE_CLASSES) on an emulator with its network turned off: a debug app and its
              test APK built together, their identities compared before anything is installed, then a strict read
              of the instrumentation output. Never a physical device.
@@ -49,9 +49,11 @@ import subprocess
 import sys
 import time
 import zipfile
+import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import collect_results  # noqa: E402
+import check_release_content  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = "com.musicglass.personal"
@@ -73,7 +75,7 @@ BENCHMARK_QUIET_SECONDS = 15 * 60
 
 # The fixture suite: no account, no provider, synthetic audio and identities (docs/quality/deterministic-harness.md).
 FIXTURE_CLASSES = [f"{PACKAGE}.{name}" for name in (
-    "AccountSwitchDeviceTest", "CrossfadeFixtureDeviceTest", "DownloadLifecycleDeviceTest", "FixturePlaybackTest",
+    "EditionJourneysDeviceTest", "AccountSwitchDeviceTest", "CrossfadeFixtureDeviceTest", "DownloadLifecycleDeviceTest", "FixturePlaybackTest",
     "LegacyUpgradeDeviceTest", "LocalDataDeviceTest", "LocalDataTransferDeviceTest", "NormalizationDeviceTest",
     "PlaybackOrderDeviceTest", "RecoveryDeviceTest", "LyricsKaraokeDeviceTest", "PlayerFixesDeviceTest",
     "LyricShareDeviceTest", "OwnerFeaturesDeviceTest", "SeekTimingDeviceTest", "CarBrowseDeviceTest")]
@@ -111,9 +113,9 @@ LANES = {
     "emulator": ["device", "pairing", "install", "instrumentation"],
     "device": ["device", "pairing", "install", "instrumentation"],
     "benchmark": ["device", "benchmark"],
-    "packaging": ["source-archive", "release-identity", "checksums", "upgrade"],
+    "packaging": ["source-archive", "release-identity", "checksums", "edition-switch", "upgrade"],
 }
-INSTALLING = {"emulator", "device", "benchmark"}
+INSTALLING = {"emulator", "device", "benchmark", "packaging"}
 
 # Never inside a source archive: build output, local tools and settings, keys, credentials, evidence.
 FORBIDDEN_IN_SOURCE = re.compile(
@@ -307,6 +309,8 @@ def sanitize_summary(summary, serial=None):
 class Lane:
     def __init__(self, args, root=ROOT):
         self.args, self.root = args, root
+        self.edition = getattr(args, "edition", "riff")
+        self.edition_title = self.edition.capitalize()
         self.env = tool_environment(root)
         self.sdk = find_sdk(root, self.env)
         self.python = sys.executable or "python3"
@@ -332,7 +336,7 @@ class Lane:
             return value
         except Blocked as error:
             self.gates[name] = dict(status="BLOCKED", reason=str(error))
-        except (Failed, collect_results.EvidenceError, OSError, subprocess.SubprocessError, ValueError) as error:
+        except (Failed, collect_results.EvidenceError, check_release_content.ContentError, OSError, subprocess.SubprocessError, ValueError) as error:
             self.gates[name] = dict(status="FAIL", reason=str(error) or type(error).__name__)
         print(f"   {self.gates[name]['status']}: {self.gates[name].get('reason', '')}", flush=True)
         return None
@@ -374,34 +378,41 @@ class Lane:
         self.gate("script-tests", lambda: self.run(
             [self.python, "-m", "unittest", "discover", "-s", "scripts/quality", "-p", "test_*.py"], "script-tests.log"))
         self.gate("static", lambda: self.run([self.python, "scripts/quality/static_checks.py"], "static-checks.log"))
-        manifest = None
-        if any(self.wanted(n) for n in ("build", "artifactIdentity", "jvm", "lint")):
-            command = [self.python, "scripts/quality/collect_results.py", "--variant", "release",
-                       "--run-id", "lane-" + self.evidence.name[-40:].replace(".", "-")]
-            if self.args.offline:
-                command.append("--offline")
-            self.run(command, "collect-release.log", check=False)
-            text = (self.evidence / "collect-release.log").read_text(encoding="utf-8", errors="replace")
-            paths = [line.strip() for line in text.splitlines() if line.strip().endswith("manifest.json")]
-            manifest = json.loads(Path(paths[-1]).read_text(encoding="utf-8")) if paths and Path(paths[-1]).is_file() else None
-            (self.evidence / "release-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8") if manifest else None
-        for name in ("build", "artifactIdentity", "jvm", "lint"):
-            if not self.wanted(name):
-                continue
-            if manifest is None:
-                self.gates[name] = dict(status="FAIL", reason="the release collector wrote no manifest (see collect-release.log)")
-            else:
-                self.gates[name] = manifest["gates"].get(name) or dict(status="FAIL", reason="gate missing from the manifest")
-        self.gate("release-content", lambda: self.run([self.python, "scripts/quality/check_release_content.py", "--apk", self.release_apk(),
-                                                       "--aapt2", self.sdk_tool("build-tools", BUILD_TOOLS, "aapt2")], "release-content.log"))
-        self.gate("apk", lambda: self.run([self.python, "scripts/quality/check_performance.py", "apk", "--apk", self.release_apk()], "apk-check.log"))
-        self.gate("solver-seam", lambda: self.run([self.python, "scripts/quality/check_solver_seam.py", "--mapping",
-                                                   self.root / "app/build/outputs/mapping/release/mapping.txt"], "solver-seam.log"))
+        results = {name: {} for name in ("build", "artifactIdentity", "jvm", "lint", "release-content", "apk", "solver-seam")}
+        for edition in ("riff", "plus"):
+            manifest = None
+            if any(self.wanted(n) for n in ("build", "artifactIdentity", "jvm", "lint")):
+                command = [self.python, "scripts/quality/collect_results.py", "--variant", "release", "--edition", edition,
+                           "--run-id", "lane-" + edition + "-" + self.evidence.name[-34:].replace(".", "-")]
+                if self.args.offline:
+                    command.append("--offline")
+                self.run(command, f"collect-{edition}-release.log", check=False)
+                output = (self.evidence / f"collect-{edition}-release.log").read_text(encoding="utf-8", errors="replace")
+                paths = [line.strip() for line in output.splitlines() if line.strip().endswith("manifest.json")]
+                if paths and Path(paths[-1]).is_file():
+                    manifest = json.loads(Path(paths[-1]).read_text(encoding="utf-8"))
+                    (self.evidence / f"{edition}-release-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            for name in ("build", "artifactIdentity", "jvm", "lint"):
+                results[name][edition] = (manifest or {}).get("gates", {}).get(name) or dict(
+                    status="FAIL" if self.wanted(name) else "BLOCKED", reason="no edition manifest or gate")
+            for name, command in (
+                ("release-content", lambda: [self.python, "scripts/quality/check_release_content.py", "--apk", self.release_apk(edition), "--edition", edition,
+                                            "--aapt2", self.sdk_tool("build-tools", BUILD_TOOLS, "aapt2")]),
+                ("apk", lambda: [self.python, "scripts/quality/check_performance.py", "apk", "--apk", self.release_apk(edition), "--edition", edition]),
+                ("solver-seam", lambda: [self.python, "scripts/quality/check_solver_seam.py", "--mapping",
+                                        self.root / f"app/build/outputs/mapping/{edition}Release/mapping.txt"])):
+                self.gate(name, lambda command=command, name=name: self.run(command(), f"{edition}-{name}.log"))
+                results[name][edition] = self.gates[name]
+        for name, editions in results.items():
+            statuses = [gate["status"] for gate in editions.values()]
+            status = "FAIL" if "FAIL" in statuses else "BLOCKED" if "BLOCKED" in statuses else "PASS"
+            self.gates[name] = dict(status=status, editions=editions)
 
-    def release_apk(self):
-        apks = sorted((self.root / "app/build/outputs/apk/release").glob("*.apk"))
+    def release_apk(self, edition=None):
+        edition = edition or getattr(self.args, "edition", "riff")
+        apks = sorted((self.root / f"app/build/outputs/apk/{edition}/release").glob("*.apk"))
         if len(apks) != 1:
-            raise Failed("exactly one release APK is expected, found %d" % len(apks))
+            raise Failed(f"exactly one {edition} release APK is expected, found {len(apks)}")
         return apks[0]
 
     # -------------------------------------------------------------- devices
@@ -423,13 +434,13 @@ class Lane:
         return dict(self.device)
 
     def build_pair(self):
-        command = [gradle(self.root), ":app:assembleDebug", ":app:assembleDebugAndroidTest", "-PriffSideBySide=true",
+        command = [gradle(self.root), f":app:assemble{self.edition_title}Debug", f":app:assemble{self.edition_title}DebugAndroidTest", "-PriffSideBySide=true",
                    "--console=plain"]
         if self.args.offline:
             command.append("--offline")
         self.run(command, "build-pair.log")
-        app = sorted((self.root / "app/build/outputs/apk/debug").glob("*.apk"))
-        test = sorted((self.root / "app/build/outputs/apk/androidTest/debug").glob("*.apk"))
+        app = sorted((self.root / f"app/build/outputs/apk/{self.edition}/debug").glob("*.apk"))
+        test = sorted((self.root / f"app/build/outputs/apk/androidTest/{self.edition}/debug").glob("*.apk"))
         if len(app) != 1 or len(test) != 1:
             raise Failed("exactly one debug app APK and one test APK are required")
         return app[0], test[0]
@@ -498,13 +509,13 @@ class Lane:
         result = self.adb(*instrument_command(fixture_classes(self.args.lane, self.device["api"])), timeout=7200)
         log.write_text(result.stdout + result.stderr, encoding="utf-8")
         end = datetime.now(timezone.utc).isoformat()
-        command = [self.python, "scripts/quality/collect_results.py", "--collect-only", "--variant", "debug",
+        command = [self.python, "scripts/quality/collect_results.py", "--collect-only", "--variant", "debug", "--edition", self.edition,
                    "--apk", app, "--test-apk", test, "--start-utc", start, "--end-utc", end, "--exit-code", str(result.returncode),
                    "--instrumentation", log, "--device-tier", self.device["tier"], "--device-api", str(self.device["api"] or 0),
                    "--device-model", self.device["model"] or "unknown", "--mode", self.args.mode,
                    "--run-id", "lane-instr-" + self.evidence.name[-34:].replace(".", "-"),
-                   "--junit-dir", self.root / "app/build/test-results/testDebugUnitTest",
-                   "--lint-report", self.root / "app/build/reports/lint-results-debug.xml", "--checks-skipped"]
+                   "--junit-dir", self.root / f"app/build/test-results/test{self.edition_title}DebugUnitTest",
+                   "--lint-report", self.root / f"app/build/reports/lint-results-{self.edition}Debug.xml", "--checks-skipped"]
         self.run(command, "collect-instrumentation.log", check=False)
         # The collector binds the run to the exact APK pair and the source; its gates decide, not this script.
         text = (self.evidence / "collect-instrumentation.log").read_text(encoding="utf-8", errors="replace")
@@ -541,10 +552,11 @@ class Lane:
             self.gates["benchmark"] = dict(status="BLOCKED", reason="no physical R or L device")
             return
         def measure():
-            command = [gradle(self.root), ":app:assembleBenchmarkRelease", ":benchmark:assembleBenchmarkRelease",
+            command = [gradle(self.root), f":app:assemble{self.edition_title}BenchmarkRelease", ":benchmark:assembleBenchmarkRelease",
+                       f"-PriffBenchmarkEdition={self.edition}",
                        "--console=plain"] + (["--offline"] if self.args.offline else [])
             self.run(command, "benchmark-build.log", timeout=3600)
-            app = sorted((self.root / "app/build/outputs/apk/benchmarkRelease").glob("*.apk"))
+            app = sorted((self.root / f"app/build/outputs/apk/{self.edition}/benchmarkRelease").glob("*.apk"))
             test = sorted((self.root / "benchmark/build/outputs/apk/benchmarkRelease").glob("*.apk"))
             if len(app) != 1 or len(test) != 1:
                 raise Failed("exactly one Riff Benchmark APK and one macrobenchmark APK are required")
@@ -597,17 +609,20 @@ class Lane:
                 info = zipfile.ZipInfo(name, date_time=(2020, 1, 1, 0, 0, 0))
                 info.compress_type = zipfile.ZIP_DEFLATED
                 out.writestr(info, (self.root / name).read_bytes())
-        problems = check_source_archive(archive)
+        problems = check_source_archive(archive, self.root)
         if problems:
             raise Failed("; ".join(problems[:5]))
         note = "" if identity["sourceState"] == "clean" else " (working tree not clean: not an exact candidate)"
         return f"{len(files)} files, state {identity['sourceState']}{note}"
 
     def release_identity(self):
-        apks = sorted((self.root / "app/build/outputs/apk/release").glob("*.apk"))
+        apks = sorted((self.root / f"app/build/outputs/apk/{self.edition}/release").glob("*.apk"))
         if len(apks) != 1:
             raise Blocked("build the release first (the pr lane does)")
         identity = collect_results.apk_identity(apks[0])
+        problems = release_source_problems(identity, collect_results.source_identity(self.root), self.edition)
+        if problems:
+            raise Failed("; ".join(problems))
         try:
             certificate = collect_results.certificate(apks[0], executable(self.sdk / "build-tools" / BUILD_TOOLS / "apksigner") if self.sdk else None)
         except collect_results.EvidenceError as error:
@@ -615,11 +630,19 @@ class Lane:
         (self.evidence / "release-identity.json").write_text(json.dumps(dict(identity, certificateSha256=certificate), indent=2) + "\n", encoding="utf-8")
         if certificate is None:
             raise Blocked("the release APK is unsigned: the certificate needs a signed candidate (docs/release-signing.md)")
-        return dict(versionName=identity["versionName"], versionCode=identity["versionCode"], certificate=certificate)
+        signing = (self.root / "docs/release-signing.md").read_text(encoding="utf-8")
+        pinned = re.search(r"Certificate SHA-256:\s*([0-9a-f]{64})", signing)
+        if not pinned or certificate != pinned[1]:
+            raise Failed("release APK does not carry the pinned release certificate")
+        self.run([self.python, "scripts/quality/check_release_content.py", "--apk", apks[0], "--edition", self.edition,
+                  "--aapt2", self.sdk_tool("build-tools", BUILD_TOOLS, "aapt2"),
+                  "--apksigner", self.sdk_tool("build-tools", BUILD_TOOLS, "apksigner")], "signed-release-content.log")
+        return dict(versionName=identity["versionName"], versionCode=identity["versionCode"],
+                    sourceDigest=identity["sourceDigest"], certificate=certificate)
 
     def checksums(self):
         names = [p for p in ("source.zip",) if (self.evidence / p).is_file()]
-        apks = sorted((self.root / "app/build/outputs/apk/release").glob("*.apk"))
+        apks = [self.release_apk(edition) for edition in ("riff", "plus")]
         lines = [f"{collect_results.sha256(self.evidence / n)}  {n}" for n in names] + \
                 [f"{collect_results.sha256(a)}  {a.name}" for a in apks]
         if not lines:
@@ -627,57 +650,230 @@ class Lane:
         (self.evidence / "SHA256SUMS").write_text("\n".join(lines) + "\n", encoding="utf-8")
         return f"{len(lines)} files"
 
-    def upgrade(self):
-        if not self.args.previous_apk:
-            raise Blocked("needs --previous-apk (the last distributed APK, same certificate) and --allow-install")
+    def packaging_preflight(self):
+        probe = getattr(self.args, "probe_apk", None)
+        if probe is None or not Path(probe).is_file():
+            raise Blocked("build the signed test sidecar and provide --probe-apk (scripts/quality/build-packaging-probe.ps1)")
+        if not isinstance(self.device.get("api"), int):
+            raise Blocked("the emulator API could not be read")
+        expected = collect_results.source_identity(self.root)
+        signing = (self.root / "docs/release-signing.md").read_text(encoding="utf-8")
+        pinned = re.search(r"Certificate SHA-256:\s*([0-9a-f]{64})", signing)
+        if not pinned:
+            raise Failed("release certificate pin missing")
+        signer = self.sdk_tool("build-tools", BUILD_TOOLS, "apksigner")
+        aapt = self.sdk_tool("build-tools", BUILD_TOOLS, "aapt2")
+        apks = {edition: self.release_apk(edition) for edition in ("riff", "plus")}
+        identities = {}
+        for edition, apk in apks.items():
+            identity = collect_results.apk_identity(apk)
+            problems = release_source_problems(identity, expected, edition)
+            if problems:
+                raise Failed("; ".join(problems))
+            identities[edition] = identity
+            self.run([self.python, "scripts/quality/check_release_content.py", "--apk", apk, "--edition", edition,
+                      "--aapt2", aapt, "--apksigner", signer], f"switch-{edition}-content.log")
+        for field in ("versionName", "versionCode", "sourceDigest", "revision", "sourceState"):
+            if identities["riff"][field] != identities["plus"][field]:
+                raise Failed("edition pair differs: " + field)
+        inputs = [("riff", apks["riff"], PACKAGE), ("plus", apks["plus"], PACKAGE), ("probe", Path(probe), "com.musicglass.packagingprobe")]
+        if self.args.previous_apk:
+            inputs.append(("previous", Path(self.args.previous_apk), PACKAGE))
+        for name, apk, package in inputs:
+            if collect_results.certificate(apk, signer) != pinned[1]:
+                raise Failed(name + " APK does not carry the pinned release certificate")
+            badging = subprocess.run([str(aapt), "dump", "badging", str(apk)], capture_output=True, text=True, check=False, timeout=120)
+            package_match = re.search(r"^package: name='([^']+)'", badging.stdout, re.M)
+            if badging.returncode or not package_match or package_match[1] != package:
+                raise Failed(name + " APK has the wrong package")
+            if package_min_api(badging.stdout) > self.device["api"]:
+                raise Blocked(name + " APK requires a newer emulator API")
+            if name == "probe":
+                tree = check_release_content.parse_tree(check_release_content.run(aapt, "dump", "xmltree", str(apk), "--file", "AndroidManifest.xml"))
+                instruments = tree.all("instrumentation")
+                if len(instruments) != 1 or instruments[0].get("targetPackage") != PACKAGE or instruments[0].get("name") != "com.musicglass.quality.EditionSwitchProbe":
+                    raise Failed("packaging probe has the wrong instrumentation target")
+            if name == "previous" and not re.search(r"^package: .*versionName='0\.21\.0'", badging.stdout, re.M):
+                raise Failed("the upgrade fixture must be the signed 0.21.0 release")
+        try:
+            with zipfile.ZipFile(probe) as archive:
+                metadata = json.loads(archive.read("assets/packaging-probe.json"))
+            if not isinstance(metadata, dict) or not isinstance(metadata.get("identity"), dict):
+                raise ValueError("missing identity")
+        except (KeyError, ValueError, zipfile.BadZipFile) as error:
+            raise Failed("packaging probe metadata is missing or malformed") from error
+        if release_source_problems(metadata.get("identity", {}), expected, "plus") and release_source_problems(metadata.get("identity", {}), expected, "riff"):
+            raise Failed("packaging probe is not paired with this source")
+        source = self.root / "scripts/quality/packaging/EditionSwitchProbe.java"
+        if metadata.get("probeSourceSha256") != collect_results.sha256(source):
+            raise Failed("packaging probe source changed after compilation")
+        return apks, Path(probe)
+
+    def probe_state(self, action, token, name):
+        result = self.adb("shell", "am", "instrument", "-w", "-r", "-e", "action", action, "-e", "token", token,
+                          "com.musicglass.packagingprobe/com.musicglass.quality.EditionSwitchProbe", timeout=240)
+        output = result.stdout + result.stderr
+        (self.evidence / (name + "-probe.log")).write_text(output, encoding="utf-8")
+        if result.returncode:
+            raise Failed("packaging probe command failed; see " + name + "-probe.log")
+        return parse_packaging_probe(output)
+
+    def install_packaging_apk(self, apk, name):
+        result = self.adb("install", "-r", str(apk))
+        (self.evidence / (name + "-install.log")).write_text(result.stdout + result.stderr, encoding="utf-8")
+        if result.returncode or "Success" not in result.stdout:
+            raise Failed(name + " install failed; never uninstall to get past certificate, version or ABI failures")
+        if name != "probe":
+            paths = self.adb("shell", "pm", "path", PACKAGE).stdout
+            matches = re.findall(r"^package:(/[^\s]+/base\.apk)$", paths, re.M)
+            if len(matches) != 1:
+                raise Failed("installed base APK path is ambiguous")
+            digest = self.adb("shell", "sha256sum", matches[0]).stdout.split()
+            if not digest or digest[0] != collect_results.sha256(apk):
+                raise Failed("installed APK bytes do not match " + name)
+
+    def switch_install_paths(self):
         self.attach(True)
-        candidate = sorted((self.root / "app/build/outputs/apk/release").glob("*.apk"))
-        if len(candidate) != 1:
-            raise Blocked("build the release first")
         with DeviceLock(self.root, self.serial):
-            first = self.adb("install", "-r", str(self.args.previous_apk))
-            if first.returncode:
-                raise Failed("the previous APK did not install")
-            before = self.adb("shell", "dumpsys", "package", PACKAGE).stdout
-            second = self.adb("install", "-r", str(candidate[0]))
-            (self.evidence / "upgrade.log").write_text(first.stdout + first.stderr + second.stdout + second.stderr, encoding="utf-8")
-            if second.returncode or "Success" not in second.stdout:
-                raise Failed("the candidate does not install over the previous APK (certificate or version code); never uninstall to get past it")
-            after = self.adb("shell", "dumpsys", "package", PACKAGE).stdout
-            installed = lambda text: re.search(r"firstInstallTime=(\S+ \S+)", text)
-            if not installed(before) or not installed(after) or installed(before)[1] != installed(after)[1]:
-                raise Failed("the app was reinstalled, not updated: its data did not survive")
-            return "updated in place"
+            apks, probe = self.packaging_preflight()
+            existing = self.adb("shell", "pm", "path", PACKAGE).stdout
+            if existing.strip():
+                raise Blocked("the packaging trial requires a fresh disposable emulator with no Riff install; no app was removed")
+            self.network_quiet()
+            base = Path(self.args.previous_apk) if self.args.previous_apk else apks["plus"]
+            self.install_packaging_apk(base, "previous" if self.args.previous_apk else "initial-plus")
+            self.install_packaging_apk(probe, "probe")
+            token = uuid.uuid4().hex
+            baseline = self.probe_state("seed", token, "seed")
+            first = package_first_install_time(self.adb("shell", "dumpsys", "package", PACKAGE).stdout)
+            (self.evidence / "seed-state.json").write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
+            stages = [("upgrade-plus", apks["plus"])] if self.args.previous_apk else []
+            stages += [("switch-riff", apks["riff"]), ("switch-plus", apks["plus"])]
+            for name, apk in stages:
+                stopped = self.adb("shell", "am", "force-stop", PACKAGE)
+                if stopped.returncode:
+                    raise Failed("could not stop the fixture before " + name)
+                self.install_packaging_apk(apk, name)
+                now = package_first_install_time(self.adb("shell", "dumpsys", "package", PACKAGE).stdout)
+                if now != first:
+                    raise Failed("firstInstallTime changed: the app was reinstalled instead of updated")
+                current = self.probe_state("verify", token, name)
+                (self.evidence / (name + "-state.json")).write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")
+                changed = sorted(key for key in set(baseline) | set(current) if baseline.get(key) != current.get(key))
+                if changed:
+                    raise Failed(name + " changed fixture data: " + ", ".join(changed))
+            return dict(paths=[name for name, _ in stages], data="preferences, Encore, saved queue, download bytes and metadata, beat analysis, rendered Encore widget preserved")
 
     def packaging(self):
         self.gate("source-archive", self.source_archive)
         self.gate("release-identity", self.release_identity)
         self.gate("checksums", self.checksums)
-        if self.args.allow_install:
-            self.gate("upgrade", self.upgrade)
-        else:
-            self.gates["upgrade"] = dict(status="BLOCKED", reason="installs on an emulator: run again with --allow-install and --previous-apk")
+        installs = ("edition-switch", "upgrade")
+        selected = [name for name in installs if self.wanted(name)]
+        for name in installs:
+            self.gates[name] = dict(status="BLOCKED", reason="not selected with --checks" if name not in selected else "installs on a disposable emulator: provide --allow-install and --probe-apk")
+        if not selected or not self.args.allow_install:
+            return
+        if any(self.gates[name]["status"] == "FAIL" for name in ("source-archive", "release-identity", "checksums")):
+            for name in selected:
+                self.gates[name] = dict(status="BLOCKED", reason="packaging inputs failed; no installation attempted")
+            return
+        first = selected[0]
+        if first == "upgrade" and not self.args.previous_apk:
+            self.gates[first] = dict(status="BLOCKED", reason="provide the signed 0.21.0 --previous-apk")
+            return
+        result = self.gate(first, self.switch_install_paths)
+        for name in selected[1:]:
+            if name == "upgrade" and not self.args.previous_apk:
+                self.gates[name] = dict(status="BLOCKED", reason="provide the signed 0.21.0 --previous-apk")
+            elif result is not None:
+                self.gates[name] = dict(status="PASS", detail=result)
+            else:
+                self.gates[name] = dict(self.gates[first])
 
 
-def check_source_archive(path):
-    """What must and must not be in a source archive. Returns the problems found."""
+def package_min_api(text):
+    values = re.findall(r"^(?:sdkVersion|minSdkVersion):'(\d+)'", text, re.M)
+    if len(values) != 1:
+        raise Failed("APK minimum API missing or ambiguous")
+    return int(values[0])
+
+
+def package_first_install_time(text):
+    found = re.findall(r"firstInstallTime=(\S+ \S+)", text)
+    if len(found) != 1:
+        raise Failed("firstInstallTime missing or ambiguous")
+    return found[0]
+
+
+def parse_packaging_probe(text):
+    reports = re.findall(r"^INSTRUMENTATION_RESULT: report=(.+)$", text, re.M)
+    codes = re.findall(r"^INSTRUMENTATION_CODE:\s*(-?\d+)\s*$", text, re.M)
+    if len(reports) != 1 or codes != ["-1"] or re.search(r"(?im)^INSTRUMENTATION_RESULT: error=|INSTRUMENTATION_FAILED|Process crashed", text):
+        raise Failed("packaging probe did not complete successfully")
+    try:
+        report = json.loads(reports[0])
+    except ValueError as error:
+        raise Failed("packaging probe report is malformed") from error
+    hashes = ("preferences", "history", "totals", "hourly", "queue", "download", "audio", "analysis")
+    if not isinstance(report, dict) or any(not isinstance(report.get(key), str) or not re.fullmatch(r"[a-f0-9]{64}", report[key]) for key in hashes):
+        raise Failed("packaging probe omitted complete fixture evidence")
+    if type(report.get("widgetId")) is not int or report["widgetId"] <= 0 or report.get("widgetRenderedFixture") is not True:
+        raise Failed("packaging probe did not preserve and render the Encore widget")
+    if not isinstance(report.get("ready"), str) or not re.fullmatch(r"[1-9]\d*", report["ready"]):
+        raise Failed("packaging probe lost the download marker")
+    return report
+
+
+def release_source_problems(identity, expected, edition):
+    problems = []
+    if identity.get("variant") != edition + "Release":
+        problems.append("release APK has the wrong edition or build type")
+    for field in ("sourceDigest", "revision", "sourceState"):
+        if identity.get(field) != expected.get(field):
+            problems.append(f"release APK and current source differ: {field}")
+    return problems
+
+
+def check_source_archive(path, source_root=None):
+    """Validate contents and optionally their correspondence to the APK fingerprint inputs."""
     problems = []
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
-    for name in names:
-        if FORBIDDEN_IN_SOURCE.search(name):
-            problems.append(f"must not be in the source: {name}")
-        if name.startswith("/") or ".." in name.split("/") or "\\" in name:
-            problems.append(f"unsafe path: {name}")
-    for name in SOURCE_REQUIRED:
-        if name not in names:
-            problems.append(f"missing from the source: {name}")
+        seen = set()
+        folded = set()
+        for name in names:
+            if name.casefold() in folded:
+                problems.append(f"duplicate source entry: {name}")
+            seen.add(name)
+            folded.add(name.casefold())
+            if FORBIDDEN_IN_SOURCE.search(name):
+                problems.append(f"must not be in the source: {name}")
+            if name.startswith("/") or ".." in name.split("/") or "\\" in name or ":" in name:
+                problems.append(f"unsafe path: {name}")
+        for name in SOURCE_REQUIRED:
+            if name not in seen:
+                problems.append(f"missing from the source: {name}")
+        if source_root is not None:
+            root = Path(source_root)
+            inputs = {p.relative_to(root).as_posix(): p for p in collect_results.source_inputs(root)}
+            for name in sorted(seen):
+                if collect_results.is_source_input(name.casefold()) and not name.endswith("/") and name not in inputs:
+                    problems.append(f"unexpected fingerprint input: {name}")
+            for name, original in inputs.items():
+                if name not in seen:
+                    problems.append(f"missing fingerprint input: {name}")
+                elif archive.getinfo(name).file_size != original.stat().st_size or archive.read(name) != original.read_bytes():
+                    problems.append(f"source differs from current fingerprint input: {name}")
     return problems
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--lane", choices=sorted(LANES), default="pr")
+    parser.add_argument("--check-source-archive", type=Path, help="validate a source ZIP against the current build inputs and stop")
+    parser.add_argument("--archive-root", type=Path, default=ROOT, help="source tree for --check-source-archive")
+    parser.add_argument("--edition", choices=("riff", "plus"), default="riff", help="device, packaging or benchmark edition; PR checks both")
     parser.add_argument("--checks", help="comma-separated gates of the lane to run; the others are BLOCKED")
     parser.add_argument("--serial", help="the device to use; required for a physical device")
     parser.add_argument("--tier", choices=("R", "L", "unclassified"))
@@ -685,9 +881,21 @@ def main(argv=None):
     parser.add_argument("--evidence-dir")
     parser.add_argument("--allow-install", action="store_true", help="the lane may install on the selected device")
     parser.add_argument("--previous-apk", type=Path)
+    parser.add_argument("--probe-apk", type=Path, help="signed platform-only packaging fixture sidecar")
     parser.add_argument("--offline", action="store_true")
     parser.add_argument("--tools", action="store_true", help="print where the tools were found and stop")
     args = parser.parse_args(argv)
+    if args.check_source_archive:
+        try:
+            problems = check_source_archive(args.check_source_archive, args.archive_root)
+        except (OSError, ValueError, zipfile.BadZipFile) as error:
+            print(f"Source archive could not be checked: {error}")
+            return 1
+        for problem in problems:
+            print(problem)
+        if not problems:
+            print("Source archive matches every current APK fingerprint input.")
+        return 1 if problems else 0
     if args.tools:
         env = tool_environment()
         print(json.dumps(dict(sdk=env.get("ANDROID_HOME"), java=env.get("JAVA_HOME"), gradleUserHome=env.get("GRADLE_USER_HOME"),

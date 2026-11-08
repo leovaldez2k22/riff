@@ -16,10 +16,10 @@ internal class AccessibilitySettings(context: Context) {
     fun updateHapticFeedback(enabled:Boolean) {hapticFeedback=enabled;prefs.edit().putBoolean("haptic_feedback",enabled).apply()}
 
     var solidControls by mutableStateOf(
-        runCatching { prefs.getBoolean("solid_controls", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE))
+        runCatching { prefs.getBoolean("solid_controls", false) }.getOrDefault(false))
         private set
     var reduceMotion by mutableStateOf(
-        runCatching { prefs.getBoolean("reduce_motion", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE))
+        runCatching { prefs.getBoolean("reduce_motion", false) }.getOrDefault(false))
         private set
 
     /** Feature 5: blur the lyric lines not being sung. */
@@ -42,6 +42,11 @@ internal class AccessibilitySettings(context: Context) {
         private set
     fun updateLyricsRoman(mode: LyricsRomanMode) { lyricsRoman = mode; prefs.edit().putString("lyrics_roman", mode.key).apply() }
 
+    /** Feature 1: a translation under each line, when the lyrics have one. Off until asked for. */
+    var lyricsTranslation by mutableStateOf(prefs.getBoolean("lyrics_translation", false))
+        private set
+    fun updateLyricsTranslation(enabled: Boolean) { lyricsTranslation = enabled; prefs.edit().putBoolean("lyrics_translation", enabled).apply() }
+
     var motionPace by mutableStateOf(motionPaceFrom(prefs.getString("motion_pace", null)))
         private set
     fun updateMotionPace(pace: MotionPace) { motionPace = pace; prefs.edit().putString("motion_pace", pace.key).apply() }
@@ -59,13 +64,14 @@ internal class AccessibilitySettings(context: Context) {
     /** Reads the stored values again, after an import wrote them. */
     fun reload() {
         hapticFeedback = prefs.getBoolean("haptic_feedback", true)
-        solidControls = runCatching { prefs.getBoolean("solid_controls", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE)
-        reduceMotion = runCatching { prefs.getBoolean("reduce_motion", BuildConfig.LITE) }.getOrDefault(BuildConfig.LITE)
+        solidControls = runCatching { prefs.getBoolean("solid_controls", false) }.getOrDefault(false)
+        reduceMotion = runCatching { prefs.getBoolean("reduce_motion", false) }.getOrDefault(false)
         motionPace = motionPaceFrom(prefs.getString("motion_pace", null))
         lyricsBlur = prefs.getBoolean("lyrics_blur", true)
         playerLyricLine = prefs.getBoolean("player_lyric_line", true)
         playerStats = prefs.getBoolean("player_stats", false)
         lyricsRoman = lyricsRomanModeFrom(prefs.getString("lyrics_roman", null))
+        lyricsTranslation = prefs.getBoolean("lyrics_translation", false)
         frostedGlass = prefs.getBoolean("frosted_glass", FROSTED_GLASS_DEFAULT)
         glassIntensity = prefs.getFloat("glass_intensity", GLASS_INTENSITY_DEFAULT).coerceIn(0f, 1.5f)
         frostedIntensity = prefs.getFloat("frosted_intensity", FROSTED_INTENSITY_DEFAULT).coerceIn(0f, 1.5f)

@@ -1,5 +1,8 @@
 # Handover: finishing 0.20.0 on another laptop (30 October 2026)
 
+Current Android development is the unreleased [0.30.0 plan](feature-implementation-plan-0.30.0-2026-11-07.md). The historical 0.20.0 account below is retained; its key recovery and new-laptop instructions still apply. From 0.30.0, build and check both `riff-<version>.apk` and `riff-plus-<version>.apk` with the same key/package/version; both previews share the separate preview package. See [release signing](release-signing.md#two-edition-candidates-from-0300) for the current asset and source-archive contract and [the split log](riff-plus-split-plan-2026-11-07.md#implementation-log) for current evidence.
+
+
 Written when the owner moved the release work to another laptop, mid-way through. A new Claude session should read this
 first, then `CLAUDE.md`. The branch is `feat/next-features`, at the commit that added this file, and it is pushed to
 `origin`. `main` was last fast-forwarded to the branch at 5262220 (the README refresh). It is behind by the 0.20.0

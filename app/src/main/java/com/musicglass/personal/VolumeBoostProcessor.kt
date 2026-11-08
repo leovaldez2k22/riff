@@ -1,5 +1,7 @@
 package com.musicglass.personal
 
+import kotlin.math.pow
+
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
@@ -111,3 +113,75 @@ internal fun riffLoadControl(): androidx.media3.exoplayer.DefaultLoadControl =
     androidx.media3.exoplayer.DefaultLoadControl.Builder()
         .setBufferDurationsMs(30_000, 60_000, 500, 1_500)
         .setBackBuffer(RIFF_BACK_BUFFER_MS, true).build()
+
+/**
+ * How far ahead the main player loads (owner, 9 November 2026): to the end of nearly every song, so a jump anywhere in
+ * it is instant and the whole song lands in the music cache. Starting is unchanged (0.5 s, as above): only the loading
+ * after that goes on. The byte target stops a video long before its end.
+ */
+internal const val RIFF_AHEAD_MAX_MS = 15 * 60_000
+internal const val RIFF_AHEAD_BYTES = 48 * 1024 * 1024
+/** Under Data saver, no further ahead than before. */
+internal const val RIFF_AHEAD_SAVER_MS = 60_000
+
+/** True while loading may go on, given how much is loaded and whether Data saver is on. */
+internal fun wholeSongMayLoad(bufferedUs: Long, dataSaver: Boolean): Boolean = !dataSaver || bufferedUs < RIFF_AHEAD_SAVER_MS * 1000L
+
+@androidx.annotation.OptIn(markerClass = [UnstableApi::class])
+internal fun riffWholeSongLoadControl(context: android.content.Context): androidx.media3.exoplayer.LoadControl {
+    val prefs = context.applicationContext.getSharedPreferences(DATA_SAVER_PREFS, android.content.Context.MODE_PRIVATE)
+    val inner = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+        .setBufferDurationsMs(30_000, RIFF_AHEAD_MAX_MS, 500, 1_500)
+        .setTargetBufferBytes(RIFF_AHEAD_BYTES)
+        .setBackBuffer(RIFF_BACK_BUFFER_MS, true).build()
+    return WholeSongLoadControl(inner) { prefs.getBoolean("enabled", false) }
+}
+
+/**
+ * The main player's load control: [inner] in every respect but how far it loads. Each of LoadControl's default methods
+ * is passed on by hand: Kotlin's delegation skips Java's default methods, and Media3 throws from the ones left unset.
+ */
+@androidx.annotation.OptIn(markerClass = [UnstableApi::class])
+@Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+internal class WholeSongLoadControl(private val inner: androidx.media3.exoplayer.DefaultLoadControl, private val dataSaver: () -> Boolean) :
+    androidx.media3.exoplayer.LoadControl {
+    private fun more(load: Boolean, bufferedUs: Long) = load && wholeSongMayLoad(bufferedUs, dataSaver())
+    override fun onPrepared(playerId: androidx.media3.exoplayer.analytics.PlayerId) = inner.onPrepared(playerId)
+    override fun onPrepared() = inner.onPrepared()
+    override fun onTracksSelected(parameters: androidx.media3.exoplayer.LoadControl.Parameters, trackGroups: androidx.media3.exoplayer.source.TrackGroupArray,
+        trackSelections: Array<out androidx.media3.exoplayer.trackselection.ExoTrackSelection?>) = inner.onTracksSelected(parameters, trackGroups, trackSelections)
+    override fun onTracksSelected(playerId: androidx.media3.exoplayer.analytics.PlayerId, timeline: androidx.media3.common.Timeline,
+        mediaPeriodId: androidx.media3.exoplayer.source.MediaSource.MediaPeriodId, renderers: Array<out androidx.media3.exoplayer.Renderer>,
+        trackGroups: androidx.media3.exoplayer.source.TrackGroupArray, trackSelections: Array<out androidx.media3.exoplayer.trackselection.ExoTrackSelection?>) =
+        inner.onTracksSelected(playerId, timeline, mediaPeriodId, renderers, trackGroups, trackSelections)
+    override fun onTracksSelected(timeline: androidx.media3.common.Timeline, mediaPeriodId: androidx.media3.exoplayer.source.MediaSource.MediaPeriodId,
+        renderers: Array<out androidx.media3.exoplayer.Renderer>, trackGroups: androidx.media3.exoplayer.source.TrackGroupArray,
+        trackSelections: Array<out androidx.media3.exoplayer.trackselection.ExoTrackSelection?>) = inner.onTracksSelected(timeline, mediaPeriodId, renderers, trackGroups, trackSelections)
+    override fun onTracksSelected(renderers: Array<out androidx.media3.exoplayer.Renderer>, trackGroups: androidx.media3.exoplayer.source.TrackGroupArray,
+        trackSelections: Array<out androidx.media3.exoplayer.trackselection.ExoTrackSelection?>) = inner.onTracksSelected(renderers, trackGroups, trackSelections)
+    override fun onStopped(playerId: androidx.media3.exoplayer.analytics.PlayerId) = inner.onStopped(playerId)
+    override fun onStopped() = inner.onStopped()
+    override fun onReleased(playerId: androidx.media3.exoplayer.analytics.PlayerId) = inner.onReleased(playerId)
+    override fun onReleased() = inner.onReleased()
+    override fun getAllocator(playerId: androidx.media3.exoplayer.analytics.PlayerId) = inner.getAllocator(playerId)
+    override fun getBackBufferDurationUs(playerId: androidx.media3.exoplayer.analytics.PlayerId) = inner.getBackBufferDurationUs(playerId)
+    override fun getBackBufferDurationUs() = inner.backBufferDurationUs
+    override fun retainBackBufferFromKeyframe(playerId: androidx.media3.exoplayer.analytics.PlayerId) = inner.retainBackBufferFromKeyframe(playerId)
+    override fun retainBackBufferFromKeyframe() = inner.retainBackBufferFromKeyframe()
+    override fun shouldContinueLoading(parameters: androidx.media3.exoplayer.LoadControl.Parameters) =
+        more(inner.shouldContinueLoading(parameters), parameters.bufferedDurationUs)
+    override fun shouldContinueLoading(playbackPositionUs: Long, bufferedDurationUs: Long, playbackSpeed: Float) =
+        more(inner.shouldContinueLoading(playbackPositionUs, bufferedDurationUs, playbackSpeed), bufferedDurationUs)
+    override fun shouldContinuePreloading(playerId: androidx.media3.exoplayer.analytics.PlayerId, timeline: androidx.media3.common.Timeline,
+        mediaPeriodId: androidx.media3.exoplayer.source.MediaSource.MediaPeriodId, bufferedDurationUs: Long) =
+        inner.shouldContinuePreloading(playerId, timeline, mediaPeriodId, bufferedDurationUs)
+    override fun shouldStartPlayback(parameters: androidx.media3.exoplayer.LoadControl.Parameters) = inner.shouldStartPlayback(parameters)
+    override fun shouldStartPlayback(timeline: androidx.media3.common.Timeline, mediaPeriodId: androidx.media3.exoplayer.source.MediaSource.MediaPeriodId,
+        bufferedDurationUs: Long, playbackSpeed: Float, rebuffering: Boolean, targetLiveOffsetUs: Long) =
+        inner.shouldStartPlayback(timeline, mediaPeriodId, bufferedDurationUs, playbackSpeed, rebuffering, targetLiveOffsetUs)
+    override fun shouldStartPlayback(bufferedDurationUs: Long, playbackSpeed: Float, rebuffering: Boolean, targetLiveOffsetUs: Long) =
+        inner.shouldStartPlayback(bufferedDurationUs, playbackSpeed, rebuffering, targetLiveOffsetUs)
+}
+
+/** Convert decibels for shared blend gain and edition effects. */
+internal fun dbToGain(db: Float): Float = 10.0.pow(db / 20.0).toFloat()

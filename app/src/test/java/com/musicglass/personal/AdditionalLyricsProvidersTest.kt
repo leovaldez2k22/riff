@@ -42,6 +42,20 @@ class AdditionalLyricsProvidersTest {
         assertEquals("NetEase Cloud Music",doc.source);assertEquals("https://music.163.com/song?id=42",doc.sourceUrl)
         assertTrue(doc.timed);assertFalse(doc.wordTimed)
     }
+    @Test fun netEasesPlaceholderForAnInstrumentalIsTheInstrumentalStateNotLyrics() {
+        // The owner's bug (8 Nov): "The Mighty Rio Grande" showed "纯音乐，请欣赏" ("pure music, please enjoy") as lyrics.
+        for (text in listOf("纯音乐，请欣赏", "纯音乐, 请欣赏", "此歌曲为没有填词的纯音乐，请您欣赏")) {
+            val raw = buildJsonObject { put("lrc", buildJsonObject { put("lyric", "[00:00.00]$text\n") }) }
+            val doc = netEaseLyrics(raw,20000,"42")!!.placeholderAsInstrumental()
+            assertTrue(text, doc.instrumental); assertTrue(doc.lines.isEmpty())
+        }
+        // Among real lines it is only dropped; ordinary Chinese lyrics are left alone.
+        val mixed = LyricsDocument("NetEase Cloud Music","u",listOf(LyricLine(0,1000,"纯音乐，请欣赏"),LyricLine(1000,2000,"音乐很美")))
+            .placeholderAsInstrumental()
+        assertFalse(mixed.instrumental); assertEquals(listOf("音乐很美"), mixed.lines.map { it.text })
+        val plain = netEaseLyrics(json(line).jsonObject,20000,"42")!!
+        assertEquals(plain, plain.placeholderAsInstrumental())
+    }
     @Test fun rateLimitAndVerificationResponsesAreFailures() {
         try {checkNetEaseResponse(json("""{"code":-462}""").jsonObject);fail("must reject verification response")}
         catch (_:IOException) { }

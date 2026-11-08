@@ -1,0 +1,20 @@
+{
+  "version": 36,
+  "cards": [
+    {
+      "title": "A lighter Riff",
+      "body": "Crossfade, Smart, lyrics and downloads stay together in the smaller edition.",
+      "action": "settings"
+    },
+    {
+      "title": "All of Encore",
+      "body": "Your listening statistics, stories, genres and Encore widget are available in both editions.",
+      "action": "encore"
+    },
+    {
+      "title": "Your settings travel with you",
+      "body": "Riff+ adds Automix, the app equalizer and Stats for nerds. About offers the other edition when its release is available. Saved Plus settings return when you move back.",
+      "action": "settings"
+    }
+  ]
+}

@@ -40,8 +40,8 @@ internal fun providerThumbnail(node: JsonElement?): String? {
     return candidates(node).maxByOrNull(ArtworkCandidate::pixels)?.url
 }
 
-/** Lite builds target low-RAM phones: half-size covers decode to a quarter of the bitmap memory. */
-internal val artworkTargetPx = if (BuildConfig.LITE) 512 else 1024
+/** Full-size covers for the shared artwork pipeline. */
+internal val artworkTargetPx = 1024
 
 /** Upgrade tiny CDN renditions before Coil chooses cache keys, including previously saved URLs. */
 internal fun highQualityArtworkUrl(url: String, target: Int = artworkTargetPx): String {

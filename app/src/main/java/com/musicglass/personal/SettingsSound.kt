@@ -23,11 +23,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.Analytics
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.ContentCut
-import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material.icons.rounded.Opacity
 import androidx.compose.material.icons.rounded.ShuffleOn
@@ -79,15 +79,13 @@ import kotlin.math.sin
     val crossfade = remember(context) { CrossfadeSettings.get(context) }
     var boostLevel by remember(audio) { mutableFloatStateOf(audio.percent.toFloat()) }
     var length by remember(crossfade) { mutableFloatStateOf(crossfade.seconds.toFloat()) }
-    val equalizerOn = remember(context) { EqualizerSettings.read(EqualizerSettings.prefs(context)).enabled }
     SettingsPage(model, bottom, string(R.string.settings_sound)) {
         bentoRows(
             { BlendTile(crossfade, length, { length = it }) },
             {
                 BentoBeside(
                     tall = { m -> BoostTile(audio, boostLevel, m) },
-                    top = { m -> BentoLink(string(R.string.equalizer), Icons.Rounded.Equalizer, "settings_equalizer", m,
-                        value = string(if (equalizerOn) R.string.on else R.string.off), stacked = true) { model.push(Route.Settings(SettingsSection.Equalizer)) } },
+                    top = { m -> Edition.EqualizerEntry(model, m) },
                     bottom = { m -> BentoToggle(string(R.string.normalize_volume), audio.normalize, audio::updateNormalize,
                         Icons.Rounded.Compress, "settings_normalize_volume", m) })
             },
@@ -107,6 +105,13 @@ import kotlin.math.sin
                         Icons.Rounded.SkipNext, "settings_skip_end_silence", m) },
                     { m -> BentoToggle(string(R.string.skip_all_silence), audio.skipAllSilence, audio::updateSkipAllSilence,
                         Icons.Rounded.ContentCut, "settings_skip_all_silence", m) })
+            },
+            {
+                BentoPair(
+                    { m -> BentoToggle(string(R.string.bluetooth_resume), audio.bluetoothResume, audio::updateBluetoothResume,
+                        Icons.Rounded.Bluetooth, "settings_bluetooth_resume", m) },
+                    { m -> BentoToggle(string(R.string.pause_on_mute), audio.pauseOnMute, audio::updatePauseOnMute,
+                        Icons.AutoMirrored.Rounded.VolumeOff, "settings_pause_on_mute", m) })
             })
     }
 }
@@ -117,7 +122,7 @@ import kotlin.math.sin
  */
 @Composable private fun BlendTile(crossfade: CrossfadeSettings, length: Float, onLength: (Float) -> Unit) {
     val motion = LocalMotionPolicy.current
-    val modes = listOf(BlendMode.Crossfade, BlendMode.Smart, BlendMode.Automix)
+    val modes = Edition.blendModes
     val clock = rememberLoopClock()
     // The drawing eases between the shapes as the choice changes.
     val curve by animateFloatAsState(if (crossfade.mode == BlendMode.Crossfade) 0f else 1f, GlassMotion.settle(motion), label = "blend curve")
@@ -172,7 +177,11 @@ import kotlin.math.sin
             BentoHelp(string(R.string.blend_ending_song), Pink)
             BentoHelp(string(R.string.blend_next_song), Lavender)
         }
-        GlassSegmented(listOf(string(R.string.blend_plain), string(R.string.smart_crossfade), string(R.string.blend_automix_short)),
+        GlassSegmented(modes.map { string(when (it) {
+            BlendMode.Crossfade -> R.string.blend_plain
+            BlendMode.Smart -> R.string.smart_crossfade
+            BlendMode.Automix -> R.string.blend_automix_short
+        }) },
             modes.indexOf(crossfade.mode).coerceAtLeast(0), { crossfade.updateMode(modes[it]); if (!crossfade.enabled) crossfade.updateEnabled(true) },
             "settings_blend", tags = modes.map { "settings_blend_${it.wire}" })
         Text(string(when (crossfade.mode) { BlendMode.Crossfade -> R.string.blend_plain_detail; BlendMode.Smart -> R.string.smart_crossfade_detail
@@ -233,6 +242,8 @@ import kotlin.math.sin
 @Composable internal fun LookSection(model: ShellModel, bottom: androidx.compose.ui.unit.Dp) {
     val preferences = LocalAccessibilitySettings.current
     SettingsPage(model, bottom, string(R.string.settings_look_and_feel)) {
+        // Feature 21 (Riff+): icon and colour, first on the page; Riff has no row here.
+        if (Edition.appearance) item(key = "appearance") { Edition.AppearanceEntry(model) }
         bentoRows(
             {
                 val note = glassCutNote(android.os.Build.VERSION.SDK_INT, preferences.solidControls, LocalGlassStyle.current.quality)
@@ -273,11 +284,13 @@ import kotlin.math.sin
                         Icons.Rounded.Contrast, "settings_solid_controls", m) })
             },
             {
-                BentoPair(
+                val statsUi = Edition.statsUi
+                if (statsUi != null) BentoPair(
                     { m -> BentoToggle(string(R.string.haptic_feedback), preferences.hapticFeedback, preferences::updateHapticFeedback,
                         Icons.Rounded.Vibration, "settings_haptics", m) },
-                    { m -> BentoToggle(string(R.string.show_stats_for_nerds), preferences.playerStats, preferences::updatePlayerStats,
-                        Icons.Rounded.Analytics, "settings_player_stats", m) })
+                    { m -> statsUi.SettingsSwitch(preferences, m) })
+                else BentoToggle(string(R.string.haptic_feedback), preferences.hapticFeedback, preferences::updateHapticFeedback,
+                    Icons.Rounded.Vibration, "settings_haptics", Modifier.fillMaxWidth())
             })
     }
 }

@@ -128,3 +128,20 @@ internal suspend fun undoNotInterested(context: Context, provider: YouTubeMusicP
         else -> string(R.string.riff_can_suggest_this_again_youtube_music_kept_the_dislike)
     })
 }
+
+/**
+ * "Never play this song" (owner, 9 November 2026): one item both blocks the song in Riff and tells YouTube Music, as
+ * "Not interested" did (hidden from Home, out of the queue, YouTube Music's own feedback where Riff has its token, else
+ * a dislike); "Play this song again" undoes both. An artist is Riff's block only: YouTube Music takes no "not
+ * interested" for an artist.
+ */
+internal suspend fun neverPlayEverywhere(context: Context, provider: YouTubeMusicProvider, playback: PlaybackGateway,
+    entry: NeverPlayEntry, card: NotInterestedEntry, token: String?, onNotice: (String) -> Unit) {
+    if (entry.artist) { toggleNeverPlay(context, playback, entry, onNotice); return }
+    val blocked = NeverPlayStore.get(context).contains(OfflineMusicStore.get(context).currentScope, entry.key, false)
+    toggleNeverPlay(context, playback, entry) {}
+    val told = NotInterestedStore.get(context)
+    if (blocked) told.entries.firstOrNull { it.key == entry.key }?.let { undoNotInterested(context, provider, it, onNotice) }
+        ?: onNotice(string(R.string.never_play_removed, entry.name))
+    else markNotInterested(context, provider, playback, card.copy(key = entry.key, song = true), token, onNotice)
+}

@@ -161,6 +161,8 @@ internal fun HomeFeedScreen(model: ShellModel, bottom: Dp, playback: PlaybackGat
             Spacer(Modifier.height(16.dp))
             HomeSpeedDial(speed, pinned.mapTo(HashSet()) { it.key() }, ::open)
         }
+        // Feature 13 (Riff+): mixes from Encore, below speed dial on All; Riff draws nothing.
+        if (Edition.plus && mood.isBlank() && (feedReady || error != null)) item(key = "encore_mixes") { Edition.HomeMixes(provider, playback) }
         // Feature 12.6: on Sundays, the week in Encore; the row stays away until the week has some listening.
         if (mood.isBlank() && encoreRecapToday(java.time.LocalDate.now())) item(key = "encore_week") {
             Box(Modifier.padding(horizontal = RiffSpace.screenEdge)) { EncoreLibraryCard(model, provider, sunday = true) }

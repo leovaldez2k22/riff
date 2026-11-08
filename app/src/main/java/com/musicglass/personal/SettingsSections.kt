@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.DataSaverOn
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.NewReleases
+import androidx.compose.material.icons.rounded.Podcasts
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -86,8 +87,7 @@ internal val PinkInk = Color(0xFF4B1528)
                     bottom = { m ->
                         // Feature 13: Android opens these links in Riff only once allowed here (Riff cannot verify YouTube's domains).
                         BentoLink(string(R.string.open_links_in_riff), Icons.Rounded.Link, "settings_open_links", m, tint = Sky) {
-                            runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS,
-                                android.net.Uri.parse("package:${context.packageName}"))) }
+                            openLinkSettings(context)
                         }
                     })
             },
@@ -167,15 +167,18 @@ internal val PinkInk = Color(0xFF4B1528)
                         BentoTitle(string(R.string.not_interested))
                     } })
             },
+            { BentoLink(string(R.string.scrobbling), Icons.Rounded.Podcasts, "settings_scrobbling", Modifier.fillMaxWidth(),
+                value = string(R.string.scrobbling_tile), tint = Coral) { model.push(Route.Settings(SettingsSection.Scrobbling)) } },
             { BentoHeading(string(R.string.widgets)) },
             { BentoTile(Modifier.fillMaxWidth()) { WidgetSettings(onNotice) } })
     }
 }
 
 /** About: the version large, then updates, what's new and diagnostics. */
-@Composable internal fun AboutSection(model: ShellModel, bottom: Dp, onNotice: (String) -> Unit) {
+@Composable internal fun AboutSection(model: ShellModel, bottom: Dp, onNotice: (String) -> Unit, updateChecker: UpdateChecker? = null) {
     val context = LocalContext.current
-    val updates = remember(context) { AppContainer.get(context).updates }
+    val updates = updateChecker ?: remember(context) { AppContainer.get(context).updates }
+    val installer = remember(context) { AppContainer.get(context).installer }
     val scope = rememberCoroutineScope()
     SettingsPage(model, bottom, string(R.string.about)) {
         bentoRows(
@@ -190,16 +193,32 @@ internal val PinkInk = Color(0xFF4B1528)
                 // Q12A: shown only in a build that has a release feed. Off sends nothing, the manual check included.
                 val toggle: @Composable (Modifier) -> Unit = { m -> BentoToggle(string(R.string.check_for_updates), updates.enabled, updates::updateEnabled,
                     Icons.Rounded.Update, "settings_check_updates", m, string(R.string.check_for_updates_detail, updates.feedHost.orEmpty())) }
+                Column(verticalArrangement = Arrangement.spacedBy(RiffSettings.tileGap)) {
                 if (updates.configured && !updates.enabled) toggle(Modifier.fillMaxWidth())
                 else if (updates.configured) BentoPair(toggle,
                     { m ->
                         val newer = updates.available
                         BentoLink(newer?.let { string(R.string.riff_version_is_available, it.version.toString()) } ?: string(R.string.check_for_updates_now),
                             Icons.Rounded.Update, "settings_update_row", m) {
-                            if (newer != null) openWebPage(context, newer.page, updates.pageHosts)
+                            // Feature 3: a release build installs in the app; anything else, or an asset without a checked address, opens the page.
+                            val target = updates.updateTarget
+                            if (target != null) installer.offer(target)
+                            else if (newer != null) openWebPage(context, newer.page, updates.pageHosts)
                             else scope.launch { updateResultText(updates.checkNow())?.let(onNotice) }
                         }
                     })
+                    updates.switchAvailable?.let { candidate ->
+                        val plus = candidate.edition == ReleaseEdition.Plus
+                        val size = android.text.format.Formatter.formatShortFileSize(context, candidate.bytes)
+                        BentoLink(string(if (plus) R.string.switch_get_plus else R.string.switch_to_riff),
+                            Icons.Rounded.Update, "settings_switch_edition", Modifier.fillMaxWidth(),
+                            value = string(if (plus) R.string.switch_plus_detail else R.string.switch_riff_detail, size), tint = Stone) {
+                            val target = updates.switchTarget
+                            if (target != null) installer.offer(target)
+                            else updates.switchAvailable?.let { current -> openWebPage(context, current.release.page, updates.pageHosts) }
+                        }
+                    }
+                }
             },
             {
                 BentoPair(

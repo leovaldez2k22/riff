@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Riff</string>
+    <string name="debug_app_name">Riff Debug</string>
+    <string name="stress_app_name">Riff Stress</string>
+    <string name="settings_keywords_sound">crossfade blend smart boost volume loudness equalizer phone sound silence</string>
+    <string name="smart_crossfade_detail">Blends over each song\'s own ending, 3 to 12 seconds, from where it winds down. Reads songs downloaded or on this phone, and streams it has already played to the end.</string>
+    <string name="settings_keywords_look">glass frosted motion contrast haptics vibration transitions</string>
+</resources>

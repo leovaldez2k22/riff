@@ -30,7 +30,7 @@ internal class AnalysisStore(private val dir: File, private val keep: Int = ANAL
         @Volatile private var instance: AnalysisStore? = null
         fun get(context: Context) = instance ?: synchronized(this) {
             instance ?: AnalysisStore(File(context.applicationContext.noBackupFilesDir, "automix-analysis"),
-                version = if (BeatModel.present(context)) ANALYSIS_VERSION_MODEL else ANALYSIS_VERSION).also { instance = it }
+                version = if (Edition.hasBeatModel(context)) ANALYSIS_VERSION_MODEL else ANALYSIS_VERSION).also { instance = it }
         }
     }
 
@@ -47,9 +47,12 @@ internal class AnalysisStore(private val dir: File, private val keep: Int = ANAL
         val f = file(key)
         val bytes = try { f.readBytes() } catch (_: IOException) { return null }
         val light = { decodeEnvelope(bytes, key, ANALYSIS_VERSION) }
-        val envelope = decodeEnvelope(bytes, key, version) ?: (if (beatModel) null else light()) ?: run {
-            // Stage 2's analysis where Automix wants the model's is kept until the model's replaces it; anything else goes.
-            if (light() == null) f.delete()
+        val learned = { decodeEnvelope(bytes, key, ANALYSIS_VERSION_MODEL) }
+        val envelope = decodeEnvelope(bytes, key, version) ?:
+            (if (!beatModel && version == ANALYSIS_VERSION) learned()?.let { TrackEnvelope(it.startMs, it.loudnessDb, it.lowDb, it.durationMs) } else null) ?:
+            (if (beatModel) null else light()) ?: run {
+            // Keep valid analyses from either edition. A light reader must not discard the model's cached beats.
+            if (light() == null && learned() == null) f.delete()
             return null
         }
         // Used: it goes to the back of the line for pruning.
@@ -83,10 +86,10 @@ internal class AnalysisStore(private val dir: File, private val keep: Int = ANAL
  * a smart blend or the silence skip is on, and not under battery saver; a failure leaves it for when it plays.
  */
 internal fun analyseDownload(context: Context, mediaId: String, audio: File) {
-    val mode = blendMode(context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE))
+    val mode = effectiveBlendMode(context.getSharedPreferences(CROSSFADE_PREFS, Context.MODE_PRIVATE))
     val smart = mode != BlendMode.Crossfade
     // The beat model only for Automix: Smart and the silence skip never use the beats (owner, 31 Oct).
-    val model = mode == BlendMode.Automix
+    val model = mode == BlendMode.Automix && Edition.plus
     val silence = context.getSharedPreferences(AUDIO_BOOST_PREFS, Context.MODE_PRIVATE).getBoolean(SKIP_END_SILENCE_KEY, false)
     if (!smart && !silence) return
     if (context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true) return

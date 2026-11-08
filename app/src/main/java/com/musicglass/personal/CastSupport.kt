@@ -136,6 +136,8 @@ internal class CastSync(
         wantPlay = source.playWhenReady
         val index = source.currentMediaItemIndex; val position = source.currentPosition
         source.pause()
+        // Feature 23: a speaker plays at its own pitch, so the phone's is put back too (owner Q23: reset on Cast).
+        if (source.playbackParameters.pitch != 1f) source.playbackParameters = androidx.media3.common.PlaybackParameters(source.playbackParameters.speed, 1f)
         casting = true
         events("cast_started playing=$wantPlay")
         send(index, position)

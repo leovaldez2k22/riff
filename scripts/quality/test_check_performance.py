@@ -177,6 +177,11 @@ class ApkTest(Files):
     def test_an_apk_over_forty_mebibytes_fails(self):
         self.assertEqual(["size at most 64 MiB"], self.failed(perf.check_apk(self.apk(self.good(), pad=perf.APK_LIMIT_BYTES))))
 
+    def test_each_edition_has_its_own_size_rule(self):
+        big = self.apk(self.good(), pad=perf.APK_LIMIT_BYTES)
+        self.assertEqual(["size at most 16 MiB"], self.failed(perf.check_apk(big, edition="riff")))
+        self.assertEqual([], self.failed(perf.check_apk(big, edition="plus")), "Riff+ has no size limit (owner, 8 November 2026)")
+
     def test_the_committed_profile_must_cover_the_journeys(self):
         path = Path(self.dir.name) / "baseline-prof.txt"
         self.assertEqual(["Baseline Profile committed as source"], self.failed(perf.check_profile_source(path)))

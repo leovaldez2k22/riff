@@ -1,8 +1,8 @@
 """Q14: hold benchmark results and the release APK to the performance budgets.
 
-  check_performance.py apk --apk app-release.apk [--profile app/src/release/generated/baselineProfiles/baseline-prof.txt]
+  check_performance.py apk --apk app-release.apk [--profile app/src/main/generated/baselineProfiles/baseline-prof.txt]
   check_performance.py summary --tier R|L --refresh-hz 60 <benchmarkData.json>...
-  check_performance.py adopt --collected <pulled profile> [--out app/src/release/generated/baselineProfiles/baseline-prof.txt]
+  check_performance.py adopt --collected <pulled profile> [--out app/src/main/generated/baselineProfiles/baseline-prof.txt]
 
 `summary` reads the JSON that Macrobenchmark writes for :benchmark and prints, for every budgeted measurement,
 the number of samples, p50, p95, the budget and a verdict. A verdict is PASS or FAIL only when the samples are
@@ -19,7 +19,7 @@ import zipfile
 from pathlib import Path
 
 MIB = 1024 * 1024
-APK_LIMIT_BYTES = 64 * MIB  # 0.20.0: ONNX Runtime and the beat model (about +38 MiB) are in the release
+APK_LIMIT_BYTES = 64 * MIB  # an APK of no named edition; Riff has 16 MiB below and Riff+ no limit (owner, 8 November 2026)
 # Things only the benchmark build types hold (app/src/benchmarkFeed).
 FEED_MARKERS = ("BenchmarkFeed", "benchmark-feed", "benchmark_network_security_config")
 FEED_CLASSES = ("BenchmarkFeed", "ToneServer")
@@ -172,11 +172,12 @@ def render(rows, information, devices, tier):
     return "\n".join(lines)
 
 
-def check_apk(apk, profile=None):
+def check_apk(apk, profile=None, edition=None):
     """The facts about a release APK that Q14 budgets, as (name, ok, detail) rows."""
     apk = Path(apk)
     size = apk.stat().st_size
-    rows = [("size at most 64 MiB", size <= APK_LIMIT_BYTES, f"{size} bytes = {size / MIB:.2f} MiB")]
+    limit = 16 * MIB if edition == "riff" else None if edition == "plus" else APK_LIMIT_BYTES
+    rows = [(f"size at most {limit // MIB} MiB" if limit else "size (no limit for Riff+)", limit is None or size <= limit, f"{size} bytes = {size / MIB:.2f} MiB")]
     with zipfile.ZipFile(apk) as archive:
         names = set(archive.namelist())
         packaged = {name: archive.getinfo(name).file_size for name in ("assets/dexopt/baseline.prof", "assets/dexopt/baseline.profm") if name in names}
@@ -226,20 +227,21 @@ def main(argv=None):
     apk = commands.add_parser("apk")
     apk.add_argument("--apk", required=True)
     apk.add_argument("--profile")
+    apk.add_argument("--edition", choices=("riff", "plus"))
     summary = commands.add_parser("summary")
     summary.add_argument("--tier", choices=("R", "L"), required=True)
     summary.add_argument("--refresh-hz", type=float, default=60.0)
     summary.add_argument("results", nargs="+")
     adopt = commands.add_parser("adopt")
     adopt.add_argument("--collected", required=True)
-    adopt.add_argument("--out", default="app/src/release/generated/baselineProfiles/baseline-prof.txt")
+    adopt.add_argument("--out", default="app/src/main/generated/baselineProfiles/baseline-prof.txt")
     args = parser.parse_args(argv)
     if args.command == "adopt":
         total, kept = adopt_profile(args.collected, args.out)
         print(f"{kept} of {total} rules written to {args.out}")
         return 0
     if args.command == "apk":
-        rows = check_apk(args.apk, args.profile)
+        rows = check_apk(args.apk, args.profile, args.edition)
         for name, ok, detail in rows:
             print(f"{'ok  ' if ok else 'FAIL'} {name}: {detail}")
         return 0 if all(ok for _, ok, _ in rows) else 2

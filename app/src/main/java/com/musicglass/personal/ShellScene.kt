@@ -111,25 +111,28 @@ internal fun ShellScene(model: ShellModel, compact: Boolean, showChrome: Boolean
             Route.Settings(SettingsSection.Sound), Route.Settings(SettingsSection.Look), Route.Settings(SettingsSection.Lyrics),
             Route.Settings(SettingsSection.Downloads), Route.Settings(SettingsSection.Library), Route.Settings(SettingsSection.About),
             Route.Settings(SettingsSection.Moods) -> SettingsSectionScreen(model, (Route.plain(route) as Route.Settings).section, totalBottomPadding, onNotice)
-            Route.ListeningHistory -> ListeningHistoryScreen(model,totalBottomPadding,provider,playback,onNotice,onCleared=collections::refresh)
             Route.Encore -> EncoreScreen(model,totalBottomPadding,provider,playback,onNotice)
-            Route.Settings(SettingsSection.NotInterested) -> NotInterestedScreen(model,totalBottomPadding,onNotice)
+            Route.PhonePlaylists -> PhonePlaylistsScreen(model,totalBottomPadding,provider,playback,onNotice)
+            Route.Settings(SettingsSection.NotInterested) -> NotInterestedScreen(model,totalBottomPadding,playback,onNotice)
+            Route.Settings(SettingsSection.Scrobbling) -> ScrobblingScreen(model,totalBottomPadding,onNotice)
+            Route.Settings(SettingsSection.Appearance) -> Edition.AppearancePage(model,totalBottomPadding)
             Route.Settings(SettingsSection.EarlierData) -> EarlierDataScreen(model,totalBottomPadding,provider,playback,onNotice)
             Route.Settings(SettingsSection.Diagnostics) -> DiagnosticsScreen(model,totalBottomPadding,onNotice=onNotice)
-            Route.Settings(SettingsSection.Equalizer) -> EqualizerScreen(model,totalBottomPadding)
+            Route.Settings(SettingsSection.Equalizer) -> Edition.EqualizerPage(model,totalBottomPadding,playback)
             Route.Settings(SettingsSection.GlassGallery) -> GlassGalleryScreen(model,totalBottomPadding)
             Route.Settings(SettingsSection.PrivacyData) -> {
                 val accessibility=LocalAccessibilitySettings.current
                 PrivacyDataScreen(model,totalBottomPadding,provider,collections,playback,onNotice,onSettingsImported=accessibility::reload)
             }
-            else -> if (route == "collection") CatalogDetailScreen(model,totalBottomPadding,provider,playback,onNotice)
+            Route.ListeningHistory -> SongSelectionHost(screen.key,provider,playback,onNotice) {ListeningHistoryScreen(model,totalBottomPadding,provider,playback,onNotice,onCleared=collections::refresh)}
+            else -> if (route == "collection") SongSelectionHost(screen.key,provider,playback,onNotice) {CatalogDetailScreen(model,totalBottomPadding,provider,playback,onNotice)}
             else if (screen.route is Route.ArtistShelf) ArtistShelfScreen(model,totalBottomPadding,screen.route,provider,playback,onNotice)
             else if (screen.route is Route.EncoreDetail) EncoreDetailScreen(model,totalBottomPadding,screen.route,provider,playback,onNotice)
             else androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
                 when (tab) {
                     "Podcasts", "Radio" -> MediaExploreScreen(model, totalBottomPadding, tab, provider, playback, onNotice)
-                    "Search" -> CatalogSearchScreen(model,totalBottomPadding,playback,provider,onNotice)
-                    "Library" -> AccountLibraryScreen(model,totalBottomPadding,collections,playback,provider,onNotice)
+                    "Search" -> SongSelectionHost(screen.key,provider,playback,onNotice) {CatalogSearchScreen(model,totalBottomPadding,playback,provider,onNotice)}
+                    "Library" -> SongSelectionHost(screen.key,provider,playback,onNotice) {AccountLibraryScreen(model,totalBottomPadding,collections,playback,provider,onNotice)}
                     else -> HomeFeedScreen(model, totalBottomPadding, playback, collections, provider, onNotice, onCategoryBounds)
                 }
                 // W5: Home and Library are where an expired session shows first (empty Library, failing likes).

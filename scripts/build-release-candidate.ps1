@@ -29,20 +29,12 @@ $signingDir = Join-Path $toolchain 'signing'
 $keystore = Join-Path $signingDir 'musicglass-release.p12'
 $passwordFile = Join-Path $signingDir 'password.txt'
 $passwordDpapi = Join-Path $signingDir 'password.dpapi'
-$apk = Join-Path $project 'app\build\outputs\apk\release\app-release.apk'
 $releaseDir = if ($OutDir) { $OutDir } else { Join-Path $project 'artifacts\release' }
 $versionLine = Get-Content (Join-Path $project 'app\build.gradle.kts') |
     Select-String 'versionName\s*=\s*"([^"]+)"' | Select-Object -First 1
 if (-not $versionLine) { throw 'Cannot determine versionName from app/build.gradle.kts.' }
 $versionName = $versionLine.Matches[0].Groups[1].Value
-$releaseApk = Join-Path $releaseDir "riff-$versionName.apk"
-$mapping = Join-Path $project 'app\build\outputs\mapping\release\mapping.txt'
-$releaseMapping = Join-Path $releaseDir "riff-$versionName-mapping.txt"
-# Size budget (plan W4): the shrunk arm64 APK is ~26 MiB. A jump past this usually means R8 or
-# the ABI filter was switched off, or a large dependency was added.
-# 0.20.0: ONNX Runtime (34 MiB on arm64, stored uncompressed) and the 4.7 MB beat model put the APK near 50 MiB.
-$maxApkBytes = 64MB
-$dependencyGraph = Join-Path $releaseDir 'dependencies.txt'
+# Riff's 16 MiB ceiling is checked below; Riff+ has no size limit (owner, 8 November 2026). Only Plus carries ONNX and its models.
 
 foreach ($tool in @($gradle, $keytool, $apksigner)) {
     if (-not (Test-Path -LiteralPath $tool)) { throw "Required build tool missing: $tool" }
@@ -117,74 +109,92 @@ try {
         $ErrorActionPreference = 'Stop'
         if ($gradleExit -ne 0) { throw 'Clean build preparation failed.' }
     }
-    # @(...) keeps a one-task list an array; a bare string would be splatted character by character.
-    $tasks = @(if ($SkipChecks) { ':app:assembleRelease' } else {
-        ':app:testDebugUnitTest', '--rerun', ':app:lintRelease', '--rerun', ':app:assembleRelease'
-    })
-    # Gradle prints warnings (R8 on Kotlin metadata, for example) to stderr. With 'Stop', Windows
-    # PowerShell turns them into errors whenever output is captured; the exit code is what counts.
+    $tasks = @(':app:assembleRiffRelease', ':app:assemblePlusRelease')
+    if (-not $SkipChecks) {
+        $tasks = @(':app:testRiffDebugUnitTest', ':app:testPlusDebugUnitTest',
+            ':app:lintRiffRelease', ':app:lintPlusRelease') + $tasks
+    }
+    if ($Preview) { $tasks += @(':app:assembleRiffPreview', ':app:assemblePlusPreview') }
     $ErrorActionPreference = 'Continue'
-    & $gradle @tasks @gradleFlags
+    & $gradle @tasks @gradleFlags --rerun-tasks
     $gradleExit = $LASTEXITCODE
     $ErrorActionPreference = 'Stop'
-    if ($gradleExit -ne 0) { throw 'Release build or checks failed.' }
-    if (-not (Test-Path -LiteralPath $apk)) { throw "Release APK missing: $apk" }
+    if ($gradleExit -ne 0) { throw 'Edition builds or checks failed.' }
+
     function Assert-ReleaseCertificate([string]$path) {
         $certificates = & $apksigner verify --verbose --print-certs $path
         if ($LASTEXITCODE -ne 0) { throw "APK signature verification failed: $path" }
-        $certificates | Write-Host
-        $digest = $certificates | Select-String 'Signer #1 certificate SHA-256 digest:\s*([0-9a-f]{64})' |
-            Select-Object -First 1
+        $digest = $certificates | Select-String 'Signer #1 certificate SHA-256 digest:\s*([0-9a-f]{64})' | Select-Object -First 1
         if (-not $digest -or $digest.Matches[0].Groups[1].Value -ne $expectedCertificate) {
-            throw "$path is not signed with the release certificate $expectedCertificate. Don't install or publish it."
+            throw "$path is not signed with the pinned release certificate. Do not distribute it."
         }
     }
-    Assert-ReleaseCertificate $apk
-    & $gradle ':app:dependencies' '--configuration' 'releaseRuntimeClasspath' @gradleFlags |
-        Set-Content -LiteralPath $dependencyGraph
-    if ($LASTEXITCODE -ne 0) { throw 'Release dependency report failed.' }
-    & $Python (Join-Path $project 'scripts\audit_dependency_licenses.py') $dependencyGraph
-    if ($LASTEXITCODE -ne 0) { throw 'Release license audit failed.' }
-    $apkBytes = (Get-Item -LiteralPath $apk).Length
-    if ($apkBytes -gt $maxApkBytes) {
-        throw ("Release APK is {0:N1} MiB, over the {1:N0} MiB budget. Check R8, resource shrinking and the ABI filter." -f ($apkBytes / 1MB), ($maxApkBytes / 1MB))
-    }
-    # Crash stack traces from a shrunk build are unreadable without the matching R8 mapping.
-    if (-not (Test-Path -LiteralPath $mapping)) { throw "R8 mapping missing: $mapping" }
-    Copy-Item -LiteralPath $apk -Destination $releaseApk -Force
-    Copy-Item -LiteralPath $mapping -Destination $releaseMapping -Force
-    $hash = (Get-FileHash -LiteralPath $releaseApk -Algorithm SHA256).Hash.ToLowerInvariant()
-    [System.IO.File]::WriteAllText((Join-Path $releaseDir 'SHA256SUMS.txt'),
-        "$hash  $(Split-Path -Leaf $releaseApk)`n")
-
     $qualityEndUtc = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.ffffffZ')
-    $qualityArgs = @('--collect-only','--variant','release','--apk',$releaseApk,
-        '--start-utc',$qualityStartUtc,'--end-utc',$qualityEndUtc,'--exit-code','0',
-        '--command',('Gradle ' + ($tasks -join ' ')))
-    if ($SkipChecks) { $qualityArgs += '--checks-skipped' }
-    & $Python (Join-Path $PSScriptRoot 'quality/collect_results.py') @qualityArgs
-    if ($LASTEXITCODE -eq 1) { throw 'Release evidence failed validation; do not distribute this candidate.' }
-    if ($LASTEXITCODE -eq 2) { Write-Warning 'Release evidence BLOCKED: checks were explicitly skipped.' }
-    if ($Preview) {
-        $ErrorActionPreference = 'Continue'
-        & $gradle ':app:assemblePreview' @gradleFlags
-        $gradleExit = $LASTEXITCODE
-        $ErrorActionPreference = 'Stop'
-        if ($gradleExit -ne 0) { throw 'Preview build failed.' }
-        $previewApk = Join-Path $project 'app\build\outputs\apk\preview\app-preview.apk'
-        if (-not (Test-Path -LiteralPath $previewApk)) { throw "Preview APK missing: $previewApk" }
-        Assert-ReleaseCertificate $previewApk
-        $previewOut = Join-Path $releaseDir "riff-$versionName-preview.apk"
-        Copy-Item -LiteralPath $previewApk -Destination $previewOut -Force
-        $previewHash = (Get-FileHash -LiteralPath $previewOut -Algorithm SHA256).Hash.ToLowerInvariant()
-        [System.IO.File]::AppendAllText((Join-Path $releaseDir 'SHA256SUMS.txt'), "$previewHash  $(Split-Path -Leaf $previewOut)`n")
-        Write-Host "Preview APK: $previewOut"
-        Write-Host "Preview SHA-256: $previewHash"
+    $checksumLines = @()
+    $identities = @()
+    foreach ($edition in @('riff', 'plus')) {
+        $prefix = if ($edition -eq 'plus') { 'riff-plus' } else { 'riff' }
+        $variant = "$($edition)Release"
+        $apk = Join-Path $project "app\build\outputs\apk\$edition\release\app-$edition-release.apk"
+        $mapping = Join-Path $project "app\build\outputs\mapping\$variant\mapping.txt"
+        $releaseApk = Join-Path $releaseDir "$prefix-$versionName.apk"
+        $releaseMapping = Join-Path $releaseDir "$prefix-$versionName-mapping.txt"
+        if (-not (Test-Path -LiteralPath $apk)) { throw "Release APK missing: $apk" }
+        if (-not (Test-Path -LiteralPath $mapping)) { throw "R8 mapping missing: $mapping" }
+        Assert-ReleaseCertificate $apk
+        & $Python (Join-Path $project 'scripts\quality\check_release_content.py') --apk $apk --edition $edition --aapt2 (Join-Path $sdk 'build-tools\36.0.0\aapt2.exe') --apksigner $apksigner
+        if ($LASTEXITCODE -ne 0) { throw "$edition release content check failed." }
+        $identity = & $Python (Join-Path $project 'scripts\quality\collect_results.py') --inspect-apk $apk
+        if ($LASTEXITCODE -ne 0) { throw "$edition build identity unreadable." }
+        $identities += ($identity | ConvertFrom-Json)
+        $dependencyGraph = Join-Path $releaseDir "$prefix-dependencies.txt"
+        & $gradle ':app:dependencies' '--configuration' "$($edition)ReleaseRuntimeClasspath" @gradleFlags | Set-Content -LiteralPath $dependencyGraph
+        if ($LASTEXITCODE -ne 0) { throw "$edition dependency report failed." }
+        & $Python (Join-Path $project 'scripts\audit_dependency_licenses.py') $dependencyGraph
+        if ($LASTEXITCODE -ne 0) { throw "$edition license audit failed." }
+        $maxApkBytes = if ($edition -eq 'riff') { 16MB } else { [long]::MaxValue }
+        $apkBytes = (Get-Item -LiteralPath $apk).Length
+        if ($apkBytes -gt $maxApkBytes) { throw "$edition APK exceeds the current $($maxApkBytes / 1MB) MiB ceiling." }
+        Copy-Item -LiteralPath $apk -Destination $releaseApk -Force
+        Copy-Item -LiteralPath $mapping -Destination $releaseMapping -Force
+        $hash = (Get-FileHash -LiteralPath $releaseApk -Algorithm SHA256).Hash.ToLowerInvariant()
+        $checksumLines += "$hash  $(Split-Path -Leaf $releaseApk)"
+        $qualityArgs = @('--collect-only', '--variant', 'release', '--edition', $edition, '--apk', $releaseApk,
+            '--start-utc', $qualityStartUtc, '--end-utc', $qualityEndUtc, '--exit-code', '0',
+            '--command', ('Gradle ' + ($tasks -join ' ')))
+        if ($SkipChecks) { $qualityArgs += '--checks-skipped' }
+        & $Python (Join-Path $PSScriptRoot 'quality/collect_results.py') @qualityArgs
+        if ($LASTEXITCODE -eq 1) { throw "$edition evidence failed validation; do not distribute this candidate." }
+        if ($LASTEXITCODE -eq 2) { Write-Warning "$edition evidence BLOCKED: checks were explicitly skipped." }
+        if ($Preview) {
+            $previewApk = Join-Path $project "app\build\outputs\apk\$edition\preview\app-$edition-preview.apk"
+            if (-not (Test-Path -LiteralPath $previewApk)) { throw "Preview APK missing: $previewApk" }
+            Assert-ReleaseCertificate $previewApk
+            & $Python (Join-Path $project 'scripts\quality\check_release_content.py') --apk $previewApk --edition $edition --build-type preview --package com.musicglass.personal.preview --aapt2 (Join-Path $sdk 'build-tools\36.0.0\aapt2.exe') --apksigner $apksigner
+            if ($LASTEXITCODE -ne 0) { throw "$edition preview content check failed." }
+            $previewJson = & $Python (Join-Path $project 'scripts\quality\collect_results.py') --inspect-apk $previewApk
+            if ($LASTEXITCODE -ne 0) { throw "$edition preview build identity unreadable." }
+            $previewIdentity = $previewJson | ConvertFrom-Json
+            if ($previewIdentity.variant -ne "$($edition)Preview" -or $previewIdentity.versionName -ne "$versionName-preview") {
+                throw "$edition preview has the wrong variant or version name."
+            }
+            foreach ($field in @('versionCode', 'sourceDigest', 'revision', 'sourceState')) {
+                if ($previewIdentity.$field -ne $identities[-1].$field) { throw "$edition preview/release identity mismatch: $field" }
+            }
+            $previewOut = Join-Path $releaseDir "$prefix-$versionName-preview.apk"
+            Copy-Item -LiteralPath $previewApk -Destination $previewOut -Force
+            $previewHash = (Get-FileHash -LiteralPath $previewOut -Algorithm SHA256).Hash.ToLowerInvariant()
+            $checksumLines += "$previewHash  $(Split-Path -Leaf $previewOut)"
+            Write-Host "Preview APK: $previewOut"
+        }
+        Write-Host "Signed APK: $releaseApk ($('{0:N1}' -f ($apkBytes / 1MB)) MiB)"
+        Write-Host "R8 mapping: $releaseMapping"
     }
-    Write-Host "Signed APK: $releaseApk ($('{0:N1}' -f ($apkBytes / 1MB)) MiB)"
-    Write-Host "R8 mapping: $releaseMapping (keep it with the APK to read crash reports)"
-    Write-Host "SHA-256: $hash"
-    Write-Host "Certificate matches docs/release-signing.md."
+    foreach ($field in @('versionName', 'versionCode', 'sourceDigest', 'revision', 'sourceState')) {
+        if ($identities[0].$field -ne $identities[1].$field) { throw "Edition identity mismatch: $field" }
+    }
+    [System.IO.File]::WriteAllText((Join-Path $releaseDir 'SHA256SUMS.txt'), ($checksumLines -join "`n") + "`n")
+    Write-Host "Both editions match the pinned certificate and release identity."
     Write-Host "Built from commit $commit$(if ($dirty) { ' plus uncommitted changes' })."
 }
 finally {

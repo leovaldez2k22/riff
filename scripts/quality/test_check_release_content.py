@@ -33,6 +33,21 @@ def component(kind, name, exported=None, permission=None, extra=""):
     return "\n".join(lines + ([extra] if extra else []))
 
 
+LAUNCHER = ("              E: intent-filter (line=41)\n                E: category (line=42)\n"
+            f'                  A: {A}name(0x01010003)="android.intent.category.LAUNCHER" (Raw: "android.intent.category.LAUNCHER")')
+
+
+def launcher_alias(name, enabled="false", permission=None, target="com.musicglass.personal.MainActivity"):
+    """Feature 21: one of Riff+'s launcher entries, as aapt2 prints it."""
+    extra = f'            A: {A}targetActivity(0x01010202)="{target}" (Raw: "{target}")\n            A: {A}enabled(0x0101000e)={enabled}\n' + LAUNCHER
+    return component("activity-alias", name, "true", permission, extra=extra)
+
+
+def plus_launchers(drop=None, enabled=content.LAUNCHER_DEFAULT):
+    return "\n".join(launcher_alias(name, "true" if name == enabled else "false")
+                     for name in sorted(content.LAUNCHER_ALIASES) if name != drop)
+
+
 RULES = content.parse_tree("""E: data-extraction-rules (line=2)
     E: cloud-backup (line=3)
         E: exclude (line=4)
@@ -100,6 +115,14 @@ class ManifestChecks(unittest.TestCase):
         unexported = manifest()
         [item for item in unexported.all("service") if item.get("name").endswith("MusicPlaybackService")][0].attributes[A + "exported"] = "false"
         self.assertTrue(any("reviewed six" in text for text in failures(unexported)))
+        self.assertFalse(any("launcher" in text for text in failures(manifest(body=plus_launchers()))))
+        self.assertTrue(any("launcher entries" in text for text in failures(manifest(body=plus_launchers(drop=content.LAUNCHER_DEFAULT)))))
+        guarded = plus_launchers(drop="com.musicglass.personal.LauncherDTeal") + "\n" + launcher_alias("com.musicglass.personal.LauncherDTeal", permission="x.Y")
+        self.assertTrue(any("opens MainActivity unguarded" in text for text in failures(manifest(body=guarded))))
+        elsewhere = plus_launchers(drop="com.musicglass.personal.LauncherCBlue") + "\n" + launcher_alias("com.musicglass.personal.LauncherCBlue", target="x.Other")
+        self.assertTrue(any("opens MainActivity unguarded" in text for text in failures(manifest(body=elsewhere))))
+        stranger = component("activity-alias", "com.musicglass.personal.Shortcut", "true")
+        self.assertTrue(any("reviewed six" in text for text in failures(manifest(body=stranger))))
         implicit = component("receiver", "com.musicglass.personal.Boot", None, extra="              E: intent-filter (line=41)")
         self.assertTrue(any("exported is stated" in text for text in failures(manifest(body=implicit))))
 

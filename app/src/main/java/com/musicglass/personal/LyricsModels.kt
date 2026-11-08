@@ -23,7 +23,12 @@ internal data class LyricLine(val startMs: Long, val endMs: Long, val text: Stri
     /** Feature 32: an instrumental stretch, drawn as three dots that fill as it passes. Never shared or cached. */
     val gap: Boolean = false,
     /** Feature 25: the line in Latin letters, as the source gave it (TTML spans with role x-roman). */
-    val romanized: String? = null) {
+    val romanized: String? = null,
+    /**
+     * Feature 1: the line in other languages, by BCP 47 tag, as the source gave them and tied to this line by its
+     * key or its time; never by guess. Shown under the line; the line's own timing alone drives the highlight.
+     */
+    val translations: Map<String, String> = emptyMap()) {
     /** The line is current until both its main text and its background vocal have ended. */
     /**
      * When the singing of this line, its background vocal included, is over: its end, or its last word's end when a
@@ -37,6 +42,77 @@ internal data class LyricsDocument(val source: String, val sourceUrl: String,
     val timed: Boolean get() = lines.any { it.startMs >= 0 }
     val wordTimed: Boolean get() = lines.any { it.parts.isNotEmpty() }
     val quality: Int get() = when { wordTimed -> 3; timed -> 2; instrumental -> 1; else -> 0 }
+    /** Feature 1: every language some line has a translation in, in the source's order. */
+    val translationLanguages: List<String> get() = lines.flatMap { it.translations.keys }.distinct()
+}
+
+/** Feature 1: how many translation languages a line keeps, and how long each text may be. */
+internal const val LYRIC_TRANSLATIONS_MAX = 4
+internal const val LYRIC_TRANSLATION_CHARS = 500
+private val LANGUAGE_TAG = Regex("[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8}){0,3}")
+internal fun lyricLanguageTag(raw: String?): String? = raw?.trim()?.takeIf { it.matches(LANGUAGE_TAG) }
+private fun translationText(raw: String): String? = raw.replace(Regex("\\s+"), " ").trim().take(LYRIC_TRANSLATION_CHARS).takeIf { it.isNotBlank() }
+
+/**
+ * Feature 1: the languages in the order they are offered: the first that matches the app's or phone's languages
+ * (by language, so "en" matches "en-US"), then the rest as the source listed them (owner, Q1).
+ */
+internal fun lyricsTranslationOrder(available: List<String>, preferred: List<Locale>): List<String> = available.sortedBy { tag ->
+    val language = Locale.forLanguageTag(tag).language
+    preferred.indexOfFirst { it.language == language }.let { if (it < 0) Int.MAX_VALUE else it }
+}
+
+/**
+ * Feature 1: a translation given as timed lines (NetEase's tlyric) joins the line that starts within [toleranceMs]
+ * of it. When two lines start that close, or two translations reach one line, the match is ambiguous and the line
+ * keeps none.
+ */
+internal fun withTimedTranslations(doc: LyricsDocument, rows: List<LyricLine>, language: String, toleranceMs: Long = 250): LyricsDocument {
+    val hits = mutableMapOf<Int, String?>()
+    for (row in rows) {
+        val text = translationText(row.text) ?: continue
+        val near = doc.lines.indices.filter { doc.lines[it].text.isNotBlank() && kotlin.math.abs(doc.lines[it].startMs - row.startMs) <= toleranceMs }
+        val index = near.singleOrNull() ?: continue
+        hits[index] = if (index in hits) null else text
+    }
+    if (hits.values.all { it == null }) return doc
+    return doc.copy(lines = doc.lines.mapIndexed { index, line ->
+        val text = hits[index]?.takeIf { lyricsNormalize(it) != lyricsNormalize(line.text) } ?: return@mapIndexed line
+        line.copy(translations = (line.translations + (language to text)).entries.take(LYRIC_TRANSLATIONS_MAX).associate { it.key to it.value })
+    })
+}
+
+/**
+ * Feature 1: the texts the TTML head keeps for each line key, by language: Apple-style and lrc.red documents list
+ * `translations/translation[xml:lang]/text[for]` (and the same under `transliterations`); the line names its key in
+ * an `itunes:key` or `lrc:key` attribute.
+ */
+private fun ttmlKeyedTexts(doc: org.w3c.dom.Document, kind: String): Map<String, Map<String, String>> {
+    val out = linkedMapOf<String, Map<String, String>>()
+    val groups = doc.getElementsByTagNameNS("*", kind)
+    for (i in 0 until groups.length) {
+        if (out.size >= LYRIC_TRANSLATIONS_MAX) break
+        val group = groups.item(i) as Element
+        val language = lyricLanguageTag(group.getAttributeNS(XML_NAMESPACE, "lang")) ?: continue
+        val texts = group.getElementsByTagNameNS("*", "text")
+        val byKey = linkedMapOf<String, String>()
+        for (j in 0 until texts.length.coerceAtMost(2000)) {
+            val text = texts.item(j) as Element
+            val key = text.getAttribute("for").takeIf { it.isNotBlank() } ?: continue
+            translationText(text.textContent)?.let { byKey[key] = it }
+        }
+        if (byKey.isNotEmpty() && language !in out) out[language] = byKey
+    }
+    return out
+}
+private const val XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace"
+private fun ttmlLineKey(p: Element): String? {
+    val attributes = p.attributes
+    for (i in 0 until attributes.length) {
+        val attribute = attributes.item(i)
+        if ((attribute.localName ?: attribute.nodeName.substringAfter(':')) == "key") return attribute.nodeValue.takeIf { it.isNotBlank() }
+    }
+    return null
 }
 
 internal fun lyricsTimeMs(raw: String?): Long? {
@@ -77,6 +153,24 @@ private fun xml(raw: String): org.w3c.dom.Document? = runCatching {
 private val LYRIC_CREDIT = Regex("^(?:(?:lyrics?|composed|written|arranged|produced|mixed|mastered|recorded)(?: by)?|producer|" +
     "作词|作曲|编曲|制作人|监制|混音|母带|录音|和声|词|曲)\\s*[:：]", RegexOption.IGNORE_CASE)
 internal fun lyricCredit(text: String) = LYRIC_CREDIT.containsMatchIn(text.trim())
+
+/**
+ * The line NetEase (and sources that copy it) gives a recording without words, in place of lyrics: "纯音乐，请欣赏",
+ * "pure music, please enjoy", and its longer forms ("此歌曲为没有填词的纯音乐，请您欣赏").
+ */
+private val INSTRUMENTAL_PLACEHOLDER = Regex("^(?:此歌曲为)?(?:没有填词的)?纯音乐\\s*[，,、]?\\s*请(?:您)?欣赏\\s*[。.!！~～]*$")
+internal fun instrumentalPlaceholder(text: String) = INSTRUMENTAL_PLACEHOLDER.matches(text.trim())
+
+/**
+ * The owner's bug (8 Nov): that placeholder was shown as the song's lyrics. A document whose only words are the
+ * placeholder is the source saying "instrumental", and becomes Riff's instrumental state; a stray placeholder line among
+ * real lyrics is dropped. Applied to every source's answer and to lyrics already kept on the phone.
+ */
+internal fun LyricsDocument.placeholderAsInstrumental(): LyricsDocument {
+    if (lines.none { instrumentalPlaceholder(it.text) }) return this
+    val words = lines.filterNot { it.text.isBlank() || instrumentalPlaceholder(it.text) }
+    return if (words.isEmpty()) copy(lines = emptyList(), instrumental = true) else copy(lines = lines.filterNot { instrumentalPlaceholder(it.text) })
+}
 
 /**
  * Characters a source gave no time of their own (Q18-061: NetEase sends an apostrophe or a comma as a 0 ms word,
@@ -135,6 +229,11 @@ internal fun parseTtml(raw: String, durationMs: Long, source: String = "Better L
     val doc = xml(raw) ?: return null
     val paragraphs = doc.getElementsByTagNameNS("*", "p")
     val lines = mutableListOf<LyricLine>()
+    // Feature 1: the head's translations and transliterations, tied to a line only by a key no other line shares.
+    val translated = ttmlKeyedTexts(doc, "translation")
+    val transliterated = ttmlKeyedTexts(doc, "transliteration")
+    val keyCount = (0 until paragraphs.length.coerceAtMost(2000)).mapNotNull { ttmlLineKey(paragraphs.item(it) as Element) }
+        .groupingBy { it }.eachCount()
     for (index in 0 until paragraphs.length.coerceAtMost(2000)) {
         val p = paragraphs.item(index) as Element
         val start = lyricsTimeMs(p.getAttribute("begin")) ?: continue
@@ -149,6 +248,7 @@ internal fun parseTtml(raw: String, durationMs: Long, source: String = "Better L
         val romanParts = mutableListOf<LyricPart>()
         var backStart = Long.MAX_VALUE
         var backEnd = -1L
+        val inline = linkedMapOf<String, String>()
         fun spanTime(node: Element): Pair<Long, Long>? {
             val wordStart = lyricsTimeMs(node.getAttribute("begin")) ?: return null
             val wordEnd = lyricsTimeMs(node.getAttribute("end"))
@@ -165,7 +265,11 @@ internal fun parseTtml(raw: String, durationMs: Long, source: String = "Better L
             if (node is Element) {
                 val role = node.getAttributeNS("http://www.w3.org/ns/ttml#metadata", "role")
                 // Translation and romanization are not the sung text; a romanization is kept beside it (Feature 25).
-                if (role == "x-translation") return
+                if (role == "x-translation") {
+                    // Feature 1: an inline translation counts only when it says its language.
+                    lyricLanguageTag(node.getAttributeNS(XML_NAMESPACE, "lang"))?.let { inline[it] = (inline[it].orEmpty() + " " + node.textContent) }
+                    return
+                }
                 if (role in setOf("x-roman", "x-romanization")) {
                     if (romanText.isNotEmpty() && !romanText.last().isWhitespace()) romanText.append(' ')
                     for (child in 0 until node.childNodes.length) walk(node.childNodes.item(child), romanText, romanParts, depth + 1)
@@ -194,9 +298,16 @@ internal fun parseTtml(raw: String, durationMs: Long, source: String = "Better L
             LyricBacking(if (backStart == Long.MAX_VALUE) -1 else backStart, backEnd, trimmed,
                 backParts.filter { it.to <= trimmed.length })
         }
+        val key = ttmlLineKey(p)?.takeIf { keyCount[it] == 1 }
         val romanized = romanText.toString().trim().replace(Regex("\\s+"), " ").takeIf { it.isNotBlank() }
+            ?: key?.takeIf { lyricNeedsRomanizing(text.toString()) }?.let { k -> transliterated.values.firstNotNullOfOrNull { it[k] } }
+        val translations = linkedMapOf<String, String>()
+        inline.forEach { (language, value) -> translationText(value)?.let { translations[language] = it } }
+        if (key != null) translated.forEach { (language, byKey) -> byKey[key]?.let { translations.putIfAbsent(language, it) } }
+        val sung = lyricsNormalize(text.toString())
         if (text.isNotBlank() || backing != null) lines += LyricLine(start, end, if (backing == null) text.toString() else text.toString().trimEnd(), parts, backing,
-            romanized = romanized)
+            romanized = romanized, translations = translations.filterValues { lyricsNormalize(it) != sung }.entries
+                .take(LYRIC_TRANSLATIONS_MAX).associate { it.key to it.value })
     }
     val result = finishLyricLines(lines, durationMs)
     return result.takeIf { it.isNotEmpty() }?.let { LyricsDocument(source, "https://betterlyrics.org", it) }

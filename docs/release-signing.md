@@ -2,6 +2,27 @@
 
 Every Riff release from **0.20.0** on is signed with one key, made on 30 October 2026. Android installs an update over an existing app **only if it has the same signing certificate**. If this key is lost, every installed copy has to be uninstalled before a new build will install, and uninstalling deletes downloads, local saves and settings. **There is no recovery from losing the key except a backup.**
 
+## Two-edition candidates from 0.30.0
+
+0.30.0 is unreleased. Both editions use the existing key described below, the same package `com.musicglass.personal`, version name and code. Release asset names are a contract with the update check: `riff-0.30.0.apk` and `riff-plus-0.30.0.apk`. Each needs its mapping and checksum. Publish both in one release only after the owner authorizes it; users of Automix or app EQ in 0.21.0 should choose Riff+.
+
+`scripts/build-release-candidate.ps1` builds both releases, checks each compiled payload and pinned certificate, and compares their version/code/source identity. `-Preview` also produces `riff-0.30.0-preview.apk` and `riff-plus-0.30.0-preview.apk`, checked against their releases. Both previews share `com.musicglass.personal.preview`, so they replace each other and sit beside the release. Riff keeps its launcher icon; Plus starts with the A/Rose icon.
+
+Use `-OutDir artifacts/quality/stage7-candidate -AllowDirty` for local development candidates. Dirty candidates are development evidence. Public release builds require a clean commit. One `riff-0.30.0-source.zip` serves both editions; `package-source.ps1` refuses missing or different APK fingerprint inputs, including newly moved flavor sources. Include new implementation files in Git before packaging. The packaging lane binds the signed APK to that source and tests the 0.21.0 → Plus → Riff → Plus path with the signed test-only probe. Installation and phone evidence are recorded separately from the build.
+
+### Compiler connection recovery on this laptop
+
+The four-variant local build encountered Kotlin daemon connection failures. A retry produced checked signed releases using one worker and in-process compilation. Set these only in the shell running that build:
+
+```powershell
+$env:GRADLE_OPTS = ($env:GRADLE_OPTS + ' -Dorg.gradle.workers.max=1 -Dorg.gradle.parallel=false').Trim()
+[Environment]::SetEnvironmentVariable('ORG_GRADLE_PROJECT_kotlin.compiler.execution.strategy', 'in-process', 'Process')
+```
+
+These are standard [Kotlin execution strategy](https://kotlinlang.org/docs/compiler-execution-strategy.html) and [Gradle property](https://docs.gradle.org/current/userguide/build_environment.html) controls. They leave the source, compiler version and signing key unchanged. The split log records the original attempt and checked artifacts. Leave unrelated worktrees and shared services running.
+
+A local SkipChecks invocation after a source-matched passing PR keeps its collect-only JVM/lint gates BLOCKED. Retain the passing PR and explicit signed-artifact verification as separate evidence; skipped checks are never reported as passed. Public candidates still follow the clean-commit and checked-build policy.
+
 ## A new key for 0.20.0 (30 October 2026)
 
 Releases 0.9.0-rc4 to 0.10.0 were signed with the earlier key (certificate SHA-256 `ac70342323a39eb9cbd1fe80a9a5b060e22c01ba9a9102a9f698367bca0bf6e1`). When 0.20.0 was built, Windows could no longer decrypt that key's `password.dpapi` ("Key not valid for use in specified state", also outside the sandbox), though signing had worked on 24 October; something in this Windows account changed in between, such as a password reset. The owner had no backup to restore from and chose a new key. So **0.20.0 does not install over 0.10.0 or 0.9.0-rc20**: the old app has to be uninstalled first. Riff's backup in Documents/Riff Backup survives the uninstall and is offered after the new install; downloads are lost. The old keystore and its unreadable password file are kept, unused, in `.toolchain/signing-old-2026-10-24/`, in case the password turns up.

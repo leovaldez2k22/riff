@@ -24,6 +24,7 @@ jobs:
       fail-fast: false
       matrix:
         api: [31, 33, 36]
+        edition: [riff, plus]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -53,20 +54,20 @@ jobs:
           arch: x86_64
           ram-size: 4096M
           disk-size: 6G
-          script: python3 scripts/quality/verify.py --lane emulator --allow-install --evidence-dir artifacts/quality/lanes/emulator-${{ matrix.api }}
+          script: python3 scripts/quality/verify.py --lane emulator --edition ${{ matrix.edition }} --allow-install --evidence-dir artifacts/quality/lanes/emulator-${{ matrix.edition }}-${{ matrix.api }}
 
       - name: Lane summary
         if: always()
-        run: cat artifacts/quality/lanes/emulator-${{ matrix.api }}/lane-summary.md >> "$GITHUB_STEP_SUMMARY" || true
+        run: cat artifacts/quality/lanes/emulator-${{ matrix.edition }}-${{ matrix.api }}/lane-summary.md >> "$GITHUB_STEP_SUMMARY" || true
 
       # The summary, the collector's manifest and the instrumentation output: no APK, no device data.
       - name: Upload lane results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: emulator-${{ matrix.api }}
+          name: emulator-${{ matrix.edition }}-${{ matrix.api }}
           path: |
-            artifacts/quality/lanes/emulator-${{ matrix.api }}/lane-summary.*
-            artifacts/quality/lanes/emulator-${{ matrix.api }}/instrumentation.txt
-            artifacts/quality/lanes/emulator-${{ matrix.api }}/instrumentation-manifest.json
+            artifacts/quality/lanes/emulator-${{ matrix.edition }}-${{ matrix.api }}/lane-summary.*
+            artifacts/quality/lanes/emulator-${{ matrix.edition }}-${{ matrix.api }}/instrumentation.txt
+            artifacts/quality/lanes/emulator-${{ matrix.edition }}-${{ matrix.api }}/instrumentation-manifest.json
           retention-days: 7

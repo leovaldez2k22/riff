@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.*
 import androidx.compose.ui.preferredFrameRate
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.drawscope.rotate
 import kotlinx.coroutines.flow.first
 import kotlin.math.*
 
@@ -64,7 +65,7 @@ private fun startupSmoothStep(from: Float, to: Float, value: Float): Float {
     return u*u*(3f - 2f*u)
 }
 
-@Composable internal fun StartupLogo(show:Boolean,content:@Composable ()->Unit) {
+@Composable internal fun StartupLogo(show:Boolean,look:StartupLook=StartupLook(),content:@Composable ()->Unit) {
     val context=LocalContext.current
     // Only a cold start shows the logo; on recreation (rotation, dark mode, font) skip the disk read.
     var visible by remember {mutableStateOf(show && !(context.getSharedPreferences("accessibility_display",0).getBoolean("reduce_motion",false) ||
@@ -112,16 +113,22 @@ private fun startupSmoothStep(from: Float, to: Float, value: Float): Float {
                 onDrawBehind {drawCircle(glow,radius,origin)}
             })
             Canvas(Modifier.fillMaxSize().semantics { contentDescription = string(R.string.app_name) }) {
+                // Feature 21: Riff+'s logo follows its launcher icon: a coloured tile behind (style C), a crossing pair (D).
+                val iconScale = 156.dp.toPx() / 108f
+                look.tile?.let { tile ->
+                    val side = iconScale * 108f * .74f
+                    drawRoundRect(Color(tile), Offset(center.x - side / 2, center.y - side / 2), androidx.compose.ui.geometry.Size(side, side),
+                        androidx.compose.ui.geometry.CornerRadius(side * .28f), alpha = (reveal.value * StartupDurationMs / WaveArrivalMs).coerceIn(0f, 1f))
+                }
                 val progress = (reveal.value * StartupDurationMs / WaveArrivalMs).coerceIn(0f, 1f)
                 val remaining = 1f - progress
                 val arrival = if (progress < .5f) 4f*progress*progress*progress
                     else 1f - 4f*remaining*remaining*remaining
                 val distance = (size.width / 2f + 48.dp.toPx()) * (1f - arrival)
-                val iconScale = 156.dp.toPx() / 108f
                 // Fade deformation to exactly zero at arrival; no looping or idle ripple.
                 val amplitude = 5.2f * startupSmoothStep(0f, .12f, progress) *
                     (1f - startupSmoothStep(.72f, 1f, progress))
-                for (ribbon in startupRibbons) {
+                for ((pass, colour) in listOfNotNull(look.partner?.let { 90f to it }, 0f to look.ribbons)) rotate(pass, center) { for (ribbon in startupRibbons) {
                     val path = ribbon.path.apply {rewind()}
                     ribbon.points.forEachIndexed { index, point ->
                         val bend = amplitude * sin(
@@ -133,8 +140,8 @@ private fun startupSmoothStep(from: Float, to: Float, value: Float): Float {
                         if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
                     }
                     path.close()
-                    drawPath(path, Color(0xFFF45B9A))
-                }
+                    drawPath(path, Color(colour))
+                } }
             }
         }
     }

@@ -1,4 +1,4 @@
-param([switch]$AllowDirty, [string]$OutDir)
+param([switch]$AllowDirty, [string]$OutDir, [string]$Python = 'python')
 
 $ErrorActionPreference = 'Stop'
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -54,6 +54,8 @@ try {
     finally { $zip.Dispose() }
 }
 finally { $stream.Dispose() }
+& $Python (Join-Path $PSScriptRoot 'quality\verify.py') --check-source-archive $archive --archive-root $project
+if ($LASTEXITCODE -ne 0) { throw 'Source archive does not match the current build inputs. Include every new source file in Git before packaging.' }
 $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
 $sumsPath = Join-Path $outDir 'SHA256SUMS.txt'
 $archiveName = Split-Path -Leaf $archive

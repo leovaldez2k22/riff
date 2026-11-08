@@ -25,6 +25,11 @@ internal class AudioBoostSettings(context: Context) {
     var skipAllSilence by mutableStateOf(prefs.getBoolean(SKIP_ALL_SILENCE_KEY, false)); private set
     fun updateSkipEndSilence(value: Boolean) { skipEndSilence = value; prefs.edit {putBoolean(SKIP_END_SILENCE_KEY, value)} }
     fun updateSkipAllSilence(value: Boolean) { skipAllSilence = value; prefs.edit {putBoolean(SKIP_ALL_SILENCE_KEY, value)} }
+    /** Feature 6: resume after Bluetooth reconnects, and pause on mute. Both off by default. */
+    var bluetoothResume by mutableStateOf(prefs.getBoolean(BT_RESUME_KEY, false)); private set
+    var pauseOnMute by mutableStateOf(prefs.getBoolean(MUTE_PAUSE_KEY, false)); private set
+    fun updateBluetoothResume(value: Boolean) { bluetoothResume = value; prefs.edit {putBoolean(BT_RESUME_KEY, value)} }
+    fun updatePauseOnMute(value: Boolean) { pauseOnMute = value; prefs.edit {putBoolean(MUTE_PAUSE_KEY, value)} }
     fun updateEnabled(value: Boolean) { enabled = value; prefs.edit {putBoolean("enabled", value)} }
     fun updatePercent(value: Int) { percent = boostPercent(value); prefs.edit {putInt("percent", percent)} }
 }

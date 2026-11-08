@@ -65,7 +65,7 @@ internal object EncoreWidgets {
         val views = RemoteViews(context.packageName, R.layout.widget_encore)
         views.setTextViewText(R.id.widget_encore_time, time)
         views.setTextViewText(R.id.widget_encore_detail, detail)
-        views.setImageViewBitmap(R.id.widget_encore_week, weekBars(encoreWeekShares(week)))
+        views.setImageViewBitmap(R.id.widget_encore_week, weekBars(encoreWeekShares(week), Edition.widgetAccent(context) ?: 0xFFFF6DB2.toInt()))
         views.setContentDescription(R.id.widget_encore_week, string(R.string.encore_widget_week, encoreDuration(week.sum())))
         val open = PendingIntent.getActivity(context, id, Intent(AppShortcut.Encore.action).setClass(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -74,13 +74,13 @@ internal object EncoreWidgets {
     }
 
     /** Seven rounded bars, today's in the accent. */
-    private fun weekBars(shares: FloatArray): Bitmap {
+    private fun weekBars(shares: FloatArray, accent: Int): Bitmap {
         val width = 168; val height = 108; val gap = 8f
         val bar = (width - gap * (shares.size - 1)) / shares.size
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap); val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         shares.forEachIndexed { i, share ->
-            paint.color = if (i == shares.lastIndex) 0xFFFF6DB2.toInt() else 0x59F9F8FF
+            paint.color = if (i == shares.lastIndex) accent else 0x59F9F8FF
             val left = i * (bar + gap)
             canvas.drawRoundRect(left, height * (1 - share), left + bar, height.toFloat(), bar / 2, bar / 2, paint)
         }

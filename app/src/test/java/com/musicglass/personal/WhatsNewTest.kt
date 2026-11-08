@@ -33,8 +33,10 @@ class WhatsNewTest {
     }
 
     @Test fun theReleaseFileReadsAndEveryActionGoesSomewhere() {
-        val release = parseWhatsNew(File("src/main/res/raw/whats_new.json").readText())
+        val release = parseWhatsNew(File("src/${if (Edition.plus) "plus" else "riff"}/res/raw/whats_new.json").readText())
         assertNotNull(release); release!!
+        assertEquals(BuildConfig.VERSION_CODE, release.version)
+        if (!Edition.plus) assertTrue(release.cards.none { it.action == "equalizer" })
         assertTrue(release.cards.size in 3..5)
         assertTrue(release.cards.all { it.action in setOf("", "encore", "equalizer", "settings", "player") })
     }
@@ -48,7 +50,7 @@ class WhatsNewTest {
     @Test fun tryItOpensTheScreens() {
         val model = ShellModel()
         tryWhatsNew("encore", model); assertEquals(Route.Encore, model.current)
-        tryWhatsNew("equalizer", model); assertEquals(Route.Settings(SettingsSection.Equalizer), model.current)
+        tryWhatsNew("equalizer", model); assertEquals(Route.Settings(if (Edition.plus) SettingsSection.Equalizer else SettingsSection.Sound), model.current)
         tryWhatsNew("player", model); assertEquals("mini", model.sheet)
     }
 }

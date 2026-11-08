@@ -216,7 +216,7 @@ abstract class AccessibilitySweepCases {
     @Test fun settings() { val p = provider(); clean { SettingsScreen(ShellModel(), 0.dp, p, LocalCollections(context)) {} } }
     @Test fun account() { val p = provider(); clean { AccountScreen(ShellModel(), p, LocalCollections(context), player.gateway, {}, SessionCoordinator({ p.session.value })) } }
     @Test fun downloads() = clean { DownloadsScreen(ShellModel(), 0.dp, player.gateway) {} }
-    @Test fun notInterested() = clean { NotInterestedScreen(ShellModel(), 0.dp) {} }
+    @Test fun notInterested() = clean { NotInterestedScreen(ShellModel(), 0.dp, player.gateway) {} }
     @Test fun collection() {
         val p = provider()
         val rows = (1..3).map { ProviderHomeCard("Row $it", "Fixture Artist", null, videoId = fixtureVideoId(it), setVideoId = "row-set-$it") }

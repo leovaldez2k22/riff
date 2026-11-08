@@ -29,6 +29,24 @@ import java.util.Locale
  */
 internal const val ENCORE_GENRE_ARTISTS = 200
 private const val ENCORE_GENRE_KEEP_MS = 90L * 86_400_000L
+/**
+ * MusicBrainz allows one request a second from an application. Every caller (Encore genres, Riff+'s song and artist
+ * background) waits its turn here, so together they never go faster.
+ */
+internal object MusicBrainzGate {
+    private const val GAP_MS = 1_100L
+    private val lock = kotlinx.coroutines.sync.Mutex()
+    private var last = Long.MIN_VALUE / 2
+    suspend fun awaitTurn(pause: suspend (Long) -> Unit = { delay(it) }, now: () -> Long = { System.nanoTime() / 1_000_000 }) {
+        lock.lock()
+        try {
+            val wait = last + GAP_MS - now()
+            if (wait > 0) pause(wait)
+            last = now()
+        } finally { lock.unlock() }
+    }
+}
+
 private const val MUSICBRAINZ = "https://musicbrainz.org/ws/2/artist/"
 
 /** Real genres, with the spellings MusicBrainz tags use mapped to how Encore shows them. */
@@ -106,6 +124,7 @@ internal class EncoreGenres(private val db: LibraryStateDb, private val http: Ca
         var asked = 0
         for (name in stale(names.take(ENCORE_GENRE_ARTISTS))) {
             if (!enabled() || !unmetered()) break
+            MusicBrainzGate.awaitTurn(pause)
             val genres = lookup(name) ?: break
             try {
                 db.write { d -> d.insertWithOnConflict("artist_genres", null, ContentValues().apply {

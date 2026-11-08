@@ -94,6 +94,8 @@ internal class QueueCoordinator(private val context: Context, private val scope:
     /** Queue entries whose audio was last opened from a download rather than from the provider. */
     private val downloadServed = ConcurrentHashMap.newKeySet<String>()
 
+    /** Feature 5: the entry the user picked to start this queue; it plays even when on the never-play list (Q5). */
+    private var chosenEntry: String? = null
     fun isAutomatic(entry: String) = entry in autoEntries
     fun streamFor(item: MediaItem): ProviderStream? = resolvedStreams[item]
     fun remember(item: MediaItem, stream: ProviderStream) { resolvedStreams[item] = stream }
@@ -147,7 +149,7 @@ internal class QueueCoordinator(private val context: Context, private val scope:
     fun reset() {
         queueOrder.forget()
         replacement = null; resolvedStreams.clear(); downloadServed.clear()
-        onReset(); autoEntries.clear()
+        onReset(); autoEntries.clear(); chosenEntry = null
         generation++; radioJob?.cancel(); radioJob = null; radioSeed = null; radioContinuation = null; radioEnded = false; candidates.clear()
         player()?.setPlaylistMetadata(MediaMetadata.EMPTY)
     }
@@ -186,6 +188,18 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         if (saved == null || saved.queue.any { !it.mediaId.startsWith("yt:") }) return SessionResult(SessionError.ERROR_BAD_VALUE)
         val tracks = saved.queue.map { q -> ProviderTrack(q.mediaId.removePrefix("yt:"), q.title, q.artist, q.artworkUrl, q.artistId, q.albumId, q.album, q.live, q.music) }
         if (tracks.any { !it.videoId.matches(PLAYABLE_ID) }) return SessionResult(SessionError.ERROR_BAD_VALUE)
+        if (args.containsKey("enqueueNext") && tracks.size > 1 && player.mediaItemCount > 0) {
+            // Feature 22: each song not already queued goes in after the last one the user added next, in the
+            // order given; the current song and the rest of the queue stay where they are.
+            val seen = HashSet<String>()
+            val fresh = tracks.filter { seen.add(it.videoId) && indexOfRecording(player, it) == null }
+            for (track in fresh) {
+                queuedIds.add(track.videoId); val item = catalogItem(track)
+                player.addMediaItem(queueOrder.nextSlot(player), item); queueOrder.userAdded(item)
+            }
+            events.append("batch_play_next count=${fresh.size}")
+            return SessionResult(SessionResult.RESULT_SUCCESS)
+        }
         if (args.containsKey("enqueueNext") && tracks.size == 1 && player.mediaItemCount > 0) {
             val track = tracks[0]; val existing = indexOfRecording(player, track)
             // Feature 26: Undo puts a removed song back at the row it left.
@@ -209,6 +223,7 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         player.shuffleModeEnabled = saved.shuffle; player.repeatMode = Player.REPEAT_MODE_OFF
         queuedIds.addAll(tracks.map { it.videoId })
         if (saved.shuffle) player.setMediaItems(shuffledAround(items, saved.index), 0, 0) else player.setMediaItems(items, saved.index, 0)
+        chosenEntry = player.currentMediaItem?.entryId()
         if (args.getBoolean("automatic") && !tracks[0].isLive) radioSeed = tracks[0].videoId
         player.setPlaylistMetadata(MediaMetadata.Builder().setTitle(saved.collectionTitle).setSubtitle(if (saved.collectionTitle.isBlank()) "Album order" else "Collection order").build())
         // A pause made after this was asked for wins: the queue loads, silent.
@@ -258,7 +273,7 @@ internal class QueueCoordinator(private val context: Context, private val scope:
         } else {
             resetForNewQueue()
             queuedIds.add(videoId)
-            player.setMediaItem(providerItem(track, stream), args.getLong("position", 0L).coerceAtLeast(0))
+            player.setMediaItem(providerItem(track, stream).also { chosenEntry = it.entryId() }, args.getLong("position", 0L).coerceAtLeast(0))
             player.repeatMode = Player.REPEAT_MODE_OFF; player.prepare()
             if (order.autoplay(ticket, true)) player.play() else player.playWhenReady = false
             events.append("provider_stream_selected")
@@ -295,7 +310,8 @@ internal class QueueCoordinator(private val context: Context, private val scope:
                     radioContinuation = token; radioEnded = token == null
                     val known = (0 until player.mediaItemCount).map { val m = player.getMediaItemAt(it).mediaMetadata; queueRecordingKey(m.title.toString(), m.artist.toString()) }.toSet()
                     val hidden = NotInterestedStore.get(context).keys
-                    candidates.addAll(queueCandidates(tracks, queuedIds + hidden, known))
+                    val never = NeverPlayStore.get(context).set(offline.currentScope)
+                    candidates.addAll(queueCandidates(tracks, queuedIds + hidden, known).filterNot { never.blocks(it.videoId, it.artistId) })
                 }
                 var added = 0; var attempted = 0
                 while (candidates.isNotEmpty() && added < 6 && attempted < 12) {
@@ -314,6 +330,26 @@ internal class QueueCoordinator(private val context: Context, private val scope:
             } catch (e: CancellationException) { throw e }
             catch (_: Exception) { if (started == generation) status(player, false, string(R.string.couldn_t_load_recommendations_your_current_s)) }
         }
+    }
+
+    /**
+     * Feature 5: when the entry now selected is on the current owner's never-play list, playback moves on to the next
+     * one that is not; with none left within [NEVER_PLAY_SKIP_LIMIT] it pauses and says why. The entry the user picked
+     * to start the queue plays once (Q5's one-time override); so does anything not from YouTube Music.
+     */
+    fun passNeverPlay(player: Player) {
+        val current = player.currentMediaItem ?: return
+        if (current.entryId() == chosenEntry) return
+        val never = NeverPlayStore.get(context).set(offline.currentScope)
+        if (never.isEmpty) return
+        fun blocked(index: Int) = player.getMediaItemAt(index).let { item -> item.mediaId.startsWith("yt:") && item.entryId() != chosenEntry &&
+            never.blocks(item.mediaId.removePrefix("yt:"), item.mediaMetadata.extras?.getString("artistId")) }
+        val index = player.currentMediaItemIndex
+        if (!blocked(index)) return
+        val next = neverPlayNext(index, player.mediaItemCount, ::blocked)
+        events.append("never_play_skip found=${next >= 0}")
+        if (next >= 0) selfChange.run { player.seekTo(next, 0) }
+        else { selfChange.run { player.pause() }; status(player, false, string(R.string.never_play_all_blocked)) }
     }
 
     /** One recovery attempt: loads the entry again, keeping queue order, position and whether the user wants playback. */

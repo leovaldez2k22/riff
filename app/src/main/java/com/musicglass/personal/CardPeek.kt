@@ -31,6 +31,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.*
+import androidx.compose.foundation.background
 import androidx.compose.ui.unit.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -68,6 +70,8 @@ internal class CardPeekController(private val scope: CoroutineScope) {
     val shrink = Animatable(0f)
     val dim = Animatable(0f)
     private var opener: (() -> Unit)? = null
+    /** Feature 22: picks the held song in the list's selection; null where the list has none. */
+    var selecter: (() -> Unit)? by mutableStateOf(null); private set
     private var job: Job? = null
 
     fun scaleOf(key: String) = if (card?.key() == key) 1f - PEEK_SHRINK * shrink.value else 1f
@@ -82,8 +86,8 @@ internal class CardPeekController(private val scope: CoroutineScope) {
         if (!menuOpen && this.card?.key() == card.key()) settle(false)
     }
 
-    fun open(card: ProviderHomeCard, bounds: Rect, corner: Float, reduced: Boolean, open: () -> Unit) {
-        this.card = card; this.bounds = bounds; this.corner = corner; opener = open; menuOpen = true
+    fun open(card: ProviderHomeCard, bounds: Rect, corner: Float, reduced: Boolean, select: (() -> Unit)? = null, open: () -> Unit) {
+        this.card = card; this.bounds = bounds; this.corner = corner; opener = open; selecter = select; menuOpen = true
         job?.cancel()
         job = scope.launch {
             if (reduced) { shrink.snapTo(PEEK_SETTLED); dim.snapTo(1f); return@launch }
@@ -93,10 +97,11 @@ internal class CardPeekController(private val scope: CoroutineScope) {
     }
 
     fun openCard() { val open = opener; dismiss(); open?.invoke() }
+    fun select() { val pick = selecter; dismiss(); pick?.invoke() }
 
     fun dismiss(reduced: Boolean = false) { menuOpen = false; settle(reduced) }
 
-    private fun settle(reduced: Boolean) { opener = null; animate(reduced, 0f, 0f, 200) }
+    private fun settle(reduced: Boolean) { opener = null; selecter = null; animate(reduced, 0f, 0f, 200) }
 
     private fun animate(reduced: Boolean, toShrink: Float, toDim: Float, ms: Int) {
         job?.cancel()
@@ -125,8 +130,13 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
     val cornerPx = with(LocalDensity.current) { corner.toPx() }
     val reduced = LocalMotionPolicy.current.reduced
     val current by rememberUpdatedState(card)
-    LaunchedEffect(source, peek) {
-        if (peek == null) return@LaunchedEffect
+    val selection = LocalSongSelection.current
+    val track = remember(card) { card.track()?.takeIf { !it.isLive } }
+    val pick: (() -> Unit)? = if (selection != null && track != null) ({ uiHaptic(HapticCue.Selection); selection.toggle(card.key(), track) }) else null
+    val picking = pick != null && selection?.active == true
+    val picked = pick != null && selection?.contains(card.key()) == true
+    LaunchedEffect(source, peek, picking) {
+        if (peek == null || picking) return@LaunchedEffect
         source.interactions.collect { interaction ->
             when (interaction) {
                 // Clickable reports a press only after the touch-slop delay, so a scroll never starts the dim.
@@ -138,10 +148,15 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
     return this.onGloballyPositioned { bounds = it.boundsInWindow() }
         .graphicsLayer { val scale = peek?.scaleOf(card.key()) ?: 1f; scaleX = scale; scaleY = scale }
         .clip(RoundedCornerShape(corner))
+        .then(if (picked) Modifier.background(Pink.copy(alpha = .16f)) else Modifier)
+        .then(if (pick == null) Modifier else Modifier.semantics {
+            selected = picked
+            customActions = listOf(CustomAccessibilityAction(string(if (picked) R.string.selection_unselect else R.string.selection_select)) { pick(); true })
+        })
         .combinedClickable(interactionSource = source, indication = androidx.compose.foundation.LocalIndication.current,
-            onLongClickLabel = if (card.track() != null) string(R.string.song_options) else string(R.string.options),
-            onLongClick = if (peek == null) null else ({ peek.open(card, bounds, cornerPx, reduced, onOpen) }),
-            onClick = { uiHaptic(); onOpen() })
+            onLongClickLabel = if (picking) null else if (card.track() != null) string(R.string.song_options) else string(R.string.options),
+            onLongClick = if (picking) pick else if (peek == null) null else ({ peek.open(card, bounds, cornerPx, reduced, pick, onOpen) }),
+            onClick = if (picking) pick!! else ({ uiHaptic(); onOpen() }))
 }
 
 /** The page dim with the held card cut out, and the held card's options. Draws above the page, takes no touches. */
@@ -151,6 +166,7 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
     val scope = rememberCoroutineScope()
     var playlistTrack by remember { mutableStateOf<ProviderTrack?>(null) }
     playlistTrack?.let { PlaylistPicker(it, { playlistTrack = null }, onNotice) }
+    var shareSong by remember { mutableStateOf<ProviderHomeCard?>(null) }
     var origin by remember { mutableStateOf(Offset.Zero) }
     val card = peek.card
     if (card != null) Canvas(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInWindow() }.testTag("card_peek_dim")) {
@@ -166,10 +182,12 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
     fun act(block: suspend () -> Unit) { peek.dismiss(); scope.launch { block() } }
     fun share(text: String) = context.startActivity(Intent.createChooser(
         Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Share"))
+    shareSong?.let { held -> held.track()?.let { song -> ShareSongChoice(held.title, held.subtitle, song.videoId, ::share) { shareSong = null } } ?: run { shareSong = null } }
     PlayerActionMenu(peek.menuOpen, { peek.dismiss() }, peek.bounds.roundToIntRect(), place = ::peekMenuPosition,
         paneTitle = if (card?.track() != null) string(R.string.song_options) else string(R.string.options)) {
         val held = card ?: return@PlayerActionMenu
         val track = held.track()
+        peek.selecter?.let { SongActionItem("Select") { peek.select() } }
         if (track != null) {
             SongActionItem("Add to queue") { act { enqueueRealTrack(provider, playback, held, onNotice) } }
             if (track.isMusic && !track.isLive) {
@@ -178,7 +196,8 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
             }
             held.artistId?.let { id -> SongActionItem("View artist") { peek.dismiss(); model.openCollection(id, playerArtistLabel(held.subtitle)) } }
             held.albumId?.let { id -> SongActionItem("View album") { peek.dismiss(); model.openCollection(id, held.album.ifBlank { string(R.string.album) }) } }
-            SongActionItem("Share song") { peek.dismiss(); share("${held.title} · ${held.subtitle}\nhttps://music.youtube.com/watch?v=${track.videoId}") }
+            // One Share that asks which link, as in the player (owner, 9 November 2026).
+            if (songShareText(held.title, held.subtitle, track.videoId) != null) SongActionItem("Share song") { peek.dismiss(); shareSong = held }
             EncoreHistoryAction(EncoreKind.SONG, encoreSongKey(track.videoId), held.title) { peek.dismiss() }
         } else {
             SongActionItem("Open") { peek.openCard() }
@@ -191,9 +210,19 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
         }
         if (held.pinnable()) SongActionItem(if (held.key() in SpeedDialPins.get(context)) "Unpin from speed dial" else "Pin to speed dial") {
             peek.dismiss(); toggleSpeedDialPin(context, held, onNotice) }
-        if (track?.isLive != true && (track != null || held.notInterestedToken != null))
+        // A song's "Not interested" is now part of Never play (owner, 9 November 2026); an album or playlist keeps it.
+        if (track == null && held.notInterestedToken != null)
             SongActionItem("Not interested") { act { markNotInterested(context, provider, playback,
                 NotInterestedEntry(held.key(), held.title, held.subtitle, held.artworkUrl, track != null), held.notInterestedToken, onNotice) } }
+        if (track != null && !track.isLive) {
+            val song = NeverPlayEntry(track.videoId, false, track.title)
+            SongActionItem(neverPlayLabel(context, song)) { act { neverPlayEverywhere(context, provider, playback, song,
+                NotInterestedEntry(held.key(), held.title, held.subtitle, held.artworkUrl, true), held.notInterestedToken, onNotice) } }
+        }
+        (track?.artistId ?: held.artistId)?.takeIf { track != null || it.startsWith("UC") }?.let { id ->
+            val artist = NeverPlayEntry(id, true, track?.artist?.takeIf { it.isNotBlank() } ?: playerArtistLabel(held.subtitle))
+            if (neverPlayValid(artist)) SongActionItem(neverPlayLabel(context, artist)) { peek.dismiss(); toggleNeverPlay(context, playback, artist, onNotice) }
+        }
     }
 }
 

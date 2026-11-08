@@ -2,6 +2,14 @@
 
 Newest first. Release candidates before 0.9.0-rc16 were recorded only in the README; their text is kept here unchanged. Detailed implementation and verification records are in `docs/`.
 
+## 0.30.0 — unreleased development
+
+- Android 12 (API 31) or later; Android 11 is outside this release target.
+- Two free editions from one source: Riff keeps everyday playback and all of Encore; Riff+ owns Automix and ONNX, the app equalizer and Stats for nerds.
+- Edition-aware update notices require the exact APK asset. About offers the opposite edition only at the installed version.
+- Shared data and saved Plus settings are retained across edition replacement; stored Automix uses Smart in Riff.
+- Both release and preview candidates, source archives, certificates and per-edition APK budgets are checked. Implementation and installation evidence are in the active 0.30.0 plan; the other planned features remain in progress.
+
 ## 0.21.0 (code 35), published 6 November 2026
 
 Release notes: `docs/release-notes-0.21.0.md`. Signed with the same certificate as 0.20.0, so it updates 0.20.0 in place. The "What's new" sheet is written for version code 35.

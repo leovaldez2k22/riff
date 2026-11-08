@@ -20,6 +20,19 @@ internal fun <T> unshuffledOrder(now: List<T>, original: List<T>, selected: T): 
 }
 
 /**
+ * Feature 18: [order] in place of [now], or null when it may not be: [now] is no longer [expected] (the queue changed
+ * after the order was made), the songs are not the same ones, the song playing or anything before it would move, or a
+ * [pinned] entry (one the user put to play next) would leave its place.
+ */
+internal fun checkedReorder(now: List<String>, expected: List<String>, order: List<String>, current: Int, pinned: Set<String>): List<String>? {
+    if (now != expected || order.size != now.size || current !in now.indices) return null
+    if ("" in now || now.toSet().size != now.size || order.toSet() != now.toSet()) return null
+    if (order.subList(0, current + 1) != now.subList(0, current + 1)) return null
+    if (now.indices.any { now[it] in pinned && order[it] != now[it] }) return null
+    return order
+}
+
+/**
  * Shuffle changes the queue itself, once (owner, 5 Nov): the list is the play order, so the player no longer picks
  * another song after each one. The player's shuffle flag stays on as what every button shows, over an order that
  * follows the list (see the service). Main thread.
@@ -56,6 +69,20 @@ internal class QueueOrder(private val random: Random = Random.Default) {
     fun reshuffle(player: Player) {
         if (!handled) { handled = true; player.shuffleModeEnabled = true }
         shuffle(player)
+    }
+
+    /** Feature 18: the entries put to play next, which a new order leaves where they are. */
+    fun pinned(): Set<String> = added.toSet()
+
+    /** Feature 18: puts the queue in [order] (see [checkedReorder]); false, and nothing changes, when it may not. */
+    fun reorder(player: Player, expected: List<String>, order: List<String>): Boolean {
+        val now = items(player)
+        val ids = now.map { it.entryId() }
+        checkedReorder(ids, expected, order, player.currentMediaItemIndex, added) ?: return false
+        if (order == ids) return true
+        val byId = now.associateBy { it.entryId() }
+        rearrange(player, order.map(byId::getValue))
+        return true
     }
 
     private fun items(player: Player) = (0 until player.mediaItemCount).map(player::getMediaItemAt)

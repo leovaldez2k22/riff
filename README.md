@@ -14,18 +14,34 @@ Riff is an independent personal project and is not affiliated with Google or You
 
 This repository continues the project under **leovaldez2k22** with its Git history. Older documents may name earlier accounts.
 
+## The unreleased 0.30.0 editions
+
+Current source builds **Riff** and **Riff+**, both free. They share one package, version and signing key, so installing one replaces the other. The published download above is still 0.21.0; 0.30.0 is being implemented and verified in the [implementation plan](docs/feature-implementation-plan-0.30.0-2026-11-07.md).
+
+| Feature | Riff | Riff+ |
+|---|---|---|
+| Browsing, lyrics, downloads, local audio and queue | Yes | Yes |
+| Encore statistics, stories, genres and widget | Yes | Yes |
+| Crossfade, Smart, booster and normalization | Yes | Yes |
+| Automix and its on-device beat model | — | Yes |
+| In-app equalizer and Stats for nerds | — | Yes |
+
+If you use Automix or the app equalizer in 0.21.0, choose **Riff+** when 0.30.0 is released. Riff keeps those saved choices and uses Smart for stored Automix; moving back to Riff+ restores the choices. Riff can open the phone's equalizer when one is available. About offers the opposite edition for the same installed version when the release feed lists its exact APK.
+
+The source and published 0.21.0 APK require Android 12 (API 31) or later. Checked local signed split builds measured 9.53 MiB for Riff and 44.37 MiB for Riff+. These are development-build sizes; the remaining feature work and final release measurements are tracked in the plan. The [split log](docs/riff-plus-split-plan-2026-11-07.md#implementation-log) records candidate sizes and installation evidence as verification progresses.
+
 ## Features
 
-**New since 0.10.0** (unreleased; see the [changelog](CHANGELOG.md))
+**Features introduced in 0.20.0 and 0.21.0** (see the [changelog](CHANGELOG.md)); the table above describes their edition placement in current 0.30.0 source.
 
 - **Liquid Glass** written in Riff, on the shell and every control: a tab bar whose lens lifts, follows your finger, stretches and glides home; glass sliders and segmented controls; heat-aware quality that falls back to plain frost when the phone runs hot, and says so in Look and feel.
-- **Settings redesign:** an opening page with the account, quick switches (Automix, Boost, Data saver, Haptics), search, and a tile per section saying what is set inside; each section a page of glass tiles: the blend drawn live, a dial for the booster, real glass under the glass sliders, a sung lyrics preview, a storage ring. Switch icons change between an off and an on icon as they turn.
+- **Settings redesign:** an opening page with the account, quick switches (the supported blend, Boost, Data saver, Haptics), search, and a tile per section saying what is set inside; each section a page of glass tiles: the blend drawn live, a dial for the booster, real glass under the glass sliders, a sung lyrics preview, a storage ring. Switch icons change between an off and an on icon as they turn.
 - **Moods:** Party, Focus, Commute and Night set the blend, booster, even loudness and Data saver in one tap; keep what is set now as a mood of your own.
-- **Automix:** choose Crossfade, Smart or Automix. Smart and Automix blend where a song winds down, swap the bass halfway, and land on the downbeat when both songs have a beat. An on-device beat model (Beat This! small, int8 ONNX, on ONNX Runtime) finds the beats and bar lines; nothing leaves the phone for it.
+- **Blends:** Crossfade and Smart in both editions; Automix in Riff+. Smart follows each song's ending. Riff+ also supplies the blend filters, bass swap and echo-out, and its on-device Beat This! / ONNX model finds beats and bar lines for Automix; nothing leaves the phone for analysis.
 - **Encore:** listening statistics for the day, week, month, year and lifetime, with charts, stories and genres.
-- **Equalizer:** a Dynamic tone pad or seven manual bands with presets, pre-amp and balance, working before the booster and inside crossfades.
+- **Equalizer (Riff+):** a Dynamic tone pad or seven manual bands with presets and balance, with derived headroom, working before the booster and inside crossfades.
 - **Lyrics:** a redesigned player whose current line is swept word by word, held words before the instrumental dots, other lines blurred and faded, romanized lyrics, lrc.red as a source.
-- **Everywhere else:** Android Auto; Cast to Chromecasts and Google speakers; open YouTube Music links in Riff; search suggestions and a top result; skip the silence at a song's end; playback speed; sleep timer by songs or time; song quality per network; stats for nerds; Undo for removals; lock-screen Shuffle and Like; app shortcuts and a play/pause tile; predictive back; a side rail and player pane on large screens; Inter as Riff's type; status bar icons that follow the cover.
+- **Everywhere else:** Android Auto; Cast to Chromecasts and Google speakers; open YouTube Music links in Riff; search suggestions and a top result; skip the silence at a song's end; playback speed; sleep timer by songs or time; song quality per network; Riff+ Stats for nerds; Undo for removals; lock-screen Shuffle and Like; app shortcuts and a play/pause tile; predictive back; a side rail and player pane on large screens; Inter as Riff's type; status bar icons that follow the cover.
 
 **Since earlier releases**
 
@@ -64,19 +80,21 @@ Taken on a phone from the current source (30 October 2026). The account name and
 
 ## Phones
 
-Android 12 (API 31) or later; target API 36. The release APK contains native code for 64-bit ARM (`arm64-v8a`) only. A separate `lite` build adds 32-bit ARM (`armeabi-v7a`) for older phones (`scripts/build-lite.ps1`). x86 emulators run the debug build.
+Android 12 (API 31) or later; target API 36. The release APK contains native code for 64-bit ARM (`arm64-v8a`) only. x86 emulators run the debug build.
 
 ## Build
 
-Requirements: **JDK 21**, **Android SDK platform 37**, **build-tools 36.0.0**, and **Gradle 8.13** through the included wrapper (its download is checked against Gradle's published checksum). Dependencies are checked against `gradle/verification-metadata.xml`.
+Requirements: **JDK 21**, **Android SDK platform 37**, **build-tools 36.0.0**, and **Gradle 9.8.2** through the included wrapper (its download is checked against Gradle's published checksum). Dependencies are checked against `gradle/verification-metadata.xml`.
 
 ```powershell
 $env:JAVA_HOME = 'C:\path\to\jdk-21'
 $env:ANDROID_HOME = 'C:\path\to\Android\Sdk'
-.\gradlew.bat :app:testDebugUnitTest :app:lintRelease :app:assembleDebug
+.\gradlew.bat :app:testRiffDebugUnitTest :app:testPlusDebugUnitTest :app:lintRiffRelease :app:lintPlusRelease :app:assembleRiffDebug :app:assemblePlusDebug
 ```
 
 On macOS or Linux, set `JAVA_HOME` and `ANDROID_HOME` and use `./gradlew`.
+
+The `edition` flavors are `riff` (default) and `plus`; both retain the same package and signing identity. Riff omits Automix's runtime/model, the in-app equalizer and Stats for nerds; Plus owns their implementations and dependencies under `app/src/plus`. APKs are under `app/build/outputs/apk/<edition>/<build-type>`. Use `--edition plus` for a Plus device, packaging or benchmark lane; the PR lane always checks both.
 
 ### Checks
 
@@ -92,13 +110,13 @@ python scripts/quality/verify.py --lane pr
 | Emulator | `verify.py --lane emulator --allow-install` | One emulator; its network is turned off |
 | Physical device | `verify.py --lane device --allow-install --serial <id> --tier R\|L` | An authorized test phone, named explicitly |
 | Benchmarks | `verify.py --lane benchmark --allow-install --serial <id> --tier R\|L` | A phone; emulator timings are refused |
-| Packaging | `verify.py --lane packaging [--allow-install --previous-apk <apk>]` | A signed candidate; an emulator for the upgrade check |
+| Packaging | `verify.py --lane packaging --allow-install --previous-apk artifacts/release/riff-0.21.0.apk --probe-apk artifacts/quality/packaging-probe/edition-switch-probe.apk` | Both signed candidates and the signed test probe; a fresh disposable emulator |
 
 Without `--allow-install` nothing touches a device. See [testing](docs/quality/testing.md) and [CI lanes](docs/quality/ci-lanes.md).
 
 ### Release candidate
 
-Release signing credentials stay outside Git ([release signing](docs/release-signing.md)). `scripts/build-release-candidate.ps1` builds, signs and checks the certificate (`-Offline`, `-OutDir`, and `-Toolchain` to build a clean worktree with the main checkout's key and Gradle cache; `-Preview` also builds **Riff Preview**, the same release under the package `com.musicglass.personal.preview`, which installs beside an installed release without touching its data); `scripts/package-source.ps1` writes the matching source archive from the files Git tracks. CI builds an unsigned release. Debug builds use a different key and cannot update a release in place. Never commit keys, passwords, cookies or signed media URLs.
+Release signing credentials stay outside Git ([release signing](docs/release-signing.md)). `scripts/build-release-candidate.ps1` builds, signs and checks the certificate (`-Offline`, `-OutDir`, and `-Toolchain` to build a clean worktree with the main checkout's key and Gradle cache; `-Preview` also builds **Riff Preview** and **Riff+ Preview** under `com.musicglass.personal.preview`; either preview replaces the other and installs beside the release); `scripts/package-source.ps1` writes one source archive from Git-visible files and verifies every current APK fingerprint input and its bytes. The packaging lane checks the signed source identity and upgrade/switch data using the [test-only probe](scripts/quality/build-packaging-probe.ps1). CI builds an unsigned release. Debug builds use a different key and cannot update a release in place. Never commit keys, passwords, cookies or signed media URLs.
 
 Benchmarks and the Baseline Profile generator are in `:benchmark` and run against a separate fixture-fed build (`com.musicglass.personal.benchmark`). See [performance](docs/quality/performance.md).
 

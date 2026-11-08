@@ -43,7 +43,7 @@ class MusicPlaybackService : MediaLibraryService() {
     /** Feature 15: songs and episodes keep their own speed. */
     private val speeds by lazy {PlaybackSpeeds(this)}
     /** Feature 16: decoder, dropouts and the network estimate for the stats for nerds panel. */
-    private val nerdStats=NerdStatsCollector()
+    private val nerdStats=Edition.createStats()
     /** Feature 23: Like and Shuffle on the notification and lock screen; sent again only when they change. */
     private var mediaButtonState:MediaButtonState?=null
     private val buttonVideoId=androidx.compose.runtime.mutableStateOf("")
@@ -116,6 +116,8 @@ class MusicPlaybackService : MediaLibraryService() {
     private val persistence:PlaybackPersistence by lazy {AppContainer.get(this).let {process->PlaybackPersistence(serviceScope,process.snapshots,{process.stateReady},{offline.currentScope},{queue.radioSeed})}}
     private val history by lazy {AppContainer.get(this).history}
     private val plays=LogicalPlays()
+    /** Feature 2: plays sent to ListenBrainz and Last.fm, when connected. */
+    private val scrobbler by lazy {Scrobbler(ScrobbleSettings.get(this),ScrobbleOutbox.get(this),serviceScope,{historyEnabled(this)},{events.append(it)})}
     private val sessions by lazy {AppContainer.get(this).sessions}
     private var sessionRegistration:AutoCloseable?=null
     // Q06: commands are ticketed on arrival and applied one at a time, in that order.
@@ -131,6 +133,10 @@ class MusicPlaybackService : MediaLibraryService() {
      */
     @androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
     private fun castable(shown: Player, local: ExoPlayer): Player = try {
+        // Android 11: Media3 asks Play services for the CastContext on a background thread, and older Play services
+        // (20.18, as on the API 30 emulator image) throw there, on a thread no catch here reaches, ending the app.
+        // Made first on this (main) thread, Media3 finds it already built. Android 12+ is unchanged.
+        if (android.os.Build.VERSION.SDK_INT < 31) @Suppress("DEPRECATION") com.google.android.gms.cast.framework.CastContext.getSharedInstance(this)
         androidx.media3.cast.Cast.getSingletonInstance(this).initialize()
         val sync = CastSync(serviceScope, {mainPlayer}, {item->provider.resolve(item.mediaId.removePrefix("yt:")).getOrNull()}, events::append) {item->
             android.widget.Toast.makeText(this, getString(R.string.cast_song_refused, item.mediaMetadata.title ?: ""), android.widget.Toast.LENGTH_SHORT).show()
@@ -209,7 +215,7 @@ class MusicPlaybackService : MediaLibraryService() {
         audio.createCrossfade(mediaFactory, sleepActive = { (session?.sessionExtras?.getLong("sleepDeadlineMs") ?: 0L) > 0L },
             tailItem=queue::tailItem)
         // Crossfade synchronization requires frequent decoder-position updates.
-        val player = ExoPlayer.Builder(this, renderers).setMediaSourceFactory(mediaFactory).setLoadControl(riffLoadControl())
+        val player = ExoPlayer.Builder(this, renderers).setMediaSourceFactory(mediaFactory).setLoadControl(riffWholeSongLoadControl(this))
             .setMaxSeekToPreviousPositionMs(PREVIOUS_RESTARTS_AFTER_MS)
             .experimentalSetDynamicSchedulingEnabled(false)
             .build().apply {
@@ -224,9 +230,10 @@ class MusicPlaybackService : MediaLibraryService() {
                 androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.Builder()
                     .setAudioOffloadMode(androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED).build()).build()
             setHandleAudioBecomingNoisy(true)
-            addAnalyticsListener(nerdStats)
+            nerdStats?.let { addAnalyticsListener(it.listener) }
             addAnalyticsListener(StartupAudioListener())
             audio.attach(this)
+            routeWatch = RouteWatch(this@MusicPlaybackService, this, events)
             repeatMode = Player.REPEAT_MODE_OFF
             addListener(object : Player.Listener {
                 override fun onAudioSessionIdChanged(audioSessionId: Int) = audio.audioSessionChanged(audioSessionId)
@@ -242,7 +249,8 @@ class MusicPlaybackService : MediaLibraryService() {
                     if(reason==Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST && !internalChange.active) order.userIntent(playWhenReady)
                     // A pause holds recovery whatever caused it; play after that starts it again.
                     if(!internalChange.active) recovery.intentChanged(playWhenReady)
-                    if(playWhenReady) queue.replenish(this@apply)
+                    routeWatch?.playWhenReadyChanged(playWhenReady,reason)
+                    if(playWhenReady) {queue.passNeverPlay(this@apply);queue.replenish(this@apply)}
                 }
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     events.append("playback_state=$playbackState")
@@ -256,11 +264,17 @@ class MusicPlaybackService : MediaLibraryService() {
                     // Feature 15: the speed asked for is remembered for this kind of item. The crossfade's own small
                     // corrections are made on its tail player, never here.
                     speeds.remember(isMusic(this@apply.currentMediaItem),playbackParameters.speed)
+                    // Feature 23: pitch is Riff+'s, for songs; anything else asking for it gets its own pitch back.
+                    val music=isMusic(this@apply.currentMediaItem) && !this@apply.isCurrentMediaItemLive
+                    if(playbackParameters.pitch!=1f && (!Edition.plus || !music)) this@apply.playbackParameters=androidx.media3.common.PlaybackParameters(playbackParameters.speed,1f)
+                    else speeds.rememberPitch(music,playbackParameters.pitch)
                 }
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     sources.selected(mediaItem?.entryId())
                     val wanted=speeds.forKind(isMusic(mediaItem))
-                    if(kotlin.math.abs(this@apply.playbackParameters.speed-wanted)>.001f) this@apply.setPlaybackSpeed(wanted)
+                    val pitch=speeds.pitchFor(isMusic(mediaItem))
+                    if(kotlin.math.abs(this@apply.playbackParameters.speed-wanted)>.001f || kotlin.math.abs(this@apply.playbackParameters.pitch-pitch)>.0001f)
+                        this@apply.playbackParameters=androidx.media3.common.PlaybackParameters(wanted,pitch)
                     if(reason!=Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED || mediaItem!==queue.replacement) {
                         encore.ended(encoreEndedBy(reason))
                         if(sleepSongs.active) {
@@ -268,12 +282,12 @@ class MusicPlaybackService : MediaLibraryService() {
                             if(finished && sleepSongs.finishedOne()) {this@apply.pause();sleepTimer.close();events.append("sleep_timer_songs_done")}
                             else serviceScope.launch {rearmSleepSong()}
                         }
-                        listeningId="";plays.started();lastListenTick=android.os.SystemClock.elapsedRealtime()
+                        listeningId="";plays.started();scrobbler.restart();lastListenTick=android.os.SystemClock.elapsedRealtime()
                         queue.replacement=null
                     }
                     // Recovery for an entry the user has left is obsolete; its own replacement keeps the entry.
                     recovery.entryChanged(mediaItem?.entryId())
-                    if(mediaItem == null) queue.reset() else queue.replenish(this@apply)
+                    if(mediaItem == null) queue.reset() else {queue.passNeverPlay(this@apply);queue.replenish(this@apply)}
                 }
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                     val causes = generateSequence(error as Throwable?) { it.cause }
@@ -317,7 +331,7 @@ class MusicPlaybackService : MediaLibraryService() {
                     .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
                         .buildUpon().add(SessionCommand(PLAY_PROVIDER_STREAM, Bundle.EMPTY))
                         .add(SessionCommand(PLAY_LOCAL_AUDIO, Bundle.EMPTY)).add(SessionCommand(RETRY_PLAYBACK, Bundle.EMPTY))
-                        .add(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY)).add(SessionCommand(RESHUFFLE_QUEUE,Bundle.EMPTY)).add(SessionCommand(RESTORE_SAVED_QUEUE,Bundle.EMPTY)).add(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY)).add(SessionCommand(LOAD_MORE_QUEUE,Bundle.EMPTY)).add(SessionCommand(GET_NERD_STATS,Bundle.EMPTY))
+                        .add(SessionCommand(PLAY_CATALOG_QUEUE,Bundle.EMPTY)).add(SessionCommand(RESHUFFLE_QUEUE,Bundle.EMPTY)).add(SessionCommand(RESTORE_SAVED_QUEUE,Bundle.EMPTY)).add(SessionCommand(SET_SLEEP_TIMER,Bundle.EMPTY)).add(SessionCommand(LOAD_MORE_QUEUE,Bundle.EMPTY)).addEditionStats()
                         .apply {mediaButtonCommands.forEach {add(SessionCommand(it,Bundle.EMPTY))}}.build())
                     .build()
             }
@@ -363,8 +377,16 @@ class MusicPlaybackService : MediaLibraryService() {
                     sleepTimer.set(minutes)
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
-                if(customCommand.customAction==GET_NERD_STATS)
-                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS,nerdStatsBundle(player,nerdStats,audio.lastBlend)))
+                nerdStats?.takeIf { customCommand.customAction == Edition.statsCommand }?.let {
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS, it.snapshot(player, audio.lastBlend)))
+                }
+                if(customCommand.customAction==REORDER_QUEUE && Edition.queueOrder) {
+                    val order=args.getStringArrayList("order")
+                    if(order==null) return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS,Bundle().apply {putStringArrayList("pinned",ArrayList(queue.queueOrder.pinned()))}))
+                    val done=queue.queueOrder.reorder(player,args.getStringArrayList("expected").orEmpty(),order)
+                    if(done) persistence.save(player)
+                    return Futures.immediateFuture(SessionResult(if(done) SessionResult.RESULT_SUCCESS else SessionError.INFO_CANCELLED))
+                }
                 if(customCommand.customAction==RESHUFFLE_QUEUE) {queue.queueOrder.reshuffle(player);persistence.save(player);return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))}
                 if(customCommand.customAction==LOAD_MORE_QUEUE) {
                     queue.replenish(player,onDemand=true)
@@ -455,6 +477,7 @@ class MusicPlaybackService : MediaLibraryService() {
         saveJob=serviceScope.launch {while(isActive){delay(5000);persistence.save(player)
             val now=android.os.SystemClock.elapsedRealtime();val delta=(now-lastListenTick).coerceIn(0,5000);lastListenTick=now
             recordHistory(player)
+            scrobbler.tick(delta,player.isPlaying,player.currentPosition) {scrobblePlay(player.currentMediaItem,player.duration.coerceAtLeast(0),offline.currentScope)}
             if(player.isPlaying) encore.heard(delta)
             if(player.isPlaying && sleepSongs.onLastSong) rearmSleepSong()
             if(player.isPlaying && player.currentMediaItem?.mediaId?.startsWith("yt:")==true) {
@@ -510,6 +533,7 @@ class MusicPlaybackService : MediaLibraryService() {
     }
     /** Account switch: save the outgoing owner's provider or mixed queue paused, then remove it. */
     private suspend fun quiesceForAccountSwitch() {
+        withContext(Dispatchers.Main.immediate) {routeWatch?.cancel()}
         var stops=false
         val save=withContext(Dispatchers.Main.immediate) {
             val player=mainPlayer?:return@withContext null
@@ -548,6 +572,8 @@ class MusicPlaybackService : MediaLibraryService() {
         val nonce=args.getString("sessionNonce")?:return false
         return !sessions.accepts(provider.session.value.copy(generation=args.getLong("sessionGeneration"),nonce=nonce))
     }
+    /** Feature 6: Bluetooth resume and pause on mute; both off unless switched on. */
+    private var routeWatch:RouteWatch?=null
     private var networkCallback:android.net.ConnectivityManager.NetworkCallback?=null
     /** Play was asked for while the selected entry is in a failed state. */
     private fun retryPlayback(player:Player) {
@@ -583,6 +609,7 @@ class MusicPlaybackService : MediaLibraryService() {
         networkCallback?.let {callback-> runCatching {getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(callback)}}
         networkCallback=null
         sleepTimer.close()
+        routeWatch?.release();routeWatch=null
         audio.release()
         val player=mainPlayer
         val playWhenReady=player?.playWhenReady==true

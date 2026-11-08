@@ -19,7 +19,11 @@ internal enum class SettingsSection(val wire: String) {
     Diagnostics("diagnostics"), Equalizer("equalizer"), GlassGallery("glass_gallery"),
     // Settings' sections, each a page of glass tiles opened from the opening page (owner, 30 Oct).
     Sound("settings_sound"), Look("settings_look"), Lyrics("settings_lyrics"), Downloads("settings_downloads"),
-    Library("settings_library"), About("settings_about"), Moods("settings_moods");
+    Library("settings_library"), About("settings_about"), Moods("settings_moods"),
+    /** Feature 2 (0.30.0): ListenBrainz and Last.fm. */
+    Scrobbling("scrobbling"),
+    /** Feature 21 (Riff+): icon style, accent colour and tint. */
+    Appearance("appearance");
     /** One of the opening page's sections, as opposed to a screen of its own. */
     val tile get() = this in setOf(Sound, Look, Lyrics, Downloads, Library, About, Moods)
 }
@@ -36,6 +40,8 @@ internal sealed interface Route {
     data object ListeningHistory : Route { override val wire = "listening_history" }
     /** Feature 12: Encore, the listening statistics page. */
     data object Encore : Route { override val wire = "encore" }
+    /** Feature 12 (0.30.0): playlists kept on this phone, and importing one from a file. */
+    data object PhonePlaylists : Route { override val wire = "phone_playlists" }
     data class Settings(val section: SettingsSection = SettingsSection.Main) : Route { override val wire get() = section.wire }
     /** Feature 12, "Your history with this": a song, album or artist as Encore keys it. Made only through [encoreDetail]. */
     class EncoreDetail internal constructor(val kind: String, val key: String, val title: String) : Route {
@@ -92,6 +98,7 @@ internal sealed interface Route {
         /** A route that carries no argument, by its saved name. */
         fun plain(wire: String): Route? = when (wire) {
             Account.wire -> Account; DeviceAudio.wire -> DeviceAudio; Downloads.wire -> Downloads; ListeningHistory.wire -> ListeningHistory; Encore.wire -> Encore
+            PhonePlaylists.wire -> PhonePlaylists
             else -> SettingsSection.entries.firstOrNull { it.wire == wire }?.let(::Settings)
         }
         fun encode(route: Route): String = when (route) {
@@ -147,7 +154,7 @@ internal data class ShellSavedState(
         const val MAX_QUERY = 160
         private const val ROW = '\u001e'
         val LIBRARY_FILTERS = listOf("All", "Songs", "Favorites", "Playlists", "Albums", "Artists", "Podcasts", "History", "On device")
-        val SEARCH_FILTERS = listOf("All", "Songs", "Albums", "Artists", "Playlists", "Podcasts")
+        val SEARCH_FILTERS = listOf("All", "Songs", "Albums", "Artists", "Playlists", "Podcasts", LYRICS_SEARCH_FILTER)
         val SEARCH_SORTS = listOf("Relevance", "Title")
 
         /**
