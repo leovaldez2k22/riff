@@ -58,6 +58,14 @@ jobs:
         if: always()
         run: cat artifacts/quality/lanes/pr/lane-summary.md >> "$GITHUB_STEP_SUMMARY" || true
 
+      # The summaries only say that Gradle failed; its own log says why (9 Nov 2026: three failures with no reason shown).
+      - name: Gradle log tail
+        if: failure()
+        run: |
+          find artifacts/quality -name 'build*.log' -print0 | while IFS= read -r -d '' log; do
+            echo "::group::$log"; tail -n 80 "$log"; echo "::endgroup::"
+          done
+
       # Sanitized summaries and manifests only: no APK, no device data, no signing file.
       - name: Upload quality summaries
         if: always()

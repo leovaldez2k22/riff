@@ -60,6 +60,14 @@ jobs:
         if: always()
         run: cat artifacts/quality/lanes/emulator-${{ matrix.edition }}-${{ matrix.api }}/lane-summary.md >> "$GITHUB_STEP_SUMMARY" || true
 
+      # The summary only says that Gradle failed; its own log says why.
+      - name: Gradle log tail
+        if: failure()
+        run: |
+          find artifacts/quality -name 'build*.log' -print0 | while IFS= read -r -d '' log; do
+            echo "::group::$log"; tail -n 80 "$log"; echo "::endgroup::"
+          done
+
       # The summary, the collector's manifest and the instrumentation output: no APK, no device data.
       - name: Upload lane results
         if: always()
