@@ -129,9 +129,10 @@ class EditionJourneysDeviceTest {
         val effects = Edition.audioEffects(app)
         InstrumentationRegistry.getInstrumentation().runOnMainSync { effects.start() }
         try {
-            assertEquals(if (Edition.plus) 1 else 0, effects.beforeBoost.size)
+            // Riff+: Sing then the equalizer before the boost; the outgoing tail keeps Sing, its equalizer and the echo.
+            assertEquals(if (Edition.plus) 2 else 0, effects.beforeBoost.size)
             val tail = effects.createTail()
-            try { assertEquals(if (Edition.plus) 2 else 0, tail.processors.size) }
+            try { assertEquals(if (Edition.plus) 3 else 0, tail.processors.size) }
             finally { tail.release() }
         } finally {
             InstrumentationRegistry.getInstrumentation().runOnMainSync { effects.release() }
