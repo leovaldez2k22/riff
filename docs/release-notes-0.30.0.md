@@ -1,7 +1,5 @@
 # Riff 0.30.0 (version code 36)
 
-**Status: draft for the owner's review, not published.** Written on the night of 9 November 2026 from the [implementation plan's log](feature-implementation-plan-0.30.0-2026-11-07.md#7-implementation-log). The candidate table below is filled in once signed candidates are built. The latest published release is 0.21.0.
-
 Android 12 or later, 64-bit ARM phones. Both editions use the same certificate as 0.20.0 and 0.21.0 (SHA-256 `e45ac43b9d1c658c03ace002abb4c482cc3d63214a5f8509c801e404c91ff798`), so either **updates 0.21.0 in place**: downloads, the queue, history and settings are kept.
 
 ## Two editions
@@ -21,7 +19,7 @@ Riff now comes in two free editions, built from the same source:
 
 **Never play.** Block a song or an artist from a song's menu. Radio and the queue skip a blocked song. A blocked song is also reported to YouTube Music as not interested, while an artist stays on Riff's list only. Settings → Library → Not interested lists them, each with Undo.
 
-**Scrobbling.** Send what you play to ListenBrainz or Last.fm, under Settings → Library and privacy. A song longer than 30 s counts once you've heard half of it or 4 minutes, whichever comes first. Skipping ahead doesn't add to that. Unsent plays wait up to 7 days. Every service is off until you connect it.
+**Scrobbling.** Send what you play to ListenBrainz, under Settings → Library and privacy. A song longer than 30 s counts once you've heard half of it or 4 minutes, whichever comes first. Skipping ahead doesn't add to that. Unsent plays wait up to 7 days. It is off until you connect it.
 
 **Select several songs.** Albums, playlists, search, Library and history let you pick songs, in the order you tap them, to queue, download or add to a playlist. A tick appears beside each song, and a glass bar holds the actions.
 
@@ -56,15 +54,13 @@ Riff now comes in two free editions, built from the same source:
 
 ## Known limits
 
-To be checked with the owner before publishing:
-
 - **Not yet tried on a phone:** a real in-app update or edition switch, which needs published signed files.
-- **Measured on the tier R phone:** Riff+ and Riff installed over 0.21.0 in place, keeping the queue. There, Riff's cold start misses its 2 s budget by 12 ms (p95 2,012 ms), and scrolling misses its frame budget in both editions (13–16 % of frames late, against 2 %).
+- **Speed on the test phone** (a vivo I2217): Riff's cold start misses its 2 s target by 12 ms (2,012 ms for 95 % of starts), and scrolling misses its frame target in both editions (13–16 % of frames late, against 2 %).
 - **Riff+ is much larger than Riff**, because it bundles Sing's model, Automix's model and the headphone profiles.
 - **DJ order and Sing only use audio already on the phone.** For streamed songs, Sing waits until Riff has loaded all of the song, and Data saver stops that loading.
 - **Sing's instrumentals can grow large**, about 10 MB per minute of music. Clear them in Settings → Downloads.
 - **The media notification is not tinted** with the accent colour. Android colours it from the cover.
-- **Last.fm is offered only when the build has its API key.**
+- **Last.fm is not offered in these builds.** Riff supports it, but it needs an API key that this release was built without.
 - The limits listed for [0.21.0](release-notes-0.21.0.md) still apply.
 
 ## Candidate
@@ -75,7 +71,7 @@ Built on 9 November 2026 from commit 996d4e2 (the app's source is unchanged sinc
 |---|---|---:|---|
 | `riff-0.30.0.apk` (Riff) | `com.musicglass.personal`, 0.30.0 (36) | 10,257,274 bytes (9.8 MiB) | `f0d2bb205f27f706693770e768a42da1e39935d535b8e77106325effc35fdc94` |
 | `riff-plus-0.30.0.apk` (Riff+) | `com.musicglass.personal`, 0.30.0 (36) | 128,974,021 bytes (123.0 MiB) | `30f228f90b61429cb2f51bce1bff359a332d863234308574b4c94555fc9459fe` |
-| `riff-0.30.0-source.zip` | the corresponding source | 89,913,470 bytes | `ce91aa4eabd08c75d9793e7e58187d66a1a979aafe57a0cf1d7581bc504a02d1` |
+| `riff-0.30.0-source.zip` | the corresponding source, as tagged `v0.30.0` | | in `SHA256SUMS.txt` (the archive holds these notes, so it cannot list itself) |
 
 ## Verifying a package
 

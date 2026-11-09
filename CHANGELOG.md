@@ -2,15 +2,15 @@
 
 Newest first. Release candidates before 0.9.0-rc16 were recorded only in the README; their text is kept here unchanged. Detailed implementation and verification records are in `docs/`.
 
-## 0.30.0 (code 36) — draft, not published
+## 0.30.0 (code 36)
 
-Release notes: `docs/release-notes-0.30.0.md` (draft for the owner's review). Record: the implementation log of `docs/feature-implementation-plan-0.30.0-2026-11-07.md` and the split log of `docs/riff-plus-split-plan-2026-11-07.md`. Android 12 (API 31) or later. Same certificate as 0.21.0. The "What's new" sheet is written for version code 36, with different cards in each edition.
+Release notes: `docs/release-notes-0.30.0.md`. Signed candidates built on 9 November 2026. Record: the implementation log of `docs/feature-implementation-plan-0.30.0-2026-11-07.md` and the split log of `docs/riff-plus-split-plan-2026-11-07.md`. Android 12 (API 31) or later. Same certificate as 0.21.0. The "What's new" sheet is written for version code 36, with different cards in each edition.
 
 - Two free editions from one source. Riff keeps everyday playback and all of Encore. Riff+ has Automix and its model, the app equalizer, Stats for nerds and the Riff+ features below. Installing one replaces the other, and saved settings are kept. In Riff, stored Automix plays as Smart.
 - In-app update and edition switch. The app checks the exact GitHub asset's size, SHA-256 digest, signer, package, edition and version, then installs through Android's installer. Debug, local and preview builds open the release page instead.
 - Lyrics translations from Better Lyrics and NetEase, with a chip to turn them off or pick the language. You can choose the lyrics source for a song. Lyrics search runs over the lyrics saved with your downloads, on the phone only. NetEase's instrumental placeholder line now shows as an instrumental.
 - Never play a song or an artist. A song is also sent to YouTube Music as Not interested (since 9 November), while an artist stays on Riff's list only. Both are listed with Undo, travel in the export file, and are removed with the account's local data.
-- Scrobbling to ListenBrainz and Last.fm. Each is off until connected, unsent plays are kept 7 days, and tokens are sealed by the Android Keystore and left out of export and backup.
+- Scrobbling to ListenBrainz and Last.fm (Last.fm needs a build-time API key; the 0.30.0 candidates were built without one). Each is off until connected, unsent plays are kept 7 days, and tokens are sealed by the Android Keystore and left out of export and backup.
 - Select several songs in albums, playlists, search, Library and history, in the order they were tapped.
 - Playlist import from CSV, M3U and Spotify account data into Phone playlists. Copying an imported playlist to YouTube Music asks for confirmation every time.
 - Share song asks which link: YouTube Music or song.link.
