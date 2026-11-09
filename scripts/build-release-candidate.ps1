@@ -150,7 +150,8 @@ try {
         $dependencyGraph = Join-Path $releaseDir "$prefix-dependencies.txt"
         & $gradle ':app:dependencies' '--configuration' "$($edition)ReleaseRuntimeClasspath" @gradleFlags | Set-Content -LiteralPath $dependencyGraph
         if ($LASTEXITCODE -ne 0) { throw "$edition dependency report failed." }
-        & $Python (Join-Path $project 'scripts\audit_dependency_licenses.py') $dependencyGraph
+        # Beside the candidate, never the tracked docs file: that would change the source under the build.
+        & $Python (Join-Path $project 'scripts\audit_dependency_licenses.py') $dependencyGraph (Join-Path $releaseDir "$prefix-license-audit.csv")
         if ($LASTEXITCODE -ne 0) { throw "$edition license audit failed." }
         $maxApkBytes = if ($edition -eq 'riff') { 16MB } else { [long]::MaxValue }
         $apkBytes = (Get-Item -LiteralPath $apk).Length

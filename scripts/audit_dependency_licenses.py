@@ -18,7 +18,10 @@ GRAPH = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "artifacts/release/de
 # The Gradle cache the build used: GRADLE_USER_HOME (set by build-release-candidate.ps1, also for a worktree),
 # else this checkout's own .toolchain copy.
 CACHE = Path(os.environ.get("GRADLE_USER_HOME") or ROOT / ".toolchain/gradle-user-home") / "caches/modules-2/files-2.1"
-OUTPUT = ROOT / "docs/dependency-license-audit.csv"
+# Where the audit goes: the second argument, or the tracked inventory. The release script passes a file beside each
+# edition's candidate: writing the tracked file mid-build changed the source under the build (Riff's graph has no ONNX
+# Runtime), so the candidate's evidence read "dirty" (9 Nov 2026). The tracked file follows Riff+, the superset.
+OUTPUT = Path(sys.argv[2]) if len(sys.argv) > 2 else ROOT / "docs/dependency-license-audit.csv"
 COORDINATE = re.compile(
     r"([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+)(?::([A-Za-z0-9_.-]+))?"
     r"(?:\s+->\s+([A-Za-z0-9_.-]+))?"
