@@ -59,7 +59,7 @@ Riff now comes in two free editions, built from the same source:
 To be checked with the owner before publishing:
 
 - **Not yet tried on a phone:** a real in-app update or edition switch, which needs published signed files.
-- **Not yet measured:** the device benchmarks and the install over 0.21.0.
+- **Not yet measured:** the install over 0.21.0. On the tier R phone, Riff's cold start misses its 2 s budget by 12 ms (p95 2,012 ms), and scrolling misses its frame budget in both editions (13–16 % of frames late, against 2 %).
 - **Riff+ is much larger than Riff**, because it bundles Sing's model, Automix's model and the headphone profiles.
 - **DJ order and Sing only use audio already on the phone.** For streamed songs, Sing waits until Riff has loaded all of the song, and Data saver stops that loading.
 - **Sing's instrumentals can grow large**, about 10 MB per minute of music. Clear them in Settings → Downloads.
