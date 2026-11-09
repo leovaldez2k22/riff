@@ -1,12 +1,39 @@
 # Features and behavior
 
-This guide describes current Android source for the unreleased 0.30.0 editions. The latest published release is [0.21.0](release-notes-0.21.0.md), 6 November 2026; see the [README](../README.md) for downloads. The [implementation plan](feature-implementation-plan-0.30.0-2026-11-07.md) records the new features still being built and their verification.
+This guide describes Riff 0.30.0, published on 9 November 2026 in two editions; see the [README](../README.md) for downloads and the [release notes](release-notes-0.30.0.md) for what changed since 0.21.0. The [implementation plan](feature-implementation-plan-0.30.0-2026-11-07.md) records how each 0.30.0 feature was built and verified.
 
 ## Editions
 
-Both editions are free. Browsing, lyrics, downloads, local audio, queue features, Encore (including stories, genres and the widget), Crossfade, Smart, boost and normalization are in both. **Riff+** adds Automix and its beat model/runtime, the in-app equalizer and Stats for nerds. Riff offers the phone's equalizer when available.
+Both editions are free. Browsing, lyrics, downloads, local audio, queue features, Encore (including stories, genres and the widget), Crossfade, Smart, boost and normalization are in both. **Riff+** adds Automix and its beat model/runtime, the in-app equalizer and Stats for nerds, and the features under [Only in Riff+](#only-in-riff). Riff offers the phone's equalizer when available.
 
-They share the package, version and signing key. Installing one replaces the other. Stored Automix reads as Smart in Riff; app EQ and player-stat settings are kept without being applied. Moving back to Riff+ restores them. Party follows this same fallback. About offers the other edition only for the installed version, when update checks are on and the feed contains its exact APK. It currently opens the release page; the planned in-app installer is separate work.
+They share the package, version and signing key. Installing one replaces the other. Stored Automix reads as Smart in Riff; app EQ and player-stat settings are kept without being applied. Moving back to Riff+ restores them. Party follows this same fallback. Settings → About offers the other edition at the installed version, when update checks are on and the release lists its exact APK, and installs it in the app as it does an update (see [Updates](#updates)).
+
+## New in 0.30.0, both editions
+
+- **Never play:** block a song or an artist from a song's menu. Radio and the queue skip a blocked song; a blocked song is also sent to YouTube Music as not interested, while an artist stays on Riff's list only. Settings → Library → Not interested lists them, each with Undo.
+- **Scrobbling** to ListenBrainz (Settings → Library and privacy), off until connected. A song longer than 30 s counts once half of it or 4 minutes has been heard; skipping ahead doesn't add to that. Unsent plays wait up to 7 days. Riff also supports Last.fm, but only in a build made with a Last.fm API key; the published 0.30.0 builds have none.
+- **Select several songs** in albums, playlists, search, Library and history, in the order tapped, to queue, download or add to a playlist; a check appears beside each song and a glass bar holds the actions.
+- **Import playlists** from a CSV (Spotify exports included), M3U or Spotify account-data file into Phone playlists, reviewing each match; a copy to YouTube Music asks for confirmation every time.
+- **Lyrics:** translations under the lines when the source sends them, a chosen source per song, and a Lyrics chip in Search that finds a phrase in the lyrics of your downloads, on the phone only.
+- **Share song** offers a YouTube Music link or a song.link page; **Set as ringtone** uses a download or part of it.
+- **Resume on Bluetooth** and **Pause on mute** (plays again when the volume comes back up), both off by default in Settings → Sound.
+- **Haptics** composed per action, with a Haptic strength setting (Light, Normal, Strong).
+- **Streaming** loads the whole song while it plays, so seeking is instant; Data saver keeps a one-minute buffer. The playback cache has no size limit and drops its oldest audio only when the phone gets below 2 GB free.
+- **Player menu:** About this song, Add to playlist, Share song, View album, View artist, Never play and Pin to speed dial, with Sleep timer, Playback speed and the equalizer under Playback tools.
+
+## Only in Riff+
+
+- **Sing** removes the vocals on the phone with Deezer's Spleeter 2-stems model (bundled, MIT), for downloads, files on the phone and streamed songs once fully loaded. Settings → Downloads → Clear Sing instrumentals frees their space (about 10 MB per minute of music).
+- **Blend with a friend:** each phone shows a QR code of its 100 most-played songs; scanning each other's gives both the same blend in Phone playlists, with no server.
+- **Mixes from Encore** on Home: On repeat, Time of day, Heating up, New finds that stuck, Artist mixes, Your weekday, Season throwback and Genre mixes, made on the phone.
+- **DJ order** reorders the songs to come by tempo and key (Steady, Build up, Wind down), with a preview and Undo, for songs downloaded or on the phone.
+- **Most replayed:** a pill above the seek bar jumps to the most replayed part, and a seek drag ticks as it passes it.
+- **Headphone profiles:** search 8,827 bundled AutoEq profiles or import an AutoEq file, fitted to the equalizer's manual bands (on the Manual tab); Revert restores your own curve.
+- **Key** shifts a song up to six semitones without changing its speed, on the Equalizer screen.
+- **Visualizer** bars from Riff's own output, never the microphone; off by default, in Appearance.
+- **About this song** shows the song's and artist's story from Wikipedia, fetched only when opened.
+- **Accent colours and launcher icons:** three styles in eight colours, with the app tinted to match.
+- **Export as M4A** saves a finished download as a tagged file with its cover.
 
 ## Browse, search and library
 
@@ -104,7 +131,9 @@ Ordinary online audio now uses direct transport. Playback cache identities disti
 
 ## Updates
 
-- Riff never downloads or installs updates. A build made with a release feed can ask it once a day whether a newer version exists and show one notice per version that opens the release page (Settings → About → Check for updates, on by default). **This build has no feed**, because no release is published, so it shows no such setting and makes no request ([update notice](quality/update-notice.md)).
+- Published builds ask this repository's GitHub releases once a day whether a newer version exists (Settings → About → Check for updates, on by default; [update notice](quality/update-notice.md)).
+- From 0.30.0 Riff can download and install the update itself: it shows the size first and warns on mobile data, then checks the file's signature and edition before Android asks you to install. Switching between Riff and Riff+ works the same way. A build made without a release feed shows no such setting and makes no request.
+- An update from 0.30.0 inside the app has not been tried on a phone yet, since it needs a later published release.
 
 ## Historical records
 

@@ -16,7 +16,7 @@ This repository continues the project under **leovaldez2k22** with its Git histo
 
 ## The two editions
 
-Current source builds **Riff** and **Riff+**, both free. They share one package, version and signing key, so installing one replaces the other. How 0.30.0 was built and verified is in the [implementation plan](docs/feature-implementation-plan-0.30.0-2026-11-07.md).
+Riff 0.30.0 comes as **Riff** and **Riff+**, both free. They share one package, version and signing key, so installing one replaces the other. How 0.30.0 was built and verified is in the [implementation plan](docs/feature-implementation-plan-0.30.0-2026-11-07.md).
 
 | Feature | Riff | Riff+ |
 |---|---|---|
@@ -25,14 +25,38 @@ Current source builds **Riff** and **Riff+**, both free. They share one package,
 | Crossfade, Smart, booster and normalization | Yes | Yes |
 | Automix and its on-device beat model | — | Yes |
 | In-app equalizer and Stats for nerds | — | Yes |
+| In-app updates, Never play, ListenBrainz scrobbling, selecting several songs, playlist import, ringtones | Yes | Yes |
+| Sing (vocal removal), Blend with a friend, Mixes from Encore, DJ order, Most replayed | — | Yes |
+| Headphone profiles (AutoEq), Key, Visualizer, About this song, accent colours and icons, M4A export | — | Yes |
 
-If you use Automix or the app equalizer in 0.21.0, choose **Riff+**. Riff keeps those saved choices and uses Smart for stored Automix; moving back to Riff+ restores the choices. Riff can open the phone's equalizer when one is available. About offers the opposite edition for the same installed version when the release feed lists its exact APK.
+If you used Automix or the app equalizer in 0.21.0, choose **Riff+**. Riff keeps those saved choices and uses Smart for stored Automix; moving back to Riff+ restores the choices. Riff can open the phone's equalizer when one is available. Settings → About offers the other edition at the same version and installs it in the app.
 
 The source and both published 0.30.0 APKs require Android 12 (API 31) or later. The signed 0.30.0 APKs are 10,257,274 bytes (Riff, 9.8 MiB) and 128,974,021 bytes (Riff+, 123.0 MiB); Riff+ bundles its models, so nothing is downloaded later. The [split log](docs/riff-plus-split-plan-2026-11-07.md#implementation-log) records how the editions were separated and verified.
 
 ## Features
 
-**Features introduced in 0.20.0 and 0.21.0** (see the [changelog](CHANGELOG.md)); the table above shows which edition has them from 0.30.0.
+**New in 0.30.0** ([release notes](docs/release-notes-0.30.0.md)). In both editions:
+
+- **Updates inside the app:** Riff downloads and installs a new version itself, after showing its size, warning on mobile data and checking the file's signature and edition. Switching between Riff and Riff+ works the same way.
+- **Lyrics:** translations under the lines, a chosen source per song, and a Lyrics chip in Search that finds a phrase in your downloads' lyrics.
+- **Never play:** block a song or an artist; radio and the queue skip it, and Settings lists them with Undo.
+- **Scrobbling** to ListenBrainz, counted at half a song or 4 minutes, with unsent plays kept for 7 days.
+- **Select several songs** in albums, playlists, search, Library and history, in the order you tap them, to queue, download or add to a playlist.
+- **Import playlists** from a CSV (Spotify exports included), M3U or Spotify account-data file into Phone playlists, reviewing each match.
+- **Also:** share a song as a YouTube Music or song.link link; set a download, or part of it, as the ringtone; Resume on Bluetooth and Pause on mute; new haptics with a strength setting; Speakers and TVs as a glass pop-out; streamed songs load in full, so seeking is instant; a tidier player menu with Playback tools.
+
+Only in Riff+:
+
+- **Sing** removes the vocals on the phone with Deezer's Spleeter model, bundled.
+- **Blend with a friend:** scan each other's QR code of your 100 most-played songs for one shared blend, with no server.
+- **Mixes from Encore** on Home (On repeat, Time of day, Heating up, Genre mixes and more), made on the phone from your listening.
+- **DJ order** reorders the songs to come by tempo and key: Steady, Build up or Wind down.
+- **Most replayed:** a pill above the seek bar jumps to the part people replay most.
+- **Headphone profiles:** fit one of 8,827 AutoEq profiles, or your own AutoEq file, to the equalizer.
+- **Key** shifts a song by up to six semitones without changing its speed.
+- **Visualizer** bars from Riff's own sound; **About this song** from Wikipedia; **accent colours and launcher icons**; **export a download as an M4A file**.
+
+**Introduced in 0.20.0 and 0.21.0** (see the [changelog](CHANGELOG.md)); the table above shows which edition has them.
 
 - **Liquid Glass** written in Riff, on the shell and every control: a tab bar whose lens lifts, follows your finger, stretches and glides home; glass sliders and segmented controls; heat-aware quality that falls back to plain frost when the phone runs hot, and says so in Look and feel.
 - **Settings redesign:** an opening page with the account, quick switches (the supported blend, Boost, Data saver, Haptics), search, and a tile per section saying what is set inside; each section a page of glass tiles: the blend drawn live, a dial for the booster, real glass under the glass sliders, a sung lyrics preview, a storage ring. Switch icons change between an off and an on icon as they turn.
