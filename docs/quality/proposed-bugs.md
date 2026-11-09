@@ -11,3 +11,4 @@ Each entry: what was seen, where, the evidence file, and a suggested severity.
 - **Suggested fix:** in the test, scroll the list to its first row (`performScrollToIndex(0)`) before opening the menu. Test only; no change to the app.
 - **Suggested severity:** Low (test).
 - **Owner, 24 Oct 2026: dropped.** Not added to the bug log, not fixed; the test stays as it is and fails on short screens.
+- **Owner, 9 Nov 2026: fixed** (test only), after the hosted Emulator workflow on API 36 failed on it. The test scrolls the list to its first row before opening the menu. It passed on a fresh API 36 emulator at 320 x 640 / 160 dpi (the whole class) and at 1080 x 2400 / 420 dpi. In the same change, `LyricsKaraokeDeviceTest` measures the held word's glow in dp² rather than pixels: the hosted 160 dpi emulators counted 173-178 pixels against a fixed 200 (177 dp² locally at 160 dpi, 211 dp² at 420 dpi; the minimum is now 60 dp²).

@@ -8,12 +8,14 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.text.TextLayoutResult
@@ -149,6 +151,10 @@ class SignInScreensDeviceTest {
         waitFor { rows() == 5 }
 
         // "Remove from this phone" on the latest: the list and the stored list both lose it, and only it.
+        // On a short screen the cleared search leaves the list scrolled down with the first row above the screen
+        // (API 36, 720 x 1280 and the hosted emulators), so the list goes back to its top first.
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(0)
+        compose.waitForIdle()
         compose.onAllNodesWithTag("signin_account_menu", useUnmergedTree = true)[0].performClick()
         compose.waitForIdle()
         keep("1b-remove-menu")

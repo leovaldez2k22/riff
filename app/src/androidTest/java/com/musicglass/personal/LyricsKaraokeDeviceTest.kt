@@ -26,6 +26,11 @@ import org.junit.Test
  * that overlaps it, and a background vocal. No provider, no network.
  */
 class LyricsKaraokeDeviceTest {
+    private companion object {
+        /** The least glow, in dp², that counts as the held word glowing; a device draws well over 100. */
+        const val MIN_GLOW_DP2 = 60f
+    }
+
     @get:Rule val compose = createAndroidComposeRule<FeatureTestActivity>()
 
     private val song = listOf(
@@ -89,8 +94,12 @@ class LyricsKaraokeDeviceTest {
         }
         compose.runOnIdle { now = 3700 + HELD_RELEASE_MS + 200 }
         val after = pink("after")
-        report("q16a-pixels", "pink before=$before held=$held after=$after current=$current")
-        assertTrue("held word glows on the device ($held)", held > 200)
+        // A pixel count grows with the screen's density squared: 9 Nov 2026, the hosted 160 dpi emulators counted
+        // 173-178 pixels of glow where 420 dpi counts several times that. The glow is measured in dp² instead.
+        val density = compose.density.density
+        val glow = held / (density * density)
+        report("q16a-pixels", "pink before=$before held=$held after=$after current=$current density=$density glow=${"%.0f".format(glow)}dp2")
+        assertTrue("held word glows on the device ($held px, ${"%.0f".format(glow)} dp²)", glow > MIN_GLOW_DP2)
         assertTrue("no glow before the held word ($before)", before < held / 10)
         assertTrue("the glow settles ($after)", after < held / 10)
         assertEquals("both overlapping lines are current", 2, current)
