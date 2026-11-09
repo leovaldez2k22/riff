@@ -10,13 +10,13 @@ Riff is an independent personal project and is not affiliated with Google or You
 
 ## Availability
 
-**Riff 0.21.0** (version code 35) is the latest release, published on 6 November 2026: [download it from GitHub Releases](https://github.com/leovaldez2k22/riff/releases/tag/v0.21.0) and read the [release notes](docs/release-notes-0.21.0.md). Android 12 or later, 64-bit ARM. It is signed with the same certificate as 0.20.0 (SHA-256 `e45ac43b9d1c658c03ace002abb4c482cc3d63214a5f8509c801e404c91ff798`), so it **updates 0.20.0 in place** and keeps downloads, the queue and settings. It does not install over 0.10.0 or earlier, which used an older certificate: uninstall the old app first. From 0.10.0, Backup on this phone keeps your data in Documents/Riff Backup and Riff offers to restore it; downloads are lost. Earlier releases: [0.20.0](docs/release-notes-0.20.0.md) (31 October 2026) and 0.10.0 (24 October 2026).
+**Riff 0.30.0** (version code 36) is the latest release, published on 9 November 2026: [download it from GitHub Releases](https://github.com/leovaldez2k22/riff/releases/tag/v0.30.0) and read the [release notes](docs/release-notes-0.30.0.md). It comes in two free editions, `riff-0.30.0.apk` (**Riff**, about 10 MB) and `riff-plus-0.30.0.apk` (**Riff+**, about 123 MB, with Automix, the app equalizer, Sing and more); installing one replaces the other. Android 12 or later, 64-bit ARM. Both are signed with the same certificate as 0.20.0 and 0.21.0 (SHA-256 `e45ac43b9d1c658c03ace002abb4c482cc3d63214a5f8509c801e404c91ff798`), so either **updates 0.20.0 or 0.21.0 in place** and keeps downloads, the queue and settings. If you use Automix or the equalizer, choose Riff+. Neither installs over 0.10.0 or earlier, which used an older certificate: uninstall the old app first. From 0.10.0, Backup on this phone keeps your data in Documents/Riff Backup and Riff offers to restore it; downloads are lost. Earlier releases: [0.21.0](docs/release-notes-0.21.0.md) (6 November 2026), [0.20.0](docs/release-notes-0.20.0.md) (31 October 2026) and 0.10.0 (24 October 2026).
 
 This repository continues the project under **leovaldez2k22** with its Git history. Older documents may name earlier accounts.
 
-## The unreleased 0.30.0 editions
+## The two editions
 
-Current source builds **Riff** and **Riff+**, both free. They share one package, version and signing key, so installing one replaces the other. The published download above is still 0.21.0; 0.30.0 is being implemented and verified in the [implementation plan](docs/feature-implementation-plan-0.30.0-2026-11-07.md).
+Current source builds **Riff** and **Riff+**, both free. They share one package, version and signing key, so installing one replaces the other. How 0.30.0 was built and verified is in the [implementation plan](docs/feature-implementation-plan-0.30.0-2026-11-07.md).
 
 | Feature | Riff | Riff+ |
 |---|---|---|
@@ -26,13 +26,13 @@ Current source builds **Riff** and **Riff+**, both free. They share one package,
 | Automix and its on-device beat model | — | Yes |
 | In-app equalizer and Stats for nerds | — | Yes |
 
-If you use Automix or the app equalizer in 0.21.0, choose **Riff+** when 0.30.0 is released. Riff keeps those saved choices and uses Smart for stored Automix; moving back to Riff+ restores the choices. Riff can open the phone's equalizer when one is available. About offers the opposite edition for the same installed version when the release feed lists its exact APK.
+If you use Automix or the app equalizer in 0.21.0, choose **Riff+**. Riff keeps those saved choices and uses Smart for stored Automix; moving back to Riff+ restores the choices. Riff can open the phone's equalizer when one is available. About offers the opposite edition for the same installed version when the release feed lists its exact APK.
 
-The source and published 0.21.0 APK require Android 12 (API 31) or later. Checked local signed split builds measured 9.53 MiB for Riff and 44.37 MiB for Riff+. These are development-build sizes; the remaining feature work and final release measurements are tracked in the plan. The [split log](docs/riff-plus-split-plan-2026-11-07.md#implementation-log) records candidate sizes and installation evidence as verification progresses.
+The source and both published 0.30.0 APKs require Android 12 (API 31) or later. The signed 0.30.0 APKs are 10,257,274 bytes (Riff, 9.8 MiB) and 128,974,021 bytes (Riff+, 123.0 MiB); Riff+ bundles its models, so nothing is downloaded later. The [split log](docs/riff-plus-split-plan-2026-11-07.md#implementation-log) records how the editions were separated and verified.
 
 ## Features
 
-**Features introduced in 0.20.0 and 0.21.0** (see the [changelog](CHANGELOG.md)); the table above describes their edition placement in current 0.30.0 source.
+**Features introduced in 0.20.0 and 0.21.0** (see the [changelog](CHANGELOG.md)); the table above shows which edition has them from 0.30.0.
 
 - **Liquid Glass** written in Riff, on the shell and every control: a tab bar whose lens lifts, follows your finger, stretches and glides home; glass sliders and segmented controls; heat-aware quality that falls back to plain frost when the phone runs hot, and says so in Look and feel.
 - **Settings redesign:** an opening page with the account, quick switches (the supported blend, Boost, Data saver, Haptics), search, and a tile per section saying what is set inside; each section a page of glass tiles: the blend drawn live, a dial for the booster, real glass under the glass sliders, a sung lyrics preview, a storage ring. Switch icons change between an off and an on icon as they turn.

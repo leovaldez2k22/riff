@@ -2,7 +2,7 @@
 
 Newest first. Release candidates before 0.9.0-rc16 were recorded only in the README; their text is kept here unchanged. Detailed implementation and verification records are in `docs/`.
 
-## 0.30.0 (code 36)
+## 0.30.0 (code 36) — published 9 November 2026
 
 Release notes: `docs/release-notes-0.30.0.md`. Signed candidates built on 9 November 2026. Record: the implementation log of `docs/feature-implementation-plan-0.30.0-2026-11-07.md` and the split log of `docs/riff-plus-split-plan-2026-11-07.md`. Android 12 (API 31) or later. Same certificate as 0.21.0. The "What's new" sheet is written for version code 36, with different cards in each edition.
 
