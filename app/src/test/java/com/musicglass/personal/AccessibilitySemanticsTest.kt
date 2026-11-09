@@ -195,6 +195,27 @@ class AccessibilitySemanticsTest {
         } finally { UiHaptics.unbind(view); settings.updateHapticFeedback(true) }
     }
 
+    @Test fun theRicherHapticsPlayFirstAndTheViewOnlyWhenThePhoneCannot() {
+        val view = RecordingView(context)
+        val settings = AccessibilitySettings(context)
+        val owner = object : LifecycleOwner { val registry = LifecycleRegistry(this); override val lifecycle: Lifecycle get() = registry }
+        owner.registry.currentState = Lifecycle.State.RESUMED
+        val played = mutableListOf<Pair<HapticCue, HapticStrength>>()
+        var canPlay = true
+        UiHaptics.bind(view, owner.lifecycle, settings) { cue, strength -> played += cue to strength; canPlay }
+        try {
+            settings.updateHapticStrength(HapticStrength.Strong)
+            ShadowSystemClock.advanceBy(Duration.ofMillis(200)); uiHaptic(HapticCue.Favorite)
+            assertEquals(listOf(HapticCue.Favorite to HapticStrength.Strong), played); assertEquals(0, view.cues.size)
+            canPlay = false
+            ShadowSystemClock.advanceBy(Duration.ofMillis(200)); uiHaptic(HapticCue.Play)
+            assertEquals(listOf(HapticFeedbackConstants.CONTEXT_CLICK), view.cues)
+            settings.updateHapticFeedback(false)
+            ShadowSystemClock.advanceBy(Duration.ofMillis(200)); uiHaptic(HapticCue.Play)
+            assertEquals("the app's switch stops both", 2, played.size)
+        } finally { UiHaptics.unbind(view); settings.updateHapticFeedback(true); settings.updateHapticStrength(HapticStrength.Normal) }
+    }
+
     // ---- motion
 
     @Test fun motionIsReducedByTheAppSettingOrByTheSystemTurningAnimationsOff() {

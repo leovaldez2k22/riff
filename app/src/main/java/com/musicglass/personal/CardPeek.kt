@@ -88,6 +88,7 @@ internal class CardPeekController(private val scope: CoroutineScope) {
 
     fun open(card: ProviderHomeCard, bounds: Rect, corner: Float, reduced: Boolean, select: (() -> Unit)? = null, open: () -> Unit) {
         this.card = card; this.bounds = bounds; this.corner = corner; opener = open; selecter = select; menuOpen = true
+        uiHaptic(HapticCue.Peek)
         job?.cancel()
         job = scope.launch {
             if (reduced) { shrink.snapTo(PEEK_SETTLED); dim.snapTo(1f); return@launch }
@@ -132,7 +133,7 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
     val current by rememberUpdatedState(card)
     val selection = LocalSongSelection.current
     val track = remember(card) { card.track()?.takeIf { !it.isLive } }
-    val pick: (() -> Unit)? = if (selection != null && track != null) ({ uiHaptic(HapticCue.Selection); selection.toggle(card.key(), track) }) else null
+    val pick: (() -> Unit)? = if (selection != null && track != null) ({ uiHaptic(if (selection.active) HapticCue.Check else HapticCue.SelectStart); selection.toggle(card.key(), track) }) else null
     val picking = pick != null && selection?.active == true
     val picked = pick != null && selection?.contains(card.key()) == true
     LaunchedEffect(source, peek, picking) {
@@ -148,7 +149,7 @@ internal val LocalCardPeek = staticCompositionLocalOf<CardPeekController?> { nul
     return this.onGloballyPositioned { bounds = it.boundsInWindow() }
         .graphicsLayer { val scale = peek?.scaleOf(card.key()) ?: 1f; scaleX = scale; scaleY = scale }
         .clip(RoundedCornerShape(corner))
-        .then(if (picked) Modifier.background(Pink.copy(alpha = .16f)) else Modifier)
+        .selectionCheck(picking, picked)
         .then(if (pick == null) Modifier else Modifier.semantics {
             selected = picked
             customActions = listOf(CustomAccessibilityAction(string(if (picked) R.string.selection_unselect else R.string.selection_select)) { pick(); true })

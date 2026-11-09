@@ -27,6 +27,30 @@ class UiInteractionTest {
         for(value in 6..90) assertNull(tracker.change(value.toFloat(),0f..100f))
         assertEquals(HapticCue.DragEnd,tracker.finish());assertNull(tracker.finish())
     }
+    @Test fun seekingTicksWherePassingTheMostReplayedMark() {
+        // Owner, 10 November 2026: Riff+ tells the bar where Most replayed is; passing it either way ticks once.
+        val tracker=SliderHapticTracker(SliderHaptics.Seek)
+        assertEquals(HapticCue.Selection,tracker.change(10f,0f..100f,51f))
+        val forward=(11..90).map {tracker.change(it.toFloat(),0f..100f,51f)}
+        assertEquals(listOf(HapticCue.Mark),forward.filterNotNull())
+        val back=(89 downTo 20).map {tracker.change(it.toFloat(),0f..100f,51f)}
+        assertEquals(listOf(HapticCue.Mark),back.filterNotNull())
+        tracker.finish()
+        assertEquals(HapticCue.Selection,tracker.change(10f,0f..100f,null))
+        assertTrue((11..90).all {tracker.change(it.toFloat(),0f..100f,null)==null})
+    }
+    @Test fun everyCueHasARecipeWithinThePrimitivesStrength() {
+        for(cue in HapticCue.entries) {
+            val steps=hapticRecipe(cue)
+            assertTrue("$cue",steps.isNotEmpty())
+            for(strength in HapticStrength.entries) steps.forEach {assertTrue("$cue $strength",hapticScale(it,strength) in 0f..1f)}
+        }
+        val tick=hapticRecipe(HapticCue.TickMedium).single()
+        assertTrue(hapticScale(tick,HapticStrength.Light)<hapticScale(tick,HapticStrength.Normal))
+        assertTrue(hapticScale(tick,HapticStrength.Normal)<hapticScale(tick,HapticStrength.Strong))
+        assertEquals(1f,hapticScale(hapticRecipe(HapticCue.Play).single(),HapticStrength.Strong),0f)
+        assertEquals(HapticStrength.Normal,hapticStrengthFrom(null));assertEquals(HapticStrength.Strong,hapticStrengthFrom("strong"))
+    }
     @Test fun volumeUsesRealStepsAndIntensityPreservesContinuousValues() {
         val volume=SliderHapticTracker(SliderHaptics.Volume)
         volume.change(5f,0f..10f);assertNull(volume.change(5.2f,0f..10f))

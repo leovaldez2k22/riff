@@ -121,7 +121,7 @@ internal fun toggleNeverPlay(context: Context, playback: PlaybackGateway, entry:
         onNotice(string(R.string.never_play_removed, entry.name))
         return
     }
-    store.add(scope, entry.copy(at = System.currentTimeMillis())); uiHaptic(HapticCue.Confirm)
+    store.add(scope, entry.copy(at = System.currentTimeMillis())); uiHaptic(HapticCue.Remove)
     val playing = playback.state
     val current = if (entry.artist) playing.artistId == entry.key else playing.mediaId == "yt:${entry.key}"
     if (current && playing.queue.size > 1) playback.next() else if (current) playback.pause()

@@ -30,6 +30,7 @@ internal fun ThinSlider(value: Float, onValueChange: (Float) -> Unit, valueRange
     modifier: Modifier = Modifier, onValueChangeFinished: (() -> Unit)? = null, enabled: Boolean = true,
     haptics: SliderHaptics = SliderHaptics.Seek, idle: Dp = RiffPlayer.seekIdle, dragged: Dp = RiffPlayer.seekDragged) {
     val feedback = remember(haptics) { SliderHapticTracker(haptics) }
+    val mark = LocalSeekMark.current
     val interaction = remember { MutableInteractionSource() }
     val dragging by interaction.collectIsDraggedAsState()
     val pressed by interaction.collectIsPressedAsState()
@@ -37,7 +38,7 @@ internal fun ThinSlider(value: Float, onValueChange: (Float) -> Unit, valueRange
     val track = rememberRiffBackdrop()
     val height by animateDpAsState(if (dragging || pressed) dragged else idle, GlassMotion.timed(GlassMotion.pressMs, motion), label = "thin slider")
     Slider(value = value.coerceIn(valueRange.start, valueRange.endInclusive),
-        onValueChange = { feedback.change(it, valueRange)?.let(::uiHaptic); onValueChange(it) },
+        onValueChange = { feedback.change(it, valueRange, mark)?.let(::uiHaptic); onValueChange(it) },
         valueRange = valueRange, enabled = enabled, interactionSource = interaction,
         onValueChangeFinished = { onValueChangeFinished?.invoke(); feedback.finish()?.let(::uiHaptic) },
         // Feature 2: no thumb at rest (Feature 34); a glass one while held, bending the bar.
@@ -52,3 +53,6 @@ internal fun ThinSlider(value: Float, onValueChange: (Float) -> Unit, valueRange
             }
         }, modifier = modifier.heightIn(min = RiffSpace.touch))
 }
+
+/** Where on the bar a drag should tick (Riff+'s Most replayed), in the slider's own units; none in Riff. */
+internal val LocalSeekMark = androidx.compose.runtime.compositionLocalOf<Float?> { null }

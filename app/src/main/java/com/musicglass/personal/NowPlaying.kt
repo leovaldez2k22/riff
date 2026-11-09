@@ -127,7 +127,7 @@ private fun TransportButton(icon: ImageVector, label: String, onClick: () -> Uni
     enabled: Boolean = true, diameter: androidx.compose.ui.unit.Dp = 50.dp,
     iconSize: androidx.compose.ui.unit.Dp = 28.dp,
     /** Feature 34: shuffle and repeat are white at 50 % when off, full white with a dot under when on. */
-    toggle: Boolean = false) {
+    toggle: Boolean = false, cue: HapticCue = HapticCue.Click) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val motion = LocalMotionPolicy.current
@@ -135,7 +135,7 @@ private fun TransportButton(icon: ImageVector, label: String, onClick: () -> Uni
         GlassMotion.timed(GlassMotion.pressMs, motion), label = "$label press")
     Box(modifier.size(diameter)
         .clickable(interactionSource = interaction, indication = null,
-            enabled = enabled, onClick = hapticClick(onClick)), contentAlignment = Alignment.Center) {
+            enabled = enabled, onClick = { uiHaptic(cue); onClick() }), contentAlignment = Alignment.Center) {
         Crossfade(targetState = icon,
             animationSpec = GlassMotion.timed(GlassMotion.selectionMs, motion),
             label = "$label icon") { current ->
@@ -328,7 +328,7 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             if(open) {
                 InlineQueue(playback,provider,onQueueClose,onLike={
                     if(!provider.capabilities.like.available) onNotice(provider.capabilities.like.reason?:CHECKING_ACCOUNT_NOTICE) else scope.launch {
-                        provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(HapticCue.Confirm);unlikedOffPhone(collections,providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))})
+                        provider.setSongLike(videoId,!favorite).fold(onSuccess={uiHaptic(if(favorite) HapticCue.Confirm else HapticCue.Favorite);unlikedOffPhone(collections,providerTrack(),!favorite)},onFailure={uiHaptic(HapticCue.Reject);onNotice(it.message?:string(R.string.could_not_save_like))})
                     }
                 },onMore={moreExpanded=true},onMoreBounds={moreAnchor=it},glass=playerGlass,artworkModifier=Modifier.sharedBounds(rememberSharedContentState("queue-art"),this))
             } else Box(Modifier.fillMaxSize()) {
@@ -340,8 +340,8 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
                         dragX += amount
                         change.consume()
                     }, onDragEnd = {
-                        if (hasQueue && dragX < -65.dp.toPx()) {playback.next();uiHaptic(HapticCue.Selection)}
-                        if (hasQueue && dragX > 65.dp.toPx()) {playback.previousSong();uiHaptic(HapticCue.Selection)}
+                        if (hasQueue && dragX < -65.dp.toPx()) {playback.next();uiHaptic(HapticCue.Skip)}
+                        if (hasQueue && dragX > 65.dp.toPx()) {playback.previousSong();uiHaptic(HapticCue.SkipBack)}
                         dragX = 0f
                     }, onDragCancel = { dragX = 0f })
                 }.doubleTapSeek(!state.live && renderer != 2 && itemId == state.mediaId, seekNudge, playback, state.durationMs)) {
@@ -488,24 +488,24 @@ internal fun NowPlayingPanel(playback: PlaybackGateway, collections: LocalCollec
             TransportButton(RoundedTransportIcons.Shuffle,
                 if (state.shuffle) string(R.string.shuffle_on) else string(R.string.shuffle_off), playback::toggleShuffle,
                 modifier = Modifier.testTag("playback_shuffle"), active = state.shuffle,
-                enabled = hasQueue, diameter = RiffPlayer.toggle, iconSize = RiffPlayer.toggleIcon, toggle = true)
+                enabled = hasQueue, diameter = RiffPlayer.toggle, iconSize = RiffPlayer.toggleIcon, toggle = true, cue = HapticCue.Spin)
             TransportButton(Icons.Rounded.FastRewind, string(R.string.previous_track), playback::previous,
                 // Q18-063: Previous starts a song on its own again, so it is never greyed while a song is loaded.
                 modifier = Modifier.testTag("playback_previous"), enabled = state.mediaId.isNotEmpty(),
-                diameter = RiffPlayer.skip, iconSize = RiffPlayer.skipIcon)
+                diameter = RiffPlayer.skip, iconSize = RiffPlayer.skipIcon, cue = HapticCue.SkipBack)
             TransportButton(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 if (state.playing) string(R.string.pause) else string(R.string.play), playback::toggle,
                 modifier = Modifier.testTag("playback_toggle")
                     .graphicsLayer { alpha = sharedContentAlpha() }
                     .onGloballyPositioned {
                         onMorphElementBounds("play", it) },
-                diameter = RiffPlayer.play, iconSize = RiffPlayer.playIcon)
+                diameter = RiffPlayer.play, iconSize = RiffPlayer.playIcon, cue = if (state.playing) HapticCue.Pause else HapticCue.Play)
             TransportButton(Icons.Rounded.FastForward, string(R.string.next_track), playback::next,
                 modifier = Modifier.testTag("playback_next")
                     .graphicsLayer { alpha = sharedContentAlpha() }
                     .onGloballyPositioned {
                         onMorphElementBounds("next", it) }, enabled = hasQueue,
-                diameter = RiffPlayer.skip, iconSize = RiffPlayer.skipIcon)
+                diameter = RiffPlayer.skip, iconSize = RiffPlayer.skipIcon, cue = HapticCue.Skip)
             TransportButton(if (state.repeat == 1) RoundedTransportIcons.RepeatOne else RoundedTransportIcons.Repeat,
                 when (state.repeat) { 1 -> string(R.string.repeat_one); 2 -> string(R.string.repeat_all); else -> string(R.string.repeat_off) },
                 playback::cycleRepeat, modifier = Modifier.testTag("playback_repeat"),

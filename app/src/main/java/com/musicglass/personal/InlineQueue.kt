@@ -92,7 +92,7 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
         if(from>=0 && to in order.indices && to!=from) {
             val anchor=listState.firstVisibleItemIndex;val offset=listState.firstVisibleItemScrollOffset
             dragOrder=order.toMutableList().apply {add(to,removeAt(from))}
-            listState.requestScrollToItem(anchor,offset);uiHaptic(HapticCue.Selection)
+            listState.requestScrollToItem(anchor,offset);uiHaptic(HapticCue.DragStep)
         }
     }
     // Q18-096: scrolling to the last song asks for more recommendations; a collection is already whole.
@@ -139,9 +139,9 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
         Row(Modifier.fillMaxWidth().heightIn(min=46.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             // Glass pills of their own rather than Material chips with glass around them, which drew the chip's
             // outline inside the glass (phone checks 29 Oct, bug 3).
-            QueueModeButton(state.shuffle,true,Icons.Rounded.Shuffle,string(R.string.shuffle),glass,hapticClick(playback::toggleShuffle))
+            QueueModeButton(state.shuffle,true,Icons.Rounded.Shuffle,string(R.string.shuffle),glass,{uiHaptic(HapticCue.Spin);playback.toggleShuffle()})
             QueueModeButton(state.repeat!=0,true,if(state.repeat==1) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,string(R.string.repeat),glass,hapticClick(playback::cycleRepeat))
-            QueueReshuffleButton(state.queue.size>1,glass) {reshuffled=true;uiHaptic(HapticCue.Confirm);playback.reshuffleQueue()}
+            QueueReshuffleButton(state.queue.size>1,glass) {reshuffled=true;uiHaptic(HapticCue.Spin);playback.reshuffleQueue()}
             Edition.QueueOrderAction(playback,glass,Modifier.weight(1f))
         }
         Row(Modifier.fillMaxWidth().padding(top=6.dp,bottom=4.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -176,7 +176,7 @@ internal fun queuePositionLabel(index:Int,current:Int,size:Int)=if(index==curren
                                 QueueRowAction.MoveDown->playback.moveQueueItem(index,index+1)
                                 QueueRowAction.Remove->playback.removeQueueItemWithUndo(index)
                             }
-                            uiHaptic(if(action==QueueRowAction.Remove) HapticCue.Confirm else HapticCue.Selection);true
+                            uiHaptic(if(action==QueueRowAction.Remove) HapticCue.Remove else HapticCue.Selection);true
                         }}
                     },verticalAlignment=Alignment.CenterVertically) {
                     AsyncImage(item.artworkUrl,null,contentScale=ContentScale.Crop,modifier=Modifier.size(38.dp).clip(RoundedCornerShape(6.dp)))

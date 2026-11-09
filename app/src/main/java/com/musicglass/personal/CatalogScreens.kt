@@ -339,7 +339,7 @@ internal suspend fun enqueueRealTrack(provider:YouTubeMusicProvider,playback:Pla
     val track=card.track()?:return
     if(playback is MusicPlaybackGateway) {
         val outcome=if(playback.state.queue.isEmpty()) EnqueueOutcome.Added else enqueueOutcome(playback.state.queue,track)
-        playback.enqueueSong(track);uiHaptic(HapticCue.Confirm);onNotice(enqueueNotice(outcome));return
+        playback.enqueueSong(track);uiHaptic(HapticCue.Queue);onNotice(enqueueNotice(outcome));return
     }
     val revision=provider.authRevision
     provider.resolve(track.videoId,track.isLive).fold(onSuccess={stream->

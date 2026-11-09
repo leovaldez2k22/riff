@@ -129,3 +129,23 @@ internal fun Modifier.frostedBackdropSource(backdrop:FrostedBackdrop):Modifier =
         } ?: Spacer(Modifier.width(RiffSpace.rowGap))
     }
 }
+
+/**
+ * A bottom sheet in the pop-outs' frosted glass (owner, 10 November 2026: no grey sheets). The sheet's own surface is
+ * clear; the glass is drawn by [frostedPopupBackground], which reads the app beneath as every pop-out does, and runs
+ * under the navigation bar.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable internal fun GlassSheet(onDismissRequest:()->Unit, content:@Composable androidx.compose.foundation.layout.ColumnScope.()->Unit) {
+    val corner=RiffGlassPopup.corner
+    val shape=androidx.compose.foundation.shape.RoundedCornerShape(topStart=corner,topEnd=corner)
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest=onDismissRequest,containerColor=Color.Transparent,
+        scrimColor=Color.Black.copy(alpha=.55f),shape=shape,dragHandle=null,
+        contentWindowInsets={androidx.compose.foundation.layout.WindowInsets(0)}) {
+        androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().clip(shape).frostedPopupBackground(corner).navigationBarsPadding()) {
+            androidx.compose.foundation.layout.Box(Modifier.align(androidx.compose.ui.Alignment.CenterHorizontally).padding(vertical=RiffSpace.rowGap)
+                .size(RiffSheet.handle).clip(androidx.compose.foundation.shape.RoundedCornerShape(RiffRadius.pill)).background(White.copy(alpha=.4f)))
+            content()
+        }
+    }
+}

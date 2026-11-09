@@ -282,12 +282,12 @@ internal fun LyricsPanel(playback: PlaybackGateway, provider: YouTubeMusicProvid
                 Text(string(R.string.share_these_lines),fontWeight = FontWeight.SemiBold)
             } else Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = RiffSpace.item),
                 horizontalArrangement = Arrangement.Center,verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = hapticClick(playback::previous),enabled = state.mediaId.isNotEmpty()) { Icon(Icons.Rounded.FastRewind,string(R.string.previous_track),tint = Muted) }
-                IconButton(onClick = hapticClick(playback::toggle),modifier = Modifier.size(56.dp).riffGlass(GlassRole.Button,backdrop = lyricsGlass).testTag("lyrics_toggle")) {
+                IconButton(onClick = { uiHaptic(HapticCue.SkipBack); playback.previous() },enabled = state.mediaId.isNotEmpty()) { Icon(Icons.Rounded.FastRewind,string(R.string.previous_track),tint = Muted) }
+                IconButton(onClick = { uiHaptic(if (state.playing) HapticCue.Pause else HapticCue.Play); playback.toggle() },modifier = Modifier.size(56.dp).riffGlass(GlassRole.Button,backdrop = lyricsGlass).testTag("lyrics_toggle")) {
                     Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         if (state.playing) string(R.string.pause) else string(R.string.play),tint = White,modifier = Modifier.size(34.dp))
                 }
-                IconButton(onClick = hapticClick(playback::next),enabled = state.queue.size > 1) { Icon(Icons.Rounded.FastForward,string(R.string.next_track),tint = Muted) }
+                IconButton(onClick = { uiHaptic(HapticCue.Skip); playback.next() },enabled = state.queue.size > 1) { Icon(Icons.Rounded.FastForward,string(R.string.next_track),tint = Muted) }
             }
         }
     }

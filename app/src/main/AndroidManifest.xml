@@ -26,6 +26,8 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Feature 9: "Modify system settings", asked for only when the user sets a song as the ringtone. -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
+    <!-- Touch haptics (owner, 10 November 2026): richer feedback from Android's vibration primitives; granted at install. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <application
         android:name=".RiffApplication"
         android:allowBackup="false"

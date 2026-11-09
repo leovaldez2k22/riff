@@ -117,7 +117,7 @@ internal fun RiffApp() {
     val hapticView=androidx.compose.ui.platform.LocalView.current
     val hapticOwner=LocalLifecycleOwner.current
     DisposableEffect(hapticView,hapticOwner,accessibility) {
-        UiHaptics.bind(hapticView,hapticOwner.lifecycle,accessibility); PerfTrace.bind(hapticView)
+        UiHaptics.bind(hapticView,hapticOwner.lifecycle,accessibility,SystemHapticPlayer(hapticView.context)); PerfTrace.bind(hapticView)
         onDispose {UiHaptics.unbind(hapticView); PerfTrace.unbind(hapticView)}
     }
     val motion = rememberMotionPolicy(accessibility.reduceMotion, accessibility.motionPace)
@@ -433,8 +433,7 @@ internal fun RiffApp() {
         // Feature 29: once after an update, or the first-run tips on a new install.
         WhatsNewSheet(model)
         if (model.sheet == "libraryShortcuts") {
-            ModalBottomSheet(onDismissRequest = { model.sheet = "mini" },
-                containerColor = Raised, scrimColor = Color.Black.copy(alpha = .55f)) {
+            GlassSheet(onDismissRequest = { model.sheet = "mini" }) {
                 Column(Modifier.fillMaxWidth().preferredFrameRate(LocalUiRefreshRate.current).padding(horizontal = 24.dp)
                     .padding(bottom = 36.dp)) {
                     Text(string(R.string.library), color = White, style = RiffText.sectionHeading,

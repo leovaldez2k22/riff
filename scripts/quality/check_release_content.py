@@ -55,6 +55,8 @@ PERMISSIONS = {
     "android.permission.REQUEST_INSTALL_PACKAGES",
     # Feature 9: special access the user grants in Android's settings when setting a ringtone (owner, Q9).
     "android.permission.WRITE_SETTINGS",
+    # Owner, 10 November 2026: touch haptics composed from Android's vibration primitives; a normal permission, no prompt.
+    "android.permission.VIBRATE",
 }
 # Q18-043: the one provider that may grant URI access, the lyric card's share (F2): androidx's FileProvider at
 # <package>.files, not exported, whose paths file names only the shared_lyrics folder of the cache.

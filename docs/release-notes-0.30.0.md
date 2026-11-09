@@ -23,7 +23,7 @@ Riff now comes in two free editions, built from the same source:
 
 **Scrobbling.** Send what you play to ListenBrainz or Last.fm, under Settings → Library and privacy. A song longer than 30 s counts once you've heard half of it or 4 minutes, whichever comes first. Skipping ahead doesn't add to that. Unsent plays wait up to 7 days. Every service is off until you connect it.
 
-**Select several songs.** Albums, playlists, search, Library and history let you pick songs, in the order you tap them, to queue, download or add to a playlist.
+**Select several songs.** Albums, playlists, search, Library and history let you pick songs, in the order you tap them, to queue, download or add to a playlist. A tick appears beside each song, and a glass bar holds the actions.
 
 **Import playlists.** Import a CSV (Spotify exports included), M3U or Spotify account-data file into **Phone playlists**. You review each match, and you can copy the playlist to YouTube Music, with a confirmation every time.
 
@@ -31,7 +31,10 @@ Riff now comes in two free editions, built from the same source:
 
 - Share song asks which link to send: YouTube Music, or song.link, which opens the song in other music apps.
 - Set a downloaded song, or a part of it, as your ringtone.
-- Resume on Bluetooth and Pause on mute, both off by default, in Settings → Sound.
+- Resume on Bluetooth, and Pause on mute, which plays again when you turn the volume back up. Both are off by default, in Settings → Sound.
+- New haptics: play, pause, skip, favourite, queue, download, shuffle, dragging and selecting each have their own feel, with a Haptic strength setting (Light, Normal, Strong).
+- Speakers and TVs opens as a glass pop-out from the output button, and What's new is glass too.
+- New installs start with the glass at 150 % and the frost at 10 %. Settings you've already changed are kept.
 
 **Streaming.** While a streamed song plays, Riff now loads the whole song, so jumping ahead is instant and starting a song is no slower. Data saver keeps the old one-minute buffer. The playback cache no longer has a size limit: the oldest audio is removed only when the phone gets below 2 GB free.
 

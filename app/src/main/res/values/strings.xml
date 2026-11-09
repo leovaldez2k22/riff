@@ -383,6 +383,10 @@
     <string name="got_it_riff_won_t_suggest_this">Got it. Riff won\'t suggest this song</string>
     <string name="got_it_youtube_music_will_suggest_this">Got it. YouTube Music will suggest this less</string>
     <string name="haptic_feedback">Haptic feedback</string>
+    <string name="haptic_strength">Haptic strength</string>
+    <string name="haptic_light">Light</string>
+    <string name="haptic_normal">Normal</string>
+    <string name="haptic_strong">Strong</string>
     <string name="headphones">Headphones</string>
     <string name="health">Health</string>
     <string name="hello_x">Hello, %1$s</string>

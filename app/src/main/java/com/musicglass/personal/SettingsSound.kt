@@ -291,7 +291,8 @@ import kotlin.math.sin
                     { m -> statsUi.SettingsSwitch(preferences, m) })
                 else BentoToggle(string(R.string.haptic_feedback), preferences.hapticFeedback, preferences::updateHapticFeedback,
                     Icons.Rounded.Vibration, "settings_haptics", Modifier.fillMaxWidth())
-            })
+            },
+            { if (preferences.hapticFeedback) HapticStrengthTile(preferences) })
     }
 }
 
@@ -364,6 +365,20 @@ private const val PREVIEW_REST_MS = 1_500L
             val radius = size.height / 2f
             repeat(LYRIC_GAP_DOTS) { dot ->
                 drawCircle(White.copy(alpha = .25f + .67f * lyricGapDotFill(progress, dot)), radius, Offset(radius + dot * radius * 4, radius))
+            }
+        }
+    }
+}
+
+/** Owner, 10 November 2026: how strongly touches are felt; Normal is the recipes as drawn up. */
+@Composable private fun HapticStrengthTile(preferences: AccessibilitySettings) {
+    val names = mapOf(HapticStrength.Light to R.string.haptic_light, HapticStrength.Normal to R.string.haptic_normal, HapticStrength.Strong to R.string.haptic_strong)
+    BentoSlider(string(R.string.haptic_strength), string(names.getValue(preferences.hapticStrength)), Icons.Rounded.Vibration) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(RiffSpace.item)) {
+            HapticStrength.entries.forEach { level ->
+                androidx.compose.material3.FilterChip(preferences.hapticStrength == level,
+                    { preferences.updateHapticStrength(level); uiHaptic(HapticCue.Confirm) },
+                    { Text(string(names.getValue(level))) }, modifier = Modifier.testTag("settings_haptic_${level.key}"))
             }
         }
     }

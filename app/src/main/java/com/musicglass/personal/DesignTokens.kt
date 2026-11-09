@@ -347,6 +347,19 @@ internal object RiffText {
     const val TABULAR = "tnum"
 }
 
+/** A sheet's grab handle. */
+internal object RiffSheet {
+    val handle = androidx.compose.ui.unit.DpSize(32.dp, 4.dp)
+}
+
+/** Feature 22: the check gutter a list row opens while songs are being selected, and the selection bar. */
+internal object RiffSelection {
+    val gutter = 40.dp
+    val check = 22.dp
+    val stroke = 2.dp
+    val action = 64.dp
+}
+
 /** Feature 4 (Riff+): the most-replayed mark on the seek bar. */
 internal object RiffReplayPeak {
     val mark = androidx.compose.ui.unit.DpSize(2.dp, 10.dp)

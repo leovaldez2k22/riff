@@ -191,12 +191,12 @@ import kotlinx.coroutines.launch
             var menu by remember {mutableStateOf(false)}
             val selection=LocalSongSelection.current;val occurrence="album:$index:${card.key()}"
             val track=remember(card) {card.track()?.takeIf {!it.isLive}}
-            val pick:(()->Unit)?=if(selection!=null && track!=null) ({uiHaptic(HapticCue.Selection);selection.toggle(occurrence,track)}) else null
+            val pick:(()->Unit)?=if(selection!=null && track!=null) ({uiHaptic(if(selection.active) HapticCue.Check else HapticCue.SelectStart);selection.toggle(occurrence,track)}) else null
             val picking=pick!=null && selection?.active==true;val picked=pick!=null && selection?.contains(occurrence)==true
             Column(Modifier.padding(horizontal=20.dp)) {
                 HorizontalDivider(color=White.copy(alpha=.1f))
                 Row(Modifier.fillMaxWidth().heightIn(min=if(playlist) 58.dp else 48.dp)
-                    .then(if(picked) Modifier.background(Pink.copy(alpha=.16f)) else Modifier)
+                    .selectionCheck(picking,picked)
                     .then(if(pick==null) Modifier else Modifier.semantics {selected=picked
                         customActions=listOf(CustomAccessibilityAction(string(if(picked) R.string.selection_unselect else R.string.selection_select)) {pick();true})})
                     .combinedClickable(onLongClick=pick,onClick=if(picking) pick!! else ({ uiHaptic(); play(index)})).testTag("album_track_$index"),verticalAlignment=Alignment.CenterVertically) {

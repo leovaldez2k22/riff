@@ -114,7 +114,7 @@ internal fun ReplayPeakBar(playback: PlaybackGateway, mediaId: String, durationM
                     .padding(horizontal = RiffSpace.rowGap, vertical = RiffSpace.tight))
         }
         Box {
-            slider()
+            androidx.compose.runtime.CompositionLocalProvider(LocalSeekMark provides peak?.toFloat()) { slider() }
             if (peak != null) Box(Modifier.matchParentSize().padding(horizontal = RiffPlayer.seekThumbSpace)) {
                 Box(Modifier.fillMaxWidth((peak.toFloat() / durationMs).coerceIn(0f, 1f)).align(Alignment.CenterStart)) {
                     Box(Modifier.align(Alignment.CenterEnd).size(RiffReplayPeak.mark).background(Pink.copy(alpha = .9f), RoundedCornerShape(RiffReplayPeak.markCorner))

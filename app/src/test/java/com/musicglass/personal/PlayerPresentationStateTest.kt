@@ -16,7 +16,7 @@ class PlayerPresentationStateTest {
         player.dragMini(-200f, 0, area); assertTrue(player.draggingMini); assertFalse(player.draggingFull)
         player.dragMini(-200f, 400, area)
         player.releaseMini(sheetOpen = false, motion, area) { opened++ }
-        assertEquals(1, opened); assertFalse(player.draggingMini); assertEquals(listOf(HapticCue.DragEnd), cues)
+        assertEquals(1, opened); assertFalse(player.draggingMini); assertEquals(listOf(HapticCue.PlayerOpen), cues)
     }
     @Test fun aShortSlowDragFromTheMiniBarLeavesItClosedWithNoCue() {
         val player = state(); var opened = 0
@@ -35,7 +35,7 @@ class PlayerPresentationStateTest {
         // The controller is not running in this test, so its position reads closed; a drag starts from there.
         player.dragFull(120f, 0, area); assertTrue(player.draggingFull)
         player.releaseFull(0f, sheetOpen = true, motion, area) { closed++ }
-        assertEquals(1, closed); assertFalse(player.draggingFull); assertEquals(listOf(HapticCue.DragEnd), cues)
+        assertEquals(1, closed); assertFalse(player.draggingFull); assertEquals(listOf(HapticCue.PlayerClose), cues)
         player.dragFull(120f, 0, area)
         player.releaseFull(2000f, sheetOpen = true, motion, area) { closed++ }
         assertEquals("A fling upward wins over where the drag ended", 1, closed); assertEquals(1, cues.size)

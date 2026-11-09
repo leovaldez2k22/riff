@@ -109,7 +109,7 @@ internal fun djDetail(facts: DjFacts?, stays: Boolean): String {
             val head = snapshot.ids.take(snapshot.index + 1)
             val previous = snapshot.ids
             if (playback.reorderQueue(snapshot.ids, head + target)) {
-                uiHaptic(HapticCue.Confirm)
+                uiHaptic(HapticCue.Spin)
                 onDismiss()
                 UndoNotices.show(string(R.string.dj_applied)) {
                     djUndoScope.launch {

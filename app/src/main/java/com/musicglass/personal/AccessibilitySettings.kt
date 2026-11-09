@@ -14,6 +14,9 @@ internal class AccessibilitySettings(context: Context) {
     var hapticFeedback by mutableStateOf(prefs.getBoolean("haptic_feedback",true))
         private set
     fun updateHapticFeedback(enabled:Boolean) {hapticFeedback=enabled;prefs.edit().putBoolean("haptic_feedback",enabled).apply()}
+    var hapticStrength by mutableStateOf(hapticStrengthFrom(prefs.getString("haptic_strength",null)))
+        private set
+    fun updateHapticStrength(value:HapticStrength) {hapticStrength=value;prefs.edit().putString("haptic_strength",value.key).apply()}
 
     var solidControls by mutableStateOf(
         runCatching { prefs.getBoolean("solid_controls", false) }.getOrDefault(false))
@@ -64,6 +67,7 @@ internal class AccessibilitySettings(context: Context) {
     /** Reads the stored values again, after an import wrote them. */
     fun reload() {
         hapticFeedback = prefs.getBoolean("haptic_feedback", true)
+        hapticStrength = hapticStrengthFrom(prefs.getString("haptic_strength", null))
         solidControls = runCatching { prefs.getBoolean("solid_controls", false) }.getOrDefault(false)
         reduceMotion = runCatching { prefs.getBoolean("reduce_motion", false) }.getOrDefault(false)
         motionPace = motionPaceFrom(prefs.getString("motion_pace", null))
@@ -96,8 +100,8 @@ internal val LocalAccessibilitySettings = compositionLocalOf<AccessibilitySettin
  * Q18-049, owner's decision 20 Oct 2026: liquid glass is meant to show what is beneath it, so frosted glass is the
  * default (it blurs the words under the bars) and its frost bends at the rim like liquid glass, at 20 % so the bend
  * shows through the blur. A choice the owner made in Settings is kept; only a phone where it was never set takes these.
- * Owner, 31 Oct 2026: the glass at 125 % and the frost at 25 % by default.
+ * Owner, 31 Oct 2026: the glass at 125 % and the frost at 25 % by default; owner, 10 Nov 2026: glass 150 %, frost 10 %.
  */
 internal const val FROSTED_GLASS_DEFAULT = true
-internal const val FROSTED_INTENSITY_DEFAULT = .25f
-internal const val GLASS_INTENSITY_DEFAULT = 1.25f
+internal const val FROSTED_INTENSITY_DEFAULT = .10f
+internal const val GLASS_INTENSITY_DEFAULT = 1.5f

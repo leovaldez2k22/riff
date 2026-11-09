@@ -1,5 +1,8 @@
 package com.musicglass.personal
 
+import androidx.compose.ui.unit.roundToIntRect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.draw.clip
 import android.content.Context
 import android.content.Intent
@@ -96,6 +99,7 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
     val canCast = remember(context) { castAvailable(context) }
     var castName by remember { mutableStateOf<String?>(null) }
     var picking by remember { mutableStateOf(false) }
+    var outputBounds by remember { mutableStateOf<androidx.compose.ui.unit.IntRect?>(null) }
     val phoneOutputs: () -> Unit = {
         if (Build.VERSION.SDK_INT >= 34) router.showSystemOutputSwitcher()
         else context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
@@ -140,7 +144,7 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
                     modifier = Modifier.size(RiffPlayer.bottomIcon))
             }
             Column(Modifier.weight(1f).height(62.dp).clickable { uiHaptic(); if (canCast) picking = true else phoneOutputs() }.semantics { contentDescription = string(R.string.change_audio_output_x_x, routeKind.label, routeName) }
-                .testTag("player_output"), horizontalAlignment = Alignment.CenterHorizontally,
+                .onGloballyPositioned { outputBounds = it.boundsInWindow().roundToIntRect() }.testTag("player_output"), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
                 // Feature 34's pill lost its glass at the owner's request (phone checks 29 Oct, item 4): the icon stands alone.
                 Box(Modifier.size(RiffPlayer.pillWidth, RiffPlayer.pillHeight), contentAlignment = Alignment.Center) {
@@ -161,5 +165,5 @@ internal fun AudioOutputControls(onLyrics: () -> Unit, onQueue: () -> Unit) {
             }
         }
     }
-    if (picking) CastPicker(castName, onPhoneOutputs = phoneOutputs, onDismiss = { picking = false })
+    CastPicker(picking, outputBounds, castName, onPhoneOutputs = phoneOutputs, onDismiss = { picking = false })
 }

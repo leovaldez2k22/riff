@@ -113,7 +113,7 @@ internal fun WhatsNewSheet(model: ShellModel) {
         release + tips
     }
     val close = { whatsNewShowing = WhatsNewShow.None }
-    ModalBottomSheet(onDismissRequest = close, containerColor = Raised, scrimColor = Color.Black.copy(alpha = .55f)) {
+    GlassSheet(onDismissRequest = close) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = RiffSpace.screenEdge)
             .padding(bottom = RiffSpace.block * 2).testTag("whats_new")
             // The sheet is a window of its own, outside RiffApp's semantics, so its tags are named here for UI Automator.

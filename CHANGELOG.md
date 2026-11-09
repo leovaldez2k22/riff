@@ -15,7 +15,12 @@ Release notes: `docs/release-notes-0.30.0.md` (draft for the owner's review). Re
 - Playlist import from CSV, M3U and Spotify account data into Phone playlists. Copying an imported playlist to YouTube Music asks for confirmation every time.
 - Share song asks which link: YouTube Music or song.link.
 - A download, or a 5 to 60 s part of one, can be set as the ringtone.
-- Resume on Bluetooth and Pause on mute, both off by default.
+- Resume on Bluetooth and Pause on mute, both off by default. Since 10 November, raising the volume again plays what the mute paused, unless it was started again or a call came in.
+- Owner's polish of 10 November:
+  - Touch haptics are composed from Android's vibration primitives (new normal permission VIBRATE), with a Haptic strength setting. Phones without primitive support use the earlier feedback.
+  - The selection bar is glass, and rows open a check gutter instead of the pink tint.
+  - Speakers and TVs is a frosted pop-out; What's new and the Library sheet are frosted.
+  - New default glass 150 % and frost 10 %.
 - Streamed songs load whole as they play, up to 15 minutes ahead and 48 MB at most. Data saver keeps 60 s. The playback cache has no size cap; the least recently used audio is removed below 2 GB free.
 - Player menu (owner, 9 November): one Share song, View credits merged into About this song, and the sound tools under Playback tools. Favorite, Add to queue, Library shortcuts, Remove from queue and Add to Saved on this phone are gone from it. Home's long-press menu has the same Share and Never play.
 - Riff+ only:

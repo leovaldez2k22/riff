@@ -34,7 +34,7 @@ private fun acceptWord(allowed: Set<String>) = { v: Any? -> (v as? String)?.take
  * mobile data or make room by removing downloads.
  */
 private val SETTINGS = listOf(
-    SettingSpec("accessibility_display", "haptic_feedback", acceptBool), SettingSpec("accessibility_display", "solid_controls", acceptBool),
+    SettingSpec("accessibility_display", "haptic_feedback", acceptBool), SettingSpec("accessibility_display", "haptic_strength", acceptWord(HapticStrength.entries.map { it.key }.toSet())), SettingSpec("accessibility_display", "solid_controls", acceptBool),
     SettingSpec("accessibility_display", "reduce_motion", acceptBool), SettingSpec("accessibility_display", "frosted_glass", acceptBool),
     SettingSpec("accessibility_display", "glass_intensity", acceptFloat(0f..1.5f)), SettingSpec("accessibility_display", "frosted_intensity", acceptFloat(0f..1.5f)),
     SettingSpec(AUDIO_BOOST_PREFS, "enabled", acceptBool), SettingSpec(AUDIO_BOOST_PREFS, "percent", acceptInt { it in 100..300 }), SettingSpec(AUDIO_BOOST_PREFS, NORMALIZE_KEY, acceptBool), SettingSpec(AUDIO_BOOST_PREFS, SKIP_END_SILENCE_KEY, acceptBool), SettingSpec(AUDIO_BOOST_PREFS, SKIP_ALL_SILENCE_KEY, acceptBool), SettingSpec(AUDIO_BOOST_PREFS, BT_RESUME_KEY, acceptBool), SettingSpec(AUDIO_BOOST_PREFS, MUTE_PAUSE_KEY, acceptBool),

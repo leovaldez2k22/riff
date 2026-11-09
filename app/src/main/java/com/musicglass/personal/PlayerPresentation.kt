@@ -111,7 +111,7 @@ internal class PlayerPresentationState(val morph: PlayerMorphController = Player
     }
     private fun settle(target: Float, velocity: Float, sheetOpen: Boolean, motion: MotionPolicy, areaHeight: Int, sheet: (Boolean) -> Unit) {
         val opening = playerReleaseOpens(target, velocity)
-        if (sheetOpen != opening) { haptic(HapticCue.DragEnd); pendingGestureTarget = opening }
+        if (sheetOpen != opening) { haptic(if (opening) HapticCue.PlayerOpen else HapticCue.PlayerClose); pendingGestureTarget = opening }
         sheet(opening)
         morph.settle(opening, motion, direct = true, fromDrag = target, releaseVelocity = velocity / range(areaHeight))
     }
@@ -162,7 +162,7 @@ internal fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
                 .background(Brush.linearGradient(
                     listOf(Color(0xFF655080), Color(0xFF315B75)))))
         }
-        songTransition.SongContentFade(Modifier.weight(1f).clickable(onClick = hapticClick(onOpen))
+        songTransition.SongContentFade(Modifier.weight(1f).clickable(onClick = { uiHaptic(HapticCue.PlayerOpen); onOpen() })
             .padding(start = 12.dp).semantics { contentDescription = string(R.string.open_player_x, state.title) }) {
             song->Column {
             Text(song.title, color = White, fontSize = miniTitleSize(LocalDensity.current.fontScale),
@@ -188,7 +188,8 @@ internal fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
                 modifier = Modifier.size(48.dp).testTag("mini_crash_notice_dismiss")) {
                 Icon(Icons.Rounded.Close, contentDescription = string(R.string.dismiss_notice), tint = Muted)
             }
-        IconButton(onClick = hapticClick {
+        IconButton(onClick = {
+            uiHaptic(if (state.playing) HapticCue.Pause else HapticCue.Play)
             StartupDiagnostics.request(StartupDiagnostics.Stage.MiniTap)
             playback.toggle()
         },
@@ -199,7 +200,7 @@ internal fun MiniPlayerContents(playback: PlaybackGateway, onOpen: () -> Unit,
                 modifier = Modifier.onGloballyPositioned {
                     onElementBounds("play", it.unclippedBoundsInRoot()) })
         }
-        IconButton(onClick = hapticClick(playback::next), enabled = state.queue.size > 1,
+        IconButton(onClick = { uiHaptic(HapticCue.Skip); playback.next() }, enabled = state.queue.size > 1,
             modifier = Modifier.size(48.dp).graphicsLayer { alpha = actionsAlpha }
                 .testTag("mini_next")) {
             Icon(Icons.Rounded.FastForward, contentDescription = string(R.string.next_track), tint = White,

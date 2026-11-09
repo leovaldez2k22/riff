@@ -42,7 +42,7 @@ internal suspend fun requestSongDownload(context:Context,track:ProviderTrack,onN
     try {
         if(!OfflineMusicStore.get(context).canSave) {uiHaptic(HapticCue.Reject);onNotice(VERIFY_TO_SAVE_NOTICE);return}
         withContext(Dispatchers.IO) {OfflineMusicStore.get(context).run {unhide(currentScope,track.videoId);enqueue(track)}}
-        DownloadCoordinator.start(context);uiHaptic(HapticCue.Confirm);onNotice(string(R.string.downloading_highest_available_audio_artwork))
+        DownloadCoordinator.start(context);uiHaptic(HapticCue.Download);onNotice(string(R.string.downloading_highest_available_audio_artwork))
     } catch(e:CancellationException) {throw e} catch(_:Exception) {uiHaptic(HapticCue.Reject);onNotice(string(R.string.could_not_start_download_retry_from_download))}
 }
 /** What a song's menu offers for its download (Q16B): to remove one that is ready or on its way, else to download it. */
@@ -100,7 +100,7 @@ internal suspend fun requestCollectionDownload(context:Context,tracks:List<Provi
         if(!OfflineMusicStore.get(context).canSave) {uiHaptic(HapticCue.Reject);onNotice(VERIFY_TO_SAVE_NOTICE);return}
         val count=withContext(Dispatchers.IO) {OfflineMusicStore.get(context).enqueueSongs(tracks)}
         if(count==0) {onNotice(string(R.string.no_downloadable_songs_in_this_collection));return}
-        DownloadCoordinator.start(context);uiHaptic(HapticCue.Confirm)
+        DownloadCoordinator.start(context);uiHaptic(HapticCue.Download)
         onNotice(quantity(R.plurals.n_songs_queued_for_download, count))
     } catch(e:CancellationException) {throw e} catch(_:Exception) {uiHaptic(HapticCue.Reject);onNotice(string(R.string.could_not_start_playlist_download_retry_from))}
 }
@@ -185,7 +185,7 @@ private data class DownloadListing(val entries:List<DownloadDisplay>,val used:Lo
         text={Text(deleteFailure?:string(R.string.remove_all_downloaded_songs_artwork_and_lyri),
             modifier=Modifier.testTag(if(deleteFailure==null) "delete_downloads_prompt" else "delete_downloads_failure"))},
         confirmButton={TextButton(enabled=!deleting,onClick={deleting=true;deleteFailure=null;scope.launch {
-            try {withContext(Dispatchers.IO) {store.removeAll(account)};deleteScope=null;uiHaptic(HapticCue.Confirm);onNotice(string(R.string.all_downloads_deleted))}
+            try {withContext(Dispatchers.IO) {store.removeAll(account)};deleteScope=null;uiHaptic(HapticCue.Remove);onNotice(string(R.string.all_downloads_deleted))}
             catch(e:CancellationException) {throw e} catch(_:Exception) {deleteFailure=string(R.string.not_every_download_could_be_deleted_some)}
             finally {deleting=false}
         }},modifier=Modifier.testTag("confirm_delete_downloads")) {Text(if(deleteFailure==null) string(R.string.delete_all_downloads_2) else string(R.string.try_again),color=Pink)}},

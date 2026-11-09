@@ -16,7 +16,8 @@ import kotlin.math.abs
 /**
  * Feature 6 (owner, Q6): two switches, both off by default. Resume after Bluetooth reconnects: when a Bluetooth
  * output going away paused playback, the same output coming back within [BT_RESUME_WINDOW_MS] plays again. Pause on
- * mute: playing music pauses when the media volume reaches zero; turning it up again never starts anything.
+ * mute: playing music pauses when the media volume reaches zero, and turning it up again plays it (owner, 10 November
+ * 2026: always, with no time limit), unless the music was started or a call came in since.
  *
  * Needs no permission: outputs are told apart by what AudioManager reports (its address is anonymised on recent
  * Android, but stays the same for one device), so BLUETOOTH_CONNECT is not asked for.
@@ -59,6 +60,9 @@ internal class RouteResume(private val windowMs: Long = BT_RESUME_WINDOW_MS) {
 }
 
 internal fun shouldPauseOnMute(enabled: Boolean, playing: Boolean, local: Boolean, volume: Int) = enabled && playing && local && volume <= 0
+/** Only music the mute paused comes back, on this phone, and only while it is still paused. */
+internal fun shouldResumeOnUnmute(enabled: Boolean, mutePaused: Boolean, playWhenReady: Boolean, local: Boolean, volume: Int) =
+    enabled && mutePaused && !playWhenReady && local && volume > 0
 
 private val BLUETOOTH_OUTPUTS = setOf(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
     AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER)
@@ -79,6 +83,8 @@ internal class RouteWatch(context: Context, private val player: Player, private 
     private val audioManager = app.getSystemService(AudioManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
     private val resume = RouteResume()
+    /** The mute paused the music; cleared when it plays again for any reason, a call, or [cancel]. */
+    private var mutePaused = false
     private val settle = Runnable {
         if (player.playbackState != Player.STATE_IDLE && player.mediaItemCount > 0 && !player.playWhenReady) {
             events.append("bluetooth_resume"); player.play()
@@ -101,8 +107,16 @@ internal class RouteWatch(context: Context, private val player: Player, private 
     private val volume = object : ContentObserver(handler) {
         override fun onChange(selfChange: Boolean) {
             val local = player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_LOCAL
-            if (shouldPauseOnMute(prefs.getBoolean(MUTE_PAUSE_KEY, false), player.isPlaying, local,
-                    audioManager.getStreamVolume(AudioManager.STREAM_MUSIC))) { events.append("mute_pause"); player.pause() }
+            val enabled = prefs.getBoolean(MUTE_PAUSE_KEY, false)
+            val level = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            if (mutePaused && level > 0) {
+                val back = shouldResumeOnUnmute(enabled, true, player.playWhenReady, local, level) &&
+                    player.playbackState != Player.STATE_IDLE && player.mediaItemCount > 0
+                mutePaused = false
+                if (back) { events.append("unmute_resume"); player.play() }
+            } else if (shouldPauseOnMute(enabled, player.isPlaying, local, level)) {
+                events.append("mute_pause"); player.pause(); mutePaused = true
+            }
         }
     }
 
@@ -116,9 +130,11 @@ internal class RouteWatch(context: Context, private val player: Player, private 
     fun playWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
         if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY) {
             if (prefs.getBoolean(BT_RESUME_KEY, false)) resume.noisyPause(SystemClock.elapsedRealtime())
-        } else cancel()
+        } else { resume.cancel(); handler.removeCallbacks(settle) }
+        // The mute's own pause arrives here too; only playing again (by anyone) ends the wait for the volume.
+        if (playWhenReady) mutePaused = false
     }
-    fun cancel() { resume.cancel(); handler.removeCallbacks(settle) }
+    fun cancel() { resume.cancel(); handler.removeCallbacks(settle); mutePaused = false }
 
     fun release() {
         cancel()

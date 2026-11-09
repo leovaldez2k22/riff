@@ -57,4 +57,14 @@ class RouteResumeTest {
         assertFalse("Casting has its own volume", shouldPauseOnMute(true, true, false, 0))
         assertFalse(shouldPauseOnMute(true, true, true, 3))
     }
+
+    @Test fun unmutingPlaysOnlyWhatTheMutePaused() {
+        // Owner, 10 November 2026: turning the volume up again always resumes what the mute paused.
+        assertTrue(shouldResumeOnUnmute(true, true, false, true, 1))
+        assertFalse("not paused by the mute", shouldResumeOnUnmute(true, false, false, true, 1))
+        assertFalse("already playing again", shouldResumeOnUnmute(true, true, true, true, 1))
+        assertFalse("still silent", shouldResumeOnUnmute(true, true, false, true, 0))
+        assertFalse("switch turned off", shouldResumeOnUnmute(false, true, false, true, 4))
+        assertFalse("casting", shouldResumeOnUnmute(true, true, false, false, 4))
+    }
 }
