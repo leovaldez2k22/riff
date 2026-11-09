@@ -80,7 +80,9 @@ internal class SystemHapticPlayer(context: Context) : HapticPlayer {
     private val app = context.applicationContext
     private val vibrator: Vibrator? = app.getSystemService(VibratorManager::class.java)?.defaultVibrator?.takeIf { it.hasVibrator() }
     private val supported = HashMap<HapticCue, Boolean>()
-    @SuppressLint("MissingPermission") // declared in the manifest
+    // MissingPermission: declared in the manifest. WrongConstant: every HapticStep.primitive comes from hapticRecipe, which
+    // uses only VibrationEffect.Composition.PRIMITIVE_* (lint cannot follow them through the data class).
+    @SuppressLint("MissingPermission", "WrongConstant")
     override fun play(cue: HapticCue, strength: HapticStrength): Boolean {
         val v = vibrator ?: return false
         // Android's own Touch feedback switch: performHapticFeedback reads it by itself, a vibrator does not.
