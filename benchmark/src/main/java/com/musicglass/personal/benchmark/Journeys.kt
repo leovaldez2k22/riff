@@ -19,6 +19,9 @@ private const val WAIT_MS = 15_000L
 /** Q18-097: a cold start on a busy phone took longer than [WAIT_MS] to draw Home. */
 private const val COLD_WAIT_MS = 30_000L
 
+/** A cold start shows its first window in about 2 s on the tier R phone; nothing after 8 s is the Q18-074 stall. */
+private const val LAUNCH_RESEND_MS = 8_000L
+
 /** Songs in the invented playlist the account owns, over its three pages. */
 internal const val PLAYLIST_SONGS = 4
 
@@ -121,11 +124,15 @@ internal fun openTarget(device: androidx.test.uiautomator.UiDevice, clearTask: B
         .setClassName(TARGET, "com.musicglass.personal.MainActivity")
         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
             if (clearTask) android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK else android.content.Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+    // Q18-074, traced 9 Nov (benchmark-20261109T064256Z, cold start iterations 3 and 6): the launch reached the phone
+    // while its launcher was still animating the previous run's window away. Android started Riff's process, which
+    // bound its application and then sat idle: the activity was never delivered until the launch was sent again 30 s
+    // later, so two of 20 starts read about 31 s. The phone is let settle first, outside what the startup metric
+    // times (it starts at the intent), and a launch that shows nothing is sent again after [LAUNCH_RESEND_MS].
+    device.waitForIdle()
     context.startActivity(intent)
-    if (device.wait(Until.hasObject(By.pkg(TARGET).depth(0)), 30_000)) return
-    // Q18-074: once on the owner's phone a cold start with the profile never showed a window, though by hand the same
-    // build opened 30 times in 30. The launch is sent once more before the run is called failed, and the failure
-    // names what was in front.
+    if (device.wait(Until.hasObject(By.pkg(TARGET).depth(0)), LAUNCH_RESEND_MS)) return
+    // The failure names what was in front.
     context.startActivity(intent)
     check(device.wait(Until.hasObject(By.pkg(TARGET).depth(0)), 30_000)) { "$TARGET did not open (in front: ${device.currentPackageName})" }
 }
