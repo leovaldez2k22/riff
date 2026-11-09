@@ -14,9 +14,24 @@ release dependencies as `dependency-license-audit.csv`; colours were the only ch
 python scripts/audit_dependency_licenses.py dependencies.txt
 ```
 
-The script reads each resolved coordinate's POM from the local Gradle cache and writes [dependency-license-audit.csv](dependency-license-audit.csv). No network is used. A POM with no license stays unresolved unless the upstream license is recorded in the script (Guava, SLF4J). `scripts/build-release-candidate.ps1` does the same for a candidate, from `artifacts/release/dependencies.txt`.
+The script reads each resolved coordinate's POM from the local Gradle cache and writes [dependency-license-audit.csv](dependency-license-audit.csv). No network is used. A POM with no license stays unresolved unless the upstream license is recorded in the script (Guava, SLF4J). `scripts/build-release-candidate.ps1` does the same for each edition of a candidate, writing `<edition>-license-audit.csv` beside it, never this file.
 
 ## Result
+
+**0.30.0 (9 November 2026), from the signed candidates' graphs.** The tracked CSV follows Riff+, the superset; each
+candidate's own audit sits beside it (`riff-license-audit.csv`, `riff-plus-license-audit.csv`). None unresolved.
+
+| Edition | Resolved | Apache-2.0 | Android SDK License | GPL-3.0 | MIT |
+|---|---:|---:|---:|---:|---:|
+| Riff | 246 | 235 | 6 | 4 | 1 (`slf4j-api`) |
+| Riff+ | 256 | 244 | 6 | 4 | 2 (`slf4j-api`, ONNX Runtime) |
+
+Riff+ adds ONNX Runtime 1.31.1 (MIT) and, for the blend scanner, CameraX 1.4.2 (`camera-core` also declares BSD for
+libyuv), ZXing `core` 3.5.3, `auto-value-annotations` 1.6.3, `concurrent-futures-ktx` and `tracing-ktx`. ZXing's and
+AutoValue's POMs declare no license; both upstream repositories are Apache-2.0, recorded in the script. Riff drops ONNX
+Runtime and the models.
+
+Earlier:
 
 247 resolved release runtime dependencies on 5 November 2026, after the upgrade to InnerTubeX 0.11.2: 243 licenses from POM declarations, 4 from upstream sources (three Guava modules, SLF4J). None unresolved. (31 October, with ONNX Runtime: 237. 29 October, after Cast: 235.)
 

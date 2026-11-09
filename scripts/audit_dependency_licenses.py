@@ -29,6 +29,9 @@ COORDINATE = re.compile(
 UPSTREAM_LICENSES = {
     "com.google.guava": ("Apache-2.0", "https://github.com/google/guava", "upstream repository"),
     "org.slf4j": ("MIT", "https://www.slf4j.org/license.html", "upstream license page"),
+    # Riff+ 0.30.0: the blend scanner's QR decoder, and an annotation jar CameraX brings. Neither POM declares one.
+    "com.google.zxing": ("Apache-2.0", "https://github.com/zxing/zxing/blob/master/LICENSE", "upstream repository"),
+    "com.google.auto.value": ("Apache-2.0", "https://github.com/google/auto/blob/main/LICENSE", "upstream repository"),
 }
 
 

@@ -10,6 +10,11 @@ androidx.appcompat:appcompat-resources:1.7.1,"The Apache Software License, Versi
 androidx.arch.core:core-common:2.2.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.arch.core:core-runtime:2.2.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.autofill:autofill:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.camera:camera-camera2:1.4.2,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.camera:camera-core:1.4.2,"The Apache Software License, Version 2.0; BSD License",http://www.apache.org/licenses/LICENSE-2.0.txt; https://chromium.googlesource.com/libyuv/libyuv/+/refs/heads/main/README.chromium,POM declaration
+androidx.camera:camera-lifecycle:1.4.2,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.camera:camera-video:1.4.2,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.camera:camera-view:1.4.2,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.collection:collection:1.5.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.collection:collection-jvm:1.5.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.collection:collection-ktx:1.5.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
@@ -53,6 +58,7 @@ androidx.compose.ui:ui-unit-android:1.11.4,"The Apache Software License, Version
 androidx.compose.ui:ui-util:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.compose.ui:ui-util-android:1.11.4,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.concurrent:concurrent-futures:1.2.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.concurrent:concurrent-futures-ktx:1.2.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.core:core:1.18.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.core:core-ktx:1.18.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.core:core-viewtree:1.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
@@ -119,6 +125,7 @@ androidx.savedstate:savedstate-compose-android:1.3.3,"The Apache Software Licens
 androidx.savedstate:savedstate-ktx:1.3.3,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.startup:startup-runtime:1.2.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.tracing:tracing:1.2.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
+androidx.tracing:tracing-ktx:1.2.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.transition:transition:1.6.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.vectordrawable:vectordrawable:1.1.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 androidx.vectordrawable:vectordrawable-animated:1.1.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
@@ -143,12 +150,14 @@ com.google.android.gms:play-services-cast:22.3.1,Android Software Development Ki
 com.google.android.gms:play-services-cast-framework:22.3.1,Android Software Development Kit License,https://developer.android.com/studio/terms.html,POM declaration
 com.google.android.gms:play-services-flags:18.1.0,Android Software Development Kit License,https://developer.android.com/studio/terms.html,POM declaration
 com.google.android.gms:play-services-tasks:18.3.2,Android Software Development Kit License,https://developer.android.com/studio/terms.html,POM declaration
+com.google.auto.value:auto-value-annotations:1.6.3,Apache-2.0,https://github.com/google/auto/blob/main/LICENSE,upstream repository
 com.google.firebase:firebase-encoders:17.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 com.google.firebase:firebase-encoders-json:18.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 com.google.firebase:firebase-encoders-proto:16.0.0,"The Apache Software License, Version 2.0",http://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 com.google.guava:failureaccess:1.0.2,Apache-2.0,https://github.com/google/guava,upstream repository
 com.google.guava:guava:33.3.1-android,Apache-2.0,https://github.com/google/guava,upstream repository
 com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava,Apache-2.0,https://github.com/google/guava,upstream repository
+com.google.zxing:core:3.5.3,Apache-2.0,https://github.com/zxing/zxing/blob/master/LICENSE,upstream repository
 com.microsoft.onnxruntime:onnxruntime-android:1.31.1,MIT License,https://opensource.org/licenses/MIT,POM declaration
 com.squareup.okhttp3:okhttp:5.5.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
 com.squareup.okhttp3:okhttp-android:5.5.0,"The Apache Software License, Version 2.0",https://www.apache.org/licenses/LICENSE-2.0.txt,POM declaration
